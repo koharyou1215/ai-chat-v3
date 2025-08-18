@@ -1,0 +1,52 @@
+// src/types/memory-card.types.ts
+
+export interface MemoryCard {
+  id: string;
+  session_id: string;
+  character_id?: string;
+  original_message_id: string;
+  original_content: string;
+
+  // カードの内容
+  title: string;                    // 自動生成されたタイトル（10-15文字）
+  summary: string;                   // 要約された内容（50文字程度）
+  keywords: string[];                // キーワード抽出
+  category: MemoryCategory;          // カテゴリー自動分類
+
+  // メタデータ
+  importance: number;                // 重要度スコア（0-1）
+  confidence: number;                // AI判断の確信度
+  created_at: string;
+  updated_at: string;
+
+  // ユーザー操作
+  is_edited: boolean;                // ユーザーが編集したか
+  is_pinned: boolean;                // ピン留め
+  is_hidden: boolean;                // 非表示
+  user_notes?: string;               // ユーザーメモ
+
+  // 自動タグ
+  auto_tags: string[];               // AI生成タグ
+  emotion_tags?: string[];           // 感情タグ
+  context_tags?: string[];           // 文脈タグ
+}
+
+export type MemoryCategory =
+  | 'personal_info'      // 個人情報
+  | 'preference'         // 好み・嗜好
+  | 'event'             // 出来事
+  | 'relationship'       // 関係性
+  | 'promise'           // 約束
+  | 'important_date'    // 重要な日付
+  | 'emotion'           // 感情的な内容
+  | 'decision'          // 決定事項
+  | 'question'          // 質問
+  | 'other';            // その他
+
+export interface MemoryCardFilter {
+  categories?: MemoryCategory[];
+  minImportance?: number;
+  dateRange?: { start: Date; end: Date };
+  keywords?: string[];
+  isPinned?: boolean;
+}

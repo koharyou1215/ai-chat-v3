@@ -1,0 +1,3074 @@
+2️⃣ ベクトルストア実装
+typescript// src/services/memory/vector-store.ts
+
+import { Message, SearchResult } from './types';
+
+/**
+ * FAISSをTypeScriptで使用するためのブリッジクラス
+ * 実際の実装では、PythonバックエンドまたはWebAssemblyバージョンを使用
+ */
+export class VectorStore {
+  private embeddings: Map<string, number[]> = new Map();
+  private messages: Map<string, Message> = new Map();
+  private dimension: number = 1536; // OpenAI embedding dimension
+  
+  // FAISSインデックス（実際はPython側で管理）
+  private indexInitialized: boolean = false;
+
+  constructor() {
+    this.initializeIndex();
+  }
+
+  /**
+   * ベクトルインデックスの初期化
+   * 実際の実装では、Python側のFAISSまたはJS向けライブラリを使用
+   */
+  private async initializeIndex(): Promise<void> {
+    // FAISSの初期化をシミュレート
+    // 実際は: await this.pythonBridge.initializeFaiss(this.dimension);
+    this.indexInitialized = true;
+  }
+
+  /**
+   * テキストをベクトル化
+   * OpenAI Embedding APIまたはローカルモデルを使用
+   */
+  private async embed(text: string): Promise<number[]> {
+    try {
+      // 実際のOpenAI API呼び出し
+      const response = await fetch('/api/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      
+      const data = await response.json();
+      return data.embedding;
+    } catch (error) {
+      console.error('Embedding error:', error);
+      // フォールバック: 簡易的なハッシュベースの疑似ベクトル
+      return this.createFallbackEmbedding(text);
+    }
+  }
+
+  /**
+   * フォールバック用の簡易ベクトル生成
+   * 本番環境では使用しない
+   */
+  private createFallbackEmbedding(text: string): number[] {
+    const vector = new Array(this.dimension).fill(0);
+    const words = text.toLowerCase().split(/\s+/);
+    
+    words.forEach((word, i) => {
+      const hash = this.hashCode(word);
+      const index = Math.abs(hash) % this.dimension;
+      vector[index] = (vector[index] + 1) / Math.sqrt(words.length);
+    });
+    
+    return vector;
+  }
+
+  private hashCode(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash;
+  }
+
+  /**
+   * メッセージを追加してインデックス化
+   * コスト最適化: バッチ処理で embedding API呼び出しを削減
+   */
+  async addMessage(message: Message): Promise<void> {
+    // 既存のメッセージはスキップ（コスト削減）
+    if (this.messages.has(message.id)) {
+      return;
+    }
+
+    // 重要度が低いメッセージは embedding をスキップ（コスト最適化）
+    if (message.importance !== undefined && message.importance < 0.3) {
+      this.messages.set(message.id, message);
+      return;
+    }
+
+    // ベクトル化とインデックス追加
+    const embedding = await this.embed(message.content);
+    this.embeddings.set(message.id, embedding);
+    this.messages.set(message.id, { ...message, embedding });
+
+    // FAISSインデックスに追加
+    // 実際: await this.pythonBridge.addToIndex(message.id, embedding);
+  }
+
+  /**
+   * バッチ処理でメッセージを追加（コスト最適化）
+   */
+  async addMessagesBatch(messages: Message[]): Promise<void> {
+    // 重要なメッセージのみフィルタリング
+    const importantMessages = messages.filter(
+      m => !this.messages.has(m.id) && 
+           (m.importance === undefined || m.importance >= 0.3)
+    );
+
+    if (importantMessages.length === 0) return;
+
+    // バッチでembedding取得（API呼び出し削減）
+    const texts = importantMessages.map(m => m.content);
+    const embeddings = await this.embedBatch(texts);
+
+    // インデックスに追加
+    importantMessages.forEach((message, i) => {
+      const embedding = embeddings[i];
+      this.embeddings.set(message.id, embedding);
+      this.messages.set(message.id, { ...message, embedding });
+    });
+  }
+
+  /**
+   * バッチembedding（コスト削減）
+   */
+  private async embedBatch(texts: string[]): Promise<number[][]> {
+    try {
+      const response = await fetch('/api/embeddings/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts })
+      });
+      
+      const data = await response.json();
+      return data.embeddings;
+    } catch (error) {
+      // フォールバック
+      return texts.map(text => this.createFallbackEmbedding(text));
+    }
+  }
+
+  /**
+   * 類似メッセージを検索
+   * クエリ拡張とリランキングで精度向上
+   */
+  async search(
+    query: string, 
+    k: number = 5,
+    threshold: number = 0.7
+  ): Promise<SearchResult[]> {
+    const queryEmbedding = await this.embed(query);
+    
+    // コサイン類似度計算
+    const results: SearchResult[] = [];
+    
+    for (const [id, messageEmbedding] of this.embeddings) {
+      const similarity = this.cosineSimilarity(queryEmbedding, messageEmbedding);
+      
+      if (similarity >= threshold) {
+        const message = this.messages.get(id)!;
+        results.push({
+          message,
+          score: similarity,
+          relevance: similarity > 0.9 ? 'high' : 
+                    similarity > 0.8 ? 'medium' : 'low'
+        });
+      }
+    }
+
+    // スコアでソートしてトップk件を返す
+    return results
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k);
+  }
+
+  /**
+   * ハイブリッド検索（ベクトル + キーワード）
+   */
+  async hybridSearch(
+    query: string,
+    keywords: string[],
+    k: number = 5
+  ): Promise<SearchResult[]> {
+    // ベクトル検索
+    const vectorResults = await this.search(query, k * 2);
+    
+    // キーワードマッチングでブースト
+    const boostedResults = vectorResults.map(result => {
+      const content = result.message.content.toLowerCase();
+      const keywordMatches = keywords.filter(kw => 
+        content.includes(kw.toLowerCase())
+      ).length;
+      
+      // キーワードマッチでスコアブースト
+      const boostedScore = result.score + (keywordMatches * 0.1);
+      
+      return {
+        ...result,
+        score: Math.min(boostedScore, 1.0)
+      };
+    });
+
+    return boostedResults
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k);
+  }
+
+  /**
+   * コサイン類似度計算
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * インデックスのクリーンアップ（メモリ管理）
+   */
+  async cleanup(maxMessages: number = 1000): Promise<void> {
+    if (this.messages.size <= maxMessages) return;
+
+    // 古いメッセージを削除（重要度とピン留めを考慮）
+    const sortedMessages = Array.from(this.messages.values())
+      .filter(m => !m.pinned)
+      .sort((a, b) => {
+        // 重要度優先
+        if (a.importance !== b.importance) {
+          return (b.importance || 0) - (a.importance || 0);
+        }
+        // タイムスタンプで比較
+        return new Date(b.timestamp).getTime() - 
+               new Date(a.timestamp).getTime();
+      });
+
+    // 削除対象を決定
+    const toDelete = sortedMessages.slice(maxMessages);
+    
+    toDelete.forEach(message => {
+      this.messages.delete(message.id);
+      this.embeddings.delete(message.id);
+    });
+  }
+}
+3️⃣ メモリレイヤー管理
+typescript// src/services/memory/memory-layers.ts
+
+import { Message, MemoryLayer } from './types';
+
+/**
+ * 階層的メモリ管理
+ * 認知科学のメモリモデルに基づく実装
+ */
+export class MemoryLayerManager {
+  private layers: Map<string, MemoryLayer>;
+  
+  constructor() {
+    this.layers = new Map([
+      ['immediate', {
+        type: 'immediate',
+        messages: [],
+        maxSize: 3,
+        retentionPolicy: 'fifo'
+      }],
+      ['working', {
+        type: 'working', 
+        messages: [],
+        maxSize: 10,
+        retentionPolicy: 'importance'
+      }],
+      ['episodic', {
+        type: 'episodic',
+        messages: [],
+        maxSize: 50,
+        retentionPolicy: 'relevance'
+      }],
+      ['semantic', {
+        type: 'semantic',
+        messages: [],
+        maxSize: 200,
+        retentionPolicy: 'importance'
+      }]
+    ]);
+  }
+
+  /**
+   * メッセージを適切なレイヤーに追加
+   */
+  addMessage(message: Message): void {
+    // 即時記憶に追加
+    this.addToLayer('immediate', message);
+    
+    // 重要度に基づいて他のレイヤーにも追加
+    if (this.shouldAddToWorking(message)) {
+      this.addToLayer('working', message);
+    }
+    
+    if (this.shouldAddToEpisodic(message)) {
+      this.addToLayer('episodic', message);
+    }
+    
+    if (this.shouldAddToSemantic(message)) {
+      this.addToLayer('semantic', message);
+    }
+  }
+
+  /**
+   * レイヤーにメッセージを追加（保持ポリシーに従う）
+   */
+  private addToLayer(layerName: string, message: Message): void {
+    const layer = this.layers.get(layerName);
+    if (!layer) return;
+
+    // 重複チェック
+    if (layer.messages.some(m => m.id === message.id)) {
+      return;
+    }
+
+    layer.messages.push(message);
+    
+    // サイズ制限を超えた場合の処理
+    if (layer.messages.length > layer.maxSize) {
+      this.enforceRetentionPolicy(layer);
+    }
+  }
+
+  /**
+   * 保持ポリシーを適用
+   */
+  private enforceRetentionPolicy(layer: MemoryLayer): void {
+    switch (layer.retentionPolicy) {
+      case 'fifo':
+        // 最も古いものを削除
+        layer.messages.shift();
+        break;
+        
+      case 'importance':
+        // 重要度が最も低いものを削除
+        layer.messages.sort((a, b) => 
+          (b.importance || 0) - (a.importance || 0)
+        );
+        layer.messages = layer.messages.slice(0, layer.maxSize);
+        break;
+        
+      case 'relevance':
+        // 最も関連性の低いものを削除（時間減衰を考慮）
+        const now = Date.now();
+        layer.messages.sort((a, b) => {
+          const scoreA = this.calculateRelevanceScore(a, now);
+          const scoreB = this.calculateRelevanceScore(b, now);
+          return scoreB - scoreA;
+        });
+        layer.messages = layer.messages.slice(0, layer.maxSize);
+        break;
+    }
+  }
+
+  /**
+   * 関連性スコアの計算（時間減衰を含む）
+   */
+  private calculateRelevanceScore(message: Message, now: number): number {
+    const age = now - new Date(message.timestamp).getTime();
+    const ageInHours = age / (1000 * 60 * 60);
+    
+    // 時間減衰関数（指数関数的減衰）
+    const timeDecay = Math.exp(-ageInHours / 24); // 24時間で約37%に減衰
+    
+    // 基本スコア（重要度 + ピン留め + 時間減衰）
+    const baseScore = (message.importance || 0.5) * timeDecay;
+    const pinnedBonus = message.pinned ? 1.0 : 0;
+    
+    return baseScore + pinnedBonus;
+  }
+
+  /**
+   * Working Memoryに追加すべきか判定
+   */
+  private shouldAddToWorking(message: Message): boolean {
+    return (message.importance || 0) >= 0.4 || 
+           message.pinned === true ||
+           message.role === 'user'; // ユーザー入力は常に保持
+  }
+
+  /**
+   * Episodic Memoryに追加すべきか判定
+   */
+  private shouldAddToEpisodic(message: Message): boolean {
+    // 感情的な内容や特定のイベントを含む場合
+    const hasEmotionalContent = message.metadata?.emotion_state !== undefined;
+    const hasTrackerUpdate = message.metadata?.tracker_updates !== undefined;
+    
+    return hasEmotionalContent || 
+           hasTrackerUpdate || 
+           (message.importance || 0) >= 0.6;
+  }
+
+  /**
+   * Semantic Memoryに追加すべきか判定
+   */
+  private shouldAddToSemantic(message: Message): boolean {
+    // 事実や定義を含む場合
+    const keywords = message.metadata?.keywords || [];
+    const hasFactualContent = keywords.some(k => 
+      ['定義', '説明', '理由', '方法', '手順'].includes(k)
+    );
+    
+    return hasFactualContent || 
+           (message.importance || 0) >= 0.7;
+  }
+
+  /**
+   * 各レイヤーから関連メッセージを取得
+   */
+  getLayeredContext(currentQuery: string): {
+    immediate: Message[];
+    working: Message[];
+    episodic: Message[];
+    semantic: Message[];
+  } {
+    return {
+      immediate: this.layers.get('immediate')?.messages || [],
+      working: this.layers.get('working')?.messages || [],
+      episodic: this.layers.get('episodic')?.messages.slice(-5) || [],
+      semantic: this.layers.get('semantic')?.messages.slice(-3) || []
+    };
+  }
+
+  /**
+   * メモリの統計情報を取得
+   */
+  getStatistics(): Record<string, any> {
+    const stats: Record<string, any> = {};
+    
+    this.layers.forEach((layer, name) => {
+      stats[name] = {
+        count: layer.messages.length,
+        maxSize: layer.maxSize,
+        utilization: (layer.messages.length / layer.maxSize * 100).toFixed(1) + '%'
+      };
+    });
+    
+    return stats;
+  }
+}
+4️⃣ 動的要約システム
+typescript// src/services/memory/summarizer.ts
+
+import { Message } from './types';
+
+/**
+ * 動的要約生成システム
+ * チャンク単位での要約と階層的要約を実装
+ */
+export class DynamicSummarizer {
+  private summaryCache: Map<string, string> = new Map();
+  private chunkSize: number = 10; // 10メッセージごとに要約
+  private maxSummaryLength: number = 300; // 要約の最大文字数
+  
+  /**
+   * メッセージチャンクの要約を生成
+   * コスト最適化: キャッシュを活用してAPI呼び出しを削減
+   */
+  async summarizeChunk(messages: Message[]): Promise<string> {
+    // キャッシュキーの生成
+    const cacheKey = this.generateCacheKey(messages);
+    
+    // キャッシュチェック
+    if (this.summaryCache.has(cacheKey)) {
+      return this.summaryCache.get(cacheKey)!;
+    }
+
+    // 要約プロンプトの構築
+    const prompt = this.buildSummaryPrompt(messages);
+    
+    try {
+      // LLMによる要約生成
+      const summary = await this.callSummaryAPI(prompt);
+      
+      // キャッシュに保存
+      this.summaryCache.set(cacheKey, summary);
+      
+      // キャッシュサイズ管理
+      this.manageCacheSize();
+      
+      return summary;
+    } catch (error) {
+      console.error('Summarization error:', error);
+      // フォールバック: 簡易要約
+      return this.fallbackSummarize(messages);
+    }
+  }
+
+  /**
+   * 階層的要約の生成
+   * 複数のチャンク要約をさらに要約
+   */
+  async createHierarchicalSummary(
+    messages: Message[],
+    level: number = 2
+  ): Promise<string> {
+    if (messages.length <= this.chunkSize) {
+      return this.summarizeChunk(messages);
+    }
+
+    // メッセージをチャンクに分割
+    const chunks = this.splitIntoChunks(messages, this.chunkSize);
+    const chunkSummaries: string[] = [];
+
+    // 各チャンクを要約
+    for (const chunk of chunks) {
+      const summary = await this.summarizeChunk(chunk);
+      chunkSummaries.push(summary);
+    }
+
+    // レベル2の要約（チャンク要約の要約）
+    if (level >= 2 && chunkSummaries.length > 1) {
+      const metaSummaryPrompt = `
+以下の要約をさらに${this.maxSummaryLength}文字以内で要約してください：
+
+${chunkSummaries.join('\n---\n')}
+
+重要な事実と文脈のみを保持し、詳細は省略してください。
+`;
+      
+      return this.callSummaryAPI(metaSummaryPrompt);
+    }
+
+    return chunkSummaries.join(' ');
+  }
+
+  /**
+   * インクリメンタル要約更新
+   * 既存の要約に新しいメッセージを追加
+   */
+  async updateSummary(
+    existingSummary: string,
+    newMessages: Message[]
+  ): Promise<string> {
+    if (newMessages.length === 0) {
+      return existingSummary;
+    }
+
+    const updatePrompt = `
+既存の要約:
+${existingSummary}
+
+新しいメッセージ:
+${this.formatMessages(newMessages)}
+
+上記の既存要約に新しいメッセージの内容を統合し、
+${this.maxSummaryLength}文字以内で更新された要約を作成してください。
+古い詳細は削除し、重要な情報のみを保持してください。
+`;
+
+    try {
+      return await this.callSummaryAPI(updatePrompt);
+    } catch (error) {
+      // フォールバック: 既存要約 + 新規要約の結合
+      const newSummary = await this.summarizeChunk(newMessages);
+      return this.combineSummaries(existingSummary, newSummary);
+    }
+  }
+
+  /**
+   * 要約プロンプトの構築
+   */
+  private buildSummaryPrompt(messages: Message[]): string {
+    const formattedMessages = this.formatMessages(messages);
+    
+    return `
+以下の会話を${this.maxSummaryLength}文字以内で要約してください。
+
+要約のガイドライン:
+- 重要な事実と決定事項を優先
+- 感情的な詳細は省略
+- 時系列の流れを保持
+- キャラクターの関係性の変化を記録
+
+会話:
+${formattedMessages}
+
+要約:
+`;
+  }
+
+  /**
+   * メッセージのフォーマット
+   */
+  private formatMessages(messages: Message[]): string {
+    return messages.map(m => {
+      const role = m.role === 'user' ? 'ユーザー' : 'アシスタント';
+      return `${role}: ${m.content}`;
+    }).join('\n');
+  }
+
+  /**
+   * API呼び出し（実際の実装）
+   */
+  private async callSummaryAPI(prompt: string): Promise<string> {
+    const response = await fetch('/api/ai/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        max_tokens: 150,
+        temperature: 0.3 // 要約は低温度で安定性重視
+      })
+    });
+
+    const data = await response.json();
+    return data.summary;
+  }
+
+  /**
+   * フォールバック要約（API失敗時）
+   */
+  private fallbackSummarize(messages: Message[]): string {
+    // 最初と最後のメッセージを抽出
+    const first = messages[0];
+    const last = messages[messages.length - 1];
+    
+    // キーワード抽出
+    const keywords = this.extractKeywords(messages);
+    
+    return `会話開始: ${first.content.slice(0, 50)}... ` +
+           `キーワード: ${keywords.join(', ')}. ` +
+           `最新: ${last.content.slice(0, 50)}...`;
+  }
+
+  /**
+   * キーワード抽出（簡易版）
+   */
+  private extractKeywords(messages: Message[]): string[] {
+    const text = messages.map(m => m.content).join(' ');
+    const words = text.split(/\s+/);
+    
+    // 単語頻度計算
+    const frequency: Record<string, number> = {};
+    words.forEach(word => {
+      if (word.length > 3) { // 3文字以上の単語
+        frequency[word] = (frequency[word] || 0) + 1;
+      }
+    });
+
+    // 頻度順にソートして上位を返す
+    return Object.entries(frequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([word]) => word);
+  }
+
+  /**
+   * チャンク分割
+   */
+  private splitIntoChunks(messages: Message[], size: number): Message[][] {
+    const chunks: Message[][] = [];
+    for (let i = 0; i < messages.length; i += size) {
+      chunks.push(messages.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  /**
+   * キャッシュキー生成
+   */
+  private generateCacheKey(messages: Message[]): string {
+    const ids = messages.map(m => m.id).join('-');
+    return `summary-${ids}`;
+  }
+
+  /**
+   * キャッシュサイズ管理
+   */
+  private manageCacheSize(): void {
+    const maxCacheSize = 100;
+    if (this.summaryCache.size > maxCacheSize) {
+      // 最も古いエントリを削除
+      const firstKey = this.summaryCache.keys().next().value;
+      this.summaryCache.delete(firstKey);
+    }
+  }
+
+  /**
+   * 要約の結合
+   */
+  private combineSummaries(summary1: string, summary2: string): string {
+    const combined = `${summary1} ${summary2}`;
+    if (combined.length <= this.maxSummaryLength) {
+      return combined;
+    }
+    
+    // 文字数制限を超える場合は新しい方を優先
+    return summary2.slice(0, this.maxSummaryLength);
+  }
+}
+5️⃣ 統合ConversationManager
+typescript// src/services/memory/conversation-manager.ts
+
+import { VectorStore } from './vector-store';
+import { MemoryLayerManager } from './memory-layers';
+import { DynamicSummarizer } from './summarizer';
+import { Message, ConversationContext, SearchResult } from './types';
+
+/**
+ * 統合会話管理システム
+ * 階層的メモリ、ベクトル検索、動的要約を統合
+ */
+export class ConversationManager {
+  private vectorStore: VectorStore;
+  private memoryLayers: MemoryLayerManager;
+  private summarizer: DynamicSummarizer;
+  
+  // 設定パラメータ
+  private config = {
+    maxImmediateContext: 3,
+    maxWorkingMemory: 6,
+    maxRelevantMemories: 5,
+    summarizeInterval: 10,      // 10メッセージごとに要約
+    vectorSearchThreshold: 0.7,
+    enablePinning: true,
+    costOptimization: {
+      batchEmbedding: true,
+      cacheEnabled: true,
+      lowImportanceThreshold: 0.3
+    }
+  };
+
+  // 内部状態
+  private allMessages: Message[] = [];
+  private sessionSummary: string = '';
+  private pinnedMessages: Set<string> = new Set();
+  private messageCount: number = 0;
+
+  constructor(config?: Partial<typeof ConversationManager.prototype.config>) {
+    this.config = { ...this.config, ...config };
+    this.vectorStore = new VectorStore();
+    this.memoryLayers = new MemoryLayerManager();
+    this.summarizer = new DynamicSummarizer();
+  }
+
+  /**
+   * メッセージを追加して処理
+   */
+  async addMessage(
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: Record<string, any>
+  ): Promise<Message> {
+    // メッセージオブジェクトの作成
+    const message: Message = {
+      id: this.generateMessageId(),
+      role,
+      content,
+      timestamp: new Date().toISOString(),
+      metadata,
+      importance: this.calculateImportance(content, metadata)
+    };
+
+    // 全メッセージリストに追加
+    this.allMessages.push(message);
+    this.messageCount++;
+
+    // 階層的メモリに追加
+    this.memoryLayers.addMessage(message);
+
+    // ベクトルストアに追加（コスト最適化考慮）
+    if (this.shouldIndexMessage(message)) {
+      await this.vectorStore.addMessage(message);
+    }
+
+    // 自動要約のトリガー
+    if (this.messageCount % this.config.summarizeInterval === 0) {
+      await this.updateSessionSummary();
+    }
+
+    // 重要な情報の自動抽出とピン留め
+    if (await this.shouldAutoPinMessage(message)) {
+      this.pinMessage(message.id);
+    }
+
+    return message;
+  }
+
+  /**
+   *再試行K続ける編集typescript /**
+  * 応答生成用のコンテキストを構築
+  * 階層的メモリとベクトル検索を組み合わせた最適なコンテキスト生成
+  */
+ async buildContext(currentInput: string): Promise<ConversationContext> {
+   // 1. 階層的メモリから取得
+   const layeredMemory = this.memoryLayers.getLayeredContext(currentInput);
+   
+   // 2. ベクトル検索で関連メッセージを取得
+   const relevantMemories = await this.searchRelevantMemories(currentInput);
+   
+   // 3. ピン留めされたメッセージを取得
+   const pinnedMessages = this.getPinnedMessages();
+   
+   // 4. コンテキストの構築
+   const context: ConversationContext = {
+     currentMessage: currentInput,
+     immediateContext: layeredMemory.immediate,
+     workingMemory: layeredMemory.working.slice(-this.config.maxWorkingMemory),
+     relevantMemories: relevantMemories.map(r => r.message),
+     sessionSummary: this.sessionSummary,
+     pinnedMemories: pinnedMessages
+   };
+
+   // 5. トークン数の最適化
+   return this.optimizeContextTokens(context);
+ }
+
+ /**
+  * プロンプトの生成
+  * タグシステムを使用して構造化
+  */
+ async generatePrompt(
+   userInput: string,
+   character?: any,
+   persona?: any
+ ): Promise<string> {
+   const context = await this.buildContext(userInput);
+   
+   let prompt = '';
+
+   // システムプロンプト
+   if (character?.system_prompt) {
+     prompt += `<system>\n${character.system_prompt}\n</system>\n\n`;
+   }
+
+   // ピン留めされた重要な記憶
+   if (context.pinnedMemories.length > 0) {
+     prompt += '<pinned_memories>\n';
+     context.pinnedMemories.forEach(msg => {
+       prompt += `${msg.role}: ${msg.content}\n`;
+     });
+     prompt += '</pinned_memories>\n\n';
+   }
+
+   // 関連する長期記憶（ベクトル検索結果）
+   if (context.relevantMemories.length > 0) {
+     prompt += '<relevant_memories>\n';
+     context.relevantMemories.slice(0, 3).forEach(msg => {
+       prompt += `${msg.role}: ${msg.content}\n`;
+     });
+     prompt += '</relevant_memories>\n\n';
+   }
+
+   // セッション要約
+   if (context.sessionSummary) {
+     prompt += `<session_summary>\n${context.sessionSummary}\n</session_summary>\n\n`;
+   }
+
+   // 直近の会話（Working Memory）
+   prompt += '<recent_conversation>\n';
+   context.workingMemory.forEach(msg => {
+     const role = msg.role === 'user' ? 'ユーザー' : 'アシスタント';
+     prompt += `${role}: ${msg.content}\n`;
+   });
+   prompt += '</recent_conversation>\n\n';
+
+   // 現在の入力
+   prompt += `<current_input>\nユーザー: ${userInput}\n</current_input>\n\n`;
+
+   // 応答指示
+   prompt += this.buildResponseInstructions();
+
+   return prompt;
+ }
+
+ /**
+  * 関連メッセージの検索
+  * ハイブリッド検索（ベクトル + キーワード）を使用
+  */
+ private async searchRelevantMemories(query: string): Promise<SearchResult[]> {
+   // キーワード抽出
+   const keywords = this.extractKeywords(query);
+   
+   // ハイブリッド検索
+   const results = await this.vectorStore.hybridSearch(
+     query,
+     keywords,
+     this.config.maxRelevantMemories
+   );
+
+   // 時間減衰を適用
+   const now = Date.now();
+   return results.map(result => ({
+     ...result,
+     score: this.applyTimeDecay(result.score, result.message.timestamp, now)
+   })).sort((a, b) => b.score - a.score);
+ }
+
+ /**
+  * メッセージの重要度計算
+  * 複数の要因を考慮した総合スコア
+  */
+ private calculateImportance(content: string, metadata?: any): number {
+   let importance = 0.5; // ベーススコア
+
+   // コンテンツの長さ（情報量の指標）
+   if (content.length > 200) importance += 0.1;
+   if (content.length > 500) importance += 0.1;
+
+   // 感情的な内容
+   if (metadata?.emotion_state) {
+     importance += 0.15;
+   }
+
+   // トラッカー更新を含む
+   if (metadata?.tracker_updates) {
+     importance += 0.2;
+   }
+
+   // 質問文を含む
+   if (content.includes('？') || content.includes('?')) {
+     importance += 0.1;
+   }
+
+   // 固有名詞や数値を含む（事実的内容の可能性）
+   const hasNumbers = /\d+/.test(content);
+   const hasProperNouns = /[A-Z][a-z]+/.test(content);
+   if (hasNumbers || hasProperNouns) {
+     importance += 0.1;
+   }
+
+   return Math.min(importance, 1.0);
+ }
+
+ /**
+  * メッセージのピン留め
+  * ユーザーが明示的に重要とマークした情報
+  */
+ pinMessage(messageId: string): void {
+   const message = this.allMessages.find(m => m.id === messageId);
+   if (message) {
+     message.pinned = true;
+     this.pinnedMessages.add(messageId);
+     
+     // ベクトルストアにも追加（重要なので必ず索引化）
+     this.vectorStore.addMessage(message);
+   }
+ }
+
+ /**
+  * メッセージのピン留め解除
+  */
+ unpinMessage(messageId: string): void {
+   const message = this.allMessages.find(m => m.id === messageId);
+   if (message) {
+     message.pinned = false;
+     this.pinnedMessages.delete(messageId);
+   }
+ }
+
+ /**
+  * ピン留めされたメッセージの取得
+  */
+ private getPinnedMessages(): Message[] {
+   return this.allMessages.filter(m => m.pinned === true);
+ }
+
+ /**
+  * 自動ピン留めの判定
+  * AIが重要と判断した情報を自動的にピン留め
+  */
+ private async shouldAutoPinMessage(message: Message): Promise<boolean> {
+   // 重要度が高い場合
+   if (message.importance && message.importance >= 0.8) {
+     return true;
+   }
+
+   // 特定のキーワードを含む場合
+   const importantKeywords = ['約束', '重要', '忘れないで', '覚えて'];
+   const containsImportant = importantKeywords.some(keyword => 
+     message.content.includes(keyword)
+   );
+
+   if (containsImportant) {
+     // LLMに判定を委ねる（コスト考慮）
+     return this.askLLMForImportance(message);
+   }
+
+   return false;
+ }
+
+ /**
+  * LLMによる重要度判定
+  * コスト最適化: バッチ処理可能
+  */
+ private async askLLMForImportance(message: Message): Promise<boolean> {
+   const prompt = `
+以下のメッセージが将来の会話で重要になる可能性があるか判定してください。
+重要な場合は"yes"、そうでない場合は"no"とだけ答えてください。
+
+メッセージ: ${message.content}
+
+判定:`;
+
+   try {
+     const response = await fetch('/api/ai/judge', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         prompt,
+         max_tokens: 10,
+         temperature: 0.1
+       })
+     });
+
+     const data = await response.json();
+     return data.result.toLowerCase().includes('yes');
+   } catch (error) {
+     // エラー時は保守的に判定
+     return false;
+   }
+ }
+
+ /**
+  * セッション要約の更新
+  * インクリメンタル更新で効率化
+  */
+ private async updateSessionSummary(): Promise<void> {
+   const recentMessages = this.allMessages.slice(-this.config.summarizeInterval);
+   
+   if (this.sessionSummary) {
+     // 既存要約の更新
+     this.sessionSummary = await this.summarizer.updateSummary(
+       this.sessionSummary,
+       recentMessages
+     );
+   } else {
+     // 新規要約の作成
+     this.sessionSummary = await this.summarizer.summarizeChunk(recentMessages);
+   }
+ }
+
+ /**
+  * コンテキストのトークン数最適化
+  * トークン制限を超えないように調整
+  */
+ private optimizeContextTokens(context: ConversationContext): ConversationContext {
+   const maxTokens = 2000; // 想定最大トークン数
+   let currentTokens = this.estimateTokens(context);
+
+   // トークン数が制限を超える場合は削減
+   while (currentTokens > maxTokens) {
+     // 優先度の低い順に削減
+     if (context.relevantMemories.length > 2) {
+       context.relevantMemories.pop();
+     } else if (context.workingMemory.length > 3) {
+       context.workingMemory.shift();
+     } else if (context.sessionSummary.length > 200) {
+       context.sessionSummary = context.sessionSummary.slice(0, 200) + '...';
+     } else {
+       break; // これ以上削減できない
+     }
+     
+     currentTokens = this.estimateTokens(context);
+   }
+
+   return context;
+ }
+
+ /**
+  * トークン数の推定
+  * 実際はtiktokenライブラリを使用
+  */
+ private estimateTokens(context: ConversationContext): number {
+   let totalChars = context.currentMessage.length;
+   
+   totalChars += context.immediateContext.reduce((sum, m) => sum + m.content.length, 0);
+   totalChars += context.workingMemory.reduce((sum, m) => sum + m.content.length, 0);
+   totalChars += context.relevantMemories.reduce((sum, m) => sum + m.content.length, 0);
+   totalChars += context.sessionSummary.length;
+   totalChars += context.pinnedMemories.reduce((sum, m) => sum + m.content.length, 0);
+
+   // 日本語は1文字≒1トークン、英語は4文字≒1トークンで概算
+   return Math.ceil(totalChars / 2);
+ }
+
+ /**
+  * 時間減衰の適用
+  */
+ private applyTimeDecay(
+   baseScore: number,
+   timestamp: string,
+   now: number
+ ): number {
+   const messageTime = new Date(timestamp).getTime();
+   const ageInHours = (now - messageTime) / (1000 * 60 * 60);
+   
+   // 24時間で約0.7倍、48時間で約0.5倍に減衰
+   const decayFactor = Math.exp(-ageInHours / 48);
+   
+   return baseScore * (0.5 + 0.5 * decayFactor);
+ }
+
+ /**
+  * キーワード抽出
+  */
+ private extractKeywords(text: string): string[] {
+   // 簡易的な実装（実際は形態素解析を使用）
+   const words = text.split(/[\s、。！？,.!?]+/);
+   return words.filter(word => 
+     word.length > 2 && 
+     !['です', 'ます', 'した', 'ある', 'いる', 'する', 'なる'].includes(word)
+   ).slice(0, 5);
+ }
+
+ /**
+  * メッセージIDの生成
+  */
+ private generateMessageId(): string {
+   return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+ }
+
+ /**
+  * インデックスすべきメッセージか判定
+  * コスト最適化
+  */
+ private shouldIndexMessage(message: Message): boolean {
+   // ピン留めされたメッセージは必ずインデックス
+   if (message.pinned) return true;
+   
+   // 重要度が閾値以上
+   if (message.importance && message.importance >= this.config.costOptimization.lowImportanceThreshold) {
+     return true;
+   }
+   
+   // ユーザーメッセージは基本的にインデックス
+   if (message.role === 'user') return true;
+   
+   return false;
+ }
+
+ /**
+  * 応答指示の構築
+  */
+ private buildResponseInstructions(): string {
+   return `
+【応答の優先順位】
+1. 最優先: <current_input>への直接的で自然な応答
+2. 補助的: <recent_conversation>の文脈を考慮した一貫性
+3. 必要時のみ: <relevant_memories>や<pinned_memories>の参照
+
+【禁止事項】
+- 突然古い話題に戻ること
+- 文脈を無視した応答
+- <session_summary>の内容を直接言及すること
+
+【指示】
+上記の情報を参考に、現在の入力に対して自然に応答してください。
+`;
+ }
+
+ /**
+  * 会話のリセット
+  */
+ reset(): void {
+   this.allMessages = [];
+   this.sessionSummary = '';
+   this.pinnedMessages.clear();
+   this.messageCount = 0;
+   this.memoryLayers = new MemoryLayerManager();
+ }
+
+ /**
+  * 統計情報の取得
+  */
+ getStatistics(): Record<string, any> {
+   return {
+     totalMessages: this.allMessages.length,
+     pinnedMessages: this.pinnedMessages.size,
+     sessionSummaryLength: this.sessionSummary.length,
+     memoryLayers: this.memoryLayers.getStatistics(),
+     messageCount: this.messageCount
+   };
+ }
+
+ /**
+  * エクスポート用データの生成
+  */
+ exportData(): any {
+   return {
+     messages: this.allMessages,
+     summary: this.sessionSummary,
+     pinnedIds: Array.from(this.pinnedMessages),
+     statistics: this.getStatistics()
+   };
+ }
+
+ /**
+  * インポートからの復元
+  */
+ async importData(data: any): Promise<void> {
+   this.allMessages = data.messages || [];
+   this.sessionSummary = data.summary || '';
+   this.pinnedMessages = new Set(data.pinnedIds || []);
+   
+   // メモリレイヤーの再構築
+   for (const message of this.allMessages) {
+     this.memoryLayers.addMessage(message);
+     
+     // ベクトルストアへの追加（バッチ処理）
+     if (this.shouldIndexMessage(message)) {
+       await this.vectorStore.addMessage(message);
+     }
+   }
+ }
+}
+6️⃣ 使用例
+typescript// src/app/example-usage.ts
+
+import { ConversationManager } from '@/services/memory/conversation-manager';
+
+async function example() {
+  // 初期化
+  const manager = new ConversationManager({
+    maxImmediateContext: 3,
+    maxWorkingMemory: 6,
+    summarizeInterval: 10,
+    costOptimization: {
+      batchEmbedding: true,
+      cacheEnabled: true,
+      lowImportanceThreshold: 0.3
+    }
+  });
+
+  // メッセージの追加
+  await manager.addMessage('user', 'こんにちは！私は太郎です。');
+  await manager.addMessage('assistant', 'こんにちは、太郎さん！');
+  
+  // 重要なメッセージをピン留め
+  const importantMsg = await manager.addMessage(
+    'user', 
+    '私の誕生日は8月15日です。覚えておいてください。'
+  );
+  manager.pinMessage(importantMsg.id);
+
+  // コンテキストの構築
+  const context = await manager.buildContext('私の名前を覚えていますか？');
+  
+  // プロンプトの生成
+  const prompt = await manager.generatePrompt(
+    '私の名前を覚えていますか？',
+    { system_prompt: 'あなたは親切なアシスタントです。' }
+  );
+  
+  console.log('Generated Prompt:', prompt);
+  
+  // 統計情報の取得
+  console.log('Statistics:', manager.getStatistics());
+}
+このハイブリッド実装により、階層的メモリ管理とベクトル検索の両方の利点を活かした、スケーラブルで効率的な会話履歴管理が実現できます。再試行Kいや、もう何がなんだかハイテクすぎてわからないんですけど、きっとすごい神がかってるシステムなんでしょうね。
+それにあやがって、- 返信提案: 会話文脈からの返信候補生成→会話の履歴を参照して〇個の返信候補を〇個の異なるアプローチで出力する。(ここはプロンプトを設定モーダルで、自由に書き換えられるようにしています。)→複数異なるアプローチの返信が分かれて出力そのうち一つを選択→メッセージ入力欄へ
+- 文章強化: 入力テキストの拡張・改善→メッセージ入力欄に書かれた単純なメッセー（ここもどのように変換するか設定モーダルでプロンプトを選択します。ここもどのように変換するか設定モーダルでプロンプトを自由にかけるようにしています。）→そのまま,メッセージ入力欄に置換。
+この二つもせめて会話履歴3ラウンドほどは参照して、それプラスどのようにというプロンプトをで出力してほしいんですけどどのようなコードを書けば最適ですか？
+以前は出力された回答をメッセージ入力欄で編集するのがとてもやりづらかったので、間に編集のためだけのエディターモーダルを間に挟んでいました。
+メッセージ入力欄をビローンとエディターのようにできれば非常にやりやすいのですが、いい方法はないでしょうか？編集2 / 2件💡 インスピレーション機能の実装
+会話履歴を参照した返信提案と文章強化機能を、シンプルで実用的に実装します。
+📁 ファイル構造
+src/
+├── components/inspiration/
+│   ├── ReplysuggestionButton.tsx
+│   ├── TextEnhanceButton.tsx
+│   ├── SuggestionModal.tsx
+│   └── ExpandableMessageInput.tsx
+├── services/inspiration/
+│   ├── inspiration.service.ts
+│   └── prompt-templates.ts
+└── store/slices/
+    └── inspiration.slice.ts
+1️⃣ インスピレーションサービス
+typescript// src/services/inspiration/inspiration.service.ts
+
+import { Message } from '@/types';
+
+export class InspirationService {
+  /**
+   * 会話履歴から返信候補を生成
+   * @param recentMessages 直近の会話（3ラウンド）
+   * @param customPrompt カスタムプロンプト（ユーザー設定）
+   * @param suggestionCount 生成する候補数
+   */
+  async generateReplySuggestions(
+    recentMessages: Message[],
+    customPrompt?: string,
+    suggestionCount: number = 3
+  ): Promise<string[]> {
+    // デフォルトのアプローチ
+    const defaultApproaches = [
+      '共感的で温かい返信',
+      '論理的で詳細な返信',
+      'ユーモアを交えた軽快な返信',
+      '質問で会話を深める返信',
+      '簡潔で的確な返信'
+    ];
+
+    // 使用するアプローチを選択
+    const approaches = defaultApproaches.slice(0, suggestionCount);
+
+    // 会話コンテキストの構築
+    const context = this.buildConversationContext(recentMessages);
+
+    // プロンプトの構築
+    const prompt = customPrompt || this.buildSuggestionPrompt(context, approaches);
+
+    try {
+      // API呼び出し
+      const response = await fetch('/api/ai/inspiration/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          context,
+          approaches,
+          temperature: 0.8,
+          max_tokens: 300
+        })
+      });
+
+      const data = await response.json();
+      return this.parseSuggestions(data.content);
+    } catch (error) {
+      console.error('Failed to generate suggestions:', error);
+      return this.generateFallbackSuggestions(recentMessages);
+    }
+  }
+
+  /**
+   * テキストを強化・拡張
+   * @param inputText 入力されたテキスト
+   * @param recentMessages 直近の会話
+   * @param enhancePrompt カスタムプロンプト
+   */
+  async enhanceText(
+    inputText: string,
+    recentMessages: Message[],
+    enhancePrompt?: string
+  ): Promise<string> {
+    // デフォルトの強化プロンプト
+    const defaultPrompt = `
+以下のテキストを、会話の文脈を考慮して自然で丁寧な文章に拡張してください。
+元の意図は保ちつつ、より詳細で表現豊かにしてください。
+
+会話の文脈:
+${this.formatRecentMessages(recentMessages)}
+
+元のテキスト:
+${inputText}
+
+強化されたテキスト:
+`;
+
+    const prompt = enhancePrompt || defaultPrompt;
+
+    try {
+      const response = await fetch('/api/ai/inspiration/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          originalText: inputText,
+          context: recentMessages,
+          temperature: 0.7,
+          max_tokens: 200
+        })
+      });
+
+      const data = await response.json();
+      return data.enhanced || inputText;
+    } catch (error) {
+      console.error('Failed to enhance text:', error);
+      return this.fallbackEnhance(inputText);
+    }
+  }
+
+  /**
+   * 会話コンテキストの構築
+   */
+  private buildConversationContext(messages: Message[]): string {
+    return messages.map(msg => {
+      const role = msg.role === 'user' ? 'ユーザー' : 'アシスタント';
+      return `${role}: ${msg.content}`;
+    }).join('\n');
+  }
+
+  /**
+   * 返信提案用プロンプトの構築
+   */
+  private buildSuggestionPrompt(context: string, approaches: string[]): string {
+    return `
+以下の会話に対して、${approaches.length}つの異なるアプローチで返信を生成してください。
+
+会話の文脈:
+${context}
+
+生成する返信のアプローチ:
+${approaches.map((approach, i) => `${i + 1}. ${approach}`).join('\n')}
+
+各アプローチに基づいた返信を、以下の形式で出力してください:
+
+[アプローチ1: ${approaches[0]}]
+（ここに返信内容）
+
+[アプローチ2: ${approaches[1]}]
+（ここに返信内容）
+
+${approaches.slice(2).map((approach, i) => `[アプローチ${i + 3}: ${approach}]\n（ここに返信内容）`).join('\n\n')}
+`;
+  }
+
+  /**
+   * 生成された提案のパース
+   */
+  private parseSuggestions(content: string): string[] {
+    const suggestions: string[] = [];
+    const regex = /\[アプローチ\d+:.*?\]\n([\s\S]*?)(?=\[アプローチ|$)/g;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      suggestions.push(match[1].trim());
+    }
+
+    // パースに失敗した場合は、改行で分割
+    if (suggestions.length === 0) {
+      return content.split('\n\n').filter(s => s.trim().length > 0);
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * フォールバック用の提案生成
+   */
+  private generateFallbackSuggestions(messages: Message[]): string[] {
+    const lastMessage = messages[messages.length - 1];
+    
+    if (!lastMessage) {
+      return ['こんにちは！', 'はい、どうぞ。', '承知いたしました。'];
+    }
+
+    // 簡単なパターンマッチング
+    if (lastMessage.content.includes('？') || lastMessage.content.includes('?')) {
+      return [
+        'はい、そうですね。',
+        'それについて詳しく説明します。',
+        'ご質問ありがとうございます。'
+      ];
+    }
+
+    return [
+      'なるほど、わかりました。',
+      'ありがとうございます。',
+      'そうですね。'
+    ];
+  }
+
+  /**
+   * フォールバック用のテキスト強化
+   */
+  private fallbackEnhance(text: string): string {
+    // 基本的な敬語変換
+    let enhanced = text;
+    
+    // 簡単な置換ルール
+    const replacements = [
+      { from: /^はい$/i, to: 'はい、承知いたしました。' },
+      { from: /^ありがとう$/i, to: 'ありがとうございます。' },
+      { from: /^わかった$/i, to: 'わかりました。' },
+      { from: /^OK$/i, to: '了解いたしました。' },
+    ];
+
+    replacements.forEach(rule => {
+      enhanced = enhanced.replace(rule.from, rule.to);
+    });
+
+    // 文末に句読点がない場合は追加
+    if (!/[。！？!?]$/.test(enhanced)) {
+      enhanced += '。';
+    }
+
+    return enhanced;
+  }
+
+  /**
+   * 最近のメッセージをフォーマット
+   */
+  private formatRecentMessages(messages: Message[]): string {
+    return messages.slice(-6).map(msg => {
+      const role = msg.role === 'user' ? 'ユーザー' : 'アシスタント';
+      return `${role}: ${msg.content}`;
+    }).join('\n');
+  }
+}
+2️⃣ プロンプトテンプレート管理
+typescript// src/services/inspiration/prompt-templates.ts
+
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  variables?: string[];
+  category: 'suggestion' | 'enhancement';
+}
+
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
+  // 返信提案用テンプレート
+  {
+    id: 'friendly-suggestions',
+    name: 'フレンドリーな返信',
+    description: '親しみやすい雰囲気の返信を生成',
+    category: 'suggestion',
+    prompt: `
+会話の文脈を踏まえて、親しみやすくフレンドリーな返信を3つ生成してください。
+絵文字や感嘆符を適度に使い、温かい雰囲気を演出してください。
+
+会話の文脈:
+{{context}}
+
+返信候補:
+1. 
+2. 
+3. 
+`,
+    variables: ['context']
+  },
+  {
+    id: 'professional-suggestions',
+    name: 'プロフェッショナルな返信',
+    description: 'ビジネスライクで丁寧な返信を生成',
+    category: 'suggestion',
+    prompt: `
+会話の文脈を踏まえて、プロフェッショナルで丁寧な返信を生成してください。
+敬語を適切に使い、論理的で明確な内容にしてください。
+
+会話の文脈:
+{{context}}
+
+返信:
+`,
+    variables: ['context']
+  },
+
+  // テキスト強化用テンプレート
+  {
+    id: 'expand-detail',
+    name: '詳細に拡張',
+    description: '簡潔な入力を詳細で丁寧な文章に拡張',
+    category: 'enhancement',
+    prompt: `
+以下の短いテキストを、会話の流れに合わせて詳細で丁寧な文章に拡張してください。
+具体例や理由を追加し、相手に伝わりやすくしてください。
+
+会話の文脈:
+{{context}}
+
+元のテキスト: {{text}}
+
+拡張されたテキスト:
+`,
+    variables: ['context', 'text']
+  },
+  {
+    id: 'add-emotion',
+    name: '感情を追加',
+    description: '感情表現を加えて温かみのある文章に',
+    category: 'enhancement',
+    prompt: `
+以下のテキストに適切な感情表現を加えて、より人間味のある文章にしてください。
+相手との関係性を考慮し、自然な感情表現を使ってください。
+
+会話の文脈:
+{{context}}
+
+元のテキスト: {{text}}
+
+感情を加えたテキスト:
+`,
+    variables: ['context', 'text']
+  },
+  {
+    id: 'make-polite',
+    name: '丁寧語に変換',
+    description: 'カジュアルな文章を丁寧な敬語に変換',
+    category: 'enhancement',
+    prompt: `
+以下のテキストを、適切な敬語を使った丁寧な文章に変換してください。
+
+元のテキスト: {{text}}
+
+丁寧な文章:
+`,
+    variables: ['text']
+  }
+];
+3️⃣ 拡張可能なメッセージ入力コンポーネント
+typescript// src/components/inspiration/ExpandableMessageInput.tsx
+
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Lightbulb, Maximize2, Minimize2, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+interface ExpandableMessageInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (value: string) => void;
+  onSuggestClick: () => void;
+  onEnhanceClick: () => void;
+  placeholder?: string;
+  isLoading?: boolean;
+  className?: string;
+}
+
+export const ExpandableMessageInput: React.FC<ExpandableMessageInputProps> = ({
+  value,
+  onChange,
+  onSubmit,
+  onSuggestClick,
+  onEnhanceClick,
+  placeholder = 'メッセージを入力...',
+  isLoading = false,
+  className
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [rows, setRows] = useState(2);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 自動高さ調整
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const lineHeight = parseInt(window.getComputedStyle(textareaRef.current).lineHeight);
+      const newRows = Math.max(2, Math.min(20, Math.ceil(scrollHeight / lineHeight)));
+      
+      if (!isExpanded) {
+        setRows(Math.min(newRows, 5));
+      } else {
+        setRows(newRows);
+      }
+      
+      textareaRef.current.style.height = `${scrollHeight}px`;
+    }
+  }, [value, isExpanded]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Shift+Enterで改行、Enterのみで送信（拡張モードでない場合）
+    if (e.key === 'Enter' && !e.shiftKey && !isExpanded) {
+      e.preventDefault();
+      if (value.trim() && !isLoading) {
+        onSubmit(value);
+      }
+    }
+  };
+
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+    // 拡張時にフォーカス
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
+
+  return (
+    <div className={cn(
+      'relative border rounded-lg bg-background transition-all duration-300',
+      isExpanded ? 'border-primary shadow-lg' : 'border-input',
+      className
+    )}>
+      {/* ヘッダー（拡張モード時のみ） */}
+      {isExpanded && (
+        <div className="flex items-center justify-between px-3 py-2 border-b">
+          <span className="text-sm font-medium">メッセージエディター</span>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onSuggestClick}
+              disabled={isLoading}
+              className="h-7"
+            >
+              <Lightbulb className="w-4 h-4 mr-1" />
+              返信提案
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onEnhanceClick}
+              disabled={!value.trim() || isLoading}
+              className="h-7"
+            >
+              <Sparkles className="w-4 h-4 mr-1" />
+              文章強化
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* テキストエリア */}
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={isLoading}
+          rows={rows}
+          className={cn(
+            'w-full resize-none bg-transparent outline-none transition-all',
+            'placeholder:text-muted-foreground',
+            isExpanded 
+              ? 'p-4 text-base min-h-[200px] max-h-[500px] overflow-y-auto'
+              : 'p-3 pr-32 text-sm max-h-[120px] overflow-hidden'
+          )}
+          style={{
+            height: isExpanded ? 'auto' : undefined,
+            minHeight: isExpanded ? '200px' : undefined
+          }}
+        />
+
+        {/* アクションボタン（通常モード） */}
+        {!isExpanded && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSuggestClick}
+              disabled={isLoading}
+              className="h-8 w-8"
+              title="返信提案"
+            >
+              <Lightbulb className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onEnhanceClick}
+              disabled={!value.trim() || isLoading}
+              className="h-8 w-8"
+              title="文章強化"
+            >
+              <Sparkles className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleExpanded}
+              className="h-8 w-8"
+              title="エディターを拡張"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="default"
+              onClick={() => onSubmit(value)}
+              disabled={!value.trim() || isLoading}
+              className="h-8 w-8"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* フッター（拡張モード時） */}
+      {isExpanded && (
+        <div className="flex items-center justify-between px-3 py-2 border-t">
+          <div className="text-xs text-muted-foreground">
+            {value.length} 文字 • Shift+Enter で改行
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={toggleExpanded}
+              className="h-8"
+            >
+              <Minimize2 className="w-4 h-4 mr-1" />
+              縮小
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => onSubmit(value)}
+              disabled={!value.trim() || isLoading}
+              className="h-8"
+            >
+              <Send className="w-4 h-4 mr-1" />
+              送信
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ローディングオーバーレイ */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-lg">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+        </div>
+      )}
+    </div>
+  );
+};
+4️⃣ 返信提案モーダル
+typescript// src/components/inspiration/SuggestionModal.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Lightbulb, Copy, Edit, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface SuggestionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  suggestions: string[];
+  onSelect: (suggestion: string) => void;
+  isLoading?: boolean;
+  title?: string;
+}
+
+export const SuggestionModal: React.FC<SuggestionModalProps> = ({
+  isOpen,
+  onClose,
+  suggestions,
+  onSelect,
+  isLoading = false,
+  title = '返信候補'
+}) => {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editedSuggestions, setEditedSuggestions] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    setEditedSuggestions(suggestions);
+    setSelectedIndex(null);
+    setEditingIndex(null);
+  }, [suggestions]);
+
+  const handleSelect = (index: number) => {
+    const suggestion = editedSuggestions[index];
+    onSelect(suggestion);
+    onClose();
+  };
+
+  const handleEdit = (index: number) => {
+    setEditingIndex(index);
+  };
+
+  const handleSaveEdit = (index: number, newText: string) => {
+    const updated = [...editedSuggestions];
+    updated[index] = newText;
+    setEditedSuggestions(updated);
+    setEditingIndex(null);
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    // トースト通知を表示（実装省略）
+  };
+
+  const getApproachLabel = (index: number) => {
+    const approaches = ['共感的', '論理的', 'ユーモア', '質問形式', '簡潔'];
+    return approaches[index] || `候補 ${index + 1}`;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="w-5 h-5" />
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-3 py-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : (
+            editedSuggestions.map((suggestion, index) => (
+              <Card
+                key={index}
+                className={cn(
+                  'p-4 cursor-pointer transition-all',
+                  'hover:shadow-md hover:border-primary/50',
+                  selectedIndex === index && 'border-primary bg-primary/5'
+                )}
+                onClick={() => setSelectedIndex(index)}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-primary">
+                      {getApproachLabel(index)}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopy(suggestion);
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(index);
+                        }}
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {editingIndex === index ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editedSuggestions[index]}
+                        onChange={(e) => {
+                          const updated = [...editedSuggestions];
+                          updated[index] = e.target.value;
+                          setEditedSuggestions(updated);
+                        }}
+                        className="w-full p-2 border rounded-md resize-none"
+                        rows={4}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveEdit(index, editedSuggestions[index]);
+                          }}
+                        >
+                          保存
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingIndex(null);
+                            setEditedSuggestions(suggestions);
+                          }}
+                        >
+                          キャンセル
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{suggestion}</p>
+                  )}
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="ghost" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button
+            onClick={() => selectedIndex !== null && handleSelect(selectedIndex)}
+            disabled={selectedIndex === null}
+          >
+            <Check className="w-4 h-4 mr-1" />
+            選択した候補を使用
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+5️⃣ 使用例（統合）
+typescript// src/app/chat/ChatInterface.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { ExpandableMessageInput } from '@/components/inspiration/ExpandableMessageInput';
+import { SuggestionModal } from '@/components/inspiration/SuggestionModal';
+import { InspirationService } from '@/services/inspiration/inspiration.service';
+import { useChat } from '@/hooks/useChat';
+
+export const ChatInterface: React.FC = () => {
+  const [message, setMessage] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const { messages, sendMessage } = useChat();
+  const inspirationService = new InspirationService();
+
+  // 返信提案の生成
+  const handleSuggestClick = async () => {
+    setIsGenerating(true);
+    setShowSuggestions(true);
+
+    try {
+      // 直近3ラウンド（6メッセージ）を取得
+      const recentMessages = messages.slice(-6);
+      
+      // カスタムプロンプト（設定から取得）
+      const customPrompt = localStorage.getItem('suggestionPrompt') || undefined;
+      
+      const newSuggestions = await inspirationService.generateReplySuggestions(
+        recentMessages,
+        customPrompt,
+        3
+      );
+      
+      setSuggestions(newSuggestions);
+    } catch (error) {
+      console.error('Failed to generate suggestions:', error);
+      setSuggestions(['申し訳ございません。提案の生成に失敗しました。']);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // テキスト強化
+  const handleEnhanceClick = async () => {
+    if (!message.trim()) return;
+
+    setIsGenerating(true);
+    try {
+      const recentMessages = messages.slice(-6);
+      const customPrompt = localStorage.getItem('enhancePrompt') || undefined;
+      
+      const enhanced = await inspirationService.enhanceText(
+        message,
+        recentMessages,
+        customPrompt
+      );
+      
+      setMessage(enhanced);
+    } catch (error) {
+      console.error('Failed to enhance text:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // メッセージ送信
+  const handleSubmit = (text: string) => {
+    if (text.trim()) {
+      sendMessage(text);
+      setMessage('');
+    }
+  };
+
+  // 提案の選択
+  const handleSelectSuggestion = (suggestion: string) => {
+    setMessage(suggestion);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* チャットメッセージ表示エリア */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* メッセージリスト */}
+      </div>
+
+      {/* メッセージ入力エリア */}
+      <div className="border-t p-4">
+        <ExpandableMessageInput
+          value={message}
+          onChange={setMessage}
+          onSubmit={handleSubmit}
+          onSuggestClick={handleSuggestClick}
+          onEnhanceClick={handleEnhanceClick}
+          isLoading={isGenerating}
+          placeholder="メッセージを入力..."
+        />
+      </div>
+
+      {/* 返信提案モーダル */}
+      <SuggestionModal
+        isOpen={showSuggestions}
+        onClose={() => setShowSuggestions(false)}
+        suggestions={suggestions}
+        onSelect={handleSelectSuggestion}
+        isLoading={isGenerating}
+      />
+    </div>
+  );
+};
+
+説明
+---
+仕様書とコードのレビューを行い、問題点の修正と改善提案をまとめました。
+
+## 🔧 型定義の修正と改善
+
+### 1️⃣ **message.types.ts の修正**
+
+```typescript
+// src/types/message.types.ts
+
+// メッセージ型（完全版）
+export interface Message {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  character_id?: string;
+  character_name?: string;
+  timestamp: string;
+  edited?: boolean;
+  edited_at?: string;
+  regenerated?: boolean;
+  voice_url?: string;
+  attachments?: MessageAttachment[];
+  metadata?: MessageMetadata;
+  reactions?: MessageReaction[];
+  memo?: string;
+  is_bookmarked?: boolean;
+  is_deleted?: boolean;
+  parent_message_id?: string;
+  branch_messages?: Message[];
+  importance?: number;  // 会話履歴管理システムとの整合性のため追加
+  pinned?: boolean;     // 会話履歴管理システムとの整合性のため追加
+  embedding?: number[]; // ベクトル検索用
+}
+```
+
+### 2️⃣ **tracker.types.ts の修正と拡張**
+
+```typescript
+// src/types/tracker.types.ts
+
+import { z } from 'zod';
+
+// トラッカータイプの完全定義
+export type TrackerType = 'numeric' | 'state' | 'boolean' | 'text';
+
+// ベーストラッカー型
+export interface BaseTracker {
+  name: string;
+  display_name: string;
+  type: TrackerType;
+  category: TrackerCategory;
+  persistent: boolean;
+  description: string;
+  current_value?: TrackerValue;
+  visible?: boolean;
+  editable?: boolean;
+}
+
+// 数値型トラッカー
+export interface NumericTracker extends BaseTracker {
+  type: 'numeric';
+  initial_value: number;
+  current_value?: number;
+  max_value: number;
+  min_value: number;
+  step?: number;
+  unit?: string;
+  display_format?: 'number' | 'percentage' | 'bar' | 'gauge';
+}
+
+// 状態型トラッカー
+export interface StateTracker extends BaseTracker {
+  type: 'state';
+  initial_state: string;
+  current_value?: string;
+  possible_states: string[];
+  state_colors?: Record<string, string>;
+  transitions?: Record<string, string[]>; // 状態遷移ルール
+}
+
+// 真偽値型トラッカー
+export interface BooleanTracker extends BaseTracker {
+  type: 'boolean';
+  initial_boolean: boolean;
+  current_value?: boolean;
+  true_label?: string;
+  false_label?: string;
+  true_color?: string;
+  false_color?: string;
+}
+
+// テキスト型トラッカー
+export interface TextTracker extends BaseTracker {
+  type: 'text';
+  initial_text: string;
+  current_value?: string;
+  max_length?: number;
+  multiline?: boolean;
+  placeholder?: string;
+  validation_pattern?: string;
+}
+
+// 統合トラッカー型
+export type Tracker = NumericTracker | StateTracker | BooleanTracker | TextTracker;
+
+// トラッカー値型
+export type TrackerValue = number | string | boolean;
+
+// トラッカー更新型
+export interface TrackerUpdate {
+  tracker_name: string;
+  old_value: TrackerValue;
+  new_value: TrackerValue;
+  timestamp: string;
+  trigger_message_id?: string;
+  reason?: string;
+  auto_update?: boolean;
+}
+
+// トラッカーセット（キャラクターごと）
+export interface TrackerSet {
+  character_id: string;
+  trackers: Map<string, Tracker>;
+  history: TrackerUpdate[];
+  last_updated: string;
+}
+```
+
+### 3️⃣ **chat.types.ts の修正**
+
+```typescript
+// src/types/chat.types.ts
+
+import { Character } from './character.types';
+import { Persona } from './persona.types';
+import { Message } from './message.types';
+import { TrackerSet } from './tracker.types';
+
+// チャットセッション型
+export interface ChatSession {
+  id: string;
+  character_id: string;
+  persona_id: string;
+  character: Character;
+  persona: Persona;
+  messages: Message[];
+  tracker_set: TrackerSet;  // Map → TrackerSetに変更
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  title?: string;
+  summary?: string;
+  is_pinned?: boolean;
+  is_archived?: boolean;
+  metadata?: ChatMetadata;
+  conversation_manager_data?: any; // 会話管理システムのデータ
+}
+
+// チャットメタデータ
+export interface ChatMetadata {
+  total_messages: number;
+  total_tokens_used?: number;
+  last_model_used?: string;
+  session_summary?: string;
+  important_events?: string[];
+  [key: string]: any;
+}
+
+// グループチャット型の改善
+export interface GroupChat extends Omit<ChatSession, 'character_id' | 'character'> {
+  id: string;
+  name: string;
+  character_ids: string[];
+  characters: Character[];
+  active_characters: Set<string>; // 現在アクティブなキャラクター
+  character_tracker_sets: Map<string, TrackerSet>; // キャラクターごとのトラッカー
+  speaking_order?: string[]; // 発言順序
+  group_mode: 'sequential' | 'simultaneous' | 'random'; // グループチャットモード
+  max_characters: number;
+  voice_settings: Map<string, VoicePreset>; // キャラクターごとの音声設定
+}
+
+// チャット設定型
+export interface ChatSettings {
+  auto_save: boolean;
+  save_interval: number;
+  message_limit: number;
+  context_window: number;
+  temperature: number;
+  max_tokens: number;
+  stream_response: boolean;
+  show_typing_indicator: boolean;
+  enable_inspiration: boolean;
+  enable_voice_input: boolean;
+  enable_voice_output: boolean;
+  enable_group_chat: boolean;  // 追加
+  enable_tracker_auto_update: boolean;  // 追加
+}
+```
+
+## 🎯 トラッカーシステムの実装
+
+### トラッカー管理サービス
+
+```typescript
+// src/services/tracker/tracker-manager.ts
+
+import { Tracker, TrackerUpdate, TrackerSet, TrackerValue } from '@/types/tracker.types';
+import { Message } from '@/types/message.types';
+
+export class TrackerManager {
+  private trackerSets: Map<string, TrackerSet> = new Map();
+  private updateCallbacks: Set<(update: TrackerUpdate) => void> = new Set();
+
+  /**
+   * トラッカーセットの初期化
+   */
+  initializeTrackerSet(characterId: string, trackers: Tracker[]): TrackerSet {
+    const trackerMap = new Map<string, Tracker>();
+    
+    trackers.forEach(tracker => {
+      // 初期値の設定
+      const initializedTracker = { ...tracker };
+      switch (tracker.type) {
+        case 'numeric':
+          initializedTracker.current_value = tracker.initial_value;
+          break;
+        case 'state':
+          initializedTracker.current_value = tracker.initial_state;
+          break;
+        case 'boolean':
+          initializedTracker.current_value = tracker.initial_boolean;
+          break;
+        case 'text':
+          initializedTracker.current_value = tracker.initial_text || '';
+          break;
+      }
+      trackerMap.set(tracker.name, initializedTracker);
+    });
+
+    const trackerSet: TrackerSet = {
+      character_id: characterId,
+      trackers: trackerMap,
+      history: [],
+      last_updated: new Date().toISOString()
+    };
+
+    this.trackerSets.set(characterId, trackerSet);
+    return trackerSet;
+  }
+
+  /**
+   * メッセージ内容に基づくトラッカーの自動更新
+   */
+  async analyzeAndUpdateTrackers(
+    characterId: string, 
+    message: Message
+  ): Promise<TrackerUpdate[]> {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return [];
+
+    const updates: TrackerUpdate[] = [];
+
+    // AIを使用してメッセージからトラッカー更新を推論
+    const analysisPrompt = this.buildTrackerAnalysisPrompt(message, trackerSet);
+    
+    try {
+      const response = await fetch('/api/ai/analyze-trackers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: analysisPrompt,
+          message: message.content,
+          trackers: Array.from(trackerSet.trackers.values())
+        })
+      });
+
+      const analysis = await response.json();
+      
+      // 分析結果に基づいてトラッカーを更新
+      for (const suggestion of analysis.updates) {
+        const update = await this.updateTracker(
+          characterId,
+          suggestion.tracker_name,
+          suggestion.new_value,
+          message.id,
+          suggestion.reason
+        );
+        if (update) updates.push(update);
+      }
+    } catch (error) {
+      console.error('Failed to analyze trackers:', error);
+    }
+
+    // 特定のキーワードに基づく自動更新
+    updates.push(...this.keywordBasedUpdate(characterId, message));
+
+    return updates;
+  }
+
+  /**
+   * トラッカーの手動更新
+   */
+  async updateTracker(
+    characterId: string,
+    trackerName: string,
+    newValue: TrackerValue,
+    triggerId?: string,
+    reason?: string
+  ): Promise<TrackerUpdate | null> {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return null;
+
+    const tracker = trackerSet.trackers.get(trackerName);
+    if (!tracker) return null;
+
+    // 値の検証
+    if (!this.validateTrackerValue(tracker, newValue)) {
+      console.error(`Invalid value ${newValue} for tracker ${trackerName}`);
+      return null;
+    }
+
+    const oldValue = tracker.current_value;
+    tracker.current_value = newValue;
+
+    const update: TrackerUpdate = {
+      tracker_name: trackerName,
+      old_value: oldValue!,
+      new_value: newValue,
+      timestamp: new Date().toISOString(),
+      trigger_message_id: triggerId,
+      reason: reason,
+      auto_update: !!triggerId
+    };
+
+    trackerSet.history.push(update);
+    trackerSet.last_updated = update.timestamp;
+
+    // コールバック通知
+    this.notifyUpdate(update);
+
+    return update;
+  }
+
+  /**
+   * トラッカー値の検証
+   */
+  private validateTrackerValue(tracker: Tracker, value: TrackerValue): boolean {
+    switch (tracker.type) {
+      case 'numeric':
+        const numTracker = tracker as NumericTracker;
+        const numValue = value as number;
+        return typeof numValue === 'number' && 
+               numValue >= numTracker.min_value && 
+               numValue <= numTracker.max_value;
+      
+      case 'state':
+        const stateTracker = tracker as StateTracker;
+        return stateTracker.possible_states.includes(value as string);
+      
+      case 'boolean':
+        return typeof value === 'boolean';
+      
+      case 'text':
+        const textTracker = tracker as TextTracker;
+        const textValue = value as string;
+        if (textTracker.max_length && textValue.length > textTracker.max_length) {
+          return false;
+        }
+        if (textTracker.validation_pattern) {
+          const regex = new RegExp(textTracker.validation_pattern);
+          return regex.test(textValue);
+        }
+        return true;
+      
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * キーワードベースの自動更新
+   */
+  private keywordBasedUpdate(characterId: string, message: Message): TrackerUpdate[] {
+    const updates: TrackerUpdate[] = [];
+    const content = message.content.toLowerCase();
+
+    // 好感度の更新キーワード
+    if (content.includes('好き') || content.includes('愛して')) {
+      this.updateTracker(characterId, 'favorability', 
+        Math.min(100, (this.getTrackerValue(characterId, 'favorability') as number || 50) + 10),
+        message.id, '好意的な発言を検出');
+    }
+
+    // 関係性の更新キーワード
+    if (content.includes('友達になろう')) {
+      this.updateTracker(characterId, 'relationship_status', '友人', 
+        message.id, '友達関係への移行を検出');
+    }
+
+    return updates;
+  }
+
+  /**
+   * トラッカー分析プロンプトの構築
+   */
+  private buildTrackerAnalysisPrompt(message: Message, trackerSet: TrackerSet): string {
+    const trackers = Array.from(trackerSet.trackers.values());
+    
+    return `
+以下のメッセージを分析し、更新すべきトラッカーとその新しい値を提案してください。
+
+メッセージ: "${message.content}"
+
+現在のトラッカー:
+${trackers.map(t => `- ${t.display_name} (${t.name}): ${t.current_value}`).join('\n')}
+
+更新が必要なトラッカーをJSON形式で返してください:
+{
+  "updates": [
+    {
+      "tracker_name": "トラッカー名",
+      "new_value": "新しい値",
+      "reason": "更新理由"
+    }
+  ]
+}
+`;
+  }
+
+  /**
+   * トラッカー値の取得
+   */
+  getTrackerValue(characterId: string, trackerName: string): TrackerValue | undefined {
+    return this.trackerSets.get(characterId)?.trackers.get(trackerName)?.current_value;
+  }
+
+  /**
+   * 更新通知の登録
+   */
+  onUpdate(callback: (update: TrackerUpdate) => void): void {
+    this.updateCallbacks.add(callback);
+  }
+
+  /**
+   * 更新通知
+   */
+  private notifyUpdate(update: TrackerUpdate): void {
+    this.updateCallbacks.forEach(callback => callback(update));
+  }
+
+  /**
+   * トラッカーセットの取得
+   */
+  getTrackerSet(characterId: string): TrackerSet | undefined {
+    return this.trackerSets.get(characterId);
+  }
+
+  /**
+   * 全トラッカーのリセット
+   */
+  resetTrackers(characterId: string): void {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return;
+
+    trackerSet.trackers.forEach(tracker => {
+      switch (tracker.type) {
+        case 'numeric':
+          tracker.current_value = (tracker as NumericTracker).initial_value;
+          break;
+        case 'state':
+          tracker.current_value = (tracker as StateTracker).initial_state;
+          break;
+        case 'boolean':
+          tracker.current_value = (tracker as BooleanTracker).initial_boolean;
+          break;
+        case 'text':
+          tracker.current_value = (tracker as TextTracker).initial_text;
+          break;
+      }
+    });
+
+    trackerSet.history = [];
+    trackerSet.last_updated = new Date().toISOString();
+  }
+}
+```
+
+## 👥 グループチャットシステムの実装
+
+```typescript
+// src/services/chat/group-chat-manager.ts
+
+import { GroupChat, Character, Message, Persona } from '@/types';
+import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { VoicePreset } from '@/types/voice.types';
+
+export class GroupChatManager {
+  private groupChats: Map<string, GroupChat> = new Map();
+  private trackerManager: TrackerManager;
+  private messageQueue: Map<string, Message[]> = new Map();
+
+  constructor(trackerManager: TrackerManager) {
+    this.trackerManager = trackerManager;
+  }
+
+  /**
+   * グループチャットの作成
+   */
+  createGroupChat(
+    name: string,
+    characterIds: string[],
+    characters: Character[],
+    persona: Persona,
+    mode: 'sequential' | 'simultaneous' | 'random' = 'sequential'
+  ): GroupChat {
+    const groupChat: GroupChat = {
+      id: this.generateId(),
+      name,
+      character_ids: characterIds,
+      characters,
+      active_characters: new Set(characterIds.slice(0, 3)), // 最大3人
+      character_tracker_sets: new Map(),
+      persona_id: persona.id,
+      persona,
+      messages: [],
+      speaking_order: [...characterIds],
+      group_mode: mode,
+      max_characters: 3,
+      voice_settings: new Map(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      last_message_at: new Date().toISOString()
+    };
+
+    // 各キャラクターのトラッカーを初期化
+    characters.forEach(character => {
+      const trackerSet = this.trackerManager.initializeTrackerSet(
+        character.id,
+        character.trackers
+      );
+      groupChat.character_tracker_sets.set(character.id, trackerSet);
+    });
+
+    this.groupChats.set(groupChat.id, groupChat);
+    return groupChat;
+  }
+
+  /**
+   * グループチャットへのメッセージ送信
+   */
+  async sendMessageToGroup(
+    groupChatId: string,
+    userMessage: string
+  ): Promise<Message[]> {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) throw new Error('Group chat not found');
+
+    // ユーザーメッセージを追加
+    const userMsg: Message = {
+      id: this.generateId(),
+      session_id: groupChatId,
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date().toISOString()
+    };
+    groupChat.messages.push(userMsg);
+
+    // 各アクティブキャラクターからの返信を生成
+    const responses: Message[] = [];
+
+    switch (groupChat.group_mode) {
+      case 'sequential':
+        responses.push(...await this.generateSequentialResponses(groupChat, userMessage));
+        break;
+      
+      case 'simultaneous':
+        responses.push(...await this.generateSimultaneousResponses(groupChat, userMessage));
+        break;
+      
+      case 'random':
+        responses.push(...await this.generateRandomResponse(groupChat, userMessage));
+        break;
+    }
+
+    // メッセージとトラッカーの更新
+    for (const response of responses) {
+      groupChat.messages.push(response);
+      
+      // トラッカーの自動更新
+      if (response.character_id) {
+        await this.trackerManager.analyzeAndUpdateTrackers(
+          response.character_id,
+          response
+        );
+      }
+    }
+
+    groupChat.last_message_at = new Date().toISOString();
+    groupChat.updated_at = new Date().toISOString();
+
+    return responses;
+  }
+
+  /**
+   * 順次応答の生成
+   */
+  private async generateSequentialResponses(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const responses: Message[] = [];
+    const activeCharacters = Array.from(groupChat.active_characters);
+
+    for (const characterId of activeCharacters) {
+      const character = groupChat.characters.find(c => c.id === characterId);
+      if (!character) continue;
+
+      const response = await this.generateCharacterResponse(
+        groupChat,
+        character,
+        userMessage,
+        responses // 前のキャラクターの応答も考慮
+      );
+      
+      responses.push(response);
+      
+      // 少し遅延を入れる（リアルな会話感）
+      await this.delay(500);
+    }
+
+    return responses;
+  }
+
+  /**
+   * 同時応答の生成
+   */
+  private async generateSimultaneousResponses(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const activeCharacters = Array.from(groupChat.active_characters);
+    
+    const responsePromises = activeCharacters.map(characterId => {
+      const character = groupChat.characters.find(c => c.id === characterId);
+      if (!character) return null;
+      
+      return this.generateCharacterResponse(
+        groupChat,
+        character,
+        userMessage,
+        []
+      );
+    });
+
+    const responses = await Promise.all(responsePromises);
+    return responses.filter(r => r !== null) as Message[];
+  }
+
+  /**
+   * ランダムキャラクターの応答生成
+   */
+  private async generateRandomResponse(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const activeCharacters = Array.from(groupChat.active_characters);
+    const randomIndex = Math.floor(Math.random() * activeCharacters.length);
+    const characterId = activeCharacters[randomIndex];
+    
+    const character = groupChat.characters.find(c => c.id === characterId);
+    if (!character) return [];
+
+    const response = await this.generateCharacterResponse(
+      groupChat,
+      character,
+      userMessage,
+      []
+    );
+
+    return [response];
+  }
+
+  /**
+   * キャラクター個別の応答生成
+   */
+  private async generateCharacterResponse(
+    groupChat: GroupChat,
+    character: Character,
+    userMessage: string,
+    previousResponses: Message[]
+  ): Promise<Message> {
+    // プロンプトの構築
+    const prompt = this.buildGroupChatPrompt(
+      groupChat,
+      character,
+      userMessage,
+      previousResponses
+    );
+
+    try {
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          character,
+          persona: groupChat.persona,
+          temperature: 0.8,
+          max_tokens: 200
+        })
+      });
+
+      const data = await response.json();
+
+      return {
+        id: this.generateId(),
+        session_id: groupChat.id,
+        role: 'assistant',
+        content: data.content,
+        character_id: character.id,
+        character_name: character.name,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Failed to generate response for ${character.name}:`, error);
+      
+      return {
+        id: this.generateId(),
+        session_id: groupChat.id,
+        role: 'assistant',
+        content: '...',
+        character_id: character.id,
+        character_name: character.name,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * グループチャット用プロンプトの構築
+   */
+  private buildGroupChatPrompt(
+    groupChat: GroupChat,
+    character: Character,
+    userMessage: string,
+    previousResponses: Message[]
+  ): string {
+    const otherCharacters = groupChat.characters
+      .filter(c => c.id !== character.id && groupChat.active_characters.has(c.id))
+      .map(c => c.name)
+      .join('、');
+
+    const trackerSet = groupChat.character_tracker_sets.get(character.id);
+    const trackerInfo = trackerSet ? 
+      Array.from(trackerSet.trackers.values())
+        .map(t => `${t.display_name}: ${t.current_value}`)
+        .join('\n') : '';
+
+    let prompt = `
+あなたは${character.name}として、グループチャットに参加しています。
+他の参加者: ${otherCharacters}
+ユーザー: ${groupChat.persona.name}
+
+${character.system_prompt}
+
+現在の状態:
+${trackerInfo}
+
+会話の文脈:
+${groupChat.messages.slice(-6).map(m => {
+  const speaker = m.role === 'user' ? groupChat.persona.name : 
+                  m.character_name || 'アシスタント';
+  return `${speaker}: ${m.content}`;
+}).join('\n')}
+`;
+
+    // 他のキャラクターの応答がある場合
+    if (previousResponses.length > 0) {
+      prompt += `\n\n直前の他キャラクターの応答:\n`;
+      previousResponses.forEach(r => {
+        prompt += `${r.character_name}: ${r.content}\n`;
+      });
+      prompt += `\nこれらの応答も考慮して、${character.name}として自然に応答してください。`;
+    }
+
+    prompt += `\n\n${groupChat.persona.name}: ${userMessage}\n${character.name}: `;
+
+    return prompt;
+  }
+
+  /**
+   * アクティブキャラクターの切り替え
+   */
+  toggleActiveCharacter(groupChatId: string, characterId: string): void {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) return;
+
+    if (groupChat.active_characters.has(characterId)) {
+      groupChat.active_characters.delete(characterId);
+    } else if (groupChat.active_characters.size < groupChat.max_characters) {
+      groupChat.active_characters.add(characterId);
+    }
+  }
+
+  /**
+   * 音声設定の設定
+   */
+  setVoicePreset(
+    groupChatId: string,
+    characterId: string,
+    voicePreset: VoicePreset
+  ): void {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) return;
+
+    groupChat.voice_settings.set(characterId, voicePreset);
+  }
+
+  /**
+   * ユーティリティ
+   */
+  private generateId(): string {
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * グループチャットの取得
+   */
+  getGroupChat(id: string): GroupChat | undefined {
+    return this.groupChats.get(id);
+  }
+
+  /**
+   * 全グループチャットの取得
+   */
+  getAllGroupChats(): GroupChat[] {
+    return Array.from(this.groupChats.values());
+  }
+}
+```
+
+## 📝 統合使用例
+
+```typescript
+// src/app/chat/page.tsx
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { ConversationManager } from '@/services/memory/conversation-manager';
+import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { GroupChatManager } from '@/services/chat/group-chat-manager';
+import { useCharacterStore } from '@/store/character.store';
+import { usePersonaStore } from '@/store/persona.store';
+
+export default function ChatPage() {
+  const [conversationManager] = useState(() => new ConversationManager());
+  const [trackerManager] = useState(() => new TrackerManager());
+  const [groupChatManager] = useState(() => new GroupChatManager(trackerManager));
+  
+  const { characters, selectedCharacters } = useCharacterStore();
+  const { currentPersona } = usePersonaStore();
+  
+  const [isGroupMode, setIsGroupMode] = useState(false);
+  const [groupChat, setGroupChat] = useState(null);
+
+  // グループチャットの初期化
+  const initGroupChat = () => {
+    if (selectedCharacters.length > 1 && currentPersona) {
+      const chat = groupChatManager.createGroupChat(
+        'グループチャット',
+        selectedCharacters.map(c => c.id),
+        selectedCharacters,
+        currentPersona,
+        'sequential'
+      );
+      setGroupChat(chat);
+      setIsGroupMode(true);
+    }
+  };
+
+  // メッセージ送信
+  const sendMessage = async (content: string) => {
+    if (isGroupMode && groupChat) {
+      // グループチャットモード
+      const responses = await groupChatManager.sendMessageToGroup(
+        groupChat.id,
+        content
+      );
+      
+      // 各応答を会話管理システムに記録
+      for (const response of responses) {
+        await conversationManager.addMessage(
+          'assistant',
+          response.content,
+          {
+            character_id: response.character_id,
+            character_name: response.character_name
+          }
+        );
+      }
+    } else {
+      // 通常のチャット
+      await conversationManager.addMessage('user', content);
+      
+      // AIからの応答を生成
+      const prompt = await conversationManager.generatePrompt(
+        content,
+        selectedCharacters[0],
+        currentPersona
+      );
+      
+      // ... AI応答処理
+    }
+  };
+
+  // トラッカー更新の監視
+  useEffect(() => {
+    trackerManager.onUpdate((update) => {
+      console.log('Tracker updated:', update);
+      // UIを更新
+    });
+  }, [trackerManager]);
+
+  return (
+    <div className="flex h-screen">
+      {/* チャットエリア */}
+      <div className="flex-1">
+        {/* メッセージリスト */}
+        {/* メッセージ入力 */}
+      </div>
+      
+      {/* トラッカーパネル */}
+      <div className="w-80 border-l">
+        {/* トラッカー表示 */}
+      </div>
+    </div>
+  );
+}
+`

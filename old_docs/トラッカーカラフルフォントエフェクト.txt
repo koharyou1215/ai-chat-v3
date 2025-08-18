@@ -1,0 +1,1756 @@
+仕様書とコードのレビューを行い、問題点の修正と改善提案をまとめました。
+
+## 🔧 型定義の修正と改善
+
+### 1️⃣ **message.types.ts の修正**
+
+```typescript
+// src/types/message.types.ts
+
+// メッセージ型（完全版）
+export interface Message {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  character_id?: string;
+  character_name?: string;
+  timestamp: string;
+  edited?: boolean;
+  edited_at?: string;
+  regenerated?: boolean;
+  voice_url?: string;
+  attachments?: MessageAttachment[];
+  metadata?: MessageMetadata;
+  reactions?: MessageReaction[];
+  memo?: string;
+  is_bookmarked?: boolean;
+  is_deleted?: boolean;
+  parent_message_id?: string;
+  branch_messages?: Message[];
+  importance?: number;  // 会話履歴管理システムとの整合性のため追加
+  pinned?: boolean;     // 会話履歴管理システムとの整合性のため追加
+  embedding?: number[]; // ベクトル検索用
+}
+```
+
+### 2️⃣ **tracker.types.ts の修正と拡張**
+
+```typescript
+// src/types/tracker.types.ts
+
+import { z } from 'zod';
+
+// トラッカータイプの完全定義
+export type TrackerType = 'numeric' | 'state' | 'boolean' | 'text';
+
+// ベーストラッカー型
+export interface BaseTracker {
+  name: string;
+  display_name: string;
+  type: TrackerType;
+  category: TrackerCategory;
+  persistent: boolean;
+  description: string;
+  current_value?: TrackerValue;
+  visible?: boolean;
+  editable?: boolean;
+}
+
+// 数値型トラッカー
+export interface NumericTracker extends BaseTracker {
+  type: 'numeric';
+  initial_value: number;
+  current_value?: number;
+  max_value: number;
+  min_value: number;
+  step?: number;
+  unit?: string;
+  display_format?: 'number' | 'percentage' | 'bar' | 'gauge';
+}
+
+// 状態型トラッカー
+export interface StateTracker extends BaseTracker {
+  type: 'state';
+  initial_state: string;
+  current_value?: string;
+  possible_states: string[];
+  state_colors?: Record<string, string>;
+  transitions?: Record<string, string[]>; // 状態遷移ルール
+}
+
+// 真偽値型トラッカー
+export interface BooleanTracker extends BaseTracker {
+  type: 'boolean';
+  initial_boolean: boolean;
+  current_value?: boolean;
+  true_label?: string;
+  false_label?: string;
+  true_color?: string;
+  false_color?: string;
+}
+
+// テキスト型トラッカー
+export interface TextTracker extends BaseTracker {
+  type: 'text';
+  initial_text: string;
+  current_value?: string;
+  max_length?: number;
+  multiline?: boolean;
+  placeholder?: string;
+  validation_pattern?: string;
+}
+
+// 統合トラッカー型
+export type Tracker = NumericTracker | StateTracker | BooleanTracker | TextTracker;
+
+// トラッカー値型
+export type TrackerValue = number | string | boolean;
+
+// トラッカー更新型
+export interface TrackerUpdate {
+  tracker_name: string;
+  old_value: TrackerValue;
+  new_value: TrackerValue;
+  timestamp: string;
+  trigger_message_id?: string;
+  reason?: string;
+  auto_update?: boolean;
+}
+
+// トラッカーセット（キャラクターごと）
+export interface TrackerSet {
+  character_id: string;
+  trackers: Map<string, Tracker>;
+  history: TrackerUpdate[];
+  last_updated: string;
+}
+```
+
+### 3️⃣ **chat.types.ts の修正**
+
+```typescript
+// src/types/chat.types.ts
+
+import { Character } from './character.types';
+import { Persona } from './persona.types';
+import { Message } from './message.types';
+import { TrackerSet } from './tracker.types';
+
+// チャットセッション型
+export interface ChatSession {
+  id: string;
+  character_id: string;
+  persona_id: string;
+  character: Character;
+  persona: Persona;
+  messages: Message[];
+  tracker_set: TrackerSet;  // Map → TrackerSetに変更
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  title?: string;
+  summary?: string;
+  is_pinned?: boolean;
+  is_archived?: boolean;
+  metadata?: ChatMetadata;
+  conversation_manager_data?: any; // 会話管理システムのデータ
+}
+
+// チャットメタデータ
+export interface ChatMetadata {
+  total_messages: number;
+  total_tokens_used?: number;
+  last_model_used?: string;
+  session_summary?: string;
+  important_events?: string[];
+  [key: string]: any;
+}
+
+// グループチャット型の改善
+export interface GroupChat extends Omit<ChatSession, 'character_id' | 'character'> {
+  id: string;
+  name: string;
+  character_ids: string[];
+  characters: Character[];
+  active_characters: Set<string>; // 現在アクティブなキャラクター
+  character_tracker_sets: Map<string, TrackerSet>; // キャラクターごとのトラッカー
+  speaking_order?: string[]; // 発言順序
+  group_mode: 'sequential' | 'simultaneous' | 'random'; // グループチャットモード
+  max_characters: number;
+  voice_settings: Map<string, VoicePreset>; // キャラクターごとの音声設定
+}
+
+// チャット設定型
+export interface ChatSettings {
+  auto_save: boolean;
+  save_interval: number;
+  message_limit: number;
+  context_window: number;
+  temperature: number;
+  max_tokens: number;
+  stream_response: boolean;
+  show_typing_indicator: boolean;
+  enable_inspiration: boolean;
+  enable_voice_input: boolean;
+  enable_voice_output: boolean;
+  enable_group_chat: boolean;  // 追加
+  enable_tracker_auto_update: boolean;  // 追加
+}
+```
+
+## 🎯 トラッカーシステムの実装
+
+### トラッカー管理サービス
+
+```typescript
+// src/services/tracker/tracker-manager.ts
+
+import { Tracker, TrackerUpdate, TrackerSet, TrackerValue } from '@/types/tracker.types';
+import { Message } from '@/types/message.types';
+
+export class TrackerManager {
+  private trackerSets: Map<string, TrackerSet> = new Map();
+  private updateCallbacks: Set<(update: TrackerUpdate) => void> = new Set();
+
+  /**
+   * トラッカーセットの初期化
+   */
+  initializeTrackerSet(characterId: string, trackers: Tracker[]): TrackerSet {
+    const trackerMap = new Map<string, Tracker>();
+    
+    trackers.forEach(tracker => {
+      // 初期値の設定
+      const initializedTracker = { ...tracker };
+      switch (tracker.type) {
+        case 'numeric':
+          initializedTracker.current_value = tracker.initial_value;
+          break;
+        case 'state':
+          initializedTracker.current_value = tracker.initial_state;
+          break;
+        case 'boolean':
+          initializedTracker.current_value = tracker.initial_boolean;
+          break;
+        case 'text':
+          initializedTracker.current_value = tracker.initial_text || '';
+          break;
+      }
+      trackerMap.set(tracker.name, initializedTracker);
+    });
+
+    const trackerSet: TrackerSet = {
+      character_id: characterId,
+      trackers: trackerMap,
+      history: [],
+      last_updated: new Date().toISOString()
+    };
+
+    this.trackerSets.set(characterId, trackerSet);
+    return trackerSet;
+  }
+
+  /**
+   * メッセージ内容に基づくトラッカーの自動更新
+   */
+  async analyzeAndUpdateTrackers(
+    characterId: string, 
+    message: Message
+  ): Promise<TrackerUpdate[]> {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return [];
+
+    const updates: TrackerUpdate[] = [];
+
+    // AIを使用してメッセージからトラッカー更新を推論
+    const analysisPrompt = this.buildTrackerAnalysisPrompt(message, trackerSet);
+    
+    try {
+      const response = await fetch('/api/ai/analyze-trackers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: analysisPrompt,
+          message: message.content,
+          trackers: Array.from(trackerSet.trackers.values())
+        })
+      });
+
+      const analysis = await response.json();
+      
+      // 分析結果に基づいてトラッカーを更新
+      for (const suggestion of analysis.updates) {
+        const update = await this.updateTracker(
+          characterId,
+          suggestion.tracker_name,
+          suggestion.new_value,
+          message.id,
+          suggestion.reason
+        );
+        if (update) updates.push(update);
+      }
+    } catch (error) {
+      console.error('Failed to analyze trackers:', error);
+    }
+
+    // 特定のキーワードに基づく自動更新
+    updates.push(...this.keywordBasedUpdate(characterId, message));
+
+    return updates;
+  }
+
+  /**
+   * トラッカーの手動更新
+   */
+  async updateTracker(
+    characterId: string,
+    trackerName: string,
+    newValue: TrackerValue,
+    triggerId?: string,
+    reason?: string
+  ): Promise<TrackerUpdate | null> {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return null;
+
+    const tracker = trackerSet.trackers.get(trackerName);
+    if (!tracker) return null;
+
+    // 値の検証
+    if (!this.validateTrackerValue(tracker, newValue)) {
+      console.error(`Invalid value ${newValue} for tracker ${trackerName}`);
+      return null;
+    }
+
+    const oldValue = tracker.current_value;
+    tracker.current_value = newValue;
+
+    const update: TrackerUpdate = {
+      tracker_name: trackerName,
+      old_value: oldValue!,
+      new_value: newValue,
+      timestamp: new Date().toISOString(),
+      trigger_message_id: triggerId,
+      reason: reason,
+      auto_update: !!triggerId
+    };
+
+    trackerSet.history.push(update);
+    trackerSet.last_updated = update.timestamp;
+
+    // コールバック通知
+    this.notifyUpdate(update);
+
+    return update;
+  }
+
+  /**
+   * トラッカー値の検証
+   */
+  private validateTrackerValue(tracker: Tracker, value: TrackerValue): boolean {
+    switch (tracker.type) {
+      case 'numeric':
+        const numTracker = tracker as NumericTracker;
+        const numValue = value as number;
+        return typeof numValue === 'number' && 
+               numValue >= numTracker.min_value && 
+               numValue <= numTracker.max_value;
+      
+      case 'state':
+        const stateTracker = tracker as StateTracker;
+        return stateTracker.possible_states.includes(value as string);
+      
+      case 'boolean':
+        return typeof value === 'boolean';
+      
+      case 'text':
+        const textTracker = tracker as TextTracker;
+        const textValue = value as string;
+        if (textTracker.max_length && textValue.length > textTracker.max_length) {
+          return false;
+        }
+        if (textTracker.validation_pattern) {
+          const regex = new RegExp(textTracker.validation_pattern);
+          return regex.test(textValue);
+        }
+        return true;
+      
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * キーワードベースの自動更新
+   */
+  private keywordBasedUpdate(characterId: string, message: Message): TrackerUpdate[] {
+    const updates: TrackerUpdate[] = [];
+    const content = message.content.toLowerCase();
+
+    // 好感度の更新キーワード
+    if (content.includes('好き') || content.includes('愛して')) {
+      this.updateTracker(characterId, 'favorability', 
+        Math.min(100, (this.getTrackerValue(characterId, 'favorability') as number || 50) + 10),
+        message.id, '好意的な発言を検出');
+    }
+
+    // 関係性の更新キーワード
+    if (content.includes('友達になろう')) {
+      this.updateTracker(characterId, 'relationship_status', '友人', 
+        message.id, '友達関係への移行を検出');
+    }
+
+    return updates;
+  }
+
+  /**
+   * トラッカー分析プロンプトの構築
+   */
+  private buildTrackerAnalysisPrompt(message: Message, trackerSet: TrackerSet): string {
+    const trackers = Array.from(trackerSet.trackers.values());
+    
+    return `
+以下のメッセージを分析し、更新すべきトラッカーとその新しい値を提案してください。
+
+メッセージ: "${message.content}"
+
+現在のトラッカー:
+${trackers.map(t => `- ${t.display_name} (${t.name}): ${t.current_value}`).join('\n')}
+
+更新が必要なトラッカーをJSON形式で返してください:
+{
+  "updates": [
+    {
+      "tracker_name": "トラッカー名",
+      "new_value": "新しい値",
+      "reason": "更新理由"
+    }
+  ]
+}
+`;
+  }
+
+  /**
+   * トラッカー値の取得
+   */
+  getTrackerValue(characterId: string, trackerName: string): TrackerValue | undefined {
+    return this.trackerSets.get(characterId)?.trackers.get(trackerName)?.current_value;
+  }
+
+  /**
+   * 更新通知の登録
+   */
+  onUpdate(callback: (update: TrackerUpdate) => void): void {
+    this.updateCallbacks.add(callback);
+  }
+
+  /**
+   * 更新通知
+   */
+  private notifyUpdate(update: TrackerUpdate): void {
+    this.updateCallbacks.forEach(callback => callback(update));
+  }
+
+  /**
+   * トラッカーセットの取得
+   */
+  getTrackerSet(characterId: string): TrackerSet | undefined {
+    return this.trackerSets.get(characterId);
+  }
+
+  /**
+   * 全トラッカーのリセット
+   */
+  resetTrackers(characterId: string): void {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet) return;
+
+    trackerSet.trackers.forEach(tracker => {
+      switch (tracker.type) {
+        case 'numeric':
+          tracker.current_value = (tracker as NumericTracker).initial_value;
+          break;
+        case 'state':
+          tracker.current_value = (tracker as StateTracker).initial_state;
+          break;
+        case 'boolean':
+          tracker.current_value = (tracker as BooleanTracker).initial_boolean;
+          break;
+        case 'text':
+          tracker.current_value = (tracker as TextTracker).initial_text;
+          break;
+      }
+    });
+
+    trackerSet.history = [];
+    trackerSet.last_updated = new Date().toISOString();
+  }
+}
+```
+
+## 👥 グループチャットシステムの実装
+
+```typescript
+// src/services/chat/group-chat-manager.ts
+
+import { GroupChat, Character, Message, Persona } from '@/types';
+import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { VoicePreset } from '@/types/voice.types';
+
+export class GroupChatManager {
+  private groupChats: Map<string, GroupChat> = new Map();
+  private trackerManager: TrackerManager;
+  private messageQueue: Map<string, Message[]> = new Map();
+
+  constructor(trackerManager: TrackerManager) {
+    this.trackerManager = trackerManager;
+  }
+
+  /**
+   * グループチャットの作成
+   */
+  createGroupChat(
+    name: string,
+    characterIds: string[],
+    characters: Character[],
+    persona: Persona,
+    mode: 'sequential' | 'simultaneous' | 'random' = 'sequential'
+  ): GroupChat {
+    const groupChat: GroupChat = {
+      id: this.generateId(),
+      name,
+      character_ids: characterIds,
+      characters,
+      active_characters: new Set(characterIds.slice(0, 3)), // 最大3人
+      character_tracker_sets: new Map(),
+      persona_id: persona.id,
+      persona,
+      messages: [],
+      speaking_order: [...characterIds],
+      group_mode: mode,
+      max_characters: 3,
+      voice_settings: new Map(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      last_message_at: new Date().toISOString()
+    };
+
+    // 各キャラクターのトラッカーを初期化
+    characters.forEach(character => {
+      const trackerSet = this.trackerManager.initializeTrackerSet(
+        character.id,
+        character.trackers
+      );
+      groupChat.character_tracker_sets.set(character.id, trackerSet);
+    });
+
+    this.groupChats.set(groupChat.id, groupChat);
+    return groupChat;
+  }
+
+  /**
+   * グループチャットへのメッセージ送信
+   */
+  async sendMessageToGroup(
+    groupChatId: string,
+    userMessage: string
+  ): Promise<Message[]> {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) throw new Error('Group chat not found');
+
+    // ユーザーメッセージを追加
+    const userMsg: Message = {
+      id: this.generateId(),
+      session_id: groupChatId,
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date().toISOString()
+    };
+    groupChat.messages.push(userMsg);
+
+    // 各アクティブキャラクターからの返信を生成
+    const responses: Message[] = [];
+
+    switch (groupChat.group_mode) {
+      case 'sequential':
+        responses.push(...await this.generateSequentialResponses(groupChat, userMessage));
+        break;
+      
+      case 'simultaneous':
+        responses.push(...await this.generateSimultaneousResponses(groupChat, userMessage));
+        break;
+      
+      case 'random':
+        responses.push(...await this.generateRandomResponse(groupChat, userMessage));
+        break;
+    }
+
+    // メッセージとトラッカーの更新
+    for (const response of responses) {
+      groupChat.messages.push(response);
+      
+      // トラッカーの自動更新
+      if (response.character_id) {
+        await this.trackerManager.analyzeAndUpdateTrackers(
+          response.character_id,
+          response
+        );
+      }
+    }
+
+    groupChat.last_message_at = new Date().toISOString();
+    groupChat.updated_at = new Date().toISOString();
+
+    return responses;
+  }
+
+  /**
+   * 順次応答の生成
+   */
+  private async generateSequentialResponses(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const responses: Message[] = [];
+    const activeCharacters = Array.from(groupChat.active_characters);
+
+    for (const characterId of activeCharacters) {
+      const character = groupChat.characters.find(c => c.id === characterId);
+      if (!character) continue;
+
+      const response = await this.generateCharacterResponse(
+        groupChat,
+        character,
+        userMessage,
+        responses // 前のキャラクターの応答も考慮
+      );
+      
+      responses.push(response);
+      
+      // 少し遅延を入れる（リアルな会話感）
+      await this.delay(500);
+    }
+
+    return responses;
+  }
+
+  /**
+   * 同時応答の生成
+   */
+  private async generateSimultaneousResponses(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const activeCharacters = Array.from(groupChat.active_characters);
+    
+    const responsePromises = activeCharacters.map(characterId => {
+      const character = groupChat.characters.find(c => c.id === characterId);
+      if (!character) return null;
+      
+      return this.generateCharacterResponse(
+        groupChat,
+        character,
+        userMessage,
+        []
+      );
+    });
+
+    const responses = await Promise.all(responsePromises);
+    return responses.filter(r => r !== null) as Message[];
+  }
+
+  /**
+   * ランダムキャラクターの応答生成
+   */
+  private async generateRandomResponse(
+    groupChat: GroupChat,
+    userMessage: string
+  ): Promise<Message[]> {
+    const activeCharacters = Array.from(groupChat.active_characters);
+    const randomIndex = Math.floor(Math.random() * activeCharacters.length);
+    const characterId = activeCharacters[randomIndex];
+    
+    const character = groupChat.characters.find(c => c.id === characterId);
+    if (!character) return [];
+
+    const response = await this.generateCharacterResponse(
+      groupChat,
+      character,
+      userMessage,
+      []
+    );
+
+    return [response];
+  }
+
+  /**
+   * キャラクター個別の応答生成
+   */
+  private async generateCharacterResponse(
+    groupChat: GroupChat,
+    character: Character,
+    userMessage: string,
+    previousResponses: Message[]
+  ): Promise<Message> {
+    // プロンプトの構築
+    const prompt = this.buildGroupChatPrompt(
+      groupChat,
+      character,
+      userMessage,
+      previousResponses
+    );
+
+    try {
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          character,
+          persona: groupChat.persona,
+          temperature: 0.8,
+          max_tokens: 200
+        })
+      });
+
+      const data = await response.json();
+
+      return {
+        id: this.generateId(),
+        session_id: groupChat.id,
+        role: 'assistant',
+        content: data.content,
+        character_id: character.id,
+        character_name: character.name,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Failed to generate response for ${character.name}:`, error);
+      
+      return {
+        id: this.generateId(),
+        session_id: groupChat.id,
+        role: 'assistant',
+        content: '...',
+        character_id: character.id,
+        character_name: character.name,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * グループチャット用プロンプトの構築
+   */
+  private buildGroupChatPrompt(
+    groupChat: GroupChat,
+    character: Character,
+    userMessage: string,
+    previousResponses: Message[]
+  ): string {
+    const otherCharacters = groupChat.characters
+      .filter(c => c.id !== character.id && groupChat.active_characters.has(c.id))
+      .map(c => c.name)
+      .join('、');
+
+    const trackerSet = groupChat.character_tracker_sets.get(character.id);
+    const trackerInfo = trackerSet ? 
+      Array.from(trackerSet.trackers.values())
+        .map(t => `${t.display_name}: ${t.current_value}`)
+        .join('\n') : '';
+
+    let prompt = `
+あなたは${character.name}として、グループチャットに参加しています。
+他の参加者: ${otherCharacters}
+ユーザー: ${groupChat.persona.name}
+
+${character.system_prompt}
+
+現在の状態:
+${trackerInfo}
+
+会話の文脈:
+${groupChat.messages.slice(-6).map(m => {
+  const speaker = m.role === 'user' ? groupChat.persona.name : 
+                  m.character_name || 'アシスタント';
+  return `${speaker}: ${m.content}`;
+}).join('\n')}
+`;
+
+    // 他のキャラクターの応答がある場合
+    if (previousResponses.length > 0) {
+      prompt += `\n\n直前の他キャラクターの応答:\n`;
+      previousResponses.forEach(r => {
+        prompt += `${r.character_name}: ${r.content}\n`;
+      });
+      prompt += `\nこれらの応答も考慮して、${character.name}として自然に応答してください。`;
+    }
+
+    prompt += `\n\n${groupChat.persona.name}: ${userMessage}\n${character.name}: `;
+
+    return prompt;
+  }
+
+  /**
+   * アクティブキャラクターの切り替え
+   */
+  toggleActiveCharacter(groupChatId: string, characterId: string): void {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) return;
+
+    if (groupChat.active_characters.has(characterId)) {
+      groupChat.active_characters.delete(characterId);
+    } else if (groupChat.active_characters.size < groupChat.max_characters) {
+      groupChat.active_characters.add(characterId);
+    }
+  }
+
+  /**
+   * 音声設定の設定
+   */
+  setVoicePreset(
+    groupChatId: string,
+    characterId: string,
+    voicePreset: VoicePreset
+  ): void {
+    const groupChat = this.groupChats.get(groupChatId);
+    if (!groupChat) return;
+
+    groupChat.voice_settings.set(characterId, voicePreset);
+  }
+
+  /**
+   * ユーティリティ
+   */
+  private generateId(): string {
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * グループチャットの取得
+   */
+  getGroupChat(id: string): GroupChat | undefined {
+    return this.groupChats.get(id);
+  }
+
+  /**
+   * 全グループチャットの取得
+   */
+  getAllGroupChats(): GroupChat[] {
+    return Array.from(this.groupChats.values());
+  }
+}
+```
+
+## 📝 統合使用例
+
+```typescript
+// src/app/chat/page.tsx
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { ConversationManager } from '@/services/memory/conversation-manager';
+import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { GroupChatManager } from '@/services/chat/group-chat-manager';
+import { useCharacterStore } from '@/store/character.store';
+import { usePersonaStore } from '@/store/persona.store';
+
+export default function ChatPage() {
+  const [conversationManager] = useState(() => new ConversationManager());
+  const [trackerManager] = useState(() => new TrackerManager());
+  const [groupChatManager] = useState(() => new GroupChatManager(trackerManager));
+  
+  const { characters, selectedCharacters } = useCharacterStore();
+  const { currentPersona } = usePersonaStore();
+  
+  const [isGroupMode, setIsGroupMode] = useState(false);
+  const [groupChat, setGroupChat] = useState(null);
+
+  // グループチャットの初期化
+  const initGroupChat = () => {
+    if (selectedCharacters.length > 1 && currentPersona) {
+      const chat = groupChatManager.createGroupChat(
+        'グループチャット',
+        selectedCharacters.map(c => c.id),
+        selectedCharacters,
+        currentPersona,
+        'sequential'
+      );
+      setGroupChat(chat);
+      setIsGroupMode(true);
+    }
+  };
+
+  // メッセージ送信
+  const sendMessage = async (content: string) => {
+    if (isGroupMode && groupChat) {
+      // グループチャットモード
+      const responses = await groupChatManager.sendMessageToGroup(
+        groupChat.id,
+        content
+      );
+      
+      // 各応答を会話管理システムに記録
+      for (const response of responses) {
+        await conversationManager.addMessage(
+          'assistant',
+          response.content,
+          {
+            character_id: response.character_id,
+            character_name: response.character_name
+          }
+        );
+      }
+    } else {
+      // 通常のチャット
+      await conversationManager.addMessage('user', content);
+      
+      // AIからの応答を生成
+      const prompt = await conversationManager.generatePrompt(
+        content,
+        selectedCharacters[0],
+        currentPersona
+      );
+      
+      // ... AI応答処理
+    }
+  };
+
+  // トラッカー更新の監視
+  useEffect(() => {
+    trackerManager.onUpdate((update) => {
+      console.log('Tracker updated:', update);
+      // UIを更新
+    });
+  }, [trackerManager]);
+
+  return (
+    <div className="flex h-screen">
+      {/* チャットエリア */}
+      <div className="flex-1">
+        {/* メッセージリスト */}
+        {/* メッセージ入力 */}
+      </div>
+      
+      {/* トラッカーパネル */}
+      <div className="w-80 border-l">
+        {/* トラッカー表示 */}
+      </div>
+    </div>
+  );
+}
+```
+
+これで、型定義の整合性が取れ、トラッカーシステムとグループチャット機能が統合された完全なシステムになります。
+
+## 🎨 カラフルな吹き出しとフォント演出の実装
+
+### 1️⃣ **メッセージの特殊フォーマット検出と装飾**
+
+```typescript
+// src/components/chat/RichMessage.tsx
+
+import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, Sparkle, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface RichMessageProps {
+  content: string;
+  role: 'user' | 'assistant';
+  characterColor?: string;
+  enableEffects?: boolean;
+  typingSpeed?: number;
+}
+
+export const RichMessage: React.FC<RichMessageProps> = ({
+  content,
+  role,
+  characterColor = '#8b5cf6',
+  enableEffects = true,
+  typingSpeed = 30
+}) => {
+  const [displayedContent, setDisplayedContent] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
+  const [particles, setParticles] = useState<any[]>([]);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  // タイプライター効果
+  useEffect(() => {
+    if (!enableEffects) {
+      setDisplayedContent(content);
+      setIsTyping(false);
+      return;
+    }
+
+    let index = 0;
+    const timer = setInterval(() => {
+      if (index <= content.length) {
+        setDisplayedContent(content.slice(0, index));
+        
+        // 特定の文字でエフェクトを発生
+        if (content[index] === '♥' || content[index] === '💕') {
+          createHeartEffect();
+        }
+        
+        index++;
+      } else {
+        setIsTyping(false);
+        clearInterval(timer);
+      }
+    }, typingSpeed);
+
+    return () => clearInterval(timer);
+  }, [content, enableEffects, typingSpeed]);
+
+  // ハートエフェクトの生成
+  const createHeartEffect = () => {
+    const newParticle = {
+      id: Date.now() + Math.random(),
+      x: Math.random() * 100 - 50,
+      y: Math.random() * 20
+    };
+    
+    setParticles(prev => [...prev, newParticle]);
+    
+    // 2秒後に削除
+    setTimeout(() => {
+      setParticles(prev => prev.filter(p => p.id !== newParticle.id));
+    }, 2000);
+  };
+
+  // コンテンツのパース（特殊フォーマットの検出）
+  const parseContent = (text: string) => {
+    const elements: JSX.Element[] = [];
+    
+    // パターンマッチング
+    const patterns = [
+      // 「」内の強調
+      { regex: /「([^」]+)」/g, style: 'quote' },
+      // 『』内の特別強調
+      { regex: /『([^』]+)』/g, style: 'special-quote' },
+      // ※注釈
+      { regex: /※([^※\n]+)/g, style: 'annotation' },
+      // ...省略記法
+      { regex: /\.{3,}/g, style: 'ellipsis' },
+      // 感情表現（！や？の連続）
+      { regex: /[！!？?]{2,}/g, style: 'emotion' },
+      // カスタムタグ [color:text]
+      { regex: /\[(\w+):([^\]]+)\]/g, style: 'custom' }
+    ];
+
+    let lastIndex = 0;
+    let result = text;
+    const matches: any[] = [];
+
+    // すべてのマッチを収集
+    patterns.forEach(({ regex, style }) => {
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          text: match[1] || match[0],
+          style,
+          fullMatch: match[0]
+        });
+      }
+    });
+
+    // マッチを位置でソート
+    matches.sort((a, b) => a.start - b.start);
+
+    // JSX要素を構築
+    matches.forEach((match, index) => {
+      // マッチ前のテキスト
+      if (lastIndex < match.start) {
+        elements.push(
+          <span key={`text-${index}`}>
+            {text.slice(lastIndex, match.start)}
+          </span>
+        );
+      }
+
+      // マッチした部分をスタイル付きで追加
+      elements.push(
+        <StyledText
+          key={`styled-${index}`}
+          text={match.text}
+          style={match.style}
+          color={characterColor}
+        />
+      );
+
+      lastIndex = match.end;
+    });
+
+    // 残りのテキスト
+    if (lastIndex < text.length) {
+      elements.push(
+        <span key="text-final">{text.slice(lastIndex)}</span>
+      );
+    }
+
+    return elements.length > 0 ? elements : <span>{text}</span>;
+  };
+
+  return (
+    <div className="relative">
+      {/* メッセージバブル */}
+      <motion.div
+        ref={messageRef}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          'relative px-4 py-3 rounded-2xl max-w-lg',
+          'backdrop-blur-sm transition-all duration-300',
+          role === 'assistant' ? 
+            'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30' :
+            'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/30'
+        )}
+        style={{
+          boxShadow: `0 0 20px ${characterColor}20`,
+        }}
+      >
+        {/* タイピングインジケーター */}
+        {isTyping && (
+          <motion.span
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className="absolute -right-2 -bottom-2"
+          >
+            ✨
+          </motion.span>
+        )}
+
+        {/* メッセージ内容 */}
+        <div className="relative z-10 text-white">
+          {parseContent(displayedContent)}
+        </div>
+
+        {/* パーティクルエフェクト */}
+        <AnimatePresence>
+          {particles.map(particle => (
+            <motion.div
+              key={particle.id}
+              initial={{ 
+                x: 0, 
+                y: 0, 
+                scale: 0,
+                opacity: 1 
+              }}
+              animate={{ 
+                x: particle.x,
+                y: particle.y - 50,
+                scale: [0, 1.5, 0.5],
+                opacity: 0
+              }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2, ease: 'easeOut' }}
+              className="absolute top-1/2 left-1/2 pointer-events-none"
+              style={{ zIndex: 100 }}
+            >
+              <Heart className="w-4 h-4 text-pink-400 fill-pink-400" />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+};
+
+// スタイル付きテキストコンポーネント
+const StyledText: React.FC<{
+  text: string;
+  style: string;
+  color: string;
+}> = ({ text, style, color }) => {
+  const getStyleClass = () => {
+    switch (style) {
+      case 'quote':
+        return 'text-yellow-300 font-bold px-1';
+      case 'special-quote':
+        return 'text-cyan-300 font-bold text-lg px-1 animate-pulse';
+      case 'annotation':
+        return 'text-gray-400 text-sm italic';
+      case 'ellipsis':
+        return 'text-gray-500 tracking-widest';
+      case 'emotion':
+        return 'text-red-400 font-bold text-xl animate-bounce';
+      case 'custom':
+        return 'font-bold';
+      default:
+        return '';
+    }
+  };
+
+  if (style === 'custom') {
+    // カスタムカラーの処理
+    const colorMap: Record<string, string> = {
+      red: '#ef4444',
+      blue: '#3b82f6',
+      green: '#10b981',
+      yellow: '#eab308',
+      purple: '#8b5cf6',
+      pink: '#ec4899'
+    };
+    
+    const parts = text.split(':');
+    if (parts.length === 2) {
+      const [colorName, content] = parts;
+      return (
+        <span 
+          style={{ color: colorMap[colorName] || colorName }}
+          className="font-bold"
+        >
+          {content}
+        </span>
+      );
+    }
+  }
+
+  return <span className={getStyleClass()}>{text}</span>;
+};
+```
+
+### 2️⃣ **高度なエフェクトシステム**
+
+```typescript
+// src/components/chat/MessageEffects.tsx
+
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+
+interface MessageEffectsProps {
+  trigger: string;
+  position: { x: number; y: number };
+}
+
+export const MessageEffects: React.FC<MessageEffectsProps> = ({
+  trigger,
+  position
+}) => {
+  const [effects, setEffects] = useState<any[]>([]);
+
+  useEffect(() => {
+    // トリガーワードに基づいてエフェクトを発動
+    const effectMap: Record<string, () => void> = {
+      '愛してる': () => createHeartShower(),
+      'おめでとう': () => createConfetti(),
+      'ありがとう': () => createSparkles(),
+      '素晴らしい': () => createStarBurst(),
+      '最高': () => createRainbow()
+    };
+
+    Object.keys(effectMap).forEach(keyword => {
+      if (trigger.includes(keyword)) {
+        effectMap[keyword]();
+      }
+    });
+  }, [trigger]);
+
+  // ハートシャワーエフェクト
+  const createHeartShower = () => {
+    const hearts = Array.from({ length: 20 }, (_, i) => ({
+      id: `heart-${Date.now()}-${i}`,
+      delay: i * 100,
+      x: Math.random() * 200 - 100,
+      y: Math.random() * 100,
+      rotation: Math.random() * 360,
+      scale: 0.5 + Math.random() * 0.5
+    }));
+
+    setEffects(prev => [...prev, ...hearts]);
+
+    setTimeout(() => {
+      setEffects(prev => prev.filter(e => !hearts.find(h => h.id === e.id)));
+    }, 3000);
+  };
+
+  // コンフェッティエフェクト
+  const createConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { 
+        x: position.x / window.innerWidth,
+        y: position.y / window.innerHeight 
+      },
+      colors: ['#ff69b4', '#ff1493', '#ff6347', '#ffd700', '#00ced1']
+    });
+  };
+
+  // スパークルエフェクト
+  const createSparkles = () => {
+    const sparkles = Array.from({ length: 15 }, (_, i) => ({
+      id: `sparkle-${Date.now()}-${i}`,
+      delay: i * 50,
+      x: Math.random() * 150 - 75,
+      y: Math.random() * 150 - 75,
+      size: Math.random() * 20 + 10
+    }));
+
+    setEffects(prev => [...prev, ...sparkles]);
+
+    setTimeout(() => {
+      setEffects(prev => prev.filter(e => !sparkles.find(s => s.id === e.id)));
+    }, 2000);
+  };
+
+  // スターバーストエフェクト
+  const createStarBurst = () => {
+    const stars = Array.from({ length: 8 }, (_, i) => ({
+      id: `star-${Date.now()}-${i}`,
+      angle: (360 / 8) * i,
+      distance: 100
+    }));
+
+    setEffects(prev => [...prev, ...stars]);
+
+    setTimeout(() => {
+      setEffects(prev => prev.filter(e => !stars.find(s => s.id === e.id)));
+    }, 1500);
+  };
+
+  // レインボーエフェクト
+  const createRainbow = () => {
+    setEffects(prev => [...prev, {
+      id: `rainbow-${Date.now()}`,
+      type: 'rainbow'
+    }]);
+
+    setTimeout(() => {
+      setEffects(prev => prev.filter(e => !e.id.startsWith('rainbow')));
+    }, 3000);
+  };
+
+  return (
+    <AnimatePresence>
+      {effects.map(effect => {
+        if (effect.id.startsWith('heart')) {
+          return (
+            <motion.div
+              key={effect.id}
+              initial={{ 
+                x: 0, 
+                y: 0, 
+                scale: 0, 
+                rotate: 0,
+                opacity: 0 
+              }}
+              animate={{ 
+                x: effect.x,
+                y: -effect.y - 100,
+                scale: effect.scale,
+                rotate: effect.rotation,
+                opacity: [0, 1, 1, 0]
+              }}
+              transition={{ 
+                duration: 2.5,
+                delay: effect.delay / 1000,
+                ease: 'easeOut'
+              }}
+              className="absolute pointer-events-none"
+              style={{ 
+                left: position.x,
+                top: position.y,
+                zIndex: 1000
+              }}
+            >
+              <span className="text-3xl">💕</span>
+            </motion.div>
+          );
+        }
+
+        if (effect.id.startsWith('sparkle')) {
+          return (
+            <motion.div
+              key={effect.id}
+              initial={{ 
+                x: position.x,
+                y: position.y,
+                scale: 0,
+                opacity: 0
+              }}
+              animate={{
+                x: position.x + effect.x,
+                y: position.y + effect.y,
+                scale: [0, 1, 0],
+                opacity: [0, 1, 0]
+              }}
+              transition={{
+                duration: 1.5,
+                delay: effect.delay / 1000,
+                ease: 'easeOut'
+              }}
+              className="absolute pointer-events-none"
+              style={{ zIndex: 1000 }}
+            >
+              <svg
+                width={effect.size}
+                height={effect.size}
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path
+                  d="M12 2L15 9L22 10L17 15L18 22L12 18L6 22L7 15L2 10L9 9L12 2Z"
+                  fill="url(#sparkle-gradient)"
+                  stroke="white"
+                  strokeWidth="1"
+                />
+                <defs>
+                  <linearGradient id="sparkle-gradient">
+                    <stop offset="0%" stopColor="#fbbf24" />
+                    <stop offset="100%" stopColor="#f59e0b" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </motion.div>
+          );
+        }
+
+        if (effect.id.startsWith('star')) {
+          const rad = (effect.angle * Math.PI) / 180;
+          const x = Math.cos(rad) * effect.distance;
+          const y = Math.sin(rad) * effect.distance;
+
+          return (
+            <motion.div
+              key={effect.id}
+              initial={{
+                x: position.x,
+                y: position.y,
+                scale: 0,
+                opacity: 1
+              }}
+              animate={{
+                x: position.x + x,
+                y: position.y + y,
+                scale: [0, 1.5, 0],
+                opacity: [1, 1, 0],
+                rotate: 360
+              }}
+              transition={{
+                duration: 1.5,
+                ease: 'easeOut'
+              }}
+              className="absolute pointer-events-none text-2xl"
+              style={{ zIndex: 1000 }}
+            >
+              ⭐
+            </motion.div>
+          );
+        }
+
+        if (effect.type === 'rainbow') {
+          return (
+            <motion.div
+              key={effect.id}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: [0, 1, 1, 0], scale: [0, 1.5, 1.5, 0] }}
+              transition={{ duration: 3 }}
+              className="absolute pointer-events-none"
+              style={{
+                left: position.x - 100,
+                top: position.y - 50,
+                zIndex: 999
+              }}
+            >
+              <div className="text-6xl">🌈</div>
+            </motion.div>
+          );
+        }
+
+        return null;
+      })}
+    </AnimatePresence>
+  );
+};
+```
+
+### 3️⃣ **メッセージスタイル設定システム**
+
+```typescript
+// src/services/message-styling.service.ts
+
+export interface MessageStyle {
+  bubbleGradient?: string;
+  textColor?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  animation?: string;
+  glowColor?: string;
+  specialEffects?: string[];
+}
+
+export class MessageStylingService {
+  // キャラクターごとのスタイルマップ
+  private characterStyles = new Map<string, MessageStyle>();
+
+  // 感情に基づくスタイル
+  private emotionStyles: Record<string, MessageStyle> = {
+    happy: {
+      bubbleGradient: 'from-yellow-400/30 to-orange-400/30',
+      textColor: 'text-yellow-100',
+      glowColor: '#fbbf24',
+      specialEffects: ['sparkles', 'bounce']
+    },
+    love: {
+      bubbleGradient: 'from-pink-500/30 to-red-500/30',
+      textColor: 'text-pink-100',
+      glowColor: '#ec4899',
+      specialEffects: ['hearts', 'pulse']
+    },
+    excited: {
+      bubbleGradient: 'from-purple-500/30 to-indigo-500/30',
+      textColor: 'text-purple-100',
+      fontSize: 'text-lg',
+      animation: 'animate-bounce',
+      glowColor: '#8b5cf6',
+      specialEffects: ['confetti', 'shake']
+    },
+    mysterious: {
+      bubbleGradient: 'from-gray-700/30 to-slate-800/30',
+      textColor: 'text-gray-300',
+      fontWeight: 'font-light',
+      animation: 'animate-pulse',
+      glowColor: '#475569',
+      specialEffects: ['fog', 'fade']
+    }
+  };
+
+  // メッセージ内容から感情を推測
+  detectEmotion(content: string): string {
+    const emotionKeywords = {
+      happy: ['嬉しい', '楽しい', 'わーい', '😊', '😄', 'やった'],
+      love: ['愛', '好き', '大切', '💕', '❤️', 'ラブ'],
+      excited: ['すごい', '最高', '！！', 'わお', '興奮'],
+      mysterious: ['...', '謎', '秘密', '深夜', '闇']
+    };
+
+    for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+      if (keywords.some(keyword => content.includes(keyword))) {
+        return emotion;
+      }
+    }
+
+    return 'default';
+  }
+
+  // スタイルの生成
+  generateStyle(
+    content: string,
+    characterId?: string,
+    customStyle?: Partial<MessageStyle>
+  ): MessageStyle {
+    // キャラクター固有のスタイルを取得
+    const characterStyle = characterId ? 
+      this.characterStyles.get(characterId) : {};
+
+    // 感情に基づくスタイルを取得
+    const emotion = this.detectEmotion(content);
+    const emotionStyle = this.emotionStyles[emotion] || {};
+
+    // スタイルをマージ（優先順位: custom > character > emotion）
+    return {
+      ...emotionStyle,
+      ...characterStyle,
+      ...customStyle
+    };
+  }
+
+  // キャラクタースタイルの登録
+  registerCharacterStyle(characterId: string, style: MessageStyle): void {
+    this.characterStyles.set(characterId, style);
+  }
+}
+```
+
+### 4️⃣ **使用例（統合実装）**
+
+```typescript
+// src/app/chat/EnhancedChat.tsx
+
+'use client';
+
+import React, { useState, useRef } from 'react';
+import { RichMessage } from '@/components/chat/RichMessage';
+import { MessageEffects } from '@/components/chat/MessageEffects';
+import { MessageStylingService } from '@/services/message-styling.service';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export const EnhancedChat: React.FC = () => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [effectTrigger, setEffectTrigger] = useState<string>('');
+  const [effectPosition, setEffectPosition] = useState({ x: 0, y: 0 });
+  const stylingService = new MessageStylingService();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // メッセージ送信時
+  const handleSendMessage = (content: string) => {
+    const newMessage = {
+      id: Date.now(),
+      content,
+      role: 'user',
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+
+    // エフェクトのトリガー
+    if (chatContainerRef.current) {
+      const rect = chatContainerRef.current.getBoundingClientRect();
+      setEffectPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height - 100
+      });
+      setEffectTrigger(content);
+    }
+
+    // AI応答のシミュレーション
+    setTimeout(() => {
+      const aiResponse = {
+        id: Date.now() + 1,
+        content: `「なるほど！」それは${content.includes('愛') ? '💕素敵ですね💕' : '面白いですね'}...！`,
+        role: 'assistant',
+        characterId: 'char_001',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, aiResponse]);
+    }, 1000);
+  };
+
+  return (
+    <div className="relative h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* 背景エフェクト */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+      </div>
+
+      {/* チャットコンテナ */}
+      <div 
+        ref={chatContainerRef}
+        className="relative z-10 h-full flex flex-col p-4"
+      >
+        {/* メッセージリスト */}
+        <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+          <AnimatePresence>
+            {messages.map((message, index) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, x: message.role === 'user' ? 100 : -100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <RichMessage
+                  content={message.content}
+                  role={message.role}
+                  characterColor={message.role === 'assistant' ? '#8b5cf6' : '#3b82f6'}
+                  enableEffects={true}
+                  typingSpeed={message.role === 'assistant' ? 30 : 0}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* 入力エリア */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="メッセージを入力..."
+            className="w-full px-4 py-3 bg-white/10 backdrop-blur-md rounded-full text-white placeholder-white/50 border border-white/20 focus:outline-none focus:border-purple-400"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && e.currentTarget.value) {
+                handleSendMessage(e.currentTarget.value);
+                e.currentTarget.value = '';
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* グローバルエフェクト */}
+      <MessageEffects trigger={effectTrigger} position={effectPosition} />
+    </div>
+  );
+};
+```
+
+### 5️⃣ **追加のCSS（アニメーション）**
+
+```css
+/* globals.css に追加 */
+
+@keyframes blob {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* テキストグロー効果 */
+.text-glow {
+  text-shadow: 
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    0 0 30px currentColor;
+}
+
+/* パルスアニメーション */
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.8);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+```
+
+これらの実装により、以下のような機能が実現できます：
+
+1. **カラフルな吹き出し**: グラデーション背景、グロー効果
+2. **特殊文字装飾**: 「」や『』、※などの自動検出と装飾
+3. **タイプライター効果**: 文字を1つずつ表示
+4. **パーティクルエフェクト**: ハート、星、虹などのアニメーション
+5. **感情検出**: メッセージ内容から感情を推測してスタイル変更
+6. **キーワードトリガー**: 特定の言葉でエフェクト発動
+
+さらに高度な演出も可能ですので、ご要望があればお知らせください！

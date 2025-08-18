@@ -1,0 +1,895 @@
+css/* src/app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* カスタムアニメーション */
+@keyframes blob {
+  0%, 100% { 
+    transform: translate(0px, 0px) scale(1) rotate(0deg); 
+  }
+  25% { 
+    transform: translate(30px, -50px) scale(1.1) rotate(90deg); 
+  }
+  50% { 
+    transform: translate(-20px, 30px) scale(0.9) rotate(180deg); 
+  }
+  75% { 
+    transform: translate(40px, 20px) scale(1.05) rotate(270deg); 
+  }
+}
+
+.animate-blob {
+  animation: blob 20s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* グラスモーフィズム */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ネオモーフィズム */
+.neo-shadow {
+  box-shadow: 
+    20px 20px 60px rgba(0, 0, 0, 0.5),
+    -20px -20px 60px rgba(255, 255, 255, 0.05);
+}
+
+/* グラデーションテキスト */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* カスタムスクロールバー */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+/* トランジション */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* グロー効果 */
+.glow {
+  box-shadow: 
+    0 0 20px rgba(139, 92, 246, 0.5),
+    0 0 40px rgba(139, 92, 246, 0.3),
+    0 0 60px rgba(139, 92, 246, 0.1);
+}
+
+/* パルスアニメーション */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.8);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+これで以下が実現されます：
+✨ 実装のポイント
+
+完全統合型定義: すべてのシステムが相互に連携可能
+階層的メモリ: 即時・作業・エピソード・意味・永続の5層構造
+リアルタイムコンテキスト: 感情・トピック・ムードの追跡
+モダンUI: グラスモーフィズム、ネオモーフィズム、グラデーション
+滑らかなアニメーション: Framer Motionによる自然な動き
+レスポンシブデザイン: モバイル対応
+アクセシビリティ: キーボード操作、スクリーンリーダー対応
+
+この実装により、ハイテクな機能とモダンなUIが完全に統合されたチャットアプリケーションが実現できます！再試行Kｄこのチャット入力なんですがモバイルでスペースを考え入力欄に、何も文字が書かれていないときは"返信提案💡","メニューアクション＋"、何か文字が書かれたときは"文章強化✨","チャット送信ボタン"と切り替わるようになっています。それとキャラクターカードに載せたい項目ですが アイコン顔画像"name": "tags":  "occupation" "catchphrase": "（このキャラクターを30文字で表すなら。）",` 
+あと希望する設定モーダルですけど以下の内容を入れたいです。
+それと今度は重複や、2つのプロジェクトが起きてしまわないように何か決まりごとのような文言を付け加えてもらえればありがたいです。編集📱 モバイル対応入力欄とキャラクターカード、設定モーダルの実装
+⚠️ プロジェクト管理ルール
+typescript/**
+ * ================================
+ * 🚨 重要: プロジェクト管理ルール
+ * ================================
+ * 
+ * 1. このプロジェクトは単一のNext.js App Routerアプリケーションです
+ * 2. ルートディレクトリ: /ai-chat-app
+ * 3. 既存ファイルを編集する際は必ず現在の内容を確認してから追記・修正
+ * 4. 新規ファイル作成時は既存ファイルとの重複を確認
+ * 5. 型定義は src/types/core/*.types.ts に集約
+ * 6. コンポーネントは src/components/* に機能別に配置
+ * 7. ストアは src/store/slices/* でスライス分割
+ * 
+ * ファイル作成・編集前のチェックリスト:
+ * □ 同名ファイルが存在しないか確認
+ * □ 類似機能のファイルが存在しないか確認
+ * □ インポートパスが正しいか確認 (@/ エイリアス使用)
+ * □ 型定義の重複がないか確認
+ */
+1️⃣ モバイル対応メッセージ入力コンポーネント
+tsx// src/components/chat/MobileOptimizedInput.tsx
+
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Send, 
+  Plus, 
+  Lightbulb, 
+  Sparkles,
+  X,
+  Mic,
+  Image as ImageIcon,
+  Settings,
+  History
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useUnifiedStore } from '@/store';
+
+interface MobileOptimizedInputProps {
+  onSendMessage: (message: string) => void;
+  onShowSuggestions: () => void;
+  onEnhanceText: () => void;
+  className?: string;
+}
+
+export const MobileOptimizedInput: React.FC<MobileOptimizedInputProps> = ({
+  onSendMessage,
+  onShowSuggestions,
+  onEnhanceText,
+  className
+}) => {
+  const [message, setMessage] = useState('');
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { ui } = useUnifiedStore();
+
+  // メッセージの有無でボタンを切り替え
+  const hasMessage = message.trim().length > 0;
+
+  // 自動高さ調整
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [message]);
+
+  const handleSend = () => {
+    if (hasMessage) {
+      onSendMessage(message);
+      setMessage('');
+      textareaRef.current?.blur();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <>
+      {/* メイン入力エリア */}
+      <div className={cn(
+        'relative flex items-end gap-2 p-3',
+        'bg-slate-900/50 backdrop-blur-xl',
+        'border-t border-white/10',
+        className
+      )}>
+        {/* 左側ボタン（動的切り替え） */}
+        <motion.div
+          key={hasMessage ? 'enhance' : 'suggest'}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {hasMessage ? (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onEnhanceText}
+              className="p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-400/30"
+              title="文章強化"
+            >
+              <Sparkles className="w-5 h-5 text-purple-400" />
+            </motion.button>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onShowSuggestions}
+              className="p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-400/30"
+              title="返信提案"
+            >
+              <Lightbulb className="w-5 h-5 text-yellow-400" />
+            </motion.button>
+          )}
+        </motion.div>
+
+        {/* テキスト入力欄 */}
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="メッセージを入力..."
+            className={cn(
+              'w-full px-4 py-3 pr-12',
+              'bg-white/5 backdrop-blur-sm rounded-xl',
+              'text-white placeholder-white/30',
+              'border border-white/10',
+              'resize-none outline-none',
+              'transition-all duration-200',
+              isFocused && 'border-purple-400/50 bg-white/10'
+            )}
+            rows={1}
+            style={{ minHeight: '48px', maxHeight: '120px' }}
+          />
+          
+          {/* 文字数カウンター */}
+          {message.length > 100 && (
+            <div className="absolute bottom-1 right-12 text-xs text-white/30">
+              {message.length}
+            </div>
+          )}
+        </div>
+
+        {/* 右側ボタン（動的切り替え） */}
+        <motion.div
+          key={hasMessage ? 'send' : 'menu'}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {hasMessage ? (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSend}
+              disabled={ui.animations.message_sending}
+              className={cn(
+                'p-3 rounded-xl',
+                'bg-gradient-to-r from-blue-500 to-cyan-500',
+                'text-white shadow-lg',
+                ui.animations.message_sending && 'opacity-50'
+              )}
+            >
+              {ui.animations.message_sending ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </motion.button>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowActionMenu(true)}
+              className="p-3 bg-white/10 rounded-xl border border-white/20"
+            >
+              <Plus className="w-5 h-5 text-white/70" />
+            </motion.button>
+          )}
+        </motion.div>
+      </div>
+
+      {/* アクションメニュー（ボトムシート） */}
+      <AnimatePresence>
+        {showActionMenu && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50"
+            onClick={() => setShowActionMenu(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ActionMenu onClose={() => setShowActionMenu(false)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// アクションメニューコンポーネント
+const ActionMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { ui } = useUnifiedStore();
+
+  const menuItems = [
+    { icon: ImageIcon, label: '画像を送信', action: () => {} },
+    { icon: Mic, label: '音声入力', action: () => {} },
+    { icon: History, label: 'チャット履歴', action: () => ui.openModal('chat_history') },
+    { icon: Settings, label: '設定', action: () => ui.openModal('settings') },
+  ];
+
+  return (
+    <div className="p-6">
+      {/* ハンドル */}
+      <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6" />
+      
+      {/* メニューアイテム */}
+      <div className="grid grid-cols-2 gap-4">
+        {menuItems.map((item, index) => (
+          <motion.button
+            key={index}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              item.action();
+              onClose();
+            }}
+            className="flex flex-col items-center gap-3 p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors"
+          >
+            <div className="p-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl">
+              <item.icon className="w-6 h-6 text-purple-400" />
+            </div>
+            <span className="text-sm text-white/70">{item.label}</span>
+          </motion.button>
+        ))}
+      </div>
+
+      {/* 閉じるボタン */}
+      <button
+        onClick={onClose}
+        className="w-full mt-6 p-3 bg-white/5 rounded-xl text-white/50 hover:bg-white/10 transition-colors"
+      >
+        キャンセル
+      </button>
+    </div>
+  );
+};
+2️⃣ キャラクターカードコンポーネント
+tsx// src/components/character/CharacterCard.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Heart, Edit, Check } from 'lucide-react';
+import { Character } from '@/types/core/character.types';
+import { cn } from '@/lib/utils';
+
+interface CharacterCardProps {
+  character: Character;
+  isSelected?: boolean;
+  onSelect: (character: Character) => void;
+  onEdit: (character: Character) => void;
+  className?: string;
+}
+
+export const CharacterCard: React.FC<CharacterCardProps> = ({
+  character,
+  isSelected = false,
+  onSelect,
+  onEdit,
+  className
+}) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  return (
+    <motion.div
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={cn(
+        'relative group cursor-pointer',
+        className
+      )}
+    >
+      {/* カード本体 */}
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl',
+          'bg-gradient-to-br from-purple-900/20 to-pink-900/20',
+          'backdrop-blur-xl border',
+          isSelected 
+            ? 'border-purple-400 shadow-[0_0_30px_rgba(168,85,247,0.3)]' 
+            : 'border-white/10 hover:border-purple-400/50',
+          'transition-all duration-300'
+        )}
+      >
+        {/* 背景画像 */}
+        {character.appearance.background_url && (
+          <div className="absolute inset-0 opacity-30">
+            <img
+              src={character.appearance.background_url}
+              alt=""
+              className="w-full h-full object-cover"
+              onLoad={() => setImageLoaded(true)}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
+          </div>
+        )}
+
+        {/* コンテンツ */}
+        <div className="relative p-4">
+          {/* ヘッダー部分 */}
+          <div className="flex items-start gap-3 mb-3">
+            {/* アバター */}
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              className="relative flex-shrink-0"
+            >
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-400/50 shadow-xl">
+                {character.appearance.avatar_url ? (
+                  <img
+                    src={character.appearance.avatar_url}
+                    alt={character.identity.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">
+                      {character.identity.name[0]}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* 選択チェックマーク */}
+              {isSelected && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center"
+                >
+                  <Check className="w-4 h-4 text-white" />
+                </motion.div>
+              )}
+            </motion.div>
+
+            {/* 名前と職業 */}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-white text-lg truncate">
+                {character.identity.name}
+              </h3>
+              <p className="text-sm text-purple-300/70 truncate">
+                {character.identity.occupation}
+              </p>
+            </div>
+
+            {/* お気に入りボタン */}
+            <motion.button
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFavorite(!isFavorite);
+              }}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <Heart 
+                className={cn(
+                  'w-5 h-5 transition-colors',
+                  isFavorite 
+                    ? 'text-red-500 fill-red-500' 
+                    : 'text-white/50 hover:text-red-400'
+                )}
+              />
+            </motion.button>
+          </div>
+
+          {/* キャッチフレーズ */}
+          <div className="mb-3">
+            <p className="text-sm text-white/80 italic line-clamp-2">
+              "{character.identity.catchphrase}"
+            </p>
+          </div>
+
+          {/* タグ */}
+          <div className="flex flex-wrap gap-1 mb-4">
+            {character.metadata.tags.slice(0, 3).map((tag, index) => (
+              <span
+                key={index}
+                className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full"
+              >
+                #{tag}
+              </span>
+            ))}
+            {character.metadata.tags.length > 3 && (
+              <span className="px-2 py-0.5 text-xs text-white/40">
+                +{character.metadata.tags.length - 3}
+              </span>
+            )}
+          </div>
+
+          {/* アクションボタン */}
+          <div className="flex gap-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelect(character)}
+              className={cn(
+                'flex-1 py-2 px-4 rounded-lg font-medium transition-all',
+                isSelected
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              )}
+            >
+              {isSelected ? '選択中' : '選択'}
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(character);
+              }}
+              className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+            >
+              <Edit className="w-4 h-4 text-white/70" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* 使用統計（ホバー時表示） */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileHover={{ opacity: 1, y: 0 }}
+          className="absolute bottom-0 left-0 right-0 p-2 bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <div className="flex justify-around text-xs text-white/60">
+            <span>使用: {character.statistics.usage_count}回</span>
+            <span>平均: {Math.round(character.statistics.average_session_length)}分</span>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
+3️⃣ 設定モーダルコンポーネント
+tsx// src/components/settings/SettingsModal.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  X, 
+  Palette, 
+  Volume2, 
+  Cpu, 
+  Database,
+  Shield,
+  Bell,
+  Globe,
+  Code,
+  Save
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose
+}) => {
+  const [activeTab, setActiveTab] = useState('appearance');
+  const [settings, setSettings] = useState({
+    // 外観設定
+    theme: 'dark',
+    accentColor: '#8b5cf6',
+    fontSize: 'medium',
+    animations: true,
+    
+    // 音声設定
+    voiceEnabled: true,
+    voiceProvider: 'voicevox',
+    voiceSpeed: 1.0,
+    autoPlay: false,
+    
+    // AI設定
+    model: 'gemini-2.5-pro',
+    temperature: 0.7,
+    maxTokens: 2000,
+    streamResponse: true,
+    
+    // データ設定
+    autoSave: true,
+    saveInterval: 30,
+    enableBackup: true,
+    compressionEnabled: true,
+    
+    // プライバシー設定
+    analytics: false,
+    crashReports: false,
+    secureMode: false,
+    
+    // 通知設定
+    notifications: true,
+    soundEffects: true,
+    vibration: true,
+    
+    // 言語・地域
+    language: 'ja',
+    timezone: 'Asia/Tokyo',
+    dateFormat: 'YYYY/MM/DD',
+    
+    // 開発者設定
+    debugMode: false,
+    showTokenCount: false,
+    experimentalFeatures: false,
+  });
+
+  const tabs = [
+    { id: 'appearance', label: '外観', icon: Palette },
+    { id: 'voice', label: '音声', icon: Volume2 },
+    { id: 'ai', label: 'AI', icon: Cpu },
+    { id: 'data', label: 'データ', icon: Database },
+    { id: 'privacy', label: 'プライバシー', icon: Shield },
+    { id: 'notifications', label: '通知', icon: Bell },
+    { id: 'language', label: '言語・地域', icon: Globe },
+    { id: 'developer', label: '開発者', icon: Code },
+  ];
+
+  const handleSave = () => {
+    // 設定を保存
+    localStorage.setItem('app_settings', JSON.stringify(settings));
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl max-h-[80vh] bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          >
+            {/* ヘッダー */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">設定</h2>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white/70" />
+              </button>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* サイドバー */}
+              <div className="w-48 border-r border-white/10 p-4">
+                <nav className="space-y-1">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+                        activeTab === tab.id
+                          ? 'bg-purple-500/20 text-purple-400'
+                          : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                      )}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      <span className="text-sm">{tab.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              {/* 設定パネル */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                <SettingsPanel
+                  activeTab={activeTab}
+                  settings={settings}
+                  onChange={setSettings}
+                />
+              </div>
+            </div>
+
+            {/* フッター */}
+            <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-white/60 hover:text-white/80 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                保存
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// 設定パネルコンポーネント
+const SettingsPanel: React.FC<{
+  activeTab: string;
+  settings: any;
+  onChange: (settings: any) => void;
+}> = ({ activeTab, settings, onChange }) => {
+  const updateSetting = (key: string, value: any) => {
+    onChange({ ...settings, [key]: value });
+  };
+
+  switch (activeTab) {
+    case 'appearance':
+      return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-white mb-4">外観設定</h3>
+          
+          <div>
+            <label className="block text-sm text-white/70 mb-2">テーマ</label>
+            <select
+              value={settings.theme}
+              onChange={(e) => updateSetting('theme', e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+            >
+              <option value="dark">ダーク</option>
+              <option value="light">ライト</option>
+              <option value="auto">自動</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/70 mb-2">アクセントカラー</label>
+            <input
+              type="color"
+              value={settings.accentColor}
+              onChange={(e) => updateSetting('accentColor', e.target.value)}
+              className="w-full h-10 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/70 mb-2">フォントサイズ</label>
+            <div className="flex gap-2">
+              {['small', 'medium', 'large'].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => updateSetting('fontSize', size)}
+                  className={cn(
+                    'flex-1 py-2 rounded-lg transition-colors',
+                    settings.fontSize === size
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  )}
+                >
+                  {size === 'small' ? '小' : size === 'medium' ? '中' : '大'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-white/70">アニメーション</span>
+            <Switch
+              checked={settings.animations}
+              onChange={(checked) => updateSetting('animations', checked)}
+            />
+          </div>
+        </div>
+      );
+
+    case 'ai':
+      return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-white mb-4">AI設定</h3>
+          
+          <div>
+            <label className="block text-sm text-white/70 mb-2">AIモデル</label>
+            <select
+              value={settings.model}
+              onChange={(e) => updateSetting('model', e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+            >
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="claude-sonnet-4">Claude Sonnet 4</option>
+              <option value="gpt-4">GPT-4</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/70 mb-2">
+              Temperature: {settings.temperature}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={settings.temperature}
+              onChange={(e) => updateSetting('temperature', parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/70 mb-2">
+              最大トークン数: {settings.maxTokens}
+            </label>
+            <input
+              type="range"
+              min="500"
+              max="4000"
+              step="100"
+              value={settings.maxTokens}
+              onChange={(e) => updateSetting('maxTokens', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-white/70">ストリーミング応答</span>
+            <Switch
+              checked={settings.streamResponse}
+              onChange={(checked) => updateSetting('streamResponse', checked)}
+            />
+          </div>
+        </div>
+      );
+
+    // 他のタブも同様に実装...
+    default
