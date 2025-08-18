@@ -98,3 +98,31 @@ export interface MemoryCard {
   context_tags?: string[];
 }
 ```
+
+## `CharacterStatistics`
+
+```typescript
+export interface CharacterStatistics {
+    usage_count: number;
+    last_used: Timestamp;
+    favorite_count: number;
+    average_session_length: number;
+}
+```
+
+## `Persona`
+
+```typescript
+export interface Persona extends BaseEntity {
+  name: string;
+  description: string;
+  role: string;
+  traits: string[];
+  likes: string[];
+  dislikes: string[];
+  other_settings: string;
+  avatar_url?: string;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+```

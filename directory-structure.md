@@ -44,6 +44,7 @@ APIクライアントやビジネスロジックなど、UIから分離された
 *   `src/services/api/`: 外部API（Gemini, OpenRouterなど）との通信を行うクライアント。
 *   `src/services/memory/`: 記憶管理システム (`conversation-manager.ts`)
 *   `src/services/inspiration/` (将来追加予定): 返信提案などのロジック。
+*   `src/services/prompt-builder.service.ts`: `ConversationManager`等を利用して、AIに送信する最終的なプロンプトを構築する。
 
 #### `src/store/`
 
