@@ -12,8 +12,7 @@
 
 ## 1.2. Development Guidelines
 
-*   **Schema Validation**: Use Zod for schema validation (`src/lib/schemas`).
-*   **API Logic**: Centralize API communication logic in `src/services/api/apiClient.ts`.
+*   **API Logic**: API communication logic is primarily managed by `src/services/api-manager.ts`, which delegates to specific clients like `gemini-client.ts` and `openrouter-client.ts`.
 *   **State Management**: Divide Zustand store into feature-specific slices (e.g., `chatSlice`, `characterSlice`).
 *   **Component Structure**:
     *   Consider splitting components that exceed 200 lines.

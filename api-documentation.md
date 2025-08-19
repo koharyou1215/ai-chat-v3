@@ -1,22 +1,41 @@
 # API Documentation
 
+This document outlines the available API endpoints for the AI Chat application.
+
 ## AI Endpoints
 
-*   **/api/ai/gemini**: Gemini API endpoint.
-*   **/api/ai/openrouter**: OpenRouter API endpoint.
-*   **/api/ai/inspiration/suggest**: Generates reply suggestions.
-*   **/api/ai/inspiration/enhance**: Enhances user-provided text.
-*   **/api/ai/analyze-trackers**: Analyzes messages to update trackers.
-*   **/api/ai/summarize**: Summarizes conversations.
-*   **/api/ai/judge**: Judges the importance of a message.
-*   **/api/embeddings**: Generates text embeddings.
+*   `/api/ai/inspiration/suggest`
+    *   **Method**: `POST`
+    *   **Description**: Generates reply suggestions based on the current conversation history.
 
-## Voice Endpoints
+*   `/api/ai/inspiration/enhance`
+    *   **Method**: `POST`
+    *   **Description**: Enhances a user-provided text snippet with more detail and emotional expression.
 
-*   **/api/voice/elevenlabs**: ElevenLabs API endpoint.
-*   **/api/voice/voicevox**: VoiceVox API endpoint.
+## Data Management Endpoints
 
-## Image Endpoints
+*   `/api/characters`
+    *   **Method**: `GET`, `POST`
+    *   **Description**: 
+        *   `GET`: Retrieves a list of all available character definition files.
+        *   `POST`: Creates or updates a character definition file.
 
-*   **/api/image/runware**: Runware API endpoint.
-*   **/api/image/stable-diffusion**: Stable Diffusion API endpoint.
+*   `/api/personas`
+    *   **Method**: `GET`
+    *   **Description**: Retrieves a list of all available persona definition files.
+
+## File Upload Endpoints
+
+*   `/api/upload/image`
+    *   **Method**: `POST`
+    *   **Description**: Uploads an image file to the server and returns the public URL. Used for character/persona avatars and backgrounds.
+
+## Voice Synthesis Endpoints
+
+*   `/api/voice/elevenlabs`
+    *   **Method**: `POST`
+    *   **Description**: Synthesizes text into speech using the ElevenLabs API.
+
+*   `/api/voice/voicevox`
+    *   **Method**: `POST`
+    *   **Description**: Synthesizes text into speech using the VoiceVox API.
