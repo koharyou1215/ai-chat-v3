@@ -332,3 +332,4 @@ export class VectorSearchService {
 // シングルトンインスタンス
 export const vectorSearchService = new VectorSearchService();
 
+

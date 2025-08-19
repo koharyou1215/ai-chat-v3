@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
-import { InspirationService } from '@/services/inspiration-service';
 
 export const MessageInput: React.FC = () => {
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -36,51 +35,38 @@ export const MessageInput: React.FC = () => {
     setShowSettingsModal,
     setShowVoiceSettingsModal,
     setShowSuggestionModal,
-    setSuggestions,
-    setIsGeneratingSuggestions,
+    generateSuggestions,
+    enhanceText,
     getActiveSession,
     systemPrompts,
   } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
-  const inspirationService = new InspirationService();
 
   const handleSuggestClick = async () => {
     console.log("💡 Suggest button clicked!");
     const session = getActiveSession();
     if (!session) return;
 
-    setIsGeneratingSuggestions(true);
     setShowSuggestionModal(true);
     
-    try {
-      const recentMessages = session.messages.slice(-6);
-      const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
-        ? systemPrompts.replySuggestion 
-        : undefined;
+    const recentMessages = session.messages.slice(-6);
+    const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+      ? systemPrompts.replySuggestion 
+      : undefined;
         
-      const suggestions = await inspirationService.generateReplySuggestions(
-        recentMessages,
-        customPrompt
-      );
-      setSuggestions(suggestions.map(s => s.content));
-    } catch (error) {
-      console.error("Failed to get suggestions:", error);
-      // TODO: Show error toast
-    } finally {
-      setIsGeneratingSuggestions(false);
-    }
+    await generateSuggestions(recentMessages, customPrompt);
   };
 
   const handleEnhanceClick = async () => {
     console.log("✨ Enhance button clicked!");
     if (!hasMessage) return;
     
-    setIsEnhancing(true); // ★ コメントアウト解除
+    setIsEnhancing(true);
     try {
         const session = getActiveSession();
         const recentMessages = session ? session.messages.slice(-6) : [];
-        const enhancedText = await inspirationService.enhanceText(
+        const enhancedText = await enhanceText(
           currentInputText,
           recentMessages,
           systemPrompts.textEnhancement
@@ -90,7 +76,7 @@ export const MessageInput: React.FC = () => {
         console.error("Failed to enhance text:", error);
         // TODO: Show error toast
     } finally {
-        setIsEnhancing(false); // ★ コメントアウト解除
+        setIsEnhancing(false);
     }
   };
 

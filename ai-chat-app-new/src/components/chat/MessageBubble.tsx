@@ -143,7 +143,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       }
       return;
     }
-    // 再生
+    
+    // 再生 - VoiceVoxの場合
     if (voiceSettings?.provider?.toLowerCase() === 'voicevox') {
       setIsSpeaking(true);
       try {
@@ -152,8 +153,50 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: message.content,
-            speakerId: voiceSettings.voicevox?.speakerId || 1,
-            settings: voiceSettings.voicevox || {}
+            speaker: voiceSettings.voicevox?.speaker || 1,
+            speed: voiceSettings.voicevox?.speed || 1.0,
+            pitch: voiceSettings.voicevox?.pitch || 0.0,
+            intonation: voiceSettings.voicevox?.intonation || 1.0,
+            volume: voiceSettings.voicevox?.volume || 1.0
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.audioData) {
+          const audio = new window.Audio(data.audioData);
+          setAudioObj(audio);
+          audio.volume = Math.min(1.0, Math.max(0.0, voiceSettings.voicevox?.volume || 1.0));
+          audio.play();
+          audio.onended = () => {
+            setIsSpeaking(false);
+            setAudioObj(null);
+          };
+          audio.onerror = () => {
+            setIsSpeaking(false);
+            setAudioObj(null);
+            console.error('音声再生エラー');
+          };
+        } else {
+          alert('音声合成に失敗しました: ' + (data.error || 'APIエラー'));
+          setIsSpeaking(false);
+        }
+      } catch (error) {
+        console.error('VoiceVox音声合成通信エラー:', error);
+        alert('音声合成通信エラー');
+        setIsSpeaking(false);
+      }
+    } 
+    // 再生 - ElevenLabsの場合
+    else if (voiceSettings?.provider?.toLowerCase() === 'elevenlabs') {
+      setIsSpeaking(true);
+      try {
+        const res = await fetch('/api/voice/elevenlabs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: message.content,
+            voice_id: voiceSettings.elevenlabs?.voiceId || 'default',
+            stability: voiceSettings.elevenlabs?.stability || 0.5,
+            similarity_boost: voiceSettings.elevenlabs?.similarity || 0.75
           })
         });
         const data = await res.json();
@@ -168,19 +211,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           audio.onerror = () => {
             setIsSpeaking(false);
             setAudioObj(null);
+            console.error('ElevenLabs音声再生エラー');
           };
         } else {
-          alert('音声合成に失敗しました: ' + (data.error || 'APIエラー'));
+          alert('ElevenLabs音声合成に失敗しました: ' + (data.error || 'APIエラー'));
           setIsSpeaking(false);
         }
-      } catch (_e) {
-        alert('音声合成通信エラー');
+      } catch (error) {
+        console.error('ElevenLabs音声合成通信エラー:', error);
+        alert('ElevenLabs音声合成通信エラー');
         setIsSpeaking(false);
       }
-    } else if ('speechSynthesis' in window) {
+    } 
+    // フォールバック - ブラウザ内蔵音声合成
+    else if ('speechSynthesis' in window) {
       setIsSpeaking(true);
       const utter = new window.SpeechSynthesisUtterance(message.content);
       speechRef.current = utter;
+      
+      // ブラウザ内蔵音声の詳細設定を適用
+      if (voiceSettings?.voicevox) {
+        utter.rate = voiceSettings.voicevox.speed || 1.0;
+        utter.pitch = Math.max(0, Math.min(2, (voiceSettings.voicevox.pitch || 0) / 100 + 1));
+        utter.volume = voiceSettings.voicevox.volume || 1.0;
+      }
+      
       utter.onend = () => { setIsSpeaking(false); speechRef.current = null; };
       utter.onerror = () => { setIsSpeaking(false); speechRef.current = null; };
       window.speechSynthesis.speak(utter);
@@ -294,6 +349,62 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return emotionGradients[emotion.primary] || emotionGradients.neutral;
   };
 
+  // 動的絵文字の決定
+  const getDynamicEmoji = () => {
+    const emotion = message.expression?.emotion;
+    if (!emotion) return '🤔'; // デフォルト
+
+    const emojiMap: { [key: string]: string[] } = {
+      happy: ['😊', '😄', '😃', '🙂', '😌', '☺️'],
+      love: ['😍', '🥰', '💕', '❤️', '😘', '💖'],
+      sad: ['😢', '😞', '😔', '😟', '😿', '💔'],
+      excited: ['🤩', '😆', '🎉', '✨', '🔥', '⚡'],
+      angry: ['😠', '😡', '💢', '👿', '😤', '🔴'],
+      surprised: ['😲', '😮', '😯', '🤯', '😵', '🙀'],
+      thinking: ['🤔', '💭', '🧐', '💡', '🤯', '🎯'],
+      confused: ['😕', '🤨', '😵‍💫', '😶', '🙄', '❓'],
+      neutral: ['😐', '😑', '🙂', '😊', '🤔', '😌']
+    };
+
+    const emojis = emojiMap[emotion.primary] || emojiMap.neutral;
+    const intensity = emotion.score || 0.5;
+    const index = Math.floor(intensity * emojis.length);
+    
+    return emojis[Math.min(index, emojis.length - 1)];
+  };
+
+  // 感情に基づくアニメーション効果（安全な実装）
+  const getEmotionAnimation = () => {
+    const emotion = message.expression?.emotion;
+    if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
+
+    // セーフモード検出
+    const safeMode = typeof window !== 'undefined' && localStorage.getItem('safe-mode') === 'true';
+    if (safeMode) return {};
+
+    // 無限ループを避けて限定回数のアニメーション
+    const animationMap: { [key: string]: any } = {
+      happy: { 
+        scale: [1, 1.01, 1], 
+        transition: { duration: 2, repeat: 2, repeatType: 'reverse' as const, ease: 'easeInOut' } 
+      },
+      love: { 
+        scale: [1, 1.015, 1], 
+        transition: { duration: 3, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' }
+      },
+      excited: { 
+        y: [0, -1, 0], 
+        transition: { duration: 1.5, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' }
+      },
+      sad: { 
+        opacity: [1, 0.9, 1], 
+        transition: { duration: 2.5, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' } 
+      }
+    };
+
+    return animationMap[emotion.primary] || {};
+  };
+
   return (
     <>
       <motion.div
@@ -368,19 +479,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <motion.div
           layout
           className={cn(
-            'relative px-4 py-3 rounded-2xl',
-            'backdrop-blur-sm border',
-            isUser ? [
-              'bg-gradient-to-br from-blue-600/20 to-cyan-600/20',
-              'border-blue-400/30'
-            ] : [
-              `bg-gradient-to-br ${getEmotionGradient()}`,
-              'border-purple-400/30'
-            ]
+            'relative px-4 py-3 rounded-2xl border',
+            settings.bubbleBlur ? 'backdrop-blur-sm' : ''
           )}
           style={{
+            background: isUser 
+              ? `linear-gradient(135deg, rgba(37, 99, 235, ${settings.bubbleOpacity / 100}) 0%, rgba(6, 182, 212, ${settings.bubbleOpacity / 100}) 100%)`
+              : `linear-gradient(135deg, rgba(168, 85, 247, ${settings.bubbleOpacity / 100}) 0%, rgba(236, 72, 153, ${settings.bubbleOpacity / 100}) 100%)`,
+            borderColor: isUser ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)',
             boxShadow: `0 0 30px ${isUser ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}`
           }}
+          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() : {}}
         >
           {/* 重要度インジケーター */}
           {message.memory.importance.score > 0.8 && (
@@ -438,12 +547,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* 感情タグ（従来の表示） */}
+          {/* 感情タグ（動的絵文字付き） */}
           {!settings.realtimeEmotion && message.expression?.emotion && (
             <div className="mt-2 flex gap-1">
-              <span className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/70">
-                {message.expression.emotion.emoji} {message.expression.emotion.primary}
-              </span>
+              <motion.span 
+                className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/70 flex items-center gap-1"
+                animate={settings.emotionBasedStyling && settings.effectQuality !== 'low' ? {} : {}}
+              >
+                <span className="text-sm">{getDynamicEmoji()}</span>
+                <span>{message.expression.emotion.primary}</span>
+                {message.expression.emotion.score && (
+                  <span className="text-xs opacity-60">
+                    ({Math.round(message.expression.emotion.score * 100)}%)
+                  </span>
+                )}
+              </motion.span>
             </div>
           )}
           

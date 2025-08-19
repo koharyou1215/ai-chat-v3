@@ -86,21 +86,39 @@ export const useAppStore = create<AppStore>()(
       },
       // Only persist state, not actions (functions)
       partialize: (state) => ({
-        // sessions
+        // Chat sessions
         sessions: state.sessions,
         active_session_id: state.active_session_id,
-        // personas
+        trackerManagers: state.trackerManagers, // ★ トラッカー管理の永続化
+        
+        // Characters and Personas
+        characters: state.characters,
+        selectedCharacterId: state.selectedCharacterId,
         personas: state.personas,
         activePersonaId: state.activePersonaId,
-        // settings
+        
+        // Settings - all settings for persistence
         apiConfig: state.apiConfig,
         openRouterApiKey: state.openRouterApiKey,
-        systemPrompts: state.systemPrompts, // ★ 永続化の対象に追加
+        systemPrompts: state.systemPrompts,
         enableSystemPrompt: state.enableSystemPrompt,
         enableJailbreakPrompt: state.enableJailbreakPrompt,
         chat: state.chat,
         voice: state.voice,
         imageGeneration: state.imageGeneration,
+        
+        // UI State
+        isLeftSidebarOpen: state.isLeftSidebarOpen,
+        isRightPanelOpen: state.isRightPanelOpen,
+        
+        // Memory System
+        memories: state.memories,
+        memoryCards: state.memory_cards,
+        memoryLayers: state.memoryLayers,
+        
+        // Suggestion Data
+        suggestions: state.suggestions,
+        suggestionData: state.suggestionData,
       }),
     }
   )

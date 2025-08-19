@@ -248,3 +248,4 @@ export class MessageGenerationService {
 // シングルトンインスタンス
 export const messageGenerationService = new MessageGenerationService();
 
+

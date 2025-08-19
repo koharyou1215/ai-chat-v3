@@ -13,7 +13,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check file type and size
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'video/mp4'];
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+      'video/mp4', 'video/webm', 'video/mov', 'video/quicktime', 'video/avi'
+    ];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ 
         success: false, 

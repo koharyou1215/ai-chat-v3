@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import { TrackerDefinition, NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
 import { useAppStore } from '@/store';
+import { TrackerManager } from '@/services/tracker/tracker-manager';
 
 // TrackerDefinitionにcurrent_valueを加えた型 cd C:\ai-chat-v3\ai-chat-app-new
 type TrackerWithValue = TrackerDefinition & { current_value: string | number | boolean };
@@ -60,8 +61,25 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   const [trackerChanges, setTrackerChanges] = useState<Map<string, TrackerChangeIndicator>>(new Map());
   const prevTrackersRef = useRef<Map<string, string | number | boolean>>();
 
-  // Get tracker data from store
+  // Get tracker data from store with initialization check
   const trackerManager = useAppStore(state => state.trackerManagers.get(session_id));
+  const character = useAppStore(state => state.getSelectedCharacter());
+  
+  // Initialize tracker manager if not exists and we have character data
+  useEffect(() => {
+    const currentManager = useAppStore.getState().trackerManagers.get(session_id);
+    if (!currentManager && character && character.trackers && character.trackers.length > 0) {
+      // Create a new tracker manager and initialize it
+      const newManager = new TrackerManager();
+      newManager.initializeTrackerSet(character_id, character.trackers);
+      
+      // Update the store
+      useAppStore.setState(state => ({
+        trackerManagers: new Map(state.trackerManagers).set(session_id, newManager)
+      }));
+    }
+  }, [session_id, character_id, character]);
+
   const trackersMap = useAppStore(state => {
     const set = state.trackerManagers.get(session_id)?.getTrackerSet(character_id);
     return set ? (set.trackers as Map<string, TrackerWithValue>) : undefined;
@@ -140,17 +158,31 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
     }
   };
 
-  if (!trackerManager) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="p-4 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-sm mx-auto mb-4 w-16 h-16 flex items-center justify-center">
-            <BarChart3 size={32} className="text-white" />
+  if (!trackerManager || !trackersMap) {
+    // Check if we have character data but no tracker manager yet
+    if (character && character.trackers && character.trackers.length > 0) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="p-4 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-sm mx-auto mb-4 w-16 h-16 flex items-center justify-center">
+              <BarChart3 size={32} className="text-white" />
+            </div>
+            <p className="text-sm text-gray-300">トラッカーデータを初期化中...</p>
           </div>
-          <p className="text-sm text-gray-300">トラッカーデータを読み込み中...</p>
         </div>
-      </div>
-    );
+      );
+    } else if (!character) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="p-4 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-sm mx-auto mb-4 w-16 h-16 flex items-center justify-center">
+              <BarChart3 size={32} className="text-white" />
+            </div>
+            <p className="text-sm text-gray-300">キャラクターを選択してください</p>
+          </div>
+        </div>
+      );
+    }
   }
 
   if (categories.length === 0) {

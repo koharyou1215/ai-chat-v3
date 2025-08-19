@@ -34,6 +34,10 @@ export interface EffectSettings {
   particleEffects: boolean;
   typewriterEffect: boolean;
   
+  // 外観設定
+  bubbleOpacity: number; // 吹き出しの透明度 (0-100)
+  bubbleBlur: boolean; // 背景ぼかし効果
+  
   // 3D機能
   hologramMessages: boolean;
   particleText: boolean;
@@ -106,6 +110,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     fontEffects: true,
     particleEffects: true,
     typewriterEffect: true,
+    
+    // 外観設定
+    bubbleOpacity: 85,
+    bubbleBlur: true,
     
     // 3D機能
     hologramMessages: false,
@@ -338,6 +346,43 @@ const EffectsPanel: React.FC<{
       checked={settings.typewriterEffect}
       onChange={(checked) => updateSetting('typewriterEffect', checked)}
     />
+
+    {/* 外観設定 */}
+    <div className="border-t border-white/10 pt-6">
+      <h4 className="text-lg font-medium text-white mb-4">外観設定</h4>
+      
+      {/* 透明度設定 */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h5 className="text-sm font-medium text-white">吹き出しの透明度</h5>
+            <p className="text-xs text-gray-400">吹き出しの背景の透明度を調整します</p>
+          </div>
+          <span className="text-sm text-purple-400 font-medium">{settings.bubbleOpacity}%</span>
+        </div>
+        <div className="relative">
+          <input
+            type="range"
+            min="10"
+            max="100"
+            step="5"
+            value={settings.bubbleOpacity}
+            onChange={(e) => updateSetting('bubbleOpacity', parseInt(e.target.value))}
+            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+            style={{
+              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${settings.bubbleOpacity}%, #4b5563 ${settings.bubbleOpacity}%, #4b5563 100%)`
+            }}
+          />
+        </div>
+      </div>
+      
+      <SettingItem
+        title="背景ぼかし効果"
+        description="吹き出し背景にぼかし効果を適用します（半透明時により美しい見た目になります）"
+        checked={settings.bubbleBlur}
+        onChange={(checked) => updateSetting('bubbleBlur', checked)}
+      />
+    </div>
   </div>
 );
 

@@ -349,3 +349,4 @@ export class SummarizationService {
 // シングルトンインスタンス
 export const summarizationService = new SummarizationService();
 
+

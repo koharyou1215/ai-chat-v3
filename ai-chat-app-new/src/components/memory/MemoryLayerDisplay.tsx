@@ -220,7 +220,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                       {/* 統計情報 */}
                       <div className="flex items-center gap-2 text-xs text-white/50">
                         <MessageSquare className="w-3 h-3" />
-                        <span>{layerData.messages.length}</span>
+                        <span>{layerData?.messages?.length || 0}</span>
                         <Activity className="w-3 h-3" />
                         <span>{stats?.total_operations || 0}</span>
                       </div>
@@ -259,20 +259,20 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-white/60">容量:</span>
                           <span className="text-white/80">
-                            {layerData.messages.length} / {layerData.max_capacity || '∞'}
+                            {layerData?.messages?.length || 0} / {layerData?.max_capacity || '∞'}
                           </span>
                         </div>
                         
                         {/* 最新メッセージ */}
-                        {layerData.messages.length > 0 && (
+                        {(layerData?.messages?.length || 0) > 0 && (
                           <div className="space-y-2">
                             <span className="text-xs text-white/60">最新メッセージ:</span>
                             <div className="bg-white/5 rounded p-2">
                               <p className="text-white/80 text-xs line-clamp-2">
-                                {layerData.messages[layerData.messages.length - 1]?.content || '内容なし'}
+                                {layerData?.messages?.[layerData.messages.length - 1]?.content || '内容なし'}
                               </p>
                               <span className="text-white/50 text-xs">
-                                {new Date(layerData.messages[layerData.messages.length - 1]?.timestamp || Date.now()).toLocaleTimeString('ja-JP')}
+                                {new Date(layerData?.messages?.[layerData.messages.length - 1]?.timestamp || Date.now()).toLocaleTimeString('ja-JP')}
                               </span>
                             </div>
                           </div>
@@ -319,13 +319,13 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-white/60">総メッセージ数:</span>
               <span className="text-white/80">
-                {Object.values(sessionLayers).reduce((total, layer) => total + layer.messages.length, 0)}
+                {Object.values(sessionLayers).reduce((total, layer) => total + (layer?.messages?.length || 0), 0)}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-white/60">アクティブレイヤー:</span>
               <span className="text-white/80">
-                {Object.values(sessionLayers).filter(layer => layer.messages.length > 0).length}
+                {Object.values(sessionLayers).filter(layer => layer?.messages?.length > 0).length}
               </span>
             </div>
           </div>

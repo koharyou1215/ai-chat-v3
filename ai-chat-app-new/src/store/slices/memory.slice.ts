@@ -21,6 +21,14 @@ export interface MemorySlice {
   filterMemories: (filters: MemoryCardFilter) => MemoryCard[];
   sortMemoriesByImportance: (memories: MemoryCard[]) => MemoryCard[];
   sortMemoriesByDate: (memories: MemoryCard[]) => MemoryCard[];
+  
+  // 統計情報
+  getLayerStatistics: () => {
+    total: number;
+    pinned: number;
+    hidden: number;
+    categories: Record<string, number>;
+  };
 }
 
 export interface MemoryCardFilter {
@@ -218,6 +226,20 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
     return [...memories].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  },
+
+  getLayerStatistics: () => {
+    const memories = Array.from(get().memory_cards.values());
+    return {
+      total: memories.length,
+      pinned: memories.filter(m => m.is_pinned).length,
+      hidden: memories.filter(m => m.is_hidden).length,
+      categories: memories.reduce((acc, m) => {
+        acc[m.category] = (acc[m.category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    };
   }
 });
+
 

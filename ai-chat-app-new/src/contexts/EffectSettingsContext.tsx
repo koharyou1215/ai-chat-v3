@@ -22,6 +22,10 @@ const defaultSettings: EffectSettings = {
   particleEffects: false, // パフォーマンス問題のため常に無効
   typewriterEffect: !safeMode,
   
+  // 外観設定
+  bubbleOpacity: 85,
+  bubbleBlur: true,
+  
   // 3D機能 - 全て無効（パフォーマンス重視）
   hologramMessages: false,
   particleText: false,
@@ -30,7 +34,7 @@ const defaultSettings: EffectSettings = {
   
   // 感情分析 - 軽量なもののみ
   realtimeEmotion: !safeMode,
-  emotionBasedStyling: !safeMode,
+  emotionBasedStyling: false, // 震え問題回避のため一時無効
   autoReactions: false, // CPU負荷軽減のため無効
   
   // トラッカー
@@ -38,8 +42,8 @@ const defaultSettings: EffectSettings = {
   showTrackers: true,
   
   // パフォーマンス - 保守的な設定
-  effectQuality: 'low',
-  animationSpeed: safeMode ? 0 : 0.7 // 適度な速度
+  effectQuality: safeMode ? 'low' : 'medium',
+  animationSpeed: safeMode ? 0 : 0.5 // より控えめな速度
 };
 
 interface EffectSettingsProviderProps {
