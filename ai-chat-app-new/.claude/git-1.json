@@ -1,0 +1,23 @@
+cat > playwright-mcp-config.json << 'EOF'
+{
+  "browser": {
+    "browserName": "chrome",
+    "isolated": true,
+    "userDataDir": "/tmp/playwright-user-data",
+    "launchOptions": {
+      "channel": "chromium",
+      "headless": true,
+      "args": ["--no-sandbox", "--disable-dev-shm-usage"]
+    },
+    "contextOptions": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "locale": "ja-JP",
+      "timezoneId": "Asia/Tokyo"
+    }
+  },
+  "outputDir": "/tmp/playwright-output"
+}
+EOF

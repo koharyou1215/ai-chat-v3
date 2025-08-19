@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(rm:*)",
+      "Bash(npx next telemetry:*)",
+      "Bash(npm run lint)",
+      "Bash(mkdir:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_wait_for",
+      "Bash(powershell:*)",
+      "Bash(tasklist:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(taskkill:*)",
+      "Bash(cp:*)",
+      "Bash(rsync:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(touch:*)",
+      "Bash(git submodule:*)",
+      "Bash(git rm:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\c",
+      "C:\\ai-chat-v3",
+      "C:\\c\\ai-chat-v3"
+    ]
+  }
+}
