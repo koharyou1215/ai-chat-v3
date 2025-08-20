@@ -23,12 +23,14 @@ interface MessageBubbleProps {
   message: UnifiedMessage;
   previousMessage?: UnifiedMessage;
   isLatest: boolean;
+  isGroupChat?: boolean;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
   message, 
   _previousMessage,
-  isLatest 
+  isLatest,
+  isGroupChat = false
 }) => {
   // ローディング・再生状態
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -459,18 +461,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           animate={{ scale: 1 }}
           className="flex-shrink-0"
         >
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img 
-                src={avatarUrl} 
-                alt={displayName}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-white text-sm font-bold">
-                {initial}
-              </span>
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={avatarUrl} 
+                  alt={displayName}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-sm font-bold">
+                  {initial}
+                </span>
+              )}
+            </div>
+            {/* グループチャットでキャラクター名を表示 */}
+            {isGroupChat && displayName && (
+              <motion.span
+                initial={isLatest ? { opacity: 0, y: -5 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-white/60 mt-1 text-center max-w-[80px] truncate"
+              >
+                {displayName}
+              </motion.span>
             )}
           </div>
         </motion.div>

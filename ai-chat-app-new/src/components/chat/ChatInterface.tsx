@@ -101,6 +101,8 @@ export const ChatInterface: React.FC = () => {
         active_group_session_id,
         groupSessions,
         createGroupSession,
+        setShowCharacterGallery,
+        setShowPersonaGallery,
     } = useAppStore();
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得
@@ -116,9 +118,35 @@ export const ChatInterface: React.FC = () => {
 
     useEffect(() => {
         scrollToBottom();
-    }, [session?.messages]);
+    }, [session?.messages, activeGroupSession?.messages]);
 
-    if (!session) {
+    // グループモードかつアクティブなグループセッションがない場合
+    if (is_group_mode && !activeGroupSession) {
+        return (
+            <div className="flex h-screen bg-slate-900 text-white">
+                <AnimatePresence>
+                    {isLeftSidebarOpen && <ChatSidebar />}
+                </AnimatePresence>
+                <div className="flex-1 flex flex-col">
+                    <ChatHeader />
+                    <div className="flex-1 overflow-y-auto">
+                        <GroupChatInterface 
+                            onStartGroupChat={(name, characterIds, mode) => {
+                                // This will be handled by the GroupChatInterface component itself
+                            }}
+                        />
+                    </div>
+                </div>
+                
+                {/* モーダル群 */}
+                <CharacterGalleryModal />
+                <PersonaGalleryModal />
+            </div>
+        );
+    }
+
+    // 通常モードかつセッションがない場合
+    if (!is_group_mode && !session) {
         return (
             <div className="flex h-screen bg-slate-900 text-white">
                 <AnimatePresence>
@@ -131,15 +159,21 @@ export const ChatInterface: React.FC = () => {
         );
     }
     
+    // セッションの決定（グループセッションまたは通常セッション）
+    const displaySession = is_group_mode ? activeGroupSession : session;
+    const currentMessages = displaySession?.messages || [];
+    const displaySessionId = displaySession?.id || '';
+    
     const sidePanelTabs = [
-        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: <MemoryGallery session_id={session.id} character_id={session.participants.characters[0]?.id} /> },
-        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: <TrackerDisplay session_id={session.id} character_id={session.participants.characters[0]?.id} /> },
-        { key: 'history' as const, icon: History, label: '履歴検索', component: <HistorySearch session_id={session.id} /> },
-        { key: 'layers' as const, icon: Layers, label: '記憶層', component: <MemoryLayerDisplay session_id={session.id} /> },
+        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: displaySession ? <MemoryGallery session_id={displaySessionId} character_id={is_group_mode ? activeGroupSession?.character_ids[0] : session?.participants.characters[0]?.id} /> : null },
+        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: displaySession ? <TrackerDisplay session_id={displaySessionId} character_id={is_group_mode ? activeGroupSession?.character_ids[0] : session?.participants.characters[0]?.id} /> : null },
+        { key: 'history' as const, icon: History, label: '履歴検索', component: displaySession ? <HistorySearch session_id={displaySessionId} /> : null },
+        { key: 'layers' as const, icon: Layers, label: '記憶層', component: displaySession ? <MemoryLayerDisplay session_id={displaySessionId} /> : null },
     ];
 
     return (
         <div className="flex h-full bg-slate-900 text-white">
+
             <AnimatePresence>
                 {isLeftSidebarOpen && <ChatSidebar />}
             </AnimatePresence>
@@ -172,17 +206,18 @@ export const ChatInterface: React.FC = () => {
                     <ChatHeader />
                     <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
                         <AnimatePresence mode="popLayout" initial={false}>
-                            {session.messages.map((message, index) => (
+                            {currentMessages.map((message, index) => (
                                 <MessageBubble
                                     key={message.id}
                                     message={message}
-                                    previousMessage={index > 0 ? session.messages[index - 1] : undefined}
-                                    isLatest={index === session.messages.length - 1}
+                                    previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
+                                    isLatest={index === currentMessages.length - 1}
+                                    isGroupChat={is_group_mode}
                                 />
                             ))}
                         </AnimatePresence>
                         
-                        {is_generating && <ThinkingIndicator />}
+                        {(is_generating || group_generating) && <ThinkingIndicator />}
                         
                         <div ref={messagesEndRef} />
                     </div>

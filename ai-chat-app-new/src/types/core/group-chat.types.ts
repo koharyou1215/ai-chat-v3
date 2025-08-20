@@ -1,7 +1,7 @@
 // src/types/core/group-chat.types.ts
 import { BaseEntity, SoftDeletable, WithMetadata, UUID, Timestamp } from './base.types';
 import { UnifiedMessage } from './message.types';
-import { UnifiedCharacter } from './character.types';
+import { Character } from './character.types';
 import { Persona } from './persona.types';
 
 /**
@@ -10,7 +10,7 @@ import { Persona } from './persona.types';
 export interface GroupChatSession extends BaseEntity, SoftDeletable, WithMetadata {
   name: string;
   character_ids: string[];
-  characters: UnifiedCharacter[];
+  characters: Character[];
   active_character_ids: Set<string>;
   persona: Persona;
   messages: UnifiedMessage[];
@@ -59,7 +59,7 @@ export interface VoicePreset {
  */
 export interface GroupChatParticipant {
   character_id: string;
-  character: UnifiedCharacter;
+  character: Character;
   is_active: boolean;
   voice_preset?: VoicePreset;
   response_priority: number;

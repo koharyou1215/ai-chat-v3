@@ -27,7 +27,8 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
     is_group_mode,
     setGroupMode,
     createGroupSession,
-    setActiveGroupSession
+    setActiveGroupSession,
+    updateCharacter
   } = useAppStore();
   
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
@@ -38,31 +39,40 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   const persona = getSelectedPersona();
   const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
   
-  const availableCharacters = characters.filter(char => char.is_active);
+  const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
   
   const toggleCharacterSelection = (characterId: string) => {
     setSelectedCharacterIds(prev => {
+      const character = Array.from(characters.values()).find(c => c.id === characterId);
+      const characterName = character?.name || 'Unknown';
+      
       if (prev.includes(characterId)) {
+        // キャラクターを削除
+        console.log(`Removing ${characterName} from selection`);
         return prev.filter(id => id !== characterId);
       } else if (prev.length < 5) { // 最大5人まで
+        // キャラクターを追加
+        console.log(`Adding ${characterName} to selection`);
         return [...prev, characterId];
+      } else {
+        // 最大数に達している
+        console.log(`Cannot add ${characterName} - maximum 5 characters reached`);
+        return prev;
       }
-      return prev;
     });
   };
   
   const handleStartGroupChat = () => {
     if (selectedCharacterIds.length >= 2 && persona) {
-      const selectedCharacters = characters.filter(char => 
+      const selectedCharacters = Array.from(characters.values()).filter(char => 
         selectedCharacterIds.includes(char.id)
       );
       
       createGroupSession(
-        groupName,
-        selectedCharacterIds,
         selectedCharacters,
         persona,
-        chatMode
+        chatMode,
+        groupName
       );
       
       setShowSetup(false);
@@ -105,14 +115,42 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             <div>
               <h3 className="text-white font-semibold">{activeGroupSession.name}</h3>
               <p className="text-white/50 text-sm">
-                {activeGroupSession.active_character_ids.size}人のキャラクターが参加中
+                {activeGroupSession.active_character_ids.size}人のキャラクターが参加中 • 
+                <span className="text-purple-300 ml-1">
+                  {activeGroupSession.chat_mode === 'sequential' && '📋 順次応答モード'}
+                  {activeGroupSession.chat_mode === 'simultaneous' && '⚡ 同時応答モード'}
+                  {activeGroupSession.chat_mode === 'random' && '🎲 ランダムモード'}
+                  {activeGroupSession.chat_mode === 'smart' && '🧠 スマートモード'}
+                </span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-white/60 bg-slate-700 px-2 py-1 rounded">
-              {activeGroupSession.chat_mode}
-            </span>
+            {/* チャットモード切り替えドロップダウン */}
+            <div className="relative">
+              <select
+                value={activeGroupSession.chat_mode}
+                onChange={(e) => {
+                  const newMode = e.target.value as GroupChatMode;
+                  // グループセッションのモードを更新
+                  const updatedSession = {
+                    ...activeGroupSession,
+                    chat_mode: newMode
+                  };
+                  
+                  // ストアを更新
+                  useAppStore.setState(state => ({
+                    groupSessions: new Map(state.groupSessions).set(activeGroupSession.id, updatedSession)
+                  }));
+                }}
+                className="text-xs bg-slate-700 hover:bg-slate-600 text-white/80 px-2 py-1 rounded border border-white/10 focus:border-purple-400 focus:outline-none cursor-pointer"
+              >
+                <option value="sequential">📋 順次応答</option>
+                <option value="simultaneous">⚡ 同時応答</option>
+                <option value="random">🎲 ランダム</option>
+                <option value="smart">🧠 スマート</option>
+              </select>
+            </div>
             <button
               onClick={() => setGroupMode(false)}
               className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white/80 text-sm rounded transition-colors"
@@ -175,9 +213,80 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                 グループチャットを開始
               </button>
             ) : (
-              <div className="text-center text-white/50">
+              <div className="text-center text-white/50 space-y-4">
                 <p>グループチャットには2人以上のキャラクターが必要です</p>
-                <p className="text-sm">キャラクターギャラリーから追加してください</p>
+                
+                {/* デバッグ情報表示 */}
+                <div className="bg-slate-800/50 p-4 rounded-lg text-left text-sm space-y-2">
+                  <p className="text-white/70 font-medium">📊 デバッグ情報:</p>
+                  <p>全キャラクター数: {Array.from(characters.values()).length}</p>
+                  <p>アクティブキャラクター数: {availableCharacters.length}</p>
+                  
+                  {Array.from(characters.values()).length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-white/70">全キャラクター一覧:</p>
+                        <button
+                          onClick={() => {
+                            // Zustandストアに直接アクセスして全キャラクターをアクティブ化
+                            const allCharacters = Array.from(characters.values());
+                            const inactiveCount = allCharacters.filter(char => !char.is_active).length;
+                            
+                            // ストアの状態を直接更新
+                            useAppStore.setState((state) => {
+                              const updatedCharacters = new Map(state.characters);
+                              
+                              // 全キャラクターのis_activeをtrueに設定
+                              updatedCharacters.forEach((char, id) => {
+                                if (!char.is_active) {
+                                  updatedCharacters.set(id, { ...char, is_active: true });
+                                }
+                              });
+                              
+                              return { characters: updatedCharacters };
+                            });
+                            
+                            console.log(`Activated ${inactiveCount} characters`);
+                            alert(`${inactiveCount}人のキャラクターをアクティブ化しました！`);
+                          }}
+                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+                        >
+                          🔄 全てアクティブ化
+                        </button>
+                      </div>
+                      
+                      <div className="max-h-32 overflow-y-auto">
+                        {Array.from(characters.values()).slice(0, 10).map(char => (
+                          <div key={char.id} className="flex justify-between items-center py-1 px-2 bg-slate-700/30 rounded mb-1">
+                            <span className={char.is_active ? "text-green-400" : "text-red-400"} title={char.name}>
+                              {char.name?.slice(0, 20) || 'Unnamed'}
+                              {char.name?.length > 20 && '...'}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded ${char.is_active ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                              {char.is_active ? "ACTIVE" : "INACTIVE"}
+                            </span>
+                          </div>
+                        ))}
+                        {Array.from(characters.values()).length > 10 && (
+                          <p className="text-xs text-white/50 text-center mt-2">
+                            ... 他 {Array.from(characters.values()).length - 10} 人
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-white/70">キャラクター作成手順：</p>
+                  <ol className="text-sm text-left max-w-md mx-auto space-y-1">
+                    <li>1. 右上の🆘キャラクターボタンをクリック</li>
+                    <li>2. 「新規作成」でキャラクターを作成</li>
+                    <li>3. 名前、説明、アバターを設定</li>
+                    <li>4. <strong className="text-yellow-300">is_activeをON</strong>に設定（重要！）</li>
+                    <li>5. 保存後、2人目も同様に作成</li>
+                  </ol>
+                </div>
               </div>
             )}
             
@@ -289,9 +398,23 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                 </motion.div>
               ))}
             </div>
-            <p className="text-white/50 text-sm mt-2">
-              選択中: {selectedCharacterIds.length}/5
-            </p>
+            <div className="mt-2">
+              <p className="text-white/50 text-sm">
+                選択中: {selectedCharacterIds.length}/5
+              </p>
+              {selectedCharacterIds.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {selectedCharacterIds.map(id => {
+                    const char = Array.from(characters.values()).find(c => c.id === id);
+                    return (
+                      <span key={id} className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
+                        {char?.name || id.slice(0, 8)}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           
           {/* チャットモード選択 */}

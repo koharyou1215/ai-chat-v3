@@ -38,7 +38,7 @@ export interface ChatSlice {
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
   
   // グループチャット機能
-  createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode) => Promise<UUID>;
+  createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string) => Promise<UUID>;
   sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
   setGroupMode: (isGroupMode: boolean) => void;
   setActiveGroupSessionId: (sessionId: UUID | null) => void;
@@ -142,6 +142,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
 
   sendMessage: async (content, imageUrl) => {
+    // グループモードの場合はグループメッセージ送信を使用
+    if (get().is_group_mode) {
+      return get().sendGroupMessage(content, imageUrl);
+    }
+
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
 
@@ -454,7 +459,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
 
   // グループチャット機能実装
-  createGroupSession: async (characters, persona, mode = 'sequential') => {
+  createGroupSession: async (characters, persona, mode = 'sequential', groupName) => {
     const groupSessionId = `group-${Date.now()}`;
     
     const groupSession: GroupChatSession = {
@@ -465,7 +470,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       is_deleted: false,
       metadata: {},
       
-      name: `${characters.map(c => c.name).join('、')}とのグループチャット`,
+      name: groupName || `${characters.map(c => c.name).join('、')}とのグループチャット`,
       character_ids: characters.map(c => c.id),
       characters,
       active_character_ids: new Set(characters.map(c => c.id)),
@@ -578,7 +583,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const responses: UnifiedMessage[] = [];
 
       if (groupSession.chat_mode === 'simultaneous') {
-        // 同時応答
+        // 同時応答 - 全キャラクターが同時に応答
         const responsePromises = activeCharacters.map(async (character, index) => {
           const response = await get().generateCharacterResponse(groupSession, character, content, []);
           return { ...response, metadata: { ...response.metadata, response_order: index } };
@@ -586,8 +591,22 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         
         const parallelResponses = await Promise.all(responsePromises);
         responses.push(...parallelResponses);
+        
+      } else if (groupSession.chat_mode === 'random') {
+        // ランダム応答 - アクティブキャラクターからランダムに1人選択
+        const randomCharacter = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+        const response = await get().generateCharacterResponse(groupSession, randomCharacter, content, []);
+        responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        
+      } else if (groupSession.chat_mode === 'smart') {
+        // スマート応答 - AIが最適なキャラクターを選択
+        // とりあえず最初のキャラクターを選択（後で改善可能）
+        const smartCharacter = activeCharacters[0]; // TODO: AI判断ロジック
+        const response = await get().generateCharacterResponse(groupSession, smartCharacter, content, []);
+        responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        
       } else {
-        // 順次応答
+        // 順次応答 (sequential) - キャラクターが順番に応答
         for (let i = 0; i < activeCharacters.length; i++) {
           const character = activeCharacters[i];
           const response = await get().generateCharacterResponse(groupSession, character, content, responses);
@@ -635,14 +654,21 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
     let systemPrompt = `あなたは${character.name}として、グループチャットに参加しています。
 
+=== 基本設定 ===
 他の参加者: ${otherCharacters}
 ユーザー: ${groupSession.persona.name}
 
-${character.personality}
+=== キャラクター詳細 ===
+性格: ${character.personality}
 ${character.speaking_style ? `話し方: ${character.speaking_style}` : ''}
+${character.background ? `背景: ${character.background}` : ''}
+${character.scenario ? `シナリオ: ${character.scenario}` : ''}
 
-グループチャットでは自然で協調的な会話を心がけてください。
-他のキャラクターの発言も考慮して、重複を避けながら独自の視点で応答してください。`;
+=== 行動指針 ===
+- グループチャットでは自然で協調的な会話を心がけてください
+- 他のキャラクターの発言も考慮して、重複を避けながら独自の視点で応答してください
+- あなたの性格と背景に基づいて、一貫したキャラクターを演じてください
+- ${character.name}らしい反応や発言を心がけてください`;
 
     // 直前の応答がある場合
     if (previousResponses.length > 0) {

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Brain, PanelLeft, UserCircle, Bot, Settings, Users } from 'lucide-react'; // アイコンを追加
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
+import { GroupChatMode } from '@/types/core/group-chat.types';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -76,7 +77,7 @@ export const ChatHeader: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10 h-20">
+        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10 h-20 relative z-50">
             <div className="flex items-center gap-4">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -91,33 +92,55 @@ export const ChatHeader: React.FC = () => {
                     <PanelLeft className="w-5 h-5" />
                 </motion.button>
                 
-                {/* Character Info */}
-                <div 
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={() => setShowCharacterGallery(true)}
-                >
-                    {character.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={character.avatar_url} alt={character.name} className="w-10 h-10 rounded-full object-cover"/>
-                    ) : (
-                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                            <Bot className="w-6 h-6 text-slate-400" />
-                        </div>
-                    )}
-                    <div>
-                        <h1 className="text-white text-lg font-bold">{character.name}</h1>
-                        {session && (
+                {/* Character Info または Group Info */}
+                {is_group_mode && activeGroupSession ? (
+                    // グループチャット情報
+                    <div className="flex items-center gap-2">
+                        <Users className="w-10 h-10 text-purple-400" />
+                        <div>
+                            <h1 className="text-white text-lg font-bold">{activeGroupSession.name}</h1>
                             <p className="text-white/50 text-sm">
-                                {session.message_count} messages
+                                {activeGroupSession.active_character_ids.size}人のキャラクター • {activeGroupSession.message_count} messages
                             </p>
-                        )}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    // 通常のキャラクター情報
+                    <div 
+                        className="flex items-center gap-2 cursor-pointer relative z-10"
+                        onClick={() => {
+                            console.log('Character info clicked!');
+                            setShowCharacterGallery(true);
+                        }}
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                        {character.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={character.avatar_url} alt={character.name} className="w-10 h-10 rounded-full object-cover"/>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                <Bot className="w-6 h-6 text-slate-400" />
+                            </div>
+                        )}
+                        <div>
+                            <h1 className="text-white text-lg font-bold">{character.name}</h1>
+                            {session && (
+                                <p className="text-white/50 text-sm">
+                                    {session.message_count} messages
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
                 
                 {/* Persona Info */}
                 <div 
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={() => setShowPersonaGallery(true)}
+                    className="flex items-center gap-2 cursor-pointer relative z-10"
+                    onClick={() => {
+                        console.log('Persona info clicked!');
+                        setShowPersonaGallery(true);
+                    }}
+                    style={{ pointerEvents: 'auto' }}
                 >
                      {persona.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -136,6 +159,32 @@ export const ChatHeader: React.FC = () => {
             
             {/* Right side buttons - group mode toggle and right panel toggle */}
             <div className="flex items-center gap-3">
+                {/* グループチャットモード選択ドロップダウン */}
+                {is_group_mode && activeGroupSession && (
+                    <select
+                        value={activeGroupSession.chat_mode}
+                        onChange={(e) => {
+                            const newMode = e.target.value as GroupChatMode;
+                            // グループセッションのモードを更新
+                            useAppStore.setState(state => {
+                                const updatedSession = {
+                                    ...activeGroupSession,
+                                    chat_mode: newMode
+                                };
+                                return {
+                                    groupSessions: new Map(state.groupSessions).set(activeGroupSession.id, updatedSession)
+                                };
+                            });
+                        }}
+                        className="text-xs bg-slate-700 hover:bg-slate-600 text-white/80 px-3 py-2 rounded border border-white/10 focus:border-purple-400 focus:outline-none cursor-pointer"
+                    >
+                        <option value="sequential">📋 順次応答</option>
+                        <option value="simultaneous">⚡ 同時応答</option>
+                        <option value="random">🎲 ランダム</option>
+                        <option value="smart">🧠 スマート</option>
+                    </select>
+                )}
+
                 {/* グループチャットモード切り替え */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
