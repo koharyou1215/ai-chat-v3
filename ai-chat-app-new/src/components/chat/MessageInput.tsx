@@ -15,15 +15,20 @@ import {
   History,
   Image as ImageIcon,
   Paperclip,
-  Code
+  Code,
+  X
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 
 export const MessageInput: React.FC = () => {
   const [showActionMenu, setShowActionMenu] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false); // ★ 新しいstateを追加
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const { 
     sendMessage, 
     is_generating,
@@ -42,6 +47,7 @@ export const MessageInput: React.FC = () => {
   } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
+  const hasContent = hasMessage || selectedImage;
 
   const handleSuggestClick = async () => {
     console.log("💡 Suggest button clicked!");
@@ -81,15 +87,54 @@ export const MessageInput: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if (!hasMessage || is_generating) return;
+    if ((!hasMessage && !selectedImage) || is_generating) return;
     
-    await sendMessage(currentInputText);
+    await sendMessage(currentInputText, selectedImage || undefined);
     setCurrentInputText('');
+    setSelectedImage(null);
   };
 
   const handleImageUpload = () => {
-    // 画像アップロードロジックをここに追加
-    console.log("Image upload clicked");
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (file: File) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setSelectedImage(result.url);
+      } else {
+        console.error('Upload failed:', result.error);
+        // TODO: Show error toast
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleClearImage = () => {
+    setSelectedImage(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -108,6 +153,14 @@ export const MessageInput: React.FC = () => {
 
   return (
     <div className="relative p-4 border-t border-white/10">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+      
       <AnimatePresence>
         {showActionMenu && (
           <ActionMenu 
@@ -123,10 +176,35 @@ export const MessageInput: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* 画像プレビューエリア */}
+      {selectedImage && (
+        <div className="mb-3 p-3 bg-white/5 rounded-xl border border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-white/70">添付画像:</span>
+            <button
+              onClick={handleClearImage}
+              className="text-red-400 hover:text-red-300 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <img
+            src={selectedImage}
+            alt="Uploaded preview"
+            className="max-w-full max-h-32 rounded-lg object-contain"
+          />
+        </div>
+      )}
+
       <div className="relative flex items-end gap-2 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-3">
         {/* 左側ボタンエリア */}
         <div className="flex gap-1">
-          <InputButton icon={Paperclip} onClick={handleImageUpload} tooltip="画像を添付" />
+          <InputButton 
+            icon={Paperclip} 
+            onClick={handleImageUpload} 
+            tooltip="画像を添付" 
+            isLoading={isUploading}
+          />
         </div>
 
         <textarea
@@ -168,12 +246,12 @@ export const MessageInput: React.FC = () => {
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={hasMessage ? 'send' : 'menu'}
+              key={hasContent ? 'send' : 'menu'}
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
             >
-              {hasMessage ? (
+              {hasContent ? (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

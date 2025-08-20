@@ -1,15 +1,10 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { 
   Search, 
-  Filter, 
-  Star, 
-  Pin, 
   Brain,
-  Calendar,
-  Tag,
   Plus,
   SortAsc,
   SortDesc,
@@ -39,7 +34,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memoryCards, createMemoryCard } = useAppStore();
+  const { memoryCards } = useAppStore();
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {
@@ -86,7 +81,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
 
     // ソート
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: string | number | Date, bValue: string | number | Date;
       
       switch (sortBy) {
         case 'importance':

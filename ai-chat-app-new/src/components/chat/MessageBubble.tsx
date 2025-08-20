@@ -333,21 +333,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   }, [message.created_at]);
   
-  // 感情に基づく色の決定
-  const getEmotionGradient = () => {
-    const emotion = message.expression?.emotion;
-    if (!emotion) return 'from-purple-600/20 to-blue-600/20';
-    
-    const emotionGradients: { [key: string]: string } = {
-      happy: 'from-yellow-500/20 to-orange-500/20',
-      love: 'from-pink-500/20 to-red-500/20',
-      sad: 'from-blue-600/20 to-indigo-600/20',
-      excited: 'from-purple-500/20 to-pink-500/20',
-      neutral: 'from-gray-600/20 to-slate-600/20'
-    };
-    
-    return emotionGradients[emotion.primary] || emotionGradients.neutral;
-  };
 
   // 動的絵文字の決定
   const getDynamicEmoji = () => {
@@ -383,7 +368,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (safeMode) return {};
 
     // 無限ループを避けて限定回数のアニメーション
-    const animationMap: { [key: string]: any } = {
+    const animationMap: { [key: string]: object } = {
       happy: { 
         scale: [1, 1.01, 1], 
         transition: { duration: 2, repeat: 2, repeatType: 'reverse' as const, ease: 'easeInOut' } 
@@ -506,6 +491,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <HologramMessage text={message.content} />
           ) : (
             <>
+              {/* 画像表示 */}
+              {message.image_url && (
+                <div className="mb-3">
+                  <img
+                    src={message.image_url}
+                    alt="Attached image"
+                    className="max-w-full max-h-64 rounded-lg object-contain"
+                  />
+                </div>
+              )}
+
               {/* メッセージテキスト - ユーザーメッセージはシンプル表示、AIメッセージのみエフェクト適用 */}
               {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
                 <RichMessage

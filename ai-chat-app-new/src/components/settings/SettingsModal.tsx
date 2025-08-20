@@ -565,15 +565,22 @@ interface APIPanelProps {
   apiConfig: APIConfig;
   openRouterApiKey: string;
   setAPIModel: (model: string) => void;
+  setAPIProvider: (provider: string) => void;
   setOpenRouterApiKey: (key: string) => void;
 }
 
-const APIPanel: React.FC<APIPanelProps> = ({ apiConfig, openRouterApiKey, setAPIModel, setOpenRouterApiKey }) => {
+const APIPanel: React.FC<APIPanelProps> = ({ apiConfig, openRouterApiKey, setAPIModel, setAPIProvider, setOpenRouterApiKey }) => {
   const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(openRouterApiKey || '');
   const [showApiKey, setShowApiKey] = useState(false);
 
   const handleModelChange = (modelId: string) => {
     setAPIModel(modelId);
+    // モデルに基づいてプロバイダーを自動設定
+    if (modelId.includes('gemini')) {
+      setAPIProvider('gemini');
+    } else {
+      setAPIProvider('openrouter');
+    }
   };
 
   const handleApiKeyChange = (key: string) => {

@@ -13,6 +13,7 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
   session_id: UUID;
   role: MessageRole;
   content: string;
+  image_url?: string;
   
   // キャラクター関連
   character_id?: UUID;

@@ -14,7 +14,7 @@ export interface ChatSlice {
   currentInputText: string;
   
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, imageUrl?: string) => Promise<void>;
   regenerateLastMessage: () => Promise<void>;
   deleteMessage: (message_id: UUID) => void;
   clearActiveConversation: () => void;
@@ -119,7 +119,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     return newSession.id;
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, imageUrl) => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
 
@@ -141,6 +141,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       session_id: activeSessionId,
       role: 'user',
       content,
+      image_url: imageUrl,
       memory: {
         importance: { score: 0.7, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.8, ai_judgment: 0.6 } },
         is_pinned: false,
@@ -244,6 +245,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     const session = get().sessions.get(activeSessionId);
     if (!session) return;
     const trackerManager = trackerManagers.get(activeSessionId);
+    
     // 最後のAIメッセージを探す
     const lastAiIndex = [...session.messages].map((m, i) => ({ m, i })).reverse().find(obj => obj.m.role === 'assistant');
     if (!lastAiIndex) {
@@ -252,22 +254,39 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     }
     const lastAiMsg = lastAiIndex.m;
     const aiIdx = lastAiIndex.i;
-    // プロンプトを再構築し、AI応答のみ生成
+    
+    // 最後のユーザーメッセージを探す（再生成の基準）
+    const lastUserMsg = [...session.messages].reverse().find(msg => msg.role === 'user');
+    if (!lastUserMsg) {
+      alert('ユーザーメッセージが見つかりません');
+      return;
+    }
+    
+    // AIメッセージを除いた履歴でプロンプトを再構築
+    const messagesWithoutLastAi = session.messages.slice(0, aiIdx);
+    const sessionForRegeneration = {
+      ...session,
+      messages: messagesWithoutLastAi
+    };
+    
     const systemPrompt = await promptBuilderService.buildPrompt(
-      session,
-      lastAiMsg.content,
+      sessionForRegeneration,
+      lastUserMsg.content,
       trackerManager
     );
-    // ConversationMessageのroleは'user'|'assistant'のみ許容
-    const conversationHistory = session.messages
+    
+    // 最後のAIメッセージを除いた会話履歴
+    const conversationHistory = messagesWithoutLastAi
       .filter(msg => msg.role === 'user' || msg.role === 'assistant')
       .slice(-10)
       .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
+    
     const aiResponseContent = await apiManager.generateMessage(
       systemPrompt,
-      lastAiMsg.content,
+      lastUserMsg.content,
       conversationHistory
     );
+    
     // 最後のAIメッセージを上書き（削除→新規追加）
     set(state => {
       const newMessage = {

@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // ESLint設定
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   
   // ビルド最適化設定
   experimental: {

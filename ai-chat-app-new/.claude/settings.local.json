@@ -33,7 +33,10 @@
       "Bash(cat:*)",
       "Bash(touch:*)",
       "Bash(git submodule:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx vercel:*)"
     ],
     "deny": [],
     "ask": [],
