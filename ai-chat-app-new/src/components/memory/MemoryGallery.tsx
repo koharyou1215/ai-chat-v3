@@ -34,7 +34,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memoryCards } = useAppStore();
+  const { memoryCards, createMemoryCard, getActiveSession } = useAppStore();
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {
@@ -106,9 +106,31 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     return filtered;
   }, [memoryCards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
 
-  const handleCreateMemory = () => {
-    // TODO: 新しいメモリー作成モーダルを開く
-    console.log('Create new memory');
+  const handleCreateMemory = async () => {
+    try {
+      const activeSession = getActiveSession();
+      if (!activeSession) {
+        alert('アクティブなセッションがありません');
+        return;
+      }
+
+      // 最新の5つのメッセージからメモリーカードを作成
+      const recentMessages = activeSession.messages.slice(-5);
+      const messageIds = recentMessages.map(msg => msg.id);
+      
+      if (messageIds.length === 0) {
+        alert('メモリーカードを作成するためのメッセージがありません');
+        return;
+      }
+
+      const character_id = activeSession.participants.characters[0]?.id;
+      
+      await createMemoryCard(messageIds, activeSession.id, character_id);
+      console.log('Memory card created successfully');
+    } catch (error) {
+      console.error('Failed to create memory card:', error);
+      alert('メモリーカードの作成に失敗しました');
+    }
   };
 
   const toggleSort = () => {

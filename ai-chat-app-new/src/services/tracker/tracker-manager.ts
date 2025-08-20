@@ -24,27 +24,50 @@ export class TrackerManager {
     const trackerMap = new Map<string, Tracker>();
     
     trackers.forEach(definition => {
-      if (!definition.config) {
-        console.error('Tracker definition is missing config:', definition);
-        return; // or handle error appropriately
-      }
-      const initializedTracker: Tracker = { ...definition, current_value: undefined };
+      // 古い形式から新しい形式への変換
+      let normalizedDefinition: TrackerDefinition;
       
-      switch (definition.config.type) {
+      if (!definition.config && (definition as any).type) {
+        // 古い形式の場合、新しい形式に変換
+        const oldFormat = definition as any;
+        normalizedDefinition = {
+          ...definition,
+          config: {
+            type: oldFormat.type,
+            initial_value: oldFormat.initial_value,
+            initial_state: oldFormat.initial_state,
+            possible_states: oldFormat.possible_states || [],
+            min_value: oldFormat.min_value,
+            max_value: oldFormat.max_value,
+            step: oldFormat.step || 1
+          }
+        };
+      } else {
+        normalizedDefinition = definition;
+      }
+      
+      if (!normalizedDefinition.config) {
+        console.error('Tracker definition is missing config:', normalizedDefinition);
+        return;
+      }
+      
+      const initializedTracker: Tracker = { ...normalizedDefinition, current_value: undefined };
+      
+      switch (normalizedDefinition.config.type) {
         case 'numeric':
-          initializedTracker.current_value = definition.config.initial_value;
+          initializedTracker.current_value = normalizedDefinition.config.initial_value;
           break;
         case 'state':
-          initializedTracker.current_value = definition.config.initial_state;
+          initializedTracker.current_value = normalizedDefinition.config.initial_state;
           break;
         case 'boolean':
-          initializedTracker.current_value = definition.config.initial_value;
+          initializedTracker.current_value = normalizedDefinition.config.initial_value;
           break;
         case 'text':
-          initializedTracker.current_value = definition.config.initial_value || '';
+          initializedTracker.current_value = normalizedDefinition.config.initial_value || '';
           break;
       }
-      trackerMap.set(definition.name, initializedTracker);
+      trackerMap.set(normalizedDefinition.name, initializedTracker);
     });
 
     const trackerSet: TrackerSet = {
