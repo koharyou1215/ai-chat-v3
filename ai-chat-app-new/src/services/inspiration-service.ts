@@ -1,7 +1,7 @@
 // Inspiration Service for AI Chat V3
 // Generates reply suggestions and text enhancements
 
-import { Message, InspirationSuggestion } from '@/types/memory';
+import { UnifiedMessage, InspirationSuggestion } from '@/types/memory';
 import { apiManager } from '@/services/api-manager';
 
 export class InspirationService {
@@ -12,7 +12,7 @@ export class InspirationService {
    * @param suggestionCount 生成する候補数
    */
   async generateReplySuggestions(
-    recentMessages: Message[],
+    recentMessages: UnifiedMessage[],
     customPrompt?: string,
     suggestionCount: number = 4
   ): Promise<InspirationSuggestion[]> {
@@ -74,7 +74,7 @@ export class InspirationService {
    */
   async enhanceText(
     inputText: string,
-    recentMessages: Message[],
+    recentMessages: UnifiedMessage[],
     enhancePrompt?: string
   ): Promise<string> {
     const context = this.formatRecentMessages(recentMessages);
@@ -114,7 +114,7 @@ ${inputText}
   /**
    * 会話の続きを提案
    */
-  async suggestContinuation(recentMessages: Message[]): Promise<InspirationSuggestion[]> {
+  async suggestContinuation(recentMessages: UnifiedMessage[]): Promise<InspirationSuggestion[]> {
     const lastMessage = recentMessages[recentMessages.length - 1];
     
     if (!lastMessage) {
@@ -144,9 +144,9 @@ ${inputText}
   /**
    * 会話コンテキストの構築
    */
-  private buildConversationContext(messages: Message[]): string {
+  private buildConversationContext(messages: UnifiedMessage[]): string {
     return messages.map(msg => {
-      const role = msg.sender === 'user' ? 'ユーザー' : 'アシスタント';
+      const role = msg.role === 'user' ? 'ユーザー' : 'アシスタント';
       return `${role}: ${msg.content}`;
     }).join('\n');
   }
@@ -228,7 +228,7 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
   /**
    * 続きの必要性を分析
    */
-  private analyzeContinuationNeeds(lastMessage: Message): InspirationSuggestion['type'][] {
+  private analyzeContinuationNeeds(lastMessage: UnifiedMessage): InspirationSuggestion['type'][] {
     const content = lastMessage.content;
     const types: InspirationSuggestion['type'][] = [];
 
@@ -250,7 +250,7 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
    */
   private async generateContinuationByType(
     type: InspirationSuggestion['type'], 
-    _messages: Message[]
+    _messages: UnifiedMessage[]
   ): Promise<string> {
     const templates = {
       continuation: 'そうですね。',
@@ -285,7 +285,7 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
   /**
    * フォールバック用の提案生成
    */
-  private generateFallbackSuggestions(messages: Message[]): InspirationSuggestion[] {
+  private generateFallbackSuggestions(messages: UnifiedMessage[]): InspirationSuggestion[] {
     const lastMessage = messages[messages.length - 1];
     
     if (!lastMessage) {
@@ -347,9 +347,9 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
   /**
    * 最近のメッセージをフォーマット
    */
-  private formatRecentMessages(messages: Message[]): string {
+  private formatRecentMessages(messages: UnifiedMessage[]): string {
     return messages.slice(-6).map(msg => {
-      const role = msg.sender === 'user' ? 'ユーザー' : 'アシスタント';
+      const role = msg.role === 'user' ? 'ユーザー' : 'アシスタント';
       return `${role}: ${msg.content}`;
     }).join('\n');
   }
@@ -357,7 +357,7 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
   /**
    * 提案の品質評価
    */
-  evaluateSuggestion(suggestion: InspirationSuggestion, context: Message[]): number {
+  evaluateSuggestion(suggestion: InspirationSuggestion, context: UnifiedMessage[]): number {
     let score = suggestion.confidence;
     
     // 長さによる調整

@@ -1211,8 +1211,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         <p className="text-sm text-slate-400">他人から見える性格や振る舞い</p>
                                         <Textarea
                                             placeholder="例: 明るく元気で、いつも笑顔を絶やさない。友達思いで誠実..."
-                                            value={formData?.external_personality || ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, external_personality: e.target.value} : null)}
+                                            value={(formData && 'external_personality' in formData) ? formData.external_personality || '' : ''}
+                                            onChange={e => setFormData(prev => prev && 'external_personality' in prev ? {...prev, external_personality: e.target.value} : prev)}
                                             rows={4}
                                             className="bg-slate-800/50 border-slate-600 focus:border-sky-400 resize-none"
                                         />

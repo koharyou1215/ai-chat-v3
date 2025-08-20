@@ -5,7 +5,7 @@ import { VectorStore } from './vector-store';
 import { MemoryLayerManager } from './memory-layer-manager';
 import { DynamicSummarizer } from './dynamic-summarizer';
 import { TrackerManager } from '../tracker/tracker-manager'; // Import TrackerManager
-import { Message, SearchResult, ConversationContext, Character } from '@/types'; // Adjust imports
+import { UnifiedMessage, SearchResult, ConversationContext, Character } from '@/types';
 
 /**
  * 統合会話管理システム
@@ -33,12 +33,12 @@ export class ConversationManager {
   };
 
   // 内部状態
-  private allMessages: Message[] = [];
+  private allMessages: UnifiedMessage[] = [];
   private sessionSummary: string = '';
   private pinnedMessages: Set<string> = new Set();
   private messageCount: number = 0;
 
-  constructor(initialMessages: Message[] = [], trackerManager?: TrackerManager) {
+  constructor(initialMessages: UnifiedMessage[] = [], trackerManager?: TrackerManager) {
     this.vectorStore = new VectorStore();
     this.memoryLayers = new MemoryLayerManager();
     this.summarizer = new DynamicSummarizer();
@@ -48,7 +48,7 @@ export class ConversationManager {
     this.importMessages(initialMessages);
   }
 
-  public async importMessages(messages: Message[]): Promise<void> {
+  public async importMessages(messages: UnifiedMessage[]): Promise<void> {
       this.allMessages = messages;
       this.messageCount = messages.length;
       
@@ -64,18 +64,55 @@ export class ConversationManager {
    * メッセージを追加して処理
    */
   async addMessage(
-    sender: 'user' | 'assistant',
+    role: 'user' | 'assistant',
     content: string,
     metadata?: Record<string, unknown>
-  ): Promise<Message> {
+  ): Promise<UnifiedMessage> {
     // メッセージオブジェクトの作成
-    const message: Message = {
+    const now = new Date().toISOString();
+    const message: UnifiedMessage = {
       id: this.generateMessageId(),
-      sender,
+      created_at: now,
+      updated_at: now,
+      version: 1,
+      metadata: metadata || {},
+      
+      session_id: '', // セッションIDは呼び出し側で設定
+      role,
       content,
-      timestamp: new Date(),
-      metadata,
-      importance: this.calculateImportance(content, metadata)
+      
+      memory: {
+        importance: {
+          score: this.calculateImportance(content, metadata),
+          factors: {
+            emotional_weight: 0.5,
+            repetition_count: 0,
+            user_emphasis: 0.5,
+            ai_judgment: 0.5
+          }
+        },
+        is_pinned: false,
+        is_bookmarked: false,
+        keywords: [],
+        summary: undefined
+      },
+      
+      expression: {
+        emotion: {
+          primary: 'neutral',
+          intensity: 0.5,
+          emoji: '😐'
+        },
+        style: {
+          font_weight: 'normal',
+          text_color: '#ffffff'
+        },
+        effects: []
+      },
+      
+      edit_history: [],
+      regeneration_count: 0,
+      is_deleted: false
     };
 
     // 全メッセージリストに追加

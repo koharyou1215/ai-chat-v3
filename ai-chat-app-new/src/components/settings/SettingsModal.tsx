@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
+import { useEffectSettings } from '@/contexts/EffectSettingsContext';
 
 export interface EffectSettings {
   // メッセージエフェクト
@@ -74,6 +75,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onEffectSettingsChange
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const { settings: contextSettings, updateSettings: updateContextSettings } = useEffectSettings();
 
   useEffect(() => {
     if (isOpen) {
@@ -103,37 +105,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAPIProvider
   } = useAppStore();
   
-  // エフェクト設定のデフォルト値
-  const [localEffectSettings, setLocalEffectSettings] = useState<EffectSettings>(effectSettings || {
-    // メッセージエフェクト
-    colorfulBubbles: true,
-    fontEffects: true,
-    particleEffects: true,
-    typewriterEffect: true,
-    
-    // 外観設定
-    bubbleOpacity: 85,
-    bubbleBlur: true,
-    
-    // 3D機能
-    hologramMessages: false,
-    particleText: false,
-    rippleEffects: true,
-    backgroundParticles: false,
-    
-    // 感情分析
-    realtimeEmotion: true,
-    emotionBasedStyling: true,
-    autoReactions: true,
-    
-    // トラッカー
-    autoTrackerUpdate: true,
-    showTrackers: true,
-    
-    // パフォーマンス
-    effectQuality: 'medium',
-    animationSpeed: 1.0
-  });
+  // エフェクト設定のデフォルト値 - ContextSettingsを優先
+  const [localEffectSettings, setLocalEffectSettings] = useState<EffectSettings>(contextSettings);
+  
+  // Propsから設定が渡された場合は上書き
+  useEffect(() => {
+    if (effectSettings) {
+      setLocalEffectSettings(effectSettings);
+    }
+  }, [effectSettings]);
 
   const tabs = [
     { id: 'effects', label: 'エフェクト', icon: Sparkles },
@@ -158,6 +138,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       [key]: value
     };
     setLocalEffectSettings(newSettings);
+    
+    // 即座にEffectSettingsContextに反映
+    updateContextSettings(newSettings);
+    if (onEffectSettingsChange) {
+      onEffectSettingsChange(newSettings);
+    }
   };
 
   const handleSave = () => {

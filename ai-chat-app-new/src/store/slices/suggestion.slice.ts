@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { InspirationService } from '@/services/inspiration-service';
-import { Message } from '@/types/memory';
+import { UnifiedMessage } from '@/types/memory';
 
 export interface SuggestionData {
   id: string;
@@ -22,8 +22,8 @@ export interface SuggestionSlice {
   setIsGeneratingSuggestions: (isGenerating: boolean) => void;
   
   // Enhanced methods
-  generateSuggestions: (messages: Message[], customPrompt?: string) => Promise<void>;
-  enhanceText: (text: string, messages: Message[], enhancePrompt?: string) => Promise<string>;
+  generateSuggestions: (messages: UnifiedMessage[], customPrompt?: string) => Promise<void>;
+  enhanceText: (text: string, messages: UnifiedMessage[], enhancePrompt?: string) => Promise<string>;
 }
 
 export const createSuggestionSlice: StateCreator<SuggestionSlice, [], [], SuggestionSlice> = (set, get) => ({

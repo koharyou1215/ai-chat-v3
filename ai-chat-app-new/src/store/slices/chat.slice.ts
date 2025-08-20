@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
+import { GroupChatSession, GroupChatMode } from '@/types/core/group-chat.types';
 import { apiManager } from '@/services/api-manager';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
@@ -7,11 +8,17 @@ import { AppStore } from '..';
 
 export interface ChatSlice {
   sessions: Map<UUID, UnifiedChatSession>;
-  trackerManagers: Map<UUID, TrackerManager>; // Add tracker managers map
+  trackerManagers: Map<UUID, TrackerManager>;
   active_session_id: UUID | null;
   is_generating: boolean;
   showSettingsModal: boolean;
   currentInputText: string;
+  
+  // グループチャット機能
+  groupSessions: Map<UUID, GroupChatSession>;
+  active_group_session_id: UUID | null;
+  is_group_mode: boolean;
+  group_generating: boolean;
   
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
   sendMessage: (content: string, imageUrl?: string) => Promise<void>;
@@ -29,6 +36,15 @@ export interface ChatSlice {
 
   getActiveSession: () => UnifiedChatSession | null;
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
+  
+  // グループチャット機能
+  createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode) => Promise<UUID>;
+  sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
+  setGroupMode: (isGroupMode: boolean) => void;
+  setActiveGroupSessionId: (sessionId: UUID | null) => void;
+  getActiveGroupSession: () => GroupChatSession | null;
+  toggleGroupCharacter: (sessionId: UUID, characterId: string) => void;
+  setGroupChatMode: (sessionId: UUID, mode: GroupChatMode) => void;
 }
 
 export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, get) => ({
@@ -38,6 +54,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   is_generating: false,
   showSettingsModal: false,
   currentInputText: '',
+  
+  // グループチャット初期値
+  groupSessions: new Map(),
+  active_group_session_id: null,
+  is_group_mode: false,
+  group_generating: false,
   
   createSession: async (character, persona) => {
     const newSession: UnifiedChatSession = {
@@ -428,6 +450,328 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         return { sessions: newSessions };
       }
       return state;
+    });
+  },
+
+  // グループチャット機能実装
+  createGroupSession: async (characters, persona, mode = 'sequential') => {
+    const groupSessionId = `group-${Date.now()}`;
+    
+    const groupSession: GroupChatSession = {
+      id: groupSessionId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      version: 1,
+      is_deleted: false,
+      metadata: {},
+      
+      name: `${characters.map(c => c.name).join('、')}とのグループチャット`,
+      character_ids: characters.map(c => c.id),
+      characters,
+      active_character_ids: new Set(characters.map(c => c.id)),
+      persona,
+      messages: [
+        {
+          id: `group-welcome-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 1,
+          session_id: groupSessionId,
+          role: 'assistant',
+          content: `${characters.map(c => c.name).join('、')}がグループチャットに参加しました！`,
+          memory: {
+            importance: { score: 0.3, factors: { emotional_weight: 0.2, repetition_count: 0, user_emphasis: 0, ai_judgment: 0.3 } },
+            is_pinned: false,
+            is_bookmarked: false,
+            keywords: ['グループチャット', '開始'],
+            summary: 'グループチャット開始メッセージ'
+          },
+          expression: {
+            emotion: { primary: 'happy', intensity: 0.7, emoji: '👥' },
+            style: { font_weight: 'normal', text_color: '#ffffff' },
+            effects: []
+          },
+          edit_history: [],
+          regeneration_count: 0,
+          metadata: { is_group_response: true }
+        }
+      ],
+      
+      chat_mode: mode,
+      max_active_characters: 3,
+      speaking_order: characters.map(c => c.id),
+      voice_settings: new Map(),
+      response_delay: 500,
+      simultaneous_responses: mode === 'simultaneous',
+      
+      message_count: 1,
+      last_message_at: new Date().toISOString()
+    };
+
+    // 各キャラクターのトラッカーマネージャーを初期化
+    const trackerManagers = get().trackerManagers;
+    characters.forEach(character => {
+      if (!trackerManagers.has(character.id)) {
+        const trackerManager = new TrackerManager();
+        trackerManager.initializeTrackerSet(character.id, character.trackers);
+        trackerManagers.set(character.id, trackerManager);
+      }
+    });
+
+    set(state => ({
+      groupSessions: new Map(state.groupSessions).set(groupSessionId, groupSession),
+      trackerManagers: new Map(trackerManagers),
+      active_group_session_id: groupSessionId,
+      is_group_mode: true
+    }));
+
+    return groupSessionId;
+  },
+
+  sendGroupMessage: async (content, imageUrl) => {
+    const activeGroupSessionId = get().active_group_session_id;
+    if (!activeGroupSessionId) return;
+
+    if (get().group_generating) return;
+    set({ group_generating: true });
+
+    const groupSession = get().groupSessions.get(activeGroupSessionId);
+    if (!groupSession) {
+      set({ group_generating: false });
+      return;
+    }
+
+    try {
+      // ユーザーメッセージを追加
+      const userMessage: UnifiedMessage = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        session_id: activeGroupSessionId,
+        role: 'user',
+        content,
+        image_url: imageUrl,
+        memory: {
+          importance: { score: 0.7, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.8, ai_judgment: 0.6 } },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: [],
+        },
+        expression: {
+          emotion: { primary: 'neutral', intensity: 0.5, emoji: '😊' },
+          style: { font_weight: 'normal', text_color: '#ffffff' },
+          effects: []
+        },
+        edit_history: [],
+        regeneration_count: 0,
+        metadata: {}
+      };
+
+      groupSession.messages.push(userMessage);
+
+      // アクティブキャラクターからの応答を生成
+      const activeCharacters = Array.from(groupSession.active_character_ids)
+        .map(id => groupSession.characters.find(c => c.id === id))
+        .filter(Boolean);
+
+      const responses: UnifiedMessage[] = [];
+
+      if (groupSession.chat_mode === 'simultaneous') {
+        // 同時応答
+        const responsePromises = activeCharacters.map(async (character, index) => {
+          const response = await get().generateCharacterResponse(groupSession, character, content, []);
+          return { ...response, metadata: { ...response.metadata, response_order: index } };
+        });
+        
+        const parallelResponses = await Promise.all(responsePromises);
+        responses.push(...parallelResponses);
+      } else {
+        // 順次応答
+        for (let i = 0; i < activeCharacters.length; i++) {
+          const character = activeCharacters[i];
+          const response = await get().generateCharacterResponse(groupSession, character, content, responses);
+          responses.push({ ...response, metadata: { ...response.metadata, response_order: i } });
+          
+          // 少し遅延
+          if (i < activeCharacters.length - 1 && groupSession.response_delay > 0) {
+            await new Promise(resolve => setTimeout(resolve, groupSession.response_delay));
+          }
+        }
+      }
+
+      // 応答をセッションに追加
+      groupSession.messages.push(...responses);
+      groupSession.message_count += responses.length + 1; // ユーザーメッセージも含む
+      groupSession.last_message_at = new Date().toISOString();
+      groupSession.updated_at = new Date().toISOString();
+
+      set(state => ({
+        groupSessions: new Map(state.groupSessions).set(activeGroupSessionId, groupSession)
+      }));
+
+    } catch (error) {
+      console.error('Group message generation failed:', error);
+    } finally {
+      set({ group_generating: false });
+    }
+  },
+
+  // ヘルパー関数: キャラクターの応答生成
+  generateCharacterResponse: async (groupSession: GroupChatSession, character: any, userMessage: string, previousResponses: UnifiedMessage[]) => {
+    // グループチャット用のシステムプロンプトを構築
+    const otherCharacters = groupSession.characters
+      .filter(c => c.id !== character.id && groupSession.active_character_ids.has(c.id))
+      .map(c => c.name)
+      .join('、');
+
+    const recentMessages = groupSession.messages.slice(-10);
+    const conversationHistory = recentMessages
+      .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+      .map(msg => ({ 
+        role: msg.role as 'user' | 'assistant', 
+        content: msg.content 
+      }));
+
+    let systemPrompt = `あなたは${character.name}として、グループチャットに参加しています。
+
+他の参加者: ${otherCharacters}
+ユーザー: ${groupSession.persona.name}
+
+${character.personality}
+${character.speaking_style ? `話し方: ${character.speaking_style}` : ''}
+
+グループチャットでは自然で協調的な会話を心がけてください。
+他のキャラクターの発言も考慮して、重複を避けながら独自の視点で応答してください。`;
+
+    // 直前の応答がある場合
+    if (previousResponses.length > 0) {
+      systemPrompt += `\n\n直前の応答:\n`;
+      previousResponses.forEach(r => {
+        systemPrompt += `${r.character_name}: ${r.content}\n`;
+      });
+      systemPrompt += `\nこれらも考慮して、${character.name}として応答してください。`;
+    }
+
+    try {
+      const aiResponse = await apiManager.generateMessage(
+        systemPrompt,
+        userMessage,
+        conversationHistory
+      );
+
+      return {
+        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        session_id: groupSession.id,
+        role: 'assistant',
+        content: aiResponse,
+        character_id: character.id,
+        character_name: character.name,
+        character_avatar: character.avatar_url,
+        memory: {
+          importance: { score: 0.6, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.7 } },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: [],
+        },
+        expression: {
+          emotion: { primary: 'neutral', intensity: 0.6, emoji: '💬' },
+          style: { font_weight: 'normal', text_color: '#ffffff' },
+          effects: []
+        },
+        edit_history: [],
+        regeneration_count: 0,
+        metadata: { is_group_response: true }
+      } as UnifiedMessage;
+
+    } catch (error) {
+      console.error(`Failed to generate response for ${character.name}:`, error);
+      
+      return {
+        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        session_id: groupSession.id,
+        role: 'assistant',
+        content: '...',
+        character_id: character.id,
+        character_name: character.name,
+        character_avatar: character.avatar_url,
+        memory: {
+          importance: { score: 0.3, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.3 } },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: [],
+        },
+        expression: {
+          emotion: { primary: 'neutral', intensity: 0.3, emoji: '❓' },
+          style: { font_weight: 'normal', text_color: '#ffffff' },
+          effects: []
+        },
+        edit_history: [],
+        regeneration_count: 0,
+        metadata: { is_group_response: true }
+      } as UnifiedMessage;
+    }
+  },
+
+  setGroupMode: (isGroupMode) => {
+    set({ is_group_mode: isGroupMode });
+  },
+
+  setActiveGroupSessionId: (sessionId) => {
+    set({ active_group_session_id: sessionId });
+  },
+
+  getActiveGroupSession: () => {
+    const state = get();
+    if (!state.active_group_session_id) return null;
+    return state.groupSessions.get(state.active_group_session_id) || null;
+  },
+
+  toggleGroupCharacter: (sessionId, characterId) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      const newActiveIds = new Set(session.active_character_ids);
+      if (newActiveIds.has(characterId)) {
+        newActiveIds.delete(characterId);
+      } else if (newActiveIds.size < session.max_active_characters) {
+        newActiveIds.add(characterId);
+      }
+
+      const updatedSession = {
+        ...session,
+        active_character_ids: newActiveIds,
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
+      };
+    });
+  },
+
+  setGroupChatMode: (sessionId, mode) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      const updatedSession = {
+        ...session,
+        chat_mode: mode,
+        simultaneous_responses: mode === 'simultaneous',
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
+      };
     });
   },
 });

@@ -278,7 +278,8 @@ const TrackerItem: React.FC<{
 }> = ({ tracker, onUpdate, hasRecentChange = false, _changeIndicator, previousValue }) => {
 
   const renderTracker = () => {
-    switch (tracker.type) {
+    const trackerType = tracker.config?.type;
+    switch (trackerType) {
       case 'numeric':
         return <NumericTracker tracker={tracker} onUpdate={onUpdate} hasRecentChange={hasRecentChange} previousValue={previousValue} />;
       case 'state':
@@ -288,7 +289,7 @@ const TrackerItem: React.FC<{
       case 'text':
         return <TextTracker tracker={tracker} onUpdate={onUpdate} hasRecentChange={hasRecentChange} />;
       default:
-        return <div className="text-sm text-gray-400">Unknown tracker type</div>;
+        return <div className="text-sm text-gray-400">Unknown tracker type: {trackerType}</div>;
     }
   };
 
@@ -312,7 +313,7 @@ const TrackerItem: React.FC<{
               exit={{ opacity: 0, scale: 0.8 }}
               className="flex items-center"
             >
-              {tracker.type === 'numeric' && typeof tracker.current_value === 'number' && typeof previousValue === 'number' && tracker.current_value > previousValue ? (
+              {tracker.config?.type === 'numeric' && typeof tracker.current_value === 'number' && typeof previousValue === 'number' && tracker.current_value > previousValue ? (
                 <TrendingUp size={12} className="text-green-400" />
               ) : (
                 <TrendingDown size={12} className="text-red-400" />

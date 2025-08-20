@@ -1,7 +1,8 @@
 // Dynamic Summarization System for AI Chat V3
 // Chunk-based and hierarchical summarization with cost optimization
 
-import { Message } from '@/types/memory';
+import { UnifiedMessage } from '@/types';
+import { MessageConverter } from '@/types/memory';
 
 /**
  * 動的要約生成システム
@@ -16,7 +17,7 @@ export class DynamicSummarizer {
    * メッセージチャンクの要約を生成
    * コスト最適化: キャッシュを活用してAPI呼び出しを削減
    */
-  async summarizeChunk(messages: Message[]): Promise<string> {
+  async summarizeChunk(messages: UnifiedMessage[]): Promise<string> {
     // キャッシュキーの生成
     const cacheKey = this.generateCacheKey(messages);
     
@@ -51,7 +52,7 @@ export class DynamicSummarizer {
    * 複数のチャンク要約をさらに要約
    */
   async createHierarchicalSummary(
-    messages: Message[],
+    messages: UnifiedMessage[],
     level: number = 2
   ): Promise<string> {
     if (messages.length <= this.chunkSize) {
@@ -90,7 +91,7 @@ ${chunkSummaries.join('\n---\n')}
    */
   async updateSummary(
     existingSummary: string,
-    newMessages: Message[]
+    newMessages: UnifiedMessage[]
   ): Promise<string> {
     if (newMessages.length === 0) {
       return existingSummary;
@@ -120,7 +121,7 @@ ${this.maxSummaryLength}文字以内で更新された要約を作成してく�
   /**
    * 要約プロンプトの構築
    */
-  private buildSummaryPrompt(messages: Message[]): string {
+  private buildSummaryPrompt(messages: UnifiedMessage[]): string {
     const formattedMessages = this.formatMessages(messages);
     
     return `
@@ -142,9 +143,9 @@ ${formattedMessages}
   /**
    * メッセージのフォーマット
    */
-  private formatMessages(messages: Message[]): string {
+  private formatMessages(messages: UnifiedMessage[]): string {
     return messages.map(m => {
-      const role = m.sender === 'user' ? 'ユーザー' : 'アシスタント';
+      const role = m.role === 'user' ? 'ユーザー' : 'アシスタント';
       return `${role}: ${m.content}`;
     }).join('\n');
   }
@@ -170,7 +171,7 @@ ${formattedMessages}
   /**
    * フォールバック要約（API失敗時）
    */
-  private fallbackSummarize(messages: Message[]): string {
+  private fallbackSummarize(messages: UnifiedMessage[]): string {
     // 最初と最後のメッセージを抽出
     const first = messages[0];
     const last = messages[messages.length - 1];
@@ -186,7 +187,7 @@ ${formattedMessages}
   /**
    * キーワード抽出（簡易版）
    */
-  private extractKeywords(messages: Message[]): string[] {
+  private extractKeywords(messages: UnifiedMessage[]): string[] {
     const text = messages.map(m => m.content).join(' ');
     const words = text.split(/\s+/);
     
@@ -208,8 +209,8 @@ ${formattedMessages}
   /**
    * チャンク分割
    */
-  private splitIntoChunks(messages: Message[], size: number): Message[][] {
-    const chunks: Message[][] = [];
+  private splitIntoChunks(messages: UnifiedMessage[], size: number): UnifiedMessage[][] {
+    const chunks: UnifiedMessage[][] = [];
     for (let i = 0; i < messages.length; i += size) {
       chunks.push(messages.slice(i, i + size));
     }
@@ -219,7 +220,7 @@ ${formattedMessages}
   /**
    * キャッシュキー生成
    */
-  private generateCacheKey(messages: Message[]): string {
+  private generateCacheKey(messages: UnifiedMessage[]): string {
     const ids = messages.map(m => m.id).join('-');
     return `summary-${ids}`;
   }
@@ -252,7 +253,7 @@ ${formattedMessages}
   /**
    * 公開API: 簡単な要約インターフェース
    */
-  async summarize(messages: Message[]): Promise<string> {
+  async summarize(messages: UnifiedMessage[]): Promise<string> {
     if (messages.length <= this.chunkSize) {
       return this.summarizeChunk(messages);
     }

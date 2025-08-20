@@ -1,7 +1,7 @@
 // src/types/core/message.types.ts
 
 import { BaseEntity, SoftDeletable, WithMetadata, UUID, Timestamp } from './base.types';
-import { EmotionState, VoiceData } from './expression.types';
+import { EmotionState } from './expression.types';
 import { MemoryImportance } from './memory.types';
 
 /**

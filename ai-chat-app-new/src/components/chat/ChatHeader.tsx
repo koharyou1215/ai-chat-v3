@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, PanelLeft, UserCircle, Bot, Settings } from 'lucide-react'; // アイコンを追加
+import { Brain, PanelLeft, UserCircle, Bot, Settings, Users } from 'lucide-react'; // アイコンを追加
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 
@@ -50,11 +50,16 @@ export const ChatHeader: React.FC = () => {
         getSelectedPersona,
         apiConfig,
         setShowSettingsModal,
+        is_group_mode,
+        setGroupMode,
+        active_group_session_id,
+        groupSessions,
     } = useAppStore();
     
     const session = getActiveSession();
     const character = getSelectedCharacter();
     const persona = getSelectedPersona();
+    const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
     
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
@@ -129,8 +134,22 @@ export const ChatHeader: React.FC = () => {
                 </div>
             </div>
             
-            {/* Right side buttons - right panel toggle */}
+            {/* Right side buttons - group mode toggle and right panel toggle */}
             <div className="flex items-center gap-3">
+                {/* グループチャットモード切り替え */}
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setGroupMode(!is_group_mode)}
+                    className={cn(
+                        "p-2 rounded-full transition-colors",
+                        is_group_mode ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10"
+                    )}
+                    title={is_group_mode ? "通常チャットに切り替え" : "グループチャットに切り替え"}
+                >
+                    <Users className="w-5 h-5" />
+                </motion.button>
+
                 {/* 現在のモデル表示 */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}

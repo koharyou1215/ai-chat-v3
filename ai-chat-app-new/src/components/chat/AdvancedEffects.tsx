@@ -1,10 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-// Three.jsライブラリは必要な時のみ動的ロード
-// import * as THREE from 'three';
-// import { Canvas, useFrame } from '@react-three/fiber';
-// import { Float, MeshDistortMaterial } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffectSettings } from '@/contexts/EffectSettingsContext';
 import { ClientOnly } from '@/components/utils/ClientOnly';

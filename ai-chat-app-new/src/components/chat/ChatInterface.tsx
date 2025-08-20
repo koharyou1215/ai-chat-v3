@@ -18,6 +18,7 @@ import { ChatHistoryModal } from '../history/ChatHistoryModal';
 import { VoiceSettingsModal } from '../voice/VoiceSettingsModal';
 import { CharacterForm } from '../character/CharacterForm';
 import { SuggestionModal } from './SuggestionModal';
+import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar'; // インポートを修正
 import { cn } from '@/lib/utils';
 
@@ -95,11 +96,19 @@ export const ChatInterface: React.FC = () => {
         isRightPanelOpen, // isRightPanelOpen をストアから取得
         setRightPanelOpen, // setRightPanelOpen をストアから取得
         getSelectedCharacter, // getSelectedCharacter をストアから取得
+        is_group_mode,
+        group_generating,
+        active_group_session_id,
+        groupSessions,
+        createGroupSession,
     } = useAppStore();
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'memory' | 'tracker' | 'history' | 'layers'>('memory');
+    
+    // グループチャットセッションの取得
+    const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

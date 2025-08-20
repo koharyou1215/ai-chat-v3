@@ -7,8 +7,3 @@ export interface EmotionState {
     emoji?: string;
 }
 
-export interface VoiceData {
-    url: string;
-    duration: number;
-    provider: 'voicevox' | 'elevenlabs';
-}

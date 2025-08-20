@@ -1,7 +1,8 @@
 // Vector Store Implementation for AI Chat V3
 // High-performance vector search using OpenAI embeddings and FAISS
 
-import { Message, SearchResult } from '@/types/memory';
+import { UnifiedMessage } from '@/types';
+import { SearchResult } from '@/types/memory';
 
 /**
  * FAISSをTypeScriptで使用するためのブリッジクラス
@@ -9,7 +10,7 @@ import { Message, SearchResult } from '@/types/memory';
  */
 export class VectorStore {
   private embeddings: Map<string, number[]> = new Map();
-  private messages: Map<string, Message> = new Map();
+  private messages: Map<string, UnifiedMessage> = new Map();
   private dimension: number = 1536; // OpenAI embedding dimension
   
   // FAISSインデックス（実際はPython側で管理）
@@ -87,7 +88,7 @@ export class VectorStore {
    * メッセージを追加してインデックス化
    * コスト最適化: バッチ処理で embedding API呼び出しを削減
    */
-  async addMessage(message: Message): Promise<void> {
+  async addMessage(message: UnifiedMessage): Promise<void> {
     // 既存のメッセージはスキップ（コスト削減）
     if (this.messages.has(message.id)) {
       return;
@@ -111,7 +112,7 @@ export class VectorStore {
   /**
    * バッチ処理でメッセージを追加（コスト最適化）
    */
-  async addMessagesBatch(messages: Message[]): Promise<void> {
+  async addMessagesBatch(messages: UnifiedMessage[]): Promise<void> {
     try {
       /*
       const response = await fetch('/api/embeddings/batch', {

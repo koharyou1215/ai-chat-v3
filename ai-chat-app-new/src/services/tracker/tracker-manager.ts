@@ -51,22 +51,37 @@ export class TrackerManager {
         return;
       }
       
-      const initializedTracker: Tracker = { ...normalizedDefinition, current_value: undefined };
+      // 初期値を設定
+      let currentValue: string | number | boolean;
       
       switch (normalizedDefinition.config.type) {
         case 'numeric':
-          initializedTracker.current_value = normalizedDefinition.config.initial_value;
+          currentValue = normalizedDefinition.config.initial_value ?? 0;
           break;
         case 'state':
-          initializedTracker.current_value = normalizedDefinition.config.initial_state;
+          currentValue = normalizedDefinition.config.initial_state ?? '';
           break;
         case 'boolean':
-          initializedTracker.current_value = normalizedDefinition.config.initial_value;
+          currentValue = normalizedDefinition.config.initial_value ?? false;
           break;
         case 'text':
-          initializedTracker.current_value = normalizedDefinition.config.initial_value || '';
+          currentValue = normalizedDefinition.config.initial_value ?? '';
           break;
+        default:
+          currentValue = 0;
       }
+      
+      const initializedTracker: Tracker = { 
+        ...normalizedDefinition, 
+        current_value: currentValue 
+      };
+      
+      console.log(`Initialized tracker ${normalizedDefinition.name}:`, {
+        type: normalizedDefinition.config.type,
+        initial_value: normalizedDefinition.config.initial_value,
+        initial_state: normalizedDefinition.config.initial_state,
+        current_value: currentValue
+      });
       trackerMap.set(normalizedDefinition.name, initializedTracker);
     });
 

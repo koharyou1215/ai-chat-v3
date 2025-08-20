@@ -129,6 +129,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     alert('コピーしました');
   };
   const handleSpeak = async () => {
+    console.log('Voice settings:', voiceSettings);
+    
     if (isSpeaking) {
       // 停止
       if (audioObj) {
@@ -153,11 +155,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: message.content,
-            speaker: voiceSettings.voicevox?.speaker || 1,
-            speed: voiceSettings.voicevox?.speed || 1.0,
-            pitch: voiceSettings.voicevox?.pitch || 0.0,
-            intonation: voiceSettings.voicevox?.intonation || 1.0,
-            volume: voiceSettings.voicevox?.volume || 1.0
+            speakerId: voiceSettings.voicevox?.speaker || 1,
+            settings: {
+              speed: voiceSettings.voicevox?.speed || 1.0,
+              pitch: voiceSettings.voicevox?.pitch || 0.0,
+              intonation: voiceSettings.voicevox?.intonation || 1.0,
+              volume: voiceSettings.voicevox?.volume || 1.0
+            }
           })
         });
         const data = await res.json();
@@ -243,8 +247,52 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       alert('音声再生はこのブラウザでサポートされていません');
     }
   };
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(message.content);
+  
   const handleEdit = () => {
-    alert('チャット編集: 編集UIを実装');
+    setIsEditing(true);
+    setEditText(message.content);
+  };
+  
+  const handleSaveEdit = () => {
+    if (editText.trim() === '') return;
+    
+    const session = useAppStore.getState().sessions.get(activeSessionId || '');
+    if (!session) return;
+    
+    const updatedMessages = session.messages.map(msg => 
+      msg.id === message.id 
+        ? { 
+            ...msg, 
+            content: editText.trim(),
+            updated_at: new Date().toISOString(),
+            edit_history: [
+              ...msg.edit_history,
+              {
+                previous_content: message.content,
+                edited_at: new Date().toISOString(),
+                edit_reason: 'user_edit'
+              }
+            ]
+          }
+        : msg
+    );
+    
+    useAppStore.setState(state => ({
+      sessions: new Map(state.sessions).set(session.id, {
+        ...session,
+        messages: updatedMessages,
+        updated_at: new Date().toISOString(),
+      })
+    }));
+    
+    setIsEditing(false);
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditText(message.content);
   };
   // ここまで戻る本実装
   const handleRollback = () => {
@@ -502,19 +550,46 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {/* メッセージテキスト - ユーザーメッセージはシンプル表示、AIメッセージのみエフェクト適用 */}
-              {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
-                <RichMessage
-                  content={message.content}
-                  role={message.role}
-                  characterColor='#8b5cf6'
-                  enableEffects={isLatest}
-                  typingSpeed={isLatest ? 30 : 0}
-                />
-              ) : (
-                <div className="text-white/90 whitespace-pre-wrap">
-                  {message.content}
+              {/* メッセージテキスト - 編集モードと通常表示 */}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-full bg-black/20 text-white/90 border border-white/20 rounded p-2 min-h-[100px] resize-none focus:outline-none focus:border-white/40"
+                    placeholder="メッセージを編集..."
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                    >
+                      保存
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
+                    <RichMessage
+                      content={message.content}
+                      role={message.role}
+                      characterColor='#8b5cf6'
+                      enableEffects={isLatest}
+                      typingSpeed={isLatest ? 30 : 0}
+                    />
+                  ) : (
+                    <div className="text-white/90 whitespace-pre-wrap">
+                      {message.content}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

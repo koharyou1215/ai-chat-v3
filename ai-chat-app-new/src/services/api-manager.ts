@@ -1,5 +1,4 @@
 import { geminiClient } from './api/gemini-client';
-import { openRouterClient } from './api/openrouter-client';
 import { APIConfig, APIProvider } from '@/types';
 
 export type { APIProvider };
@@ -172,7 +171,9 @@ export class APIManager {
       topP?: number;
     }
   ): Promise<string> {
-    geminiClient.setModel(options.model);
+    // Geminiモデル名からプレフィックスを除去
+    const geminiModel = options.model.replace('google/', '');
+    geminiClient.setModel(geminiModel);
     
     const messages = geminiClient.formatMessagesForGemini(
       systemPrompt,
@@ -199,7 +200,9 @@ export class APIManager {
       topP?: number;
     }
   ): Promise<string> {
-    geminiClient.setModel(options.model);
+    // Geminiモデル名からプレフィックスを除去
+    const geminiModel = options.model.replace('google/', '');
+    geminiClient.setModel(geminiModel);
     
     const messages = geminiClient.formatMessagesForGemini(
       systemPrompt,
@@ -226,20 +229,36 @@ export class APIManager {
       topP?: number;
     }
   ): Promise<string> {
-    const messages = openRouterClient.formatMessagesForOpenRouter(
-      systemPrompt,
-      userMessage,
-      conversationHistory
-    );
+    // OpenRouterのメッセージ形式に変換
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user' as const, content: userMessage }
+    ];
 
-    const response = await openRouterClient.generateMessage(options.apiKey, messages, {
-      model: options.model,
-      temperature: options.temperature,
-      maxTokens: options.maxTokens,
-      topP: options.topP
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${options.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'X-Title': 'AI Chat V3'
+      },
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 2048,
+        top_p: options.topP || 1
+      })
     });
-    
-    return response;
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || '';
   }
 
   private async generateStreamWithOpenRouter(
@@ -255,18 +274,74 @@ export class APIManager {
       topP?: number;
     }
   ): Promise<string> {
-    const messages = openRouterClient.formatMessagesForOpenRouter(
-      systemPrompt,
-      userMessage,
-      conversationHistory
-    );
+    // OpenRouterのメッセージ形式に変換
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user' as const, content: userMessage }
+    ];
 
-    return await openRouterClient.generateMessageStream(options.apiKey, messages, onChunk, {
-      model: options.model,
-      temperature: options.temperature,
-      maxTokens: options.maxTokens,
-      topP: options.topP
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${options.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'X-Title': 'AI Chat V3'
+      },
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 2048,
+        top_p: options.topP || 1,
+        stream: true
+      })
     });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Failed to get response reader');
+    }
+
+    let fullResponse = '';
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices[0]?.delta?.content || '';
+              if (content) {
+                fullResponse += content;
+                onChunk(content);
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return fullResponse;
   }
 
   async testConnection(): Promise<{
@@ -310,7 +385,13 @@ export class APIManager {
       },
       {
         provider: 'openrouter',
-        models: openRouterClient.getPopularModels()
+        models: [
+          { id: 'anthropic/claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Anthropic最新モデル' },
+          { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'OpenAI最新モデル' },
+          { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'コスト効率重視' },
+          { id: 'google/gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', description: '高速Gemini 2.0' },
+          { id: 'x-ai/grok-beta', name: 'Grok Beta', description: 'xAI開発モデル' }
+        ]
       }
     ];
   }
@@ -321,7 +402,24 @@ export class APIManager {
     }
     
     try {
-      return await openRouterClient.getModels(this.openRouterApiKey);
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${this.openRouterApiKey}`,
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          'X-Title': 'AI Chat V3'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.data?.map((model: any) => ({
+        id: model.id,
+        name: model.name || model.id,
+        description: model.description
+      })) || [];
     } catch (error) {
       console.error('Failed to fetch OpenRouter models:', error);
       throw error;
