@@ -50,6 +50,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  
+  // Railway デプロイ用設定
+  env: {
+    PORT: process.env.PORT || '3000',
+  },
+  
+  // 出力設定
+  output: 'standalone',
 };
 
 export default nextConfig;
