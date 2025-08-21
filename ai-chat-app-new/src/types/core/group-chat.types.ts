@@ -15,6 +15,9 @@ export interface GroupChatSession extends BaseEntity, SoftDeletable, WithMetadat
   persona: Persona;
   messages: UnifiedMessage[];
   
+  // シナリオ設定
+  scenario?: GroupChatScenario;
+  
   // チャット設定
   chat_mode: GroupChatMode;
   max_active_characters: number;
@@ -85,4 +88,38 @@ export interface GroupMessageMetadata {
   is_group_response?: boolean;
   referenced_character_ids?: string[];
   response_type?: 'initial' | 'reactive' | 'follow_up';
+}
+
+/**
+ * グループチャットシナリオ
+ */
+export interface GroupChatScenario {
+  id: string;
+  title: string;
+  setting: string;
+  situation: string;
+  initial_prompt: string;
+  character_roles: Record<string, string>; // character_id -> role description
+  objectives: string[];
+  background_context: string;
+  scenario_type: 'template' | 'custom' | 'ai_generated';
+  template_id?: string;
+}
+
+/**
+ * シナリオテンプレート
+ */
+export interface ScenarioTemplate {
+  id: string;
+  name: string;
+  description: string;
+  setting: string;
+  situation: string;
+  objectives?: string[];
+  tone: 'casual' | 'dramatic' | 'romantic' | 'adventure' | 'mystery' | 'comedy';
+  character_requirements: {
+    min_count: number;
+    max_count: number;
+    preferred_types?: string[];
+  };
 }

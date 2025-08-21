@@ -4,15 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedCharacter } from '@/types/core/character.types';
-import { GroupChatMode } from '@/types/core/group-chat.types';
-import { Users, Plus, Settings, Play, Shuffle, Zap, Brain } from 'lucide-react';
+import { GroupChatMode, GroupChatScenario, ScenarioTemplate } from '@/types/core/group-chat.types';
+import { Users, Plus, Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ScenarioSelector } from './ScenarioSelector';
 import { cn } from '@/lib/utils';
 
 interface GroupChatInterfaceProps {
   onStartGroupChat: (
     name: string,
     characterIds: string[],
-    mode: GroupChatMode
+    mode: GroupChatMode,
+    scenario?: GroupChatScenario
   ) => void;
 }
 
@@ -36,10 +38,15 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   const [chatMode, setChatMode] = useState<GroupChatMode>('sequential');
   const [showSetup, setShowSetup] = useState(false);
   
+  // シナリオ関連
+  const [currentStep, setCurrentStep] = useState<'characters' | 'scenario' | 'settings'>('characters');
+  const [selectedScenario, setSelectedScenario] = useState<GroupChatScenario | null>(null);
+  
   const persona = getSelectedPersona();
   const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
   
   const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
+  
   
   const toggleCharacterSelection = (characterId: string) => {
     setSelectedCharacterIds(prev => {
@@ -72,11 +79,28 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
         selectedCharacters,
         persona,
         chatMode,
-        groupName
+        groupName,
+        selectedScenario || undefined
       );
       
       setShowSetup(false);
+      resetState();
     }
+  };
+
+  const resetState = () => {
+    setCurrentStep('characters');
+    setSelectedScenario(null);
+  };
+
+  const handleScenarioSelect = (scenario: GroupChatScenario) => {
+    setSelectedScenario(scenario);
+    setGroupName(scenario.title);
+    setCurrentStep('settings');
+  };
+
+  const handleSkipScenario = () => {
+    setCurrentStep('settings');
   };
   
   const chatModeOptions = [
@@ -446,7 +470,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </div>
           </div>
           
-          {/* 開始ボタン */}
+          {/* ナビゲーションボタン */}
           <div className="flex gap-3">
             <button
               onClick={() => setShowSetup(false)}
@@ -454,13 +478,43 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             >
               キャンセル
             </button>
-            <button
-              onClick={handleStartGroupChat}
-              disabled={selectedCharacterIds.length < 2 || !persona}
-              className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-            >
-              グループチャット開始
-            </button>
+            
+            {currentStep === 'characters' && (
+              <button
+                onClick={() => setCurrentStep('scenario')}
+                disabled={selectedCharacterIds.length < 2}
+                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                シナリオ選択 <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+            
+            {currentStep === 'scenario' && (
+              <button
+                onClick={() => setCurrentStep('characters')}
+                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> キャラクター選択
+              </button>
+            )}
+            
+            {currentStep === 'settings' && (
+              <>
+                <button
+                  onClick={() => setCurrentStep('scenario')}
+                  className="py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" /> 戻る
+                </button>
+                <button
+                  onClick={handleStartGroupChat}
+                  disabled={selectedCharacterIds.length < 2 || !persona}
+                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                >
+                  グループチャット開始
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

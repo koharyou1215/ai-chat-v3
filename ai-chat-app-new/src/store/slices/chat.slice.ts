@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
-import { GroupChatSession, GroupChatMode } from '@/types/core/group-chat.types';
+import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core/group-chat.types';
 import { apiManager } from '@/services/api-manager';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
@@ -39,7 +39,7 @@ export interface ChatSlice {
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
   
   // グループチャット機能
-  createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string) => Promise<UUID>;
+  createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string, scenario?: GroupChatScenario) => Promise<UUID>;
   sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
   setGroupMode: (isGroupMode: boolean) => void;
   setActiveGroupSessionId: (sessionId: UUID | null) => void;
@@ -527,8 +527,13 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
 
   // グループチャット機能実装
-  createGroupSession: async (characters, persona, mode = 'sequential', groupName) => {
+  createGroupSession: async (characters, persona, mode = 'sequential', groupName, scenario) => {
     const groupSessionId = `group-${Date.now()}`;
+    
+    // シナリオ有りの場合の初期メッセージ
+    const initialContent = scenario 
+      ? scenario.initial_prompt || `${scenario.title}が始まります。${scenario.situation}`
+      : `${characters.map(c => c.name).join('、')}がグループチャットに参加しました！`;
     
     const groupSession: GroupChatSession = {
       id: groupSessionId,
@@ -543,6 +548,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       characters,
       active_character_ids: new Set(characters.map(c => c.id)),
       persona,
+      scenario, // シナリオ情報を追加
       messages: [
         {
           id: `group-welcome-${Date.now()}`,
@@ -551,7 +557,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           version: 1,
           session_id: groupSessionId,
           role: 'assistant',
-          content: `${characters.map(c => c.name).join('、')}がグループチャットに参加しました！`,
+          content: initialContent,
           memory: {
             importance: { score: 0.3, factors: { emotional_weight: 0.2, repetition_count: 0, user_emphasis: 0, ai_judgment: 0.3 } },
             is_pinned: false,
