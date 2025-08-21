@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2 } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -251,13 +251,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.content);
+  const [showEditOptions, setShowEditOptions] = useState(false);
   
   const handleEdit = () => {
     setIsEditing(true);
     setEditText(message.content);
   };
   
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async (shouldRegenerate = false) => {
     if (editText.trim() === '') return;
     
     const session = useAppStore.getState().sessions.get(activeSessionId || '');
@@ -290,6 +291,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }));
     
     setIsEditing(false);
+    
+    // 編集後に再生成する場合
+    if (shouldRegenerate) {
+      // 編集されたメッセージ以降を削除してから再生成
+      const messageIndex = session.messages.findIndex(msg => msg.id === message.id);
+      if (messageIndex !== -1) {
+        const truncatedMessages = updatedMessages.slice(0, messageIndex + 1);
+        
+        useAppStore.setState(state => ({
+          sessions: new Map(state.sessions).set(session.id, {
+            ...session,
+            messages: truncatedMessages,
+            message_count: truncatedMessages.length,
+            updated_at: new Date().toISOString(),
+          })
+        }));
+        
+        // 再生成を実行
+        try {
+          await useAppStore.getState().regenerateLastMessage();
+        } catch (error) {
+          console.error('再生成エラー:', error);
+        }
+      }
+    }
   };
   
   const handleCancelEdit = () => {
@@ -352,10 +378,47 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
     alert('このキャラクターのチャット・メモリ・トラッカーを全てリセットしました');
   };
+  
+  // 個別メッセージ削除機能
+  const handleDeleteMessage = () => {
+    if (!confirm('このメッセージを削除しますか？')) return;
+    
+    const session = useAppStore.getState().sessions.get(activeSessionId || '');
+    if (!session) return;
+    
+    const updatedMessages = session.messages.filter(msg => msg.id !== message.id);
+    
+    useAppStore.setState(state => ({
+      sessions: new Map(state.sessions).set(session.id, {
+        ...session,
+        messages: updatedMessages,
+        message_count: updatedMessages.length,
+        updated_at: new Date().toISOString(),
+      })
+    }));
+    
+    // メモリレイヤーからも削除メッセージを除去（簡易版）
+    // TODO: より精密なメモリ管理が必要な場合は拡張
+    alert('メッセージを削除しました');
+  };
+  
+  // メニュー表示位置を確認（上か下か）
+  const checkMenuPosition = () => {
+    if (messageRef.current) {
+      const rect = messageRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const spaceBelow = windowHeight - rect.bottom;
+      const menuHeight = 60; // メニューのおおよその高さ
+      
+      setMenuPosition(spaceBelow < menuHeight ? 'top' : 'bottom');
+    }
+  };
   const [showActions, setShowActions] = useState(false);
   const [formattedTimestamp, setFormattedTimestamp] = useState('');
   const [effectTrigger, setEffectTrigger] = useState('');
   const [effectPosition, setEffectPosition] = useState({ x: 0, y: 0 });
+  const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
+  const messageRef = useRef<HTMLDivElement>(null);
   const [detectedEmotion, setDetectedEmotion] = useState<EmotionResult | null>(null);
   const { settings } = useEffectSettings();
   
@@ -443,6 +506,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <>
       <motion.div
+        ref={messageRef}
         initial={isLatest ? { opacity: 0, y: 20 } : false}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
@@ -450,8 +514,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           'flex gap-3',
           isUser ? 'justify-end' : 'justify-start'
         )}
-        onMouseEnter={() => setShowActions(true)}
-        onMouseLeave={() => setShowActions(false)}
+        onTouchStart={() => {
+          checkMenuPosition();
+          setShowActions(true);
+        }}
+        onClick={() => {
+          checkMenuPosition();
+          setShowActions(!showActions);
+        }}
         style={{ position: 'relative' }}
       >
       {/* アバター */}
@@ -581,12 +651,45 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       キャンセル
                     </button>
                     <button
-                      onClick={handleSaveEdit}
+                      onClick={() => setShowEditOptions(true)}
                       className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
                     >
                       保存
                     </button>
                   </div>
+                  
+                  {/* 編集オプション選択 */}
+                  {showEditOptions && (
+                    <div className="mt-2 p-3 bg-black/30 rounded border border-white/20">
+                      <p className="text-sm text-white/70 mb-2">編集後の動作を選択:</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            handleSaveEdit(false);
+                            setShowEditOptions(false);
+                          }}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                        >
+                          保存のみ
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleSaveEdit(true);
+                            setShowEditOptions(false);
+                          }}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                        >
+                          保存して再生成
+                        </button>
+                        <button
+                          onClick={() => setShowEditOptions(false)}
+                          className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -656,27 +759,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </motion.div>
 
-        {/* アクションメニュー */}
+        {/* モバイル対応アクションメニュー - バブル下部に配置 */}
         <AnimatePresence>
           {showActions && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
               className={cn(
-                'absolute top-0 flex gap-1 z-50',
-                isUser ? 'left-0 -translate-x-full' : 'right-0 translate-x-full',
-                'max-w-[90vw]'
+                'absolute left-1/2 -translate-x-1/2 z-50',
+                'bg-slate-800/95 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg',
+                'p-1 flex gap-1 justify-center',
+                'max-w-[95vw] overflow-x-auto scrollbar-hide',
+                menuPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
               )}
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
             >
-              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" />
-              <ActionButton icon={CornerUpLeft} onClick={handleContinue} title="続きを出力" />
-              <ActionButton icon={Copy} onClick={handleCopy} title="コピー" />
-              <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} />
-              <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" />
-              <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" />
-              <ActionButton icon={Trash2} onClick={handleClearAll} title="オールクリア" />
-              {/* <ActionButton icon={MoreVertical} onClick={() => {}} title="その他" /> */}
+              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact />
+              <ActionButton icon={CornerUpLeft} onClick={handleContinue} title="続きを出力" compact />
+              <ActionButton icon={Copy} onClick={handleCopy} title="コピー" compact />
+              <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} compact />
+              <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
+              <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
+              <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
+              <ActionButton icon={Trash2} onClick={handleClearAll} title="オールクリア" compact />
             </motion.div>
           )}
         </AnimatePresence>
@@ -710,14 +819,18 @@ const ActionButton: React.FC<{
   icon: React.ElementType;
   onClick: () => void;
   title: string;
-}> = ({ icon: Icon, onClick, title }) => (
+  compact?: boolean;
+}> = ({ icon: Icon, onClick, title, compact = false }) => (
   <motion.button
     whileHover={{ scale: 1.1 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
-    className="p-2 bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors"
+    className={cn(
+      "bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors",
+      compact ? "p-1.5" : "p-2"
+    )}
     title={title}
   >
-    <Icon className="w-4 h-4 text-white/70" />
+    <Icon className={cn("text-white/70", compact ? "w-3.5 h-3.5" : "w-4 h-4")} />
   </motion.button>
 );

@@ -128,8 +128,10 @@ export const ChatInterface: React.FC = () => {
                     {isLeftSidebarOpen && <ChatSidebar />}
                 </AnimatePresence>
                 <div className="flex-1 flex flex-col">
-                    <ChatHeader />
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+                        <ChatHeader />
+                    </div>
+                    <div className="flex-1 overflow-y-auto" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)'}}>
                         <GroupChatInterface 
                             onStartGroupChat={(name, characterIds, mode) => {
                                 // This will be handled by the GroupChatInterface component itself
@@ -203,8 +205,11 @@ export const ChatInterface: React.FC = () => {
                 )}
 
                 <div className={cn("relative z-10 flex flex-col h-full transition-all duration-300", isRightPanelOpen ? 'w-[calc(100%-400px)]' : 'w-full')}>
-                    <ChatHeader />
-                    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+                    {/* Safe Area対応ヘッダー */}
+                    <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+                        <ChatHeader />
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)'}}>
                         <AnimatePresence mode="popLayout" initial={false}>
                             {currentMessages.map((message, index) => (
                                 <MessageBubble
@@ -221,7 +226,10 @@ export const ChatInterface: React.FC = () => {
                         
                         <div ref={messagesEndRef} />
                     </div>
-                    <MessageInput />
+                    {/* Safe Area対応メッセージ入力欄 */}
+                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+                        <MessageInput />
+                    </div>
                 </div>
 
                 <AnimatePresence>
@@ -230,7 +238,7 @@ export const ChatInterface: React.FC = () => {
                             initial={{ width: 0, opacity: 0 }}
                             animate={{ width: 400, opacity: 1 }}
                             exit={{ width: 0, opacity: 0 }}
-                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full absolute right-0 top-0"
+                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full absolute right-0 top-0 z-40 md:relative md:z-auto max-w-[100vw] md:max-w-none"
                         >
                             <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">記憶情報</h3>

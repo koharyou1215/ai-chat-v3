@@ -2,11 +2,22 @@
 builder = "dockerfile"
 
 [deploy]
-startCommand = "./run --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/version"
 healthcheckTimeout = 300
+healthcheckInitialDelay = 120
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10
+restartPolicyMaxRetries = 3
+
+# Railwayプラットフォーム用の設定
+[env]
+PORT = { default = "50021" }
+HOST = { default = "0.0.0.0" }
 
 [[services]]
 name = "voicevox-engine"
+type = "web"
+
+# メモリとCPUの割り当てを増加
+[resources]
+memory = 4
+vCpu = 2
