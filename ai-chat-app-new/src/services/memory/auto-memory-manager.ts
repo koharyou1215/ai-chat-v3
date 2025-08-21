@@ -7,9 +7,10 @@ import { memoryCardGenerator } from './memory-card-generator';
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;
   private messageBuffer: UnifiedMessage[] = [];
-  private readonly BUFFER_SIZE = 10;
-  private readonly IMPORTANCE_THRESHOLD = 0.7;
-  private readonly TIME_THRESHOLD = 5 * 60 * 1000; // 5分
+  private readonly BUFFER_SIZE = 6;  // バッファサイズを減らして頻繁な生成を防ぐ
+  private readonly IMPORTANCE_THRESHOLD = 0.8; // 閾値を上げてより重要な内容のみ生成
+  private readonly TIME_THRESHOLD = 10 * 60 * 1000; // 10分に延長
+  private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
 
   /**
    * 新しいメッセージを処理して自動メモリー作成を判定
@@ -27,6 +28,12 @@ export class AutoMemoryManager {
       this.messageBuffer.shift();
     }
 
+    // 連続生成防止のチェック
+    const now = Date.now();
+    if (now - this.lastMemoryCreated < 60000) { // 1分以内は生成しない
+      return;
+    }
+    
     // 自動作成の条件をチェック
     const shouldCreateMemory = await this.shouldCreateMemoryCard(message, this.messageBuffer);
     
@@ -37,10 +44,11 @@ export class AutoMemoryManager {
         const messageIds = relevantMessages.map(msg => msg.id);
         
         await createMemoryCardFn(messageIds, sessionId, characterId);
-        console.log('Auto-generated memory card for important conversation');
+        console.log('[AutoMemory] Generated memory card for important conversation');
         
         // 処理済みマーク
         this.lastProcessedMessageId = message.id;
+        this.lastMemoryCreated = now; // 作成時刻を記録
       } catch (error) {
         console.error('Failed to auto-create memory card:', error);
       }

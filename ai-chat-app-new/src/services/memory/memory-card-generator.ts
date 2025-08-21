@@ -57,10 +57,12 @@ ${content}
 - other: その他
 `;
 
+      console.log('[MemoryCard] Generating memory card analysis...');
       const response = await apiManager.generateMessage(analysisPrompt, '', [], { 
         max_tokens: 1024,
         temperature: 0.3
       });
+      console.log('[MemoryCard] Raw API response:', response);
 
       // JSON解析
       const analysisResult = this.parseAnalysisResult(response);
@@ -118,8 +120,8 @@ ${content}
       // JSONブロックが見つからない場合、手動パース
       return this.manualParseResponse(response);
     } catch (error) {
-      console.error('Failed to parse AI analysis result:', error);
-      return {};
+      console.warn('[MemoryCard] JSON parse failed, using manual parse:', error);
+      return this.manualParseResponse(response);
     }
   }
 
@@ -207,13 +209,20 @@ ${content}
    * フォールバック用要約生成
    */
   private generateFallbackSummary(messages: UnifiedMessage[]): string {
-    const userMessages = messages.filter(m => m.role === 'user');
-    const assistantMessages = messages.filter(m => m.role === 'assistant');
+    console.log('[MemoryCard] Using fallback summary generation');
     
-    const totalLength = messages.reduce((sum, m) => sum + m.content.length, 0);
-    const avgLength = Math.round(totalLength / messages.length);
+    // 最新のメッセージから内容を抽出
+    const recentMessages = messages.slice(-3); // 最新の3件
+    const contentPreview = recentMessages
+      .map(m => m.content.slice(0, 30))
+      .join('、')
+      .slice(0, 80);
     
-    return `${messages.length}件のメッセージからなる会話。ユーザー${userMessages.length}件、アシスタント${assistantMessages.length}件の発言。平均文字数${avgLength}文字。`;
+    if (contentPreview.length > 10) {
+      return `${contentPreview}...についての会話`;
+    }
+    
+    return '最近の会話の記録';
   }
 
   /**

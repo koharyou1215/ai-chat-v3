@@ -36,11 +36,15 @@ export class TrackerManager {
             type: oldFormat.type,
             initial_value: oldFormat.initial_value !== undefined 
               ? oldFormat.initial_value 
-              : oldFormat.initial_boolean !== undefined 
-                ? oldFormat.initial_boolean 
-                : oldFormat.type === 'boolean' 
-                  ? false 
-                  : undefined,
+              : oldFormat.initial_text !== undefined 
+                ? oldFormat.initial_text
+                : oldFormat.initial_boolean !== undefined 
+                  ? oldFormat.initial_boolean 
+                  : oldFormat.type === 'boolean' 
+                    ? false 
+                    : oldFormat.type === 'numeric'
+                      ? (oldFormat.min_value || 0)
+                      : undefined,
             initial_state: oldFormat.initial_state,
             possible_states: oldFormat.possible_states || [],
             min_value: oldFormat.min_value,
@@ -48,6 +52,16 @@ export class TrackerManager {
             step: oldFormat.step || 1
           }
         };
+        
+        console.log(`[TrackerManager] Converted old format tracker '${definition.name}':`, {
+          oldFormat: { 
+            type: oldFormat.type, 
+            initial_value: oldFormat.initial_value,
+            initial_text: oldFormat.initial_text,
+            initial_boolean: oldFormat.initial_boolean
+          },
+          newFormat: normalizedDefinition.config
+        });
       } else {
         normalizedDefinition = definition;
       }
@@ -147,7 +161,7 @@ export class TrackerManager {
           // テキスト型の場合、initial_valueまたは空文字をデフォルトとして設定
           currentValue = typeof normalizedDefinition.config.initial_value === 'string' 
             ? normalizedDefinition.config.initial_value 
-            : '';
+            : '未設定';
           break;
         default:
           currentValue = 0;

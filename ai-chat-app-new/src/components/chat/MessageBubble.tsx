@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X, MoreVertical } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -514,14 +514,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           'flex gap-3',
           isUser ? 'justify-end' : 'justify-start'
         )}
-        onTouchStart={() => {
-          checkMenuPosition();
-          setShowActions(true);
-        }}
-        onClick={() => {
-          checkMenuPosition();
-          setShowActions(!showActions);
-        }}
+        // メニューはクリックで表示/非表示を切り替えるので、バブル自体はタッチイベントを処理しない
         style={{ position: 'relative' }}
       >
       {/* アバター */}
@@ -585,7 +578,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       {/* メッセージ本体 */}
       <div className={cn(
-        'group relative max-w-[70%]',
+        'group relative max-w-[70%] transition-all duration-200',
         isUser && 'items-end'
       )}>
         {/* ローディング・再生アニメーション */}
@@ -753,9 +746,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
           
-          {/* タイムスタンプ */}
-          <div className="mt-1 text-xs text-white/40">
-            {formattedTimestamp}
+          {/* タイムスタンプとメニューボタン */}
+          <div className="flex items-center justify-between mt-1">
+            <div className="text-xs text-white/40">
+              {formattedTimestamp}
+            </div>
+            {/* ケバブメニューボタン */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                checkMenuPosition();
+                setShowActions(!showActions);
+              }}
+              className="ml-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+              title="メニューを表示"
+            >
+              <MoreVertical className="w-3 h-3 text-white/60" />
+            </button>
           </div>
         </motion.div>
 

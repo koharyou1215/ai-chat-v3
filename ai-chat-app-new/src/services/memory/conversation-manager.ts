@@ -323,6 +323,8 @@ export class ConversationManager {
     prompt += `User: ${userInput}\n`;
     prompt += `AI: `;
 
+    console.log("====================\n[AI Prompt Context]\n====================", prompt);
+
     return prompt;
   }
 
