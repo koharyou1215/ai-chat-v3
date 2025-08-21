@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  voicevox:
+    build: .
+    ports:
+      - "50021:50021"
+    environment:
+      - VOICEVOX_ENGINE_URL=http://localhost:50021
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:50021/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

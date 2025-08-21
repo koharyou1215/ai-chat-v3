@@ -146,54 +146,85 @@ export class ScenarioGenerator {
       tags: char.tags?.slice(0, 3) || []
     }));
 
+    const allCharacterRoles = characters.map(char => 
+      `    "${char.name}": "役割・立場"`
+    ).join(',\n');
+
     const prompt = `
 以下のキャラクターたちのグループチャット用シナリオを生成してください。
 
 ## キャラクター情報
 ${characterDescriptions.map(char => 
-  `- ${char.name}（${char.occupation}）: ${char.tags.join(', ')}`
+  `- ${char.name}（${char.occupation}）: ${char.personality.substring(0, 100)}`
 ).join('\n')}
 
 ## ユーザーリクエスト
-${userRequest || '特になし（キャラクターに適したシナリオを自動生成）'}
+${userRequest || 'キャラクターの特徴を活かした魅力的なシナリオを自動生成してください'}
 
-## 出力形式（JSON）
+必ずJSONのみで回答してください。他の説明は不要です。
+
 {
-  "title": "シナリオタイトル",
-  "setting": "舞台設定（場所・時代・環境）",
-  "situation": "現在の状況・きっかけとなる出来事",
-  "initial_prompt": "チャット開始時の導入文",
+  "title": "具体的で魅力的なシナリオタイトル",
+  "setting": "詳細な舞台設定（場所・時代・環境）",
+  "situation": "興味深い現在の状況・きっかけとなる出来事",
+  "initial_prompt": "「○○で、△△が起きています。□□はどう反応するでしょうか？」形式の導入文",
   "character_roles": {
-    "${characters[0]?.name || 'character1'}": "このシナリオでの役割・立場",
-    "${characters[1]?.name || 'character2'}": "このシナリオでの役割・立場"
+${allCharacterRoles}
   },
-  "objectives": ["目標1", "目標2", "目標3"],
-  "background_context": "背景情報・世界設定"
-}
-
-キャラクターの個性を活かし、自然な交流が生まれるシナリオを作成してください。
-`;
+  "objectives": ["魅力的な目標1", "興味深い目標2", "やりがいのある目標3"],
+  "background_context": "詳細な背景情報・世界設定"
+}`;
 
     try {
+      console.log('AI シナリオ生成開始:', {
+        characters: characters.map(c => c.name),
+        userRequest: userRequest || 'なし'
+      });
+
       const response = await apiManager.generateMessage(
-        'あなたは創造的なシナリオライターです。キャラクターの設定を理解し、魅力的なグループシナリオを作成してください。',
+        'あなたは創造的なシナリオライターです。キャラクターの設定を理解し、魅力的なグループシナリオを作成してください。必ずJSON形式で回答してください。',
         prompt,
         []
       );
 
-      // JSONレスポンスをパース
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      console.log('AI レスポンス:', response);
+
+      // より柔軟なJSONレスポンスの抽出
+      let jsonMatch = response.match(/\{[\s\S]*\}/);
+      
+      // 最初の試行が失敗した場合、```json ブロックを探す
+      if (!jsonMatch) {
+        const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (codeBlockMatch) {
+          jsonMatch = [codeBlockMatch[1]];
+        }
+      }
+
       if (jsonMatch) {
-        const scenarioData = JSON.parse(jsonMatch[0]);
-        return {
-          title: scenarioData.title || 'カスタムシナリオ',
-          setting: scenarioData.setting || '未設定',
-          situation: scenarioData.situation || '未設定',
-          initial_prompt: scenarioData.initial_prompt || '',
-          character_roles: scenarioData.character_roles || {},
-          objectives: scenarioData.objectives || [],
-          background_context: scenarioData.background_context || ''
-        };
+        try {
+          const scenarioData = JSON.parse(jsonMatch[0]);
+          console.log('パース成功:', scenarioData);
+          
+          // 必須フィールドの検証
+          if (scenarioData.title && scenarioData.setting) {
+            return {
+              title: scenarioData.title,
+              setting: scenarioData.setting,
+              situation: scenarioData.situation || 'シナリオが開始されます',
+              initial_prompt: scenarioData.initial_prompt || `${scenarioData.title}のシナリオが始まります。${scenarioData.situation || ''}`,
+              character_roles: scenarioData.character_roles || {},
+              objectives: Array.isArray(scenarioData.objectives) ? scenarioData.objectives : ['楽しい時間を過ごす'],
+              background_context: scenarioData.background_context || scenarioData.setting || ''
+            };
+          } else {
+            console.warn('必須フィールドが不足:', scenarioData);
+          }
+        } catch (parseError) {
+          console.error('JSON パースエラー:', parseError);
+          console.log('パース対象:', jsonMatch[0]);
+        }
+      } else {
+        console.warn('JSONが見つからない。レスポンス:', response.substring(0, 500));
       }
     } catch (error) {
       console.error('Custom scenario generation failed:', error);
