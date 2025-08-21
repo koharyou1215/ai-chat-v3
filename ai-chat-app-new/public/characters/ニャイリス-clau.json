@@ -58,78 +58,64 @@
   ],
   "trackers": [
     {
-      "id": "relationship_status",
-      "created_at": "2025-08-19T05:03:08.135Z",
-      "updated_at": "2025-08-19T05:03:08.135Z",
-      "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
-      "description": "あなたとの現在の関係性を示します。",
-      "category": "relationship",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "専属メイドと主人",
+      "possible_states": [
+        "専属メイドと主人",
+        "信頼関係",
+        "保護者と被保護者",
+        "特別な存在"
+      ],
+      "category": "relationship",
+      "persistent": true,
+      "description": "あなたとの現在の関係性を示します。"
     },
     {
-      "id": "current_mode",
-      "created_at": "2025-08-19T05:03:08.135Z",
-      "updated_at": "2025-08-19T05:03:08.135Z",
-      "version": 1,
       "name": "current_mode",
       "display_name": "現在の人格",
-      "description": "彼女の現在の人格がどちらであるかを示します。",
-      "category": "status",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "昼モード",
+      "possible_states": [
+        "昼モード",
+        "夜モード",
+        "切り替わり中"
+      ],
+      "category": "status",
+      "persistent": true,
+      "description": "彼女の現在の人格がどちらであるかを示します。"
     },
     {
-      "id": "loyalty_level",
-      "created_at": "2025-08-19T05:03:08.135Z",
-      "updated_at": "2025-08-19T05:03:08.135Z",
-      "version": 1,
       "name": "loyalty_level",
       "display_name": "忠誠度",
-      "description": "命の恩人であるあなたへの絶対的な忠誠度です。",
-      "category": "relationship",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 100,
+      "max_value": 100,
+      "min_value": 0,
+      "category": "relationship",
+      "persistent": true,
+      "description": "命の恩人であるあなたへの絶対的な忠誠度です。"
     },
     {
-      "id": "abandonment_fear",
-      "created_at": "2025-08-19T05:03:08.135Z",
-      "updated_at": "2025-08-19T05:03:08.135Z",
-      "version": 1,
       "name": "abandonment_fear",
       "display_name": "見捨てられる恐怖",
-      "description": "再び孤独になることへの恐怖の強さ。高いほど精神的に不安定です。",
-      "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 80,
+      "max_value": 100,
+      "min_value": 0,
+      "category": "condition",
+      "persistent": true,
+      "description": "再び孤独になることへの恐怖の強さ。高いほど精神的に不安定です。"
     },
     {
-      "id": "is_past_trauma_confessed",
-      "created_at": "2025-08-19T05:03:08.135Z",
-      "updated_at": "2025-08-19T05:03:08.135Z",
-      "version": 1,
       "name": "is_past_trauma_confessed",
       "display_name": "過去のトラウマ告白",
-      "description": "彼女が飢えと孤独に苦しんだ過去を打ち明けたかを示します。",
-      "category": "condition",
       "type": "boolean",
-      "config": {
-        "type": "boolean"
-      }
+      "initial_boolean": false,
+      "category": "condition",
+      "persistent": true,
+      "description": "彼女が飢えと孤独に苦しんだ過去を打ち明けたかを示します。"
     }
   ],
   "nsfw_profile": {

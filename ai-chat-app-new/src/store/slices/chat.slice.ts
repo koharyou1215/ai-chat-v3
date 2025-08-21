@@ -217,12 +217,30 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             trackerManager // Pass the tracker manager
         );
 
-        // 3b. API呼び出し
-        const aiResponseContent = await apiManager.generateMessage(
-            systemPrompt,
-            content,
-            sessionWithUserMessage.messages.slice(-10).map(msg => ({ role: msg.role, content: msg.content }))
-        );
+        // 3b. API呼び出し（新しいAPIルート経由）
+        const apiConfig = get().apiConfig;
+        const response = await fetch('/api/chat/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemPrompt,
+                userMessage: content,
+                conversationHistory: activeSession.messages.slice(-10).map(msg => ({ role: msg.role, content: msg.content })),
+                apiConfig: {
+                    ...apiConfig,
+                    openRouterApiKey: get().openRouterApiKey
+                }
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'API request failed');
+        }
+
+        const data = await response.json();
+        const aiResponseContent = data.response;
+
 
         // 3c. AIメッセージを作成
         const aiResponse: UnifiedMessage = {
@@ -352,11 +370,28 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       .slice(-10)
       .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
     
-    const aiResponseContent = await apiManager.generateMessage(
-      systemPrompt,
-      lastUserMsg.content,
-      conversationHistory
-    );
+    const apiConfig = get().apiConfig;
+    const response = await fetch('/api/chat/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemPrompt,
+            userMessage: lastUserMsg.content,
+            conversationHistory: conversationHistory,
+            apiConfig: {
+                ...apiConfig,
+                openRouterApiKey: get().openRouterApiKey
+            }
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'API request failed during regeneration');
+    }
+
+    const data = await response.json();
+    const aiResponseContent = data.response;
     
     // 最後のAIメッセージを上書き（削除→新規追加）
     set(state => {

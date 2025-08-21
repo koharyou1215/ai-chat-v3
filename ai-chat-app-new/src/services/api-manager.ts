@@ -89,10 +89,15 @@ export class APIManager {
     systemPrompt: string,
     userMessage: string,
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
-    options?: Partial<APIConfig>
+    options?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<string> {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
+
+    // options から渡された API キーを優先して使用
+    if (options?.openRouterApiKey) {
+      this.openRouterApiKey = options.openRouterApiKey;
+    }
 
     try {
       if (provider === 'gemini') {

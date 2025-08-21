@@ -143,7 +143,7 @@ export class ScenarioGenerator {
     const characterDescriptions = characters.map(char => ({
       name: char.name,
       occupation: char.occupation,
-      personality: char.personality.substring(0, 200), // 短縮
+      personality: (char.personality ?? '').substring(0, 200), // 短縮
       tags: char.tags?.slice(0, 3) || []
     }));
 
@@ -161,7 +161,7 @@ export class ScenarioGenerator {
 - 名前: ${persona.name}
 - 年齢: ${persona.age}
 - 職業: ${persona.occupation}
-- 性格: ${persona.personality.substring(0, 150)}
+- 性格: ${(persona.personality ?? '').substring(0, 150)}
 - 口調: ${persona.catchphrase}
 
 ## キャラクター情報
@@ -346,7 +346,7 @@ JSON:
     const templateRoles = baseRoles[template.id as keyof typeof baseRoles] || ['参加者'];
     const assignedRole = templateRoles[index % templateRoles.length];
     
-    return `${assignedRole}として、${character.personality.substring(0, 100)}の特徴を活かして行動`;
+    return `${assignedRole}として、${(character.personality ?? '').substring(0, 100)}の特徴を活かして行動`;
   }
 
   /**

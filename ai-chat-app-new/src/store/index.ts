@@ -37,7 +37,36 @@ export const useAppStore = create<AppStore>()(
     combinedSlices,
     {
       name: 'ai-chat-v3-storage',
-      storage: createJSONStorage(() => localStorage, {
+      storage: createJSONStorage(() => ({
+        getItem: (name: string) => {
+          try {
+            const item = localStorage.getItem(name);
+            if (!item) return null;
+            // JSONの基本的な検証
+            if (!item.startsWith('{') && !item.startsWith('[')) {
+              console.warn('Invalid JSON format in localStorage, clearing:', name);
+              localStorage.removeItem(name);
+              return null;
+            }
+            return item;
+          } catch (error) {
+            console.error('Error reading from localStorage:', error);
+            return null;
+          }
+        },
+        setItem: (name: string, value: string) => {
+          try {
+            // JSON形式の検証
+            JSON.parse(value);
+            localStorage.setItem(name, value);
+          } catch (error) {
+            console.error('Error writing to localStorage:', error);
+          }
+        },
+        removeItem: (name: string) => {
+          localStorage.removeItem(name);
+        }
+      }), {
         replacer: (key, value) => {
           if (value instanceof Map) {
             return { _type: 'map', value: Array.from(value.entries()) };

@@ -3,35 +3,35 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Brain, Zap, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ReplySuggestion } from '@/services/suggestion.service';
+import { InspirationSuggestion } from '@/types/memory';
 
 interface ReplySuggestionsProps {
-  suggestions: ReplySuggestion[];
+  suggestions: InspirationSuggestion[];
   isGenerating: boolean;
   onSelectSuggestion: (content: string) => void;
   onClose: () => void;
 }
 
 const suggestionConfig = {
-  empathy: { 
+  continuation: { 
     icon: Heart, 
     color: 'from-pink-500 to-rose-500',
     label: '共感・受容型'
   },
-  exploration: { 
+  question: { 
     icon: Brain, 
     color: 'from-blue-500 to-cyan-500',
-    label: '探求・開発型'
+    label: '質問・探求型'
   },
-  provocative: { 
+  topic: { 
     icon: Zap, 
     color: 'from-orange-500 to-red-500',
-    label: '挑発・逸脱型'
+    label: 'トピック展開型'
   },
-  affection: { 
+  creative: { 
     icon: Star, 
     color: 'from-purple-500 to-pink-500',
-    label: '甘え・依存型'
+    label: 'クリエイティブ型'
   }
 };
 

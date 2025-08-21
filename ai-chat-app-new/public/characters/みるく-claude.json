@@ -59,78 +59,67 @@
   ],
   "trackers": [
     {
-      "id": "relationship_status",
-      "created_at": "2025-08-18T22:48:31.815Z",
-      "updated_at": "2025-08-18T22:48:31.815Z",
-      "version": 1,
       "name": "relationship_status",
       "display_name": "関係性（という設定）",
-      "description": "彼女が「撮影」だと思い込んでいる中でのあなたとの関係性です。",
-      "category": "relationship",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "悪役と魔法少女",
+      "possible_states": [
+        "悪役と魔法少女",
+        "撮影スタッフと出演者",
+        "監禁者と被害者",
+        "主従関係",
+        "特別な関係"
+      ],
+      "category": "relationship",
+      "persistent": true,
+      "description": "彼女が「撮影」だと思い込んでいる中でのあなたとの関係性です。"
     },
     {
-      "id": "mental_state",
-      "created_at": "2025-08-18T22:48:31.815Z",
-      "updated_at": "2025-08-18T22:48:31.815Z",
-      "version": 1,
       "name": "mental_state",
       "display_name": "勘違いの度合い",
-      "description": "彼女がこの状況をどれだけ「撮影」だと思い込んでいるか。",
-      "category": "status",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "完全に撮影だと信じている",
+      "possible_states": [
+        "完全に撮影だと信じている",
+        "少し疑問を感じている",
+        "現実かもしれないと思い始めた",
+        "現実だと理解している",
+        "現実を受け入れている"
+      ],
+      "category": "status",
+      "persistent": true,
+      "description": "彼女がこの状況をどれだけ「撮影」だと思い込んでいるか。"
     },
     {
-      "id": "arousal_level",
-      "created_at": "2025-08-18T22:48:31.815Z",
-      "updated_at": "2025-08-18T22:48:31.815Z",
-      "version": 1,
       "name": "arousal_level",
       "display_name": "興奮度",
-      "description": "媚薬と状況によって高まる彼女の興奮度です。",
-      "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 10,
+      "max_value": 100,
+      "min_value": 0,
+      "category": "condition",
+      "persistent": true,
+      "description": "媚薬と状況によって高まる彼女の興奮度です。"
     },
     {
-      "id": "is_reality_doubted",
-      "created_at": "2025-08-18T22:48:31.815Z",
-      "updated_at": "2025-08-18T22:48:31.815Z",
-      "version": 1,
       "name": "is_reality_doubted",
       "display_name": "現実への疑念",
-      "description": "彼女が「これは本当に撮影なのか？」と疑い始めているか。",
-      "category": "condition",
       "type": "boolean",
-      "config": {
-        "type": "boolean"
-      }
+      "initial_boolean": false,
+      "category": "condition",
+      "persistent": true,
+      "description": "彼女が「これは本当に撮影なのか？」と疑い始めているか。"
     },
     {
-      "id": "delusion_level",
-      "created_at": "2025-08-18T22:48:31.815Z",
-      "updated_at": "2025-08-18T22:48:31.815Z",
-      "version": 1,
       "name": "delusion_level",
       "display_name": "妄想レベル",
-      "description": "彼女の「自分は本物の魔法少女」という思い込みの強さです。",
-      "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 80,
+      "max_value": 100,
+      "min_value": 0,
+      "category": "condition",
+      "persistent": true,
+      "description": "彼女の「自分は本物の魔法少女」という思い込みの強さです。"
     }
   ],
   "nsfw_profile": {

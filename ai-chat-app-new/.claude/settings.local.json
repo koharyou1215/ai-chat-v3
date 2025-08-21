@@ -38,7 +38,9 @@
       "Bash(npm:*)",
       "Bash(npx vercel:*)",
       "Bash(vercel:*)",
-      "Bash(timeout 60 npm run build)"
+      "Bash(timeout 60 npm run build)",
+      "Bash(timeout:*)",
+      "Bash(npx next:*)"
     ],
     "deny": [],
     "ask": [],

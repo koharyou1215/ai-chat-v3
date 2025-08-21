@@ -32,6 +32,10 @@ export class PromptBuilderService {
       systemSettings
     );
 
+    console.log("==================== BUILT PROMPT ====================");
+    console.log(prompt);
+    console.log("======================================================");
+
     return prompt;
   }
 }

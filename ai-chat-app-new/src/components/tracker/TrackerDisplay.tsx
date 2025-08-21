@@ -63,12 +63,15 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
 
   // Get tracker data from store with initialization check
   const trackerManager = useAppStore(state => state.trackerManagers.get(session_id));
-  const character = useAppStore(state => state.getSelectedCharacter());
+  const characters = useAppStore(state => state.characters);
+  const character = characters.get(character_id);
   
   // Initialize tracker manager if not exists and we have character data
   useEffect(() => {
     const currentManager = useAppStore.getState().trackerManagers.get(session_id);
     if (!currentManager && character && character.trackers && character.trackers.length > 0) {
+      console.log(`[TrackerDisplay] Initializing tracker manager for character: ${character.name}`);
+      
       // Create a new tracker manager and initialize it
       const newManager = new TrackerManager();
       newManager.initializeTrackerSet(character_id, character.trackers);
@@ -77,6 +80,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
       useAppStore.setState(state => ({
         trackerManagers: new Map(state.trackerManagers).set(session_id, newManager)
       }));
+      
+      console.log(`[TrackerDisplay] Tracker manager initialized with ${character.trackers.length} trackers`);
     }
   }, [session_id, character_id, character]);
 
@@ -278,7 +283,8 @@ const TrackerItem: React.FC<{
 }> = ({ tracker, onUpdate, hasRecentChange = false, _changeIndicator, previousValue }) => {
 
   const renderTracker = () => {
-    const trackerType = tracker.config?.type;
+    // 新しいフォーマット（直接typeフィールド）と古いフォーマット（config.type）の両方をサポート
+    const trackerType = tracker.type || tracker.config?.type;
     switch (trackerType) {
       case 'numeric':
         return <NumericTracker tracker={tracker} onUpdate={onUpdate} hasRecentChange={hasRecentChange} previousValue={previousValue} />;
@@ -339,13 +345,15 @@ const NumericTracker: React.FC<{
   hasRecentChange?: boolean;
   previousValue?: string | number | boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false, _previousValue }) => {
+  // 新旧フォーマット対応
   const config = tracker.config as NumericTrackerConfig;
-  const value = typeof tracker.current_value === 'number' ? tracker.current_value : config.initial_value || 0;
-  const minValue = config.min_value || 0;
-  const maxValue = config.max_value || 100;
-  const step = config.step || 1;
-  const unit = config.unit || '';
-  const displayType = config.display_type || 'number';
+  const initialValue = tracker.initial_value || config?.initial_value || 0;
+  const value = typeof tracker.current_value === 'number' ? tracker.current_value : initialValue;
+  const minValue = tracker.min_value || config?.min_value || 0;
+  const maxValue = tracker.max_value || config?.max_value || 100;
+  const step = config?.step || 1;
+  const unit = config?.unit || '';
+  const displayType = config?.display_type || 'number';
   const progress = ((value - minValue) / (maxValue - minValue)) * 100;
 
   return (
@@ -453,21 +461,26 @@ const StateTracker: React.FC<{
   onUpdate: (name: string, value: string | number | boolean) => void;
   hasRecentChange?: boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
+  // 新旧フォーマット対応
   const config = tracker.config as StateTrackerConfig;
-  const value = tracker.current_value as string;
+  const possibleStates = tracker.possible_states || config?.possible_states || [];
+  const initialState = tracker.initial_state || config?.initial_state || possibleStates[0]?.id;
+  const value = (tracker.current_value as string) || initialState;
   
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {config.possible_states.map((state) => {
-          const isSelected = state.id === value;
+        {possibleStates.map((state) => {
+          // 新しいフォーマットでは文字列の場合もある
+          const stateObj = typeof state === 'string' ? { id: state, label: state, color: '#6366f1' } : state;
+          const isSelected = stateObj.id === value;
           
           return (
             <motion.button
-              key={state.id}
+              key={stateObj.id}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => onUpdate(tracker.name, state.id)}
+              onClick={() => onUpdate(tracker.name, stateObj.id)}
               className={cn(
                 "px-3 py-1 rounded-full text-xs font-medium transition-all duration-300",
                 isSelected 
@@ -476,11 +489,11 @@ const StateTracker: React.FC<{
                 hasRecentChange && isSelected && "animate-pulse"
               )}
               style={{
-                backgroundColor: isSelected ? state.color + '80' : undefined,
-                boxShadow: isSelected ? `0 0 20px ${state.color}60` : undefined
+                backgroundColor: isSelected ? stateObj.color + '80' : undefined,
+                boxShadow: isSelected ? `0 0 20px ${stateObj.color}60` : undefined
               }}
             >
-              {state.label}
+              {stateObj.label}
             </motion.button>
           );
         })}
@@ -489,16 +502,28 @@ const StateTracker: React.FC<{
       <motion.div 
         className="text-center py-2 px-3 rounded-lg border backdrop-blur-sm"
         style={{
-          borderColor: config.possible_states.find(s => s.id === value)?.color + '60',
-          backgroundColor: config.possible_states.find(s => s.id === value)?.color + '20'
+          borderColor: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) 
+            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color) + '60'
+            : '#6366f160',
+          backgroundColor: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
+            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color) + '20'
+            : '#6366f120'
         }}
         animate={hasRecentChange ? { scale: [1, 1.02, 1] } : {}}
       >
         <span 
           className="text-sm font-medium" 
-          style={{ color: config.possible_states.find(s => s.id === value)?.color }}
+          style={{ 
+            color: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
+              ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color)
+              : '#6366f1'
+          }}
         >
-          現在: {config.possible_states.find(s => s.id === value)?.label}
+          現在: {possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
+            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' 
+                ? possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) 
+                : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).label)
+            : value}
         </span>
       </motion.div>
     </div>
@@ -510,12 +535,14 @@ const BooleanTracker: React.FC<{
   onUpdate: (name: string, value: string | number | boolean) => void;
   hasRecentChange?: boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
+  // 新旧フォーマット対応
   const config = tracker.config as BooleanTrackerConfig;
-  const value = typeof tracker.current_value === 'boolean' ? tracker.current_value : config.initial_value || false;
-  const trueLabel = config.true_label || 'はい';
-  const falseLabel = config.false_label || 'いいえ';
-  const trueColor = config.true_color || '#10b981';
-  const falseColor = config.false_color || '#6b7280';
+  const initialBoolean = tracker.initial_boolean !== undefined ? tracker.initial_boolean : config?.initial_value || false;
+  const value = typeof tracker.current_value === 'boolean' ? tracker.current_value : initialBoolean;
+  const trueLabel = config?.true_label || 'はい';
+  const falseLabel = config?.false_label || 'いいえ';
+  const trueColor = config?.true_color || '#10b981';
+  const falseColor = config?.false_color || '#6b7280';
   
   return (
     <motion.button

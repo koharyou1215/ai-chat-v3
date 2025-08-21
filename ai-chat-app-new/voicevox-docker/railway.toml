@@ -3,10 +3,10 @@ builder = "dockerfile"
 
 [deploy]
 healthcheckPath = "/version"
-healthcheckTimeout = 300
-healthcheckInitialDelay = 120
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+healthcheckTimeout = 60
+healthcheckInitialDelay = 300
+restartPolicyType = "never"
+restartPolicyMaxRetries = 0
 
 # Railwayプラットフォーム用の設定
 [env]
@@ -19,5 +19,5 @@ type = "web"
 
 # メモリとCPUの割り当てを増加
 [resources]
-memory = 4
-vCpu = 2
+memory = 6
+vCpu = 4

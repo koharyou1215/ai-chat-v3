@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X, MoreVertical } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X, MoreVertical, MoreHorizontal } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -378,6 +378,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
     alert('このキャラクターのチャット・メモリ・トラッカーを全てリセットしました');
   };
+
+  // 自動再生済みかどうかを追跡するRef
+  const hasAutoPlayedRef = useRef(false);
+
+  // 音声自動再生機能
+  useEffect(() => {
+    // 既存の音声を停止
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // AIメッセージが最新かつ音声自動再生がオンで、まだ自動再生していない場合
+    if (!isUser && isLatest && voiceSettings?.autoPlay && !isSpeaking && 
+        message.content.length > 0 && !hasAutoPlayedRef.current) {
+      
+      hasAutoPlayedRef.current = true; // 自動再生済みフラグを設定
+      
+      // 少し遅延してから再生（UIのアニメーションが完了してから）
+      const autoPlayTimer = setTimeout(() => {
+        handleSpeak();
+      }, 800); // 0.8秒後に自動再生
+
+      return () => clearTimeout(autoPlayTimer);
+    }
+  }, [isLatest, isUser, voiceSettings?.autoPlay, message.content, isSpeaking]);
+
+  // メッセージが変わったときに自動再生フラグをリセット
+  useEffect(() => {
+    hasAutoPlayedRef.current = false;
+  }, [message.id]);
   
   // 個別メッセージ削除機能
   const handleDeleteMessage = () => {
@@ -790,6 +820,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
               <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
               <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact />
+              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact />
               <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
             </motion.div>
           )}

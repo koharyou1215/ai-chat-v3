@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { MessageBubble } from './MessageBubble';
@@ -166,79 +166,95 @@ export const ChatInterface: React.FC = () => {
     const currentMessages = displaySession?.messages || [];
     const displaySessionId = displaySession?.id || '';
     
+    // キャラクターIDを安全に取得
+    const currentCharacterId = useMemo(() => {
+        if (is_group_mode && activeGroupSession) {
+            return activeGroupSession.character_ids[0];
+        }
+        if (session && session.participants.characters.length > 0) {
+            return session.participants.characters[0].id;
+        }
+        return undefined;
+    }, [is_group_mode, activeGroupSession, session]);
+
     const sidePanelTabs = [
-        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: displaySession ? <MemoryGallery session_id={displaySessionId} character_id={is_group_mode ? activeGroupSession?.character_ids[0] : session?.participants.characters[0]?.id} /> : null },
-        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: displaySession ? <TrackerDisplay session_id={displaySessionId} character_id={is_group_mode ? activeGroupSession?.character_ids[0] : session?.participants.characters[0]?.id} /> : null },
+        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: displaySession && currentCharacterId ? <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId} /> : null },
+        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: displaySession && currentCharacterId ? <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId} /> : null },
         { key: 'history' as const, icon: History, label: '履歴検索', component: displaySession ? <HistorySearch session_id={displaySessionId} /> : null },
         { key: 'layers' as const, icon: Layers, label: '記憶層', component: displaySession ? <MemoryLayerDisplay session_id={displaySessionId} /> : null },
     ];
 
     return (
-        <div className="flex h-full bg-slate-900 text-white">
+        <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
 
             <AnimatePresence>
                 {isLeftSidebarOpen && <ChatSidebar />}
             </AnimatePresence>
-            <div className="flex-1 flex flex-col relative">
-                {/* Background Image */}
-                {character?.background_url && (
-                    <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-                        {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
-                            <video
-                                src={character.background_url}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="w-full h-full object-contain object-center"
-                            />
-                        ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img 
-                                src={character.background_url} 
-                                alt="background" 
-                                className="w-full h-full object-contain object-center"
-                            />
-                        )}
-                        <div className="absolute inset-0 w-full h-full bg-black/40" />
-                    </div>
-                )}
-
-                <div className={cn("relative z-10 flex flex-col h-full transition-all duration-300", isRightPanelOpen ? 'w-[calc(100%-400px)]' : 'w-full')}>
-                    {/* Safe Area対応ヘッダー */}
-                    <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
-                        <ChatHeader />
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)'}}>
-                        <AnimatePresence mode="popLayout" initial={false}>
-                            {currentMessages.map((message, index) => (
-                                <MessageBubble
-                                    key={message.id}
-                                    message={message}
-                                    previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
-                                    isLatest={index === currentMessages.length - 1}
-                                    isGroupChat={is_group_mode}
+            
+            <div className="flex-1 flex relative">
+                {/* メインコンテンツエリア */}
+                <div className={cn("flex flex-col h-full transition-all duration-300", isRightPanelOpen ? 'flex-1' : 'w-full')}>
+                    {/* Background Image */}
+                    {character?.background_url && (
+                        <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
+                            {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
+                                <video
+                                    src={character.background_url}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-contain object-center"
                                 />
-                            ))}
-                        </AnimatePresence>
-                        
-                        {(is_generating || group_generating) && <ThinkingIndicator />}
-                        
-                        <div ref={messagesEndRef} />
-                    </div>
-                    {/* Safe Area対応メッセージ入力欄 */}
-                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-                        <MessageInput />
+                            ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img 
+                                    src={character.background_url} 
+                                    alt="background" 
+                                    className="w-full h-full object-contain object-center"
+                                />
+                            )}
+                            <div className="absolute inset-0 w-full h-full bg-black/40" />
+                        </div>
+                    )}
+
+                    <div className="relative z-10 flex flex-col h-full">
+                        {/* Safe Area対応ヘッダー */}
+                        <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+                            <ChatHeader />
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)'}}>
+                            <AnimatePresence mode="popLayout" initial={false}>
+                                {currentMessages.map((message, index) => (
+                                    <MessageBubble
+                                        key={message.id}
+                                        message={message}
+                                        previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
+                                        isLatest={index === currentMessages.length - 1}
+                                        isGroupChat={is_group_mode}
+                                    />
+                                ))}
+                            </AnimatePresence>
+                            
+                            {(is_generating || group_generating) && <ThinkingIndicator />}
+                            
+                            <div ref={messagesEndRef} />
+                        </div>
+                        {/* Safe Area対応メッセージ入力欄 */}
+                        <div className="sticky bottom-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+                            <MessageInput />
+                        </div>
                     </div>
                 </div>
 
+                {/* 右サイドパネル */}
                 <AnimatePresence>
                     {isRightPanelOpen && (
                         <motion.div
                             initial={{ width: 0, opacity: 0 }}
                             animate={{ width: 400, opacity: 1 }}
                             exit={{ width: 0, opacity: 0 }}
-                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full absolute right-0 top-0 z-40 md:relative md:z-auto max-w-[100vw] md:max-w-none"
+                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full w-[400px] flex-shrink-0"
                         >
                             <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">記憶情報</h3>

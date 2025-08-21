@@ -19,6 +19,7 @@ export interface SettingsSlice extends AISettings {
   setAPIModel: (model: string) => void;
   setOpenRouterApiKey: (key: string) => void;
   setTemperature: (temp: number) => void;
+  resetSystemPrompts: () => void;
   setMaxTokens: (tokens: number) => void;
   setTopP: (topP: number) => void;
   setFrequencyPenalty: (penalty: number) => void;
@@ -157,8 +158,13 @@ export const createSettingsSlice: StateCreator<
   },
 
   // Actions
-  updateSystemPrompts: (prompts) =>
-    set((state) => ({ systemPrompts: { ...state.systemPrompts, ...prompts } })),
+  updateSystemPrompts: (prompts) => {
+    set((state) => {
+      const updatedPrompts = { ...state.systemPrompts, ...prompts };
+      console.log('Updating system prompts:', updatedPrompts);
+      return { systemPrompts: updatedPrompts };
+    });
+  },
   
   setEnableSystemPrompt: (enable) => set({ enableSystemPrompt: enable }),
   setEnableJailbreakPrompt: (enable) => set({ enableJailbreakPrompt: enable }),
@@ -228,6 +234,31 @@ export const createSettingsSlice: StateCreator<
       apiConfig: { ...state.apiConfig, context_window: window },
     }));
     apiManager.setConfig(get().apiConfig);
+  },
+
+  resetSystemPrompts: () => {
+    const defaultPrompts = {
+      system: DEFAULT_SYSTEM_PROMPT,
+      jailbreak: DEFAULT_JAILBREAK_PROMPT,
+      replySuggestion: `会話履歴を分析し、自然な返信候補を4つ生成してください。
+**会話履歴:**
+{{conversation}}
+**出力形式:**
+1. [共感・理解を示す返信]
+2. [質問・興味を引く返信]
+3. [意見・提案を含む返信]
+4. [軽い会話継続返信]`,
+      textEnhancement: `以下のテキストをより自然で魅力的な文章に改善してください。
+**改善対象:**
+{{text}}
+**要求:**
+- 自然な日本語表現に修正
+- 読みやすさの向上
+- 必要に応じて絵文字や感情表現を追加
+- 元の意図を保持`
+    };
+    set({ systemPrompts: defaultPrompts });
+    console.log('System prompts reset to default');
   },
   
   setShowSettingsModal: (show, initialTab = 'effects') =>

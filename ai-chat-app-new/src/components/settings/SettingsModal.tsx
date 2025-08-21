@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
 import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { SystemPrompts } from '@/types/core/settings.types';
 
 export interface EffectSettings {
   // メッセージエフェクト
@@ -77,18 +78,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const { settings: contextSettings, updateSettings: updateContextSettings } = useEffectSettings();
-
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-    }
-  }, [isOpen, initialTab]);
-
-  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
-  const [showJailbreakPrompt, setShowJailbreakPrompt] = useState(false);
-  const [showReplySuggestionPrompt, setShowReplySuggestionPrompt] = useState(false);
-  const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
-  
   const {
     systemPrompts,
     enableSystemPrompt,
@@ -105,6 +94,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAPIModel,
     setAPIProvider
   } = useAppStore();
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
+  const [localSystemPrompts, setLocalSystemPrompts] = useState<SystemPrompts>(systemPrompts);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setLocalSystemPrompts(systemPrompts);
+    }
+  }, [isOpen, systemPrompts]);
+
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showJailbreakPrompt, setShowJailbreakPrompt] = useState(false);
+  const [showReplySuggestionPrompt, setShowReplySuggestionPrompt] = useState(false);
+  const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
+  
   
   // エフェクト設定のデフォルト値 - ContextSettingsを優先
   const [localEffectSettings, setLocalEffectSettings] = useState<EffectSettings>(contextSettings);
@@ -149,6 +158,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleSave = () => {
+    // AI設定（プロンプト）を保存
+    updateSystemPrompts(localSystemPrompts);
+    
     // エフェクト設定を保存
     if (onEffectSettingsChange) {
       onEffectSettingsChange(localEffectSettings);
@@ -247,7 +259,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
                 {activeTab === 'ai' && (
                   <AIPanel
-                    systemPrompts={systemPrompts}
+                    systemPrompts={localSystemPrompts}
                     enableSystemPrompt={enableSystemPrompt}
                     enableJailbreakPrompt={enableJailbreakPrompt}
                     apiConfig={apiConfig}
@@ -255,7 +267,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     showJailbreakPrompt={showJailbreakPrompt}
                     showReplySuggestionPrompt={showReplySuggestionPrompt}
                     showTextEnhancementPrompt={showTextEnhancementPrompt}
-                    onUpdateSystemPrompts={updateSystemPrompts}
+                    onUpdateSystemPrompts={setLocalSystemPrompts}
                     onSetEnableSystemPrompt={setEnableSystemPrompt}
                     onSetEnableJailbreakPrompt={setEnableJailbreakPrompt}
                     onSetTemperature={setTemperature}
@@ -701,20 +713,17 @@ const AIPanel: React.FC<{
   onToggleReplySuggestionPrompt,
   onToggleTextEnhancementPrompt
 }) => {
-  const [localSystemPrompts, setLocalSystemPrompts] = useState(systemPrompts);
-
-  useEffect(() => {
-    setLocalSystemPrompts(systemPrompts);
-  }, [systemPrompts]);
 
   const handlePromptChange = (key: keyof SystemPrompts, value: string) => {
-    setLocalSystemPrompts(prev => ({ ...prev, [key]: value }));
+    onUpdateSystemPrompts({ ...systemPrompts, [key]: value });
   };
 
   const handleSavePrompts = () => {
-    console.log('Saving custom prompts:', localSystemPrompts); // ★ ログ設置
-    onUpdateSystemPrompts(localSystemPrompts);
-    // ここで保存成功のトースト通知などを出すとより親切
+    console.log('Saving custom prompts:', systemPrompts); // ★ ログ設置
+    // onUpdateSystemPromptsは親コンポーネントのstateを更新するため、
+    // ここで再度呼び出す必要はないが、明示的な保存アクションとして残す
+    // 親の onUpdateSystemPrompts が Zustand の updateSystemPrompts に直接つながる場合
+    // このボタンは不要になる可能性もある。現状はローカルでの保存確認用。
   };
 
   return (
@@ -808,7 +817,7 @@ const AIPanel: React.FC<{
         </div>
         {showSystemPrompt && (
           <textarea
-            value={localSystemPrompts.system}
+            value={systemPrompts.system}
             onChange={(e) => handlePromptChange('system', e.target.value)}
             className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
             placeholder="システムプロンプトを入力..."
@@ -844,7 +853,7 @@ const AIPanel: React.FC<{
         </div>
         {showJailbreakPrompt && (
           <textarea
-            value={localSystemPrompts.jailbreak}
+            value={systemPrompts.jailbreak}
             onChange={(e) => handlePromptChange('jailbreak', e.target.value)}
             className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
             placeholder="脱獄プロンプトを入力..."
@@ -869,7 +878,7 @@ const AIPanel: React.FC<{
         </div>
         {showReplySuggestionPrompt && (
           <textarea
-            value={localSystemPrompts.replySuggestion}
+            value={systemPrompts.replySuggestion}
             onChange={(e) => handlePromptChange('replySuggestion', e.target.value)}
             className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
             placeholder="返信提案プロンプトを入力..."
@@ -894,7 +903,7 @@ const AIPanel: React.FC<{
         </div>
         {showTextEnhancementPrompt && (
           <textarea
-            value={localSystemPrompts.textEnhancement}
+            value={systemPrompts.textEnhancement}
             onChange={(e) => handlePromptChange('textEnhancement', e.target.value)}
             className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
             placeholder="文章強化プロンプトを入力..."
