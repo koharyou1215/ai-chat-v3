@@ -447,11 +447,12 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
           )}
 
           {/* シナリオ選択ステップ */}
-          {currentStep === 'scenario' && selectedCharacterIds.length >= 2 && (
+          {currentStep === 'scenario' && selectedCharacterIds.length >= 2 && persona && (
             <ScenarioSelector
               characters={Array.from(characters.values()).filter(char => 
                 selectedCharacterIds.includes(char.id)
               )}
+              persona={persona}
               onScenarioSelect={handleScenarioSelect}
               onSkip={handleSkipScenario}
             />

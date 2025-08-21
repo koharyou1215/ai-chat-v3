@@ -5,17 +5,20 @@ import { motion } from 'framer-motion';
 import { Wand2, FileText, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
 import { GroupChatScenario, ScenarioTemplate } from '@/types/core/group-chat.types';
 import { Character } from '@/types/core/character.types';
+import { Persona } from '@/types/core/persona.types';
 import { scenarioGenerator } from '@/services/scenario-generator';
 import { cn } from '@/lib/utils';
 
 interface ScenarioSelectorProps {
   characters: Character[];
+  persona: Persona;
   onScenarioSelect: (scenario: GroupChatScenario) => void;
   onSkip: () => void;
 }
 
 export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
   characters,
+  persona,
   onScenarioSelect,
   onSkip
 }) => {
@@ -69,6 +72,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
     try {
       const generatedScenario = await scenarioGenerator.generateCustomScenario(
         characters,
+        persona,
         customRequest || undefined
       );
       
