@@ -5,15 +5,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { text, speakerId, settings } = body;
 
-    const voicevoxUrl = process.env.VOICEVOX_ENGINE_URL;
-    if (!voicevoxUrl) {
-      throw new Error("VOICEVOX_ENGINE_URL is not set in the environment variables.");
+    const voicevoxUrl = process.env.VOICEVOX_ENGINE_URL || 'http://localhost:50021';
+    
+    // VoiceVoxエンジンが起動しているかチェック
+    try {
+      const healthCheck = await fetch(`${voicevoxUrl}/version`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000) // 3秒でタイムアウト
+      });
+      if (!healthCheck.ok) {
+        throw new Error(`VoiceVoxエンジンが応答しません (${healthCheck.status})`);
+      }
+    } catch (healthError) {
+      throw new Error(`VoiceVoxエンジンに接続できません: ${healthError instanceof Error ? healthError.message : 'Unknown error'}`);
     }
 
     // 1. audio_queryの作成
     const queryResponse = await fetch(`${voicevoxUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
     });
     if (!queryResponse.ok) {
         throw new Error(`Failed to create audio query: ${queryResponse.statusText}`);

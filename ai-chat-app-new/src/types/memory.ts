@@ -4,7 +4,7 @@
 import { UnifiedMessage } from './core/message.types';
 
 // UnifiedMessageを再エクスポート（互換性のため）
-export { UnifiedMessage } from './core/message.types';
+export type { UnifiedMessage } from './core/message.types';
 
 // 下位互換性のため従来型を維持（段階的移行用）
 export interface Message {
@@ -39,7 +39,7 @@ export const MessageConverter = {
       created_at: msg.timestamp.toISOString(),
       updated_at: now,
       version: 1,
-      metadata: msg.metadata || {},
+      metadata: (msg.metadata as any) || {},
 
       // Core message fields  
       session_id: '', // セッションIDは呼び出し側で設定
@@ -100,7 +100,7 @@ export const MessageConverter = {
         secondary: [],
         intensity: msg.expression.emotion.intensity
       },
-      metadata: msg.metadata
+      metadata: (msg.metadata as any)
     };
   }
 };

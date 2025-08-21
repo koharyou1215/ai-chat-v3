@@ -4,6 +4,7 @@ import { GroupChatSession, GroupChatMode } from '@/types/core/group-chat.types';
 import { apiManager } from '@/services/api-manager';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
 import { AppStore } from '..';
 
 export interface ChatSlice {
@@ -45,6 +46,9 @@ export interface ChatSlice {
   getActiveGroupSession: () => GroupChatSession | null;
   toggleGroupCharacter: (sessionId: UUID, characterId: string) => void;
   setGroupChatMode: (sessionId: UUID, mode: GroupChatMode) => void;
+  
+  // ヘルパー関数
+  ensureTrackerManagerExists: (character: Character) => void;
 }
 
 export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, get) => ({
@@ -199,6 +203,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
     // 3. AI応答を生成
     try {
+        // トラッカーマネージャーの存在を確保
+        activeSession.participants.characters.forEach(character => {
+          get().ensureTrackerManagerExists(character);
+        });
+        
         const trackerManager = get().trackerManagers.get(activeSessionId);
         
         // 3a. 高度なプロンプトを構築
@@ -255,6 +264,41 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         set(state => ({
             sessions: new Map(state.sessions).set(activeSessionId, sessionWithAiResponse),
         }));
+
+        // 4. 自動メモリー管理 - AIメッセージを分析して重要度判定
+        try {
+            const characterId = activeSession.participants.characters[0]?.id;
+            await autoMemoryManager.processNewMessage(
+                aiResponse,
+                activeSessionId,
+                characterId,
+                get().createMemoryCard
+            );
+        } catch (autoMemoryError) {
+            console.error('Auto memory management error:', autoMemoryError);
+            // 自動メモリー管理のエラーはサイレントに処理（メイン機能を妨げない）
+        }
+
+        // 5. トラッカー自動更新 - ユーザーメッセージとAIメッセージの両方を分析
+        try {
+            const characterId = activeSession.participants.characters[0]?.id;
+            if (characterId && trackerManager) {
+                // ユーザーメッセージの分析
+                const userUpdates = trackerManager.analyzeMessageForTrackerUpdates(userMessage, characterId);
+                if (userUpdates.length > 0) {
+                    console.log('User message tracker updates:', userUpdates);
+                }
+
+                // AIメッセージの分析
+                const aiUpdates = trackerManager.analyzeMessageForTrackerUpdates(aiResponse, characterId);
+                if (aiUpdates.length > 0) {
+                    console.log('AI message tracker updates:', aiUpdates);
+                }
+            }
+        } catch (trackerError) {
+            console.error('Auto tracker update error:', trackerError);
+            // トラッカーの自動更新エラーはサイレントに処理（メイン機能を妨げない）
+        }
 
     } catch (error) {
         console.error('AI応答生成エラー:', error);
@@ -427,7 +471,31 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
   // For Sidebar
   setActiveSessionId: (sessionId) => {
-    set({ active_session_id: sessionId });
+    if (sessionId) {
+      const session = get().sessions.get(sessionId);
+      if (session) {
+        // セッションのキャラクターのトラッカーマネージャーが存在しない場合は初期化
+        const trackerManagers = get().trackerManagers;
+        session.participants.characters.forEach(character => {
+          if (!trackerManagers.has(character.id)) {
+            const trackerManager = new TrackerManager();
+            trackerManager.initializeTrackerSet(character.id, character.trackers);
+            trackerManagers.set(character.id, trackerManager);
+            console.log(`Initialized tracker set for character ${character.name} (${character.id})`);
+          }
+        });
+        
+        // TrackerManagersを更新
+        set(state => ({
+          trackerManagers: new Map(trackerManagers),
+          active_session_id: sessionId
+        }));
+      } else {
+        set({ active_session_id: sessionId });
+      }
+    } else {
+      set({ active_session_id: sessionId });
+    }
   },
   deleteSession: (sessionId) => {
     set(state => {
@@ -799,5 +867,21 @@ ${character.scenario ? `シナリオ: ${character.scenario}` : ''}
         groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
       };
     });
+  },
+
+  // ヘルパー関数: トラッカーマネージャーの存在を確保
+  ensureTrackerManagerExists: (character) => {
+    const trackerManagers = get().trackerManagers;
+    if (!trackerManagers.has(character.id)) {
+      const trackerManager = new TrackerManager();
+      trackerManager.initializeTrackerSet(character.id, character.trackers);
+      trackerManagers.set(character.id, trackerManager);
+      
+      set(state => ({
+        trackerManagers: new Map(trackerManagers)
+      }));
+      
+      console.log(`Tracker manager initialized for character ${character.name} (${character.id})`);
+    }
   },
 });

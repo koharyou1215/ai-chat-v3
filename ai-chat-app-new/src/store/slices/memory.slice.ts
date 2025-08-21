@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
-import { MemoryCard, MemoryCategory, UUID } from '@/types';
+import { MemoryCard, MemoryCategory, UUID, UnifiedMessage } from '@/types';
+import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
 
 export interface MemorySlice {
   memory_cards: Map<UUID, MemoryCard>;
@@ -46,52 +47,125 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
   pinned_memories: [],
   
   createMemoryCard: async (message_ids, session_id, character_id) => {
-    // 実際のAI処理では、ここでメッセージの内容を分析して
-    // タイトル、要約、キーワード、カテゴリーを自動生成する
+    // セッションからメッセージを取得
+    const state = get();
+    const sessions = state.sessions || new Map();
+    const session = sessions.get(session_id);
     
-    const newMemoryCard: MemoryCard = {
-      id: `memory-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      version: 1,
-      metadata: {},
-      session_id,
-      character_id,
-      original_message_ids: message_ids,
-      original_content: `メッセージID: ${message_ids.join(', ')}`,
-      
-      // カードの内容（実際のAI処理では自動生成）
-      title: `会話の要約 ${new Date().toLocaleDateString('ja-JP')}`,
-      summary: '複数のメッセージから自動生成された要約です。',
-      keywords: ['会話', '要約', '自動生成'],
-      category: 'other',
-      
-      // メタデータ
-      importance: { score: 0.5, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.4 } },
-      confidence: 0.7,
-      
-      // ユーザー操作
-      is_edited: false,
-      is_pinned: false,
-      is_hidden: false,
-      user_notes: undefined,
-      
-      // 自動タグ
-      auto_tags: ['auto-generated', 'conversation-summary'],
-      emotion_tags: [],
-      context_tags: ['session-summary']
-    };
+    if (!session) {
+      throw new Error('Session not found');
+    }
     
-    set(state => {
-      const newMemoryCards = new Map(state.memory_cards);
-      newMemoryCards.set(newMemoryCard.id, newMemoryCard);
+    // 指定されたメッセージIDのメッセージを取得
+    const messages = session.messages.filter(msg => message_ids.includes(msg.id));
+    
+    if (messages.length === 0) {
+      throw new Error('No messages found for the specified IDs');
+    }
+    
+    try {
+      // AI自動生成でメモリーカード内容を作成
+      const generatedContent = await memoryCardGenerator.generateMemoryCard(
+        messages,
+        session_id,
+        character_id
+      );
       
-      return {
-        memory_cards: newMemoryCards
+      const newMemoryCard: MemoryCard = {
+        id: `memory-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        metadata: {},
+        session_id,
+        character_id,
+        original_message_ids: message_ids,
+        
+        // AI生成された内容
+        title: generatedContent.title || `会話の要約 ${new Date().toLocaleDateString('ja-JP')}`,
+        summary: generatedContent.summary || '複数のメッセージから自動生成された要約です。',
+        keywords: generatedContent.keywords || ['会話', '要約', '自動生成'],
+        category: generatedContent.category || 'other',
+        original_content: generatedContent.original_content || `メッセージID: ${message_ids.join(', ')}`,
+        
+        // メタデータ
+        importance: generatedContent.importance || { 
+          score: 0.5, 
+          factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.4 } 
+        },
+        confidence: generatedContent.confidence || 0.7,
+        
+        // ユーザー操作
+        is_edited: false,
+        is_pinned: false,
+        is_hidden: false,
+        user_notes: undefined,
+        
+        // 自動タグ
+        auto_tags: generatedContent.auto_tags || ['auto-generated', 'conversation-summary'],
+        emotion_tags: generatedContent.emotion_tags || [],
+        context_tags: generatedContent.context_tags || ['session-summary']
       };
-    });
-    
-    return newMemoryCard;
+      
+      set(state => {
+        const newMemoryCards = new Map(state.memory_cards);
+        newMemoryCards.set(newMemoryCard.id, newMemoryCard);
+        
+        return {
+          memory_cards: newMemoryCards
+        };
+      });
+      
+      return newMemoryCard;
+      
+    } catch (error) {
+      console.error('Failed to generate memory card with AI, using fallback:', error);
+      
+      // フォールバック処理
+      const newMemoryCard: MemoryCard = {
+        id: `memory-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        metadata: {},
+        session_id,
+        character_id,
+        original_message_ids: message_ids,
+        original_content: messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+        
+        // フォールバック内容
+        title: `会話の記録 ${new Date().toLocaleDateString('ja-JP')}`,
+        summary: `${messages.length}件のメッセージからなる会話の記録です。`,
+        keywords: ['会話', '記録', 'フォールバック'],
+        category: 'other',
+        
+        // メタデータ
+        importance: { score: 0.5, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.4 } },
+        confidence: 0.6,
+        
+        // ユーザー操作
+        is_edited: false,
+        is_pinned: false,
+        is_hidden: false,
+        user_notes: undefined,
+        
+        // 自動タグ
+        auto_tags: ['auto-generated', 'fallback', 'conversation-summary'],
+        emotion_tags: [],
+        context_tags: ['session-summary']
+      };
+      
+      set(state => {
+        const newMemoryCards = new Map(state.memory_cards);
+        newMemoryCards.set(newMemoryCard.id, newMemoryCard);
+        
+        return {
+          memory_cards: newMemoryCards
+        };
+      });
+      
+      return newMemoryCard;
+    }
   },
   
   updateMemoryCard: (id, updates) => {

@@ -36,7 +36,7 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
     emotion: EmotionState;
     style: MessageStyle;
     effects: MessageEffect[];
-    voice?: VoiceData;
+    voice?: any; // TODO: Define VoiceData type
   };
   
   // 状態変更関連
@@ -108,3 +108,11 @@ export interface EditEntry {
   previous_content: string;
   edit_reason?: string;
 }
+
+export interface MessageEditEntry {
+  id: string;
+  timestamp: string;
+  previous_content: string;
+  edit_reason?: string;
+}
+

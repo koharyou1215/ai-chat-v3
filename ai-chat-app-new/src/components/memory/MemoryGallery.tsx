@@ -34,12 +34,12 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memoryCards, createMemoryCard, getActiveSession } = useAppStore();
+  const { memory_cards, createMemoryCard, getActiveSession, ensureTrackerManagerExists } = useAppStore();
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {
-    if (!memoryCards) return [];
-    let filtered = Array.from(memoryCards.values());
+    if (!memory_cards) return [];
+    let filtered = Array.from(memory_cards.values());
 
     // セッション・キャラクターフィルタ
     if (session_id || character_id) {
@@ -52,9 +52,10 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     // 検索フィルタ
     if (searchTerm) {
       filtered = filtered.filter(memory =>
-        memory.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        memory.original_content.toLowerCase().includes(searchTerm.toLowerCase()) ||
         memory.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        memory.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        memory.keywords.some(keyword => keyword.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        memory.auto_tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -104,7 +105,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     });
 
     return filtered;
-  }, [memoryCards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
+  }, [memory_cards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
 
   const handleCreateMemory = async () => {
     try {
@@ -123,10 +124,18 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
         return;
       }
 
-      const character_id = activeSession.participants.characters[0]?.id;
+      const character = activeSession.participants.characters[0];
+      if (!character) {
+        alert('キャラクターが見つかりません');
+        return;
+      }
+
+      // トラッカーマネージャーの存在を確保
+      ensureTrackerManagerExists(character);
       
-      await createMemoryCard(messageIds, activeSession.id, character_id);
-      console.log('Memory card created successfully');
+      const memoryCard = await createMemoryCard(messageIds, activeSession.id, character.id);
+      console.log('Memory card created successfully:', memoryCard);
+      alert('メモリーカードを作成しました！');
     } catch (error) {
       console.error('Failed to create memory card:', error);
       alert('メモリーカードの作成に失敗しました');
@@ -249,10 +258,10 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       <div className="p-4 border-t border-white/10 text-xs text-white/50">
         <div className="flex justify-between">
           <span>
-            {filteredAndSortedMemories.length} / {memoryCards.size} 件の記憶を表示
+            {filteredAndSortedMemories.length} / {memory_cards.size} 件の記憶を表示
           </span>
           <span>
-            ピン留め: {Array.from(memoryCards.values()).filter(m => m.is_pinned).length} 件
+            ピン留め: {Array.from(memory_cards.values()).filter(m => m.is_pinned).length} 件
           </span>
         </div>
       </div>

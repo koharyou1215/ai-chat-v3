@@ -15,6 +15,13 @@ export interface ChatSettings {
   responseFormat: ChatResponseFormat;
   memoryCapacity: number;
   generationCandidates: number;
+  memory_limits: {
+    max_working_memory: number;          // 作業記憶のメッセージ数上限
+    max_memory_cards: number;            // メモリーカード数上限  
+    max_relevant_memories: number;       // 関連記憶検索数上限
+    max_prompt_tokens: number;           // プロンプト全体のトークン上限
+    max_context_messages: number;        // 会話履歴のメッセージ数上限
+  };
 }
 
 export interface ImageGenerationSettings {

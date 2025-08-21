@@ -168,9 +168,9 @@ export const MessageInput: React.FC = () => {
             onCharacterClick={() => setShowCharacterGallery(true)}
             onPersonaClick={() => setShowPersonaGallery(true)}
             onModelClick={() => setShowSettingsModal(true, 'api')}
-            onVoiceClick={() => setShowVoiceSettingsModal(true)}
+            onVoiceClick={() => setShowSettingsModal(true, 'voice')}
             onHistoryClick={() => setShowHistoryModal(true)}
-            onChatSettingsClick={() => setShowSettingsModal(true, 'ai')}
+            onChatSettingsClick={() => setShowSettingsModal(true, 'chat')}
             onDetailedSettingsClick={() => setShowSettingsModal(true, 'developer')}
           />
         )}

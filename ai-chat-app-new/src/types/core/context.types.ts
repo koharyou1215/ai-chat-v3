@@ -15,7 +15,7 @@ export interface ConversationContext {
   // 現在の状態
   current_emotion: EmotionState;
   current_topic: string;
-  current_mood: MoodState;
+  current_mood: any; // TODO: Define MoodState type
   
   // 直近のコンテキスト
   recent_messages: UnifiedMessage[];

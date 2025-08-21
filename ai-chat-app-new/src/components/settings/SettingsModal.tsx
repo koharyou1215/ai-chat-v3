@@ -22,7 +22,8 @@ import {
   Lightbulb,
   Edit3,
   Eye,
-  EyeOff
+  EyeOff,
+  TestTube2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
@@ -122,6 +123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'tracker', label: 'トラッカー', icon: Activity },
     { id: 'performance', label: 'パフォーマンス', icon: Gauge },
     { id: 'api', label: 'API設定', icon: Globe },
+    { id: 'chat', label: 'チャット', icon: Brain },
     { id: 'appearance', label: '外観', icon: Palette },
     { id: 'voice', label: '音声', icon: Volume2 },
     { id: 'ai', label: 'AI', icon: Cpu },
@@ -231,6 +233,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setOpenRouterApiKey={setOpenRouterApiKey}
                   />
                 )}
+                {activeTab === 'chat' && (
+                  <ChatPanel />
+                )}
                 {activeTab === 'appearance' && (
                   <div className="space-y-6">
                     <h3 className="text-xl font-semibold text-white mb-4">外観設定</h3>
@@ -238,10 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
                 {activeTab === 'voice' && (
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">音声設定</h3>
-                    <p className="text-gray-400">音声設定は開発中です。</p>
-                  </div>
+                  <VoicePanel />
                 )}
                 {activeTab === 'ai' && (
                   <AIPanel
@@ -898,6 +900,555 @@ const AIPanel: React.FC<{
             placeholder="文章強化プロンプトを入力..."
           />
         )}
+      </div>
+    </div>
+  );
+};
+
+// チャット設定パネル
+const ChatPanel: React.FC = () => {
+  const { 
+    chat, 
+    updateChatSettings,
+    systemPrompts,
+    enableSystemPrompt,
+    enableJailbreakPrompt,
+    updateSystemPrompts,
+    setEnableSystemPrompt,
+    setEnableJailbreakPrompt
+  } = useAppStore();
+
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showJailbreakPrompt, setShowJailbreakPrompt] = useState(false);
+  const [showReplySuggestionPrompt, setShowReplySuggestionPrompt] = useState(false);
+  const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
+
+  const handleMemoryLimitChange = (key: string, value: number) => {
+    const currentLimits = chat.memory_limits || {
+      max_working_memory: 6,
+      max_memory_cards: 50,
+      max_relevant_memories: 5,
+      max_prompt_tokens: 32000,
+      max_context_messages: 20,
+    };
+    
+    updateChatSettings({
+      memory_limits: {
+        ...currentLimits,
+        [key]: value
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-white mb-4">チャット設定</h3>
+      
+      {/* 記憶容量設定 */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">記憶容量制限</h4>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              作業記憶 (メッセージ数)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={chat.memory_limits?.max_working_memory || 6}
+              onChange={(e) => handleMemoryLimitChange('max_working_memory', parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400">最新の会話メッセージを保持する数</p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              メモリーカード上限
+            </label>
+            <input
+              type="number"
+              min="10"
+              max="200"
+              value={chat.memory_limits?.max_memory_cards || 50}
+              onChange={(e) => handleMemoryLimitChange('max_memory_cards', parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400">保存できるメモリーカードの最大数</p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              関連記憶検索数
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={chat.memory_limits?.max_relevant_memories || 5}
+              onChange={(e) => handleMemoryLimitChange('max_relevant_memories', parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400">プロンプトに含める関連記憶の数</p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              プロンプト最大トークン
+            </label>
+            <input
+              type="number"
+              min="8000"
+              max="128000"
+              step="1000"
+              value={chat.memory_limits?.max_prompt_tokens || 32000}
+              onChange={(e) => handleMemoryLimitChange('max_prompt_tokens', parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400">プロンプト全体のトークン制限</p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              会話履歴上限 (メッセージ数)
+            </label>
+            <input
+              type="number"
+              min="5"
+              max="50"
+              value={chat.memory_limits?.max_context_messages || 20}
+              onChange={(e) => handleMemoryLimitChange('max_context_messages', parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400">プロンプトに含める会話履歴の数</p>
+          </div>
+        </div>
+      </div>
+
+      {/* システムプロンプト設定 */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">プロンプト設定</h4>
+        
+        {/* システムプロンプト有効化 */}
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="enable-system-prompt"
+            checked={enableSystemPrompt}
+            onChange={(e) => setEnableSystemPrompt(e.target.checked)}
+            className="w-4 h-4 text-blue-500 bg-slate-700 border-gray-600 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="enable-system-prompt" className="text-sm font-medium text-gray-300">
+            システムプロンプトを有効にする
+          </label>
+        </div>
+
+        {/* システムプロンプト表示/編集 */}
+        {enableSystemPrompt && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-300">カスタムシステムプロンプト（デフォルトに追加）</label>
+              <button
+                onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showSystemPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showSystemPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+            {showSystemPrompt && (
+              <textarea
+                value={systemPrompts.system}
+                onChange={(e) => updateSystemPrompts({ system: e.target.value })}
+                className="w-full h-40 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+                placeholder="追加のシステム指示を入力..."
+              />
+            )}
+          </div>
+        )}
+
+        {/* Jailbreak プロンプト有効化 */}
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="enable-jailbreak-prompt"
+            checked={enableJailbreakPrompt}
+            onChange={(e) => setEnableJailbreakPrompt(e.target.checked)}
+            className="w-4 h-4 text-red-500 bg-slate-700 border-gray-600 rounded focus:ring-red-500"
+          />
+          <label htmlFor="enable-jailbreak-prompt" className="text-sm font-medium text-gray-300">
+            Jailbreakプロンプトを有効にする
+          </label>
+        </div>
+
+        {/* Jailbreak プロンプト表示/編集 */}
+        {enableJailbreakPrompt && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-300">Jailbreakプロンプト</label>
+              <button
+                onClick={() => setShowJailbreakPrompt(!showJailbreakPrompt)}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showJailbreakPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showJailbreakPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+            {showJailbreakPrompt && (
+              <textarea
+                value={systemPrompts.jailbreak}
+                onChange={(e) => updateSystemPrompts({ jailbreak: e.target.value })}
+                className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
+                placeholder="Jailbreakプロンプトを入力..."
+              />
+            )}
+          </div>
+        )}
+
+        {/* インスピレーションプロンプト設定 */}
+        <div className="space-y-4 border-t border-gray-600 pt-4">
+          <h5 className="text-md font-medium text-white">インスピレーションプロンプト</h5>
+          
+          {/* 返信提案プロンプト */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Lightbulb size={16} className="text-yellow-600" />
+              <label className="text-sm font-medium text-gray-300">返信提案プロンプト</label>
+              <button
+                onClick={() => setShowReplySuggestionPrompt(!showReplySuggestionPrompt)}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showReplySuggestionPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showReplySuggestionPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+            {showReplySuggestionPrompt && (
+              <textarea
+                value={systemPrompts.replySuggestion}
+                onChange={(e) => updateSystemPrompts({ replySuggestion: e.target.value })}
+                className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
+                placeholder="返信提案プロンプトを入力..."
+              />
+            )}
+          </div>
+
+          {/* 文章強化プロンプト */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Edit3 size={16} className="text-green-600" />
+              <label className="text-sm font-medium text-gray-300">文章強化プロンプト</label>
+              <button
+                onClick={() => setShowTextEnhancementPrompt(!showTextEnhancementPrompt)}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showTextEnhancementPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showTextEnhancementPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+            {showTextEnhancementPrompt && (
+              <textarea
+                value={systemPrompts.textEnhancement}
+                onChange={(e) => updateSystemPrompts({ textEnhancement: e.target.value })}
+                className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
+                placeholder="文章強化プロンプトを入力..."
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* その他のチャット設定 */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">一般設定</h4>
+        
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300">
+            記憶容量: {chat.memoryCapacity}
+          </label>
+          <input
+            type="range"
+            min="10"
+            max="500"
+            value={chat.memoryCapacity}
+            onChange={(e) => updateChatSettings({ memoryCapacity: parseInt(e.target.value) })}
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none slider-thumb"
+          />
+          <p className="text-xs text-gray-400">従来の記憶容量設定（レガシー）</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 音声設定パネル
+const VoicePanel: React.FC = () => {
+  const { 
+    voice, 
+    updateVoiceSettings 
+  } = useAppStore();
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceVoxStatus, setVoiceVoxStatus] = useState<'unknown' | 'available' | 'unavailable'>('unknown');
+
+  // VoiceVox接続状態をチェック
+  const checkVoiceVoxStatus = async () => {
+    try {
+      const response = await fetch('/api/voice/voicevox/check', { method: 'GET' });
+      setVoiceVoxStatus(response.ok ? 'available' : 'unavailable');
+    } catch (err) {
+      setVoiceVoxStatus('unavailable');
+    }
+  };
+
+  // コンポーネントマウント時にVoiceVox状態をチェック
+  React.useEffect(() => {
+    if (voice.provider === 'voicevox') {
+      checkVoiceVoxStatus();
+    }
+  }, [voice.provider]);
+
+  const handleTestVoice = async () => {
+    setIsPlaying(true);
+    const text = 'こんにちは、音声テスト中です。設定が正しく反映されているかテストしています。';
+
+    try {
+      if (voice.provider === 'voicevox') {
+        // VoiceVox API呼び出し
+        const response = await fetch('/api/voice/voicevox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            speakerId: voice.voicevox.speaker,
+            settings: {
+              speedScale: voice.voicevox.speed,
+              pitchScale: voice.voicevox.pitch,
+              intonationScale: voice.voicevox.intonation,
+              volumeScale: voice.voicevox.volume,
+            }
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`VoiceVox API Error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.success && data.audioData) {
+          const audio = new Audio(data.audioData);
+          audio.play();
+          audio.onended = () => setIsPlaying(false);
+          audio.onerror = () => {
+            console.error("音声の再生に失敗しました。");
+            setIsPlaying(false);
+          };
+        } else {
+          throw new Error(data.error || 'VoiceVox APIからエラーが返されました');
+        }
+      } else {
+        // システム音声をフォールバック
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = voice.system.rate;
+        utterance.pitch = voice.system.pitch;
+        utterance.volume = voice.system.volume;
+        speechSynthesis.speak(utterance);
+        utterance.onend = () => setIsPlaying(false);
+      }
+    } catch (err) {
+      console.error('VoiceVox音声テスト失敗、システム音声でフォールバック:', err);
+      
+      // VoiceVoxが失敗した場合、システム音声でフォールバック
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = voice.system?.rate || 1.0;
+        utterance.pitch = voice.system?.pitch || 1.0;
+        utterance.volume = voice.system?.volume || 1.0;
+        speechSynthesis.speak(utterance);
+        utterance.onend = () => setIsPlaying(false);
+        utterance.onerror = () => setIsPlaying(false);
+      } catch (systemErr) {
+        console.error('システム音声も失敗しました:', systemErr);
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-white mb-4">音声設定</h3>
+      
+      {/* 基本設定 */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">基本設定</h4>
+        
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="voice-enabled"
+            checked={voice.enabled}
+            onChange={(e) => updateVoiceSettings({ enabled: e.target.checked })}
+            className="w-4 h-4 text-blue-500 bg-slate-700 border-gray-600 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="voice-enabled" className="text-sm font-medium text-gray-300">
+            音声機能を有効にする
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="voice-autoplay"
+            checked={voice.autoPlay}
+            onChange={(e) => updateVoiceSettings({ autoPlay: e.target.checked })}
+            className="w-4 h-4 text-blue-500 bg-slate-700 border-gray-600 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="voice-autoplay" className="text-sm font-medium text-gray-300">
+            メッセージを自動再生
+          </label>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300">音声プロバイダー</label>
+          <select
+            value={voice.provider}
+            onChange={(e) => updateVoiceSettings({ provider: e.target.value as any })}
+            className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+          >
+            <option value="voicevox">VoiceVox</option>
+            <option value="elevenlabs">ElevenLabs</option>
+            <option value="system">システム音声</option>
+          </select>
+        </div>
+      </div>
+
+      {/* VoiceVox設定 */}
+      {voice.provider === 'voicevox' && (
+        <div className="space-y-4 border-t border-gray-600 pt-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-medium text-white">VoiceVox設定</h4>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                voiceVoxStatus === 'available' ? 'bg-green-500' : 
+                voiceVoxStatus === 'unavailable' ? 'bg-red-500' : 'bg-gray-500'
+              }`}></div>
+              <span className="text-xs text-gray-400">
+                {voiceVoxStatus === 'available' ? '接続済み' : 
+                 voiceVoxStatus === 'unavailable' ? '未接続' : '確認中...'}
+              </span>
+              <button
+                onClick={checkVoiceVoxStatus}
+                className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+              >
+                再確認
+              </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                話者: {voice.voicevox.speaker}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="46"
+                value={voice.voicevox.speaker}
+                onChange={(e) => updateVoiceSettings({ 
+                  voicevox: { ...voice.voicevox, speaker: parseInt(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                話速: {voice.voicevox.speed.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={voice.voicevox.speed}
+                onChange={(e) => updateVoiceSettings({ 
+                  voicevox: { ...voice.voicevox, speed: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                音程: {voice.voicevox.pitch.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="-0.15"
+                max="0.15"
+                step="0.01"
+                value={voice.voicevox.pitch}
+                onChange={(e) => updateVoiceSettings({ 
+                  voicevox: { ...voice.voicevox, pitch: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                抑揚: {voice.voicevox.intonation.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2.0"
+                step="0.1"
+                value={voice.voicevox.intonation}
+                onChange={(e) => updateVoiceSettings({ 
+                  voicevox: { ...voice.voicevox, intonation: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* テストボタンと状態表示 */}
+      <div className="border-t border-gray-600 pt-4 space-y-3">
+        {voice.provider === 'voicevox' && voiceVoxStatus === 'unavailable' && (
+          <div className="p-3 bg-yellow-900/30 border border-yellow-600/50 rounded-lg">
+            <p className="text-sm text-yellow-200">
+              ⚠️ VoiceVoxエンジンに接続できません。システム音声でテストします。
+            </p>
+            <p className="text-xs text-yellow-300 mt-1">
+              VoiceVoxエンジンが起動していることを確認してください。
+            </p>
+          </div>
+        )}
+        
+        <button
+          onClick={handleTestVoice}
+          disabled={isPlaying}
+          className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {isPlaying ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              音声テスト中...
+            </>
+          ) : (
+            <>
+              <TestTube2 className="w-4 h-4" />
+              {voice.provider === 'voicevox' && voiceVoxStatus === 'unavailable' 
+                ? 'システム音声でテスト' 
+                : '音声テスト'}
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

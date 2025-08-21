@@ -1,6 +1,7 @@
 import { UnifiedChatSession } from '@/types';
 import { ConversationManager } from './memory/conversation-manager';
 import { TrackerManager } from './tracker/tracker-manager';
+import { useAppStore } from '@/store';
 
 export class PromptBuilderService {
   public async buildPrompt(
@@ -15,14 +16,20 @@ export class PromptBuilderService {
     // 本来はaddMessageを都度呼び出すが、ここでは簡易的に全メッセージをロード
     await conversationManager.importMessages(session.messages);
 
-    // TODO: トラッカー情報をConversationManagerに渡す
-    // conversationManager.setTrackers(session.state_management.trackers);
+    // システム設定を取得
+    const store = useAppStore.getState();
+    const systemSettings = {
+      systemPrompts: store.systemPrompts,
+      enableSystemPrompt: store.enableSystemPrompt,
+      enableJailbreakPrompt: store.enableJailbreakPrompt
+    };
 
     // ConversationManagerを使ってプロンプトを生成
     const prompt = await conversationManager.generatePrompt(
       userInput,
       session.participants.characters[0],
-      session.participants.user
+      session.participants.user,
+      systemSettings
     );
 
     return prompt;

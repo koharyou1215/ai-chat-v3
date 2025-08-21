@@ -156,7 +156,7 @@ ${inputText}
    */
   private buildDefaultSuggestionPrompt(context: string, approaches: string[]): string {
     return `
-以下の会話の文脈を考慮して、指定された4つの形式で返信を作成してください。
+以下の会話の文脈を考慮して、指定された形式で返信を作成してください。
 
 ###**会話の文脈**
 ${context}
@@ -164,8 +164,21 @@ ${context}
 ###**出力形式**
 ${approaches.map(approach => `[${approach}]`).join('\n')}
 
-それぞれの形式に従って、具体的な返信文を生成してください。
-各返信の前には、必ず対応する[テーマ]を入れてください。例: [共感・受容型]テキスト...
+**重要な指示:**
+- 何も頭に付けない箇条書き形式で出力
+- {{user}}視点の発言のみを生成
+- 前置き説明文や括弧内コメント禁止
+- 各カテゴリーの後に、そのスタイルに合った自然な返信文のみを記述
+- 「です・ます」調で統一
+
+例:
+[共感・受容型]
+そうですね、お気持ちよくわかります。
+
+[探求・開発型（分析・調教師型）]
+興味深いですね。もう少し詳しく教えていただけますか？
+
+このような形式で、各カテゴリーに対応した返信を生成してください。
 `;
   }
 
@@ -191,27 +204,73 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
     }
       
     const suggestions: string[] = [];
-    // アプローチ名をエスケープして正規表現を作成
+    
+    // 方法1: 正確な[カテゴリー]マッチング
     const escapedApproaches = approaches.map(app => 
         app.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     );
     
-    // 例: `[スマート・エスコート型]` や `[1. 共感的で温かい返信]` のようなヘッダーにマッチ
     const regex = new RegExp(`\\[(?:\\d+\\.\\s*)?(${escapedApproaches.join('|')})\\]\\s*([\\s\\S]*?)(?=\\s*\\[|$)`, 'g');
     
     let match;
     while ((match = regex.exec(content)) !== null) {
-      suggestions.push(match[2].trim());
+      const suggestion = match[2].trim();
+      if (suggestion.length > 0) {
+        suggestions.push(suggestion);
+      }
     }
 
-    // パースに失敗した場合、単なる改行や番号付きリストで分割を試みる
+    // 方法2: より柔軟な解析（[任意のテキスト]形式）
     if (suggestions.length === 0) {
-      return content.split(/\n\d*\.?\s*|\n\n/)
-        .map(s => s.replace(/\[.*?\]/, '').trim())
-        .filter(s => s.length > 5);
+      const flexibleRegex = /\[([^\]]+)\]\s*([^\[]*?)(?=\s*\[|$)/g;
+      let flexMatch;
+      while ((flexMatch = flexibleRegex.exec(content)) !== null) {
+        const suggestion = flexMatch[2].trim();
+        if (suggestion.length > 5) { // 最低5文字以上
+          suggestions.push(suggestion);
+        }
+      }
     }
 
-    return suggestions;
+    // 方法3: 番号付きリストでの分割
+    if (suggestions.length === 0) {
+      const lines = content.split('\n');
+      const numberedSuggestions: string[] = [];
+      
+      for (const line of lines) {
+        // 1. 2. 3. などの番号付き形式を検出
+        const numberedMatch = line.match(/^\s*\d+\.\s*(.+)/);
+        if (numberedMatch) {
+          numberedSuggestions.push(numberedMatch[1].trim());
+        }
+        // - や • などの箇条書き形式を検出
+        else if (line.match(/^\s*[-•]\s*(.+)/)) {
+          const bulletMatch = line.match(/^\s*[-•]\s*(.+)/);
+          if (bulletMatch) {
+            numberedSuggestions.push(bulletMatch[1].trim());
+          }
+        }
+        // 何も頭に付けない形式（空行で区切られた段落）
+        else if (line.trim().length > 10 && !line.includes('[') && !line.includes('※') && !line.includes('以下')) {
+          numberedSuggestions.push(line.trim());
+        }
+      }
+      
+      if (numberedSuggestions.length > 0) {
+        return numberedSuggestions.slice(0, approaches.length);
+      }
+    }
+
+    // 方法4: 最終フォールバック（段落分割）
+    if (suggestions.length === 0) {
+      const paragraphs = content.split(/\n\s*\n/)
+        .map(p => p.replace(/\[.*?\]/g, '').trim())
+        .filter(p => p.length > 10);
+      
+      return paragraphs.slice(0, approaches.length);
+    }
+
+    return suggestions.slice(0, approaches.length);
   }
 
   /**

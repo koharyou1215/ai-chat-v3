@@ -5,7 +5,8 @@ import { VectorStore } from './vector-store';
 import { MemoryLayerManager } from './memory-layer-manager';
 import { DynamicSummarizer } from './dynamic-summarizer';
 import { TrackerManager } from '../tracker/tracker-manager'; // Import TrackerManager
-import { UnifiedMessage, SearchResult, ConversationContext, Character } from '@/types';
+import { UnifiedMessage, SearchResult, ConversationContext, Character, MemoryCard } from '@/types';
+import { DEFAULT_SYSTEM_PROMPT } from '@/constants/prompts';
 
 /**
  * 統合会話管理システム
@@ -17,11 +18,14 @@ export class ConversationManager {
   private summarizer: DynamicSummarizer;
   private trackerManager?: TrackerManager; // Make it optional
   
-  // 設定パラメータ
+  // 設定パラメータ（デフォルト値）
   private config = {
     maxImmediateContext: 3,
     maxWorkingMemory: 6,
     maxRelevantMemories: 5,
+    maxMemoryCards: 50,
+    maxPromptTokens: 32000,
+    maxContextMessages: 20,
     summarizeInterval: 10,      // 10メッセージごとに要約
     vectorSearchThreshold: 0.7,
     enablePinning: true,
@@ -46,6 +50,23 @@ export class ConversationManager {
     this.allMessages = initialMessages;
     this.messageCount = initialMessages.length;
     this.importMessages(initialMessages);
+  }
+
+  /**
+   * 記憶容量の設定を更新
+   */
+  public updateMemoryLimits(limits: {
+    max_working_memory?: number;
+    max_memory_cards?: number;
+    max_relevant_memories?: number;
+    max_prompt_tokens?: number;
+    max_context_messages?: number;
+  }) {
+    if (limits.max_working_memory) this.config.maxWorkingMemory = limits.max_working_memory;
+    if (limits.max_memory_cards) this.config.maxMemoryCards = limits.max_memory_cards;
+    if (limits.max_relevant_memories) this.config.maxRelevantMemories = limits.max_relevant_memories;
+    if (limits.max_prompt_tokens) this.config.maxPromptTokens = limits.max_prompt_tokens;
+    if (limits.max_context_messages) this.config.maxContextMessages = limits.max_context_messages;
   }
 
   public async importMessages(messages: UnifiedMessage[]): Promise<void> {
@@ -177,19 +198,38 @@ export class ConversationManager {
   async generatePrompt(
     userInput: string,
     character?: Character,
-    persona?: Record<string, unknown>
+    persona?: Record<string, unknown>,
+    systemSettings?: {
+      systemPrompts: any;
+      enableSystemPrompt: boolean;
+      enableJailbreakPrompt: boolean;
+    }
   ): Promise<string> {
     const context = await this.buildContext(userInput);
     
     let prompt = '';
 
-    // 1. Jailbreak (from settings, not implemented here yet)
-    // prompt += `<jailbreak>...</jailbreak>\n\n`;
-
-    // 2. Definitions
+    // 1. System Definitions (最優先)
     prompt += `AI={{char}}, User={{user}}\n\n`;
 
-    // 3. Character Information
+    // 2. Jailbreak Prompt (設定で有効な場合)
+    if (systemSettings?.enableJailbreakPrompt && systemSettings.systemPrompts?.jailbreak) {
+      prompt += `<jailbreak>\n${systemSettings.systemPrompts.jailbreak}\n</jailbreak>\n\n`;
+    }
+
+    // 3. System Prompt (デフォルト + カスタム追加)
+    let systemPromptContent = DEFAULT_SYSTEM_PROMPT;
+    
+    // カスタムプロンプトが有効で内容がある場合は追加
+    if (systemSettings?.enableSystemPrompt && 
+        systemSettings.systemPrompts?.system && 
+        systemSettings.systemPrompts.system.trim() !== DEFAULT_SYSTEM_PROMPT.trim()) {
+      systemPromptContent += `\n\n## 追加指示\n${systemSettings.systemPrompts.system}`;
+    }
+    
+    prompt += `<system_instructions>\n${systemPromptContent}\n</system_instructions>\n\n`;
+
+    // 4. Character Information
     if (character) {
       prompt += '<character_information>\n';
       prompt += `Name: ${character.name}\n`;
@@ -202,7 +242,7 @@ export class ConversationManager {
       prompt += '</character_information>\n\n';
     }
 
-    // 4. Persona Information (if available)
+    // 5. Persona Information (if available)
     if (persona) {
       prompt += '<persona_information>\n';
       prompt += `Name: ${persona.name}\n`;
@@ -211,21 +251,47 @@ export class ConversationManager {
       prompt += '</persona_information>\n\n';
     }
 
-    // 5. Memory System Information
+    // 6. Memory System Information
+    
+    // 6a. ピン留めメモリーカード（最優先）
+    const pinnedMemoryCards = await this.getPinnedMemoryCards();
+    if (pinnedMemoryCards.length > 0) {
+      prompt += '<pinned_memory_cards>\n';
+      pinnedMemoryCards.forEach(card => {
+        prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
+        if (card.keywords.length > 0) {
+          prompt += `Keywords: ${card.keywords.join(', ')}\n`;
+        }
+      });
+      prompt += '</pinned_memory_cards>\n\n';
+    }
+
+    // 6b. 関連メモリーカード（重要度順、設定上限まで）
+    const relevantMemoryCards = await this.getRelevantMemoryCards(userInput);
+    if (relevantMemoryCards.length > 0) {
+      prompt += '<relevant_memory_cards>\n';
+      relevantMemoryCards.slice(0, this.config.maxRelevantMemories).forEach(card => {
+        prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
+      });
+      prompt += '</relevant_memory_cards>\n\n';
+    }
+
+    // 6c. ピン留めメッセージ（従来機能）
     if (context.pinnedMemories.length > 0) {
-      prompt += '<pinned_memories>\n';
+      prompt += '<pinned_messages>\n';
       context.pinnedMemories.forEach(msg => {
         prompt += `${msg.role}: ${msg.content}\n`;
       });
-      prompt += '</pinned_memories>\n\n';
+      prompt += '</pinned_messages>\n\n';
     }
 
+    // 6d. 関連メッセージ（従来機能、設定上限まで）
     if (context.relevantMemories.length > 0) {
-      prompt += '<relevant_memories>\n';
-      context.relevantMemories.slice(0, 3).forEach(result => {
+      prompt += '<relevant_messages>\n';
+      context.relevantMemories.slice(0, this.config.maxRelevantMemories).forEach(result => {
         prompt += `${result.message.role}: ${result.message.content}\n`;
       });
-      prompt += '</relevant_memories>\n\n';
+      prompt += '</relevant_messages>\n\n';
     }
 
     if (this.sessionSummary) {
@@ -248,12 +314,12 @@ export class ConversationManager {
     });
     prompt += '</recent_conversation>\n\n';
 
-    // 9. System Prompt (from character)
+    // 9. Character System Prompt (キャラクター固有のシステムプロンプト)
     if (character?.system_prompt) {
-      prompt += `<system_prompt>\n${character.system_prompt}\n</system_prompt>\n\n`;
+      prompt += `<character_system_prompt>\n${character.system_prompt}\n</character_system_prompt>\n\n`;
     }
 
-    // Current Input
+    // 10. Current Input
     prompt += `User: ${userInput}\n`;
     prompt += `AI: `;
 
@@ -561,5 +627,102 @@ export class ConversationManager {
         await this.vectorStore.addMessage(message);
       }
     }
+  }
+
+  /**
+   * ピン留めメモリーカードの取得
+   * プロンプトで最優先表示される
+   */
+  private async getPinnedMemoryCards(): Promise<MemoryCard[]> {
+    try {
+      // グローバルストアからピン留めメモリーカードを取得
+      // 本来はDIで注入するべきだが、ここでは直接参照
+      const { useAppStore } = await import('@/store');
+      const store = useAppStore.getState();
+      
+      if (!store.memory_cards) return [];
+      
+      return Array.from(store.memory_cards.values())
+        .filter(card => card.is_pinned)
+        .sort((a, b) => b.importance.score - a.importance.score)
+        .slice(0, 5); // 最大5件
+    } catch (error) {
+      console.error('Failed to get pinned memory cards:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 関連メモリーカードの取得
+   * ユーザー入力に関連する内容を自動検索
+   */
+  private async getRelevantMemoryCards(userInput: string): Promise<MemoryCard[]> {
+    try {
+      const { useAppStore } = await import('@/store');
+      const store = useAppStore.getState();
+      
+      if (!store.memory_cards) return [];
+      
+      const cards = Array.from(store.memory_cards.values())
+        .filter(card => !card.is_hidden); // 非表示カードは除外
+      
+      // キーワードマッチングによる関連度スコア計算
+      const relevantCards = cards.map(card => {
+        const relevanceScore = this.calculateMemoryCardRelevance(card, userInput);
+        return { card, relevanceScore };
+      })
+      .filter(item => item.relevanceScore > 0.3) // 閾値以上のもの
+      .sort((a, b) => {
+        // 関連度 > 重要度 > 作成日時の順でソート
+        if (Math.abs(a.relevanceScore - b.relevanceScore) > 0.1) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        if (Math.abs(a.card.importance.score - b.card.importance.score) > 0.1) {
+          return b.card.importance.score - a.card.importance.score;
+        }
+        return new Date(b.card.created_at).getTime() - new Date(a.card.created_at).getTime();
+      })
+      .slice(0, 5) // 最大5件
+      .map(item => item.card);
+      
+      return relevantCards;
+    } catch (error) {
+      console.error('Failed to get relevant memory cards:', error);
+      return [];
+    }
+  }
+
+  /**
+   * メモリーカードの関連度計算
+   */
+  private calculateMemoryCardRelevance(card: MemoryCard, userInput: string): number {
+    const input = userInput.toLowerCase();
+    let score = 0;
+    
+    // タイトルマッチ（重み: 0.4）
+    if (card.title.toLowerCase().includes(input)) {
+      score += 0.4;
+    }
+    
+    // キーワードマッチ（重み: 0.3）
+    const matchingKeywords = card.keywords.filter(keyword =>
+      input.includes(keyword.toLowerCase()) || keyword.toLowerCase().includes(input)
+    );
+    score += (matchingKeywords.length / Math.max(card.keywords.length, 1)) * 0.3;
+    
+    // 要約マッチ（重み: 0.2）
+    if (card.summary.toLowerCase().includes(input)) {
+      score += 0.2;
+    }
+    
+    // 元内容マッチ（重み: 0.1）
+    if (card.original_content && card.original_content.toLowerCase().includes(input)) {
+      score += 0.1;
+    }
+    
+    // 重要度ボーナス
+    score *= (0.5 + card.importance.score * 0.5);
+    
+    return Math.min(score, 1.0);
   }
 }

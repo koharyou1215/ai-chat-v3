@@ -10,7 +10,7 @@ export * from './core/tracker.types';
 export * from './core/settings.types';
 
 // メッセージ型は重複エクスポートを避けて個別にエクスポート
-export { UnifiedMessage, MessageRole, MessageEditEntry, MessageMetadata } from './core/message.types';
+export type { UnifiedMessage, MessageRole, MessageEditEntry, MessageMetadata } from './core/message.types';
 
 export * from './api';
 export * from './ui';
