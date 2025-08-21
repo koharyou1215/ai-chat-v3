@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceVox API 接続テスト</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🎤 VoiceVox API 接続テスト</h1>
+    
+    <div class="test-section">
+        <h3>1. 接続状態チェック</h3>
+        <button onclick="checkConnection()">接続テスト</button>
+        <div id="connectionResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 音声合成テスト</h3>
+        <input type="text" id="testText" value="こんにちは、テストです。" style="width: 300px; padding: 5px;">
+        <button onclick="testSynthesis()">音声合成テスト</button>
+        <div id="synthesisResult" class="result"></div>
+        <audio id="audioPlayer" controls style="margin-top: 10px;"></audio>
+    </div>
+
+    <div class="test-section">
+        <h3>3. 話者リスト取得</h3>
+        <button onclick="getSpeakers()">話者リスト取得</button>
+        <div id="speakersResult" class="result"></div>
+    </div>
+
+    <script>
+        async function checkConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = 'テスト中...';
+            
+            try {
+                const response = await fetch('/api/voice/voicevox/check');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ 接続成功: ${data.status}</span><br>バージョン: ${JSON.stringify(data.version)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 接続失敗: ${data.error}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ エラー: ${error.message}</span>`;
+            }
+        }
+
+        async function testSynthesis() {
+            const resultDiv = document.getElementById('synthesisResult');
+            const text = document.getElementById('testText').value;
+            resultDiv.innerHTML = '音声合成中...';
+            
+            try {
+                const response = await fetch('/api/voice/voicevox', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        speakerId: 1,
+                        settings: { speed: 1.0, pitch: 0.0 }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.audioData) {
+                    resultDiv.innerHTML = '<span class="success">✅ 音声合成成功！</span>';
+                    const audio = document.getElementById('audioPlayer');
+                    audio.src = data.audioData;
+                    audio.play();
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 音声合成失敗: ${data.error}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ エラー: ${error.message}</span>`;
+            }
+        }
+
+        async function getSpeakers() {
+            const resultDiv = document.getElementById('speakersResult');
+            resultDiv.innerHTML = '話者リスト取得中...';
+            
+            try {
+                const response = await fetch('/api/voice/voicevox/speakers');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ 話者リスト取得成功</span><br>話者数: ${data.speakers?.length || 0}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 話者リスト取得失敗: ${data.error}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ エラー: ${error.message}</span>`;
+            }
+        }
+
+        // ページ読み込み時に自動で接続テスト
+        window.onload = function() {
+            checkConnection();
+        };
+    </script>
+</body>
+</html>

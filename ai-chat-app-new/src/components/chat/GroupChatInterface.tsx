@@ -385,11 +385,14 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             />
           </div>
           
-          {/* キャラクター選択 */}
-          <div className="mb-6">
-            <label className="block text-white/80 font-medium mb-2">
-              参加キャラクター (2-5人)
-            </label>
+          {/* ステップ表示 */}
+          {currentStep === 'characters' && (
+            <>
+              {/* キャラクター選択 */}
+              <div className="mb-6">
+                <label className="block text-white/80 font-medium mb-2">
+                  参加キャラクター (2-5人)
+                </label>
             <div className="grid grid-cols-2 gap-3">
               {availableCharacters.map(character => (
                 <motion.div
@@ -440,35 +443,62 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
               )}
             </div>
           </div>
-          
-          {/* チャットモード選択 */}
-          <div className="mb-6">
-            <label className="block text-white/80 font-medium mb-2">チャットモード</label>
-            <div className="grid grid-cols-2 gap-3">
-              {chatModeOptions.map(option => (
-                <motion.div
-                  key={option.mode}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={cn(
-                    "p-4 rounded-lg border cursor-pointer transition-all",
-                    chatMode === option.mode
-                      ? "bg-purple-500/20 border-purple-400 text-purple-300"
-                      : "bg-slate-800/50 border-white/10 text-white/80 hover:bg-slate-700/50"
-                  )}
-                  onClick={() => setChatMode(option.mode)}
-                >
-                  <div className="flex items-start gap-3">
-                    <option.icon className="w-5 h-5 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium mb-1">{option.label}</h4>
-                      <p className="text-sm opacity-60">{option.description}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+            </>
+          )}
+
+          {/* シナリオ選択ステップ */}
+          {currentStep === 'scenario' && selectedCharacterIds.length >= 2 && (
+            <ScenarioSelector
+              characters={Array.from(characters.values()).filter(char => 
+                selectedCharacterIds.includes(char.id)
+              )}
+              onScenarioSelect={handleScenarioSelect}
+              onSkip={handleSkipScenario}
+            />
+          )}
+
+          {/* 設定ステップ */}
+          {currentStep === 'settings' && (
+            <>
+              {/* 選択済みシナリオ表示 */}
+              {selectedScenario && (
+                <div className="mb-6 p-4 bg-purple-500/10 border border-purple-400/30 rounded-lg">
+                  <h4 className="text-white font-medium mb-2">選択済みシナリオ</h4>
+                  <div className="text-purple-300 font-medium">{selectedScenario.title}</div>
+                  <div className="text-white/60 text-sm mt-1">{selectedScenario.setting}</div>
+                </div>
+              )}
+              
+              {/* チャットモード選択 */}
+              <div className="mb-6">
+                <label className="block text-white/80 font-medium mb-2">チャットモード</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {chatModeOptions.map(option => (
+                    <motion.div
+                      key={option.mode}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "p-4 rounded-lg border cursor-pointer transition-all",
+                        chatMode === option.mode
+                          ? "bg-purple-500/20 border-purple-400 text-purple-300"
+                          : "bg-slate-800/50 border-white/10 text-white/80 hover:bg-slate-700/50"
+                      )}
+                      onClick={() => setChatMode(option.mode)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <option.icon className="w-5 h-5 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium mb-1">{option.label}</h4>
+                          <p className="text-sm opacity-60">{option.description}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           
           {/* ナビゲーションボタン */}
           <div className="flex gap-3">
