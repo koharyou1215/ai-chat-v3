@@ -62,16 +62,80 @@ export class TrackerManager {
       
       switch (normalizedDefinition.config.type) {
         case 'numeric':
-          // 数値型の場合、初期値または0をデフォルトとして設定
-          currentValue = typeof normalizedDefinition.config.initial_value === 'number' 
-            ? normalizedDefinition.config.initial_value 
-            : 0;
+          // 数値型の場合、初期値をチェック
+          if (typeof normalizedDefinition.config.initial_value === 'number') {
+            currentValue = normalizedDefinition.config.initial_value;
+          } else {
+            // min_value/max_valueが設定されていない場合のデフォルト値設定
+            if (normalizedDefinition.config.min_value === undefined) {
+              normalizedDefinition.config.min_value = 0;
+            }
+            if (normalizedDefinition.config.max_value === undefined) {
+              normalizedDefinition.config.max_value = 100;
+            }
+            
+            // トラッカー名から適切な初期値を推測
+            const trackerName = normalizedDefinition.name.toLowerCase();
+            const description = normalizedDefinition.description?.toLowerCase() || '';
+            
+            if (trackerName.includes('arousal') || trackerName.includes('興奮')) {
+              currentValue = 20; // 興奮度系は20から開始
+            } else if (trackerName.includes('delusion') || trackerName.includes('妄想')) {
+              currentValue = 50; // 妄想系は中間値から開始
+            } else if (trackerName.includes('level') || trackerName.includes('レベル')) {
+              currentValue = 1;  // レベル系は1から開始
+            } else if (description.includes('興奮') || description.includes('媚薬')) {
+              currentValue = 15; // 薬物系は低めから開始
+            } else {
+              currentValue = normalizedDefinition.config.min_value || 0;
+            }
+          }
           break;
         case 'state':
           // 状態型の場合、initial_stateまたは最初の可能な状態を使用
-          currentValue = normalizedDefinition.config.initial_state 
-            || (normalizedDefinition.config.possible_states && normalizedDefinition.config.possible_states[0]) 
-            || '';
+          currentValue = normalizedDefinition.config.initial_state;
+          
+          // possible_statesが空の場合、トラッカー名と説明から推測して設定
+          if ((!normalizedDefinition.config.possible_states || normalizedDefinition.config.possible_states.length === 0)) {
+            const trackerName = normalizedDefinition.name.toLowerCase();
+            const description = normalizedDefinition.description?.toLowerCase() || '';
+            
+            if (trackerName.includes('relationship') || trackerName.includes('関係')) {
+              if (description.includes('撮影')) {
+                normalizedDefinition.config.possible_states = ['演技指導者と女優', '撮影監督と出演者', '信頼できるパートナー', '特別な存在'];
+                currentValue = currentValue || '演技指導者と女優';
+              } else {
+                normalizedDefinition.config.possible_states = ['初対面', '知り合い', '友人', '信頼関係', '特別な存在'];
+                currentValue = currentValue || '初対面';
+              }
+            } else if (trackerName.includes('mental') || trackerName.includes('勘違い')) {
+              if (description.includes('撮影')) {
+                normalizedDefinition.config.possible_states = ['完全に信じている', '少し疑問', '半信半疑', '現実を理解'];
+                currentValue = currentValue || '完全に信じている';
+              } else {
+                normalizedDefinition.config.possible_states = ['通常', '混乱', '理解', '受容'];
+                currentValue = currentValue || '通常';
+              }
+            } else {
+              normalizedDefinition.config.possible_states = ['通常', '変化中', '発展'];
+              currentValue = currentValue || '通常';
+            }
+          } else if (normalizedDefinition.config.possible_states.length > 0 && !currentValue) {
+            // 最初の状態を初期値とする
+            currentValue = normalizedDefinition.config.possible_states[0];
+          }
+          
+          if (!currentValue) {
+            // トラッカー名から適切な初期状態を推測
+            const trackerName = normalizedDefinition.name.toLowerCase();
+            if (trackerName.includes('relationship') || trackerName.includes('関係')) {
+              currentValue = '初対面';
+            } else if (trackerName.includes('mental') || trackerName.includes('勘違い')) {
+              currentValue = '完全に信じている';
+            } else {
+              currentValue = '通常';
+            }
+          }
           break;
         case 'boolean':
           // ブール型の場合、initial_valueまたはfalseをデフォルトとして設定
