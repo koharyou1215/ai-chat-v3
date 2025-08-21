@@ -777,7 +777,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 'absolute left-1/2 -translate-x-1/2 z-50',
                 'bg-slate-800/95 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg',
                 'p-1 flex gap-1 justify-center',
-                'max-w-[95vw] overflow-x-auto scrollbar-hide',
+                'max-w-[calc(100vw-2rem)] overflow-hidden',
                 menuPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
               )}
               style={{
@@ -785,14 +785,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 msOverflowStyle: 'none'
               }}
             >
-              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact />
-              <ActionButton icon={CornerUpLeft} onClick={handleContinue} title="続きを出力" compact />
               <ActionButton icon={Copy} onClick={handleCopy} title="コピー" compact />
               <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} compact />
               <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
               <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
+              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact />
               <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
-              <ActionButton icon={Trash2} onClick={handleClearAll} title="オールクリア" compact />
             </motion.div>
           )}
         </AnimatePresence>
@@ -834,10 +832,10 @@ const ActionButton: React.FC<{
     onClick={onClick}
     className={cn(
       "bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors",
-      compact ? "p-1.5" : "p-2"
+      compact ? "p-1" : "p-2"
     )}
     title={title}
   >
-    <Icon className={cn("text-white/70", compact ? "w-3.5 h-3.5" : "w-4 h-4")} />
+    <Icon className={cn("text-white/70", compact ? "w-3 h-3" : "w-4 h-4")} />
   </motion.button>
 );
