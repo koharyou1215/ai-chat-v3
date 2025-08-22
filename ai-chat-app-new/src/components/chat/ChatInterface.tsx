@@ -191,9 +191,9 @@ export const ChatInterface: React.FC = () => {
                 {isLeftSidebarOpen && <ChatSidebar />}
             </AnimatePresence>
             
-            <div className="flex-1 flex relative">
+            <div className="flex flex-1 min-w-0">
                 {/* メインコンテンツエリア */}
-                <div className={cn("flex flex-col h-full transition-all duration-300", isRightPanelOpen ? 'flex-1' : 'w-full')}>
+                <div className="flex-1 flex flex-col min-w-0 relative">
                     {/* Background Image */}
                     {character?.background_url && (
                         <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
@@ -254,7 +254,8 @@ export const ChatInterface: React.FC = () => {
                             initial={{ width: 0, opacity: 0 }}
                             animate={{ width: 400, opacity: 1 }}
                             exit={{ width: 0, opacity: 0 }}
-                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full w-[400px] flex-shrink-0"
+                            transition={{ duration: 0.3 }}
+                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full flex-shrink-0"
                         >
                             <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">記憶情報</h3>

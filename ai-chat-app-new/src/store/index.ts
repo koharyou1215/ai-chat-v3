@@ -40,6 +40,8 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => ({
         getItem: (name: string) => {
           try {
+            // SSR環境ではlocalStorageを使用できないため、チェックを追加
+            if (typeof window === 'undefined') return null;
             const item = localStorage.getItem(name);
             if (!item) return null;
             // JSONの基本的な検証
@@ -56,6 +58,8 @@ export const useAppStore = create<AppStore>()(
         },
         setItem: (name: string, value: string) => {
           try {
+            // SSR環境ではlocalStorageを使用できないため、チェックを追加
+            if (typeof window === 'undefined') return;
             // JSON形式の検証
             JSON.parse(value);
             localStorage.setItem(name, value);
@@ -64,6 +68,7 @@ export const useAppStore = create<AppStore>()(
           }
         },
         removeItem: (name: string) => {
+          if (typeof window === 'undefined') return;
           localStorage.removeItem(name);
         }
       }), {

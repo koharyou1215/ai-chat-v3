@@ -4562,7 +4562,7 @@ _**User**_
     'anthropic/claude-opus-4',
     'anthropic/claude-sonnet-4',
     'x-ai/grok-4',
-    'deepseek/deepseek-chat-v3-0324',
+    'deepseek/deepseek-chat-v3.1',
     'mistralai/mistral-medium-3.1',
     'qwen/qwen3-30b-a3b-instruct-2507', // 追加
     'z-ai/glm-4.5',

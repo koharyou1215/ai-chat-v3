@@ -946,7 +946,7 @@ Lines added: 35, lines removed: 43
 -         model: request.parameters?.model || 'gemini-2.5-flash',
 +       const genAI = new GoogleGenerativeAI(apiKey);
 +       const model = genAI.getGenerativeModel({
-+         model: request.parameters?.model || 'gemini-1.5-flash',
++         model: request.parameters?.model || 'gemini-2.5-flash',
           generationConfig: {
 -           temperature: request.parameters?.temperature || 0.9,
 -           topP: request.parameters?.top_p || 0.9,
@@ -1010,7 +1010,7 @@ Lines added: 35, lines removed: 43
           content: text,
 -         model: request.parameters?.model || 'gemini-2.5-flash',
 -         usage,
-+         model: request.parameters?.model || 'gemini-1.5-flash',
++         model: request.parameters?.model || 'gemini-2.5-flash',
 +         usage: {
 +             prompt_tokens: 0, // Gemini API doesn't provide this directly
 +             completion_tokens: 0,
@@ -1244,7 +1244,7 @@ Lines added: 7, lines removed: 75
 -       'anthropic/claude-sonnet-4',
 -       'anthropic/claude-opus-4',
 -       'deepseek/deepseek-r1-0528',
--       'deepseek/deepseek-chat-v3-0324',
+-       'deepseek/deepseek-chat-v3.1',
 -       'tngtech/deepseek-r1t2-chimera:free',
 -       'x-ai/grok-4',
 -       'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
@@ -2039,7 +2039,7 @@ Lines added: 34, lines removed: 197
 -   setLoaded: (loaded: boolean) => {
 -     set({ isLoaded: loaded });
 -   },
-+   setApiProvider: (provider) => set({ apiProvider: provider, selectedModel: provider === 'Gemini' ? 'gemini-1.5-flash' : 'anthropic/claude-3.5-sonnet' }),
++   setApiProvider: (provider) => set({ apiProvider: provider, selectedModel: provider === 'Gemini' ? 'gemini-2.5-flash' : 'anthropic/claude-3.5-sonnet' }),
 +   setSelectedModel: (model) => set({ selectedModel: model }),
 +   setTemperature: (temp) => set({ temperature: temp }),
 +   setTopP: (topP) => set({ top_p: topP }),
@@ -2334,7 +2334,7 @@ Lines added: 20, lines removed: 9
 -   [['zustand/persist', unknown]]
 - > = (set) => ({
 -   ...initialState,
--   setApiProvider: (provider) => set({ apiProvider: provider, selectedModel: provider === 'Gemini' ? 'gemini-1.5-flash' : 'anthropic/claude-3.5-sonnet' }),
+-   setApiProvider: (provider) => set({ apiProvider: provider, selectedModel: provider === 'Gemini' ? 'gemini-2.5-flash' : 'anthropic/claude-3.5-sonnet' }),
 -   setSelectedModel: (model) => set({ selectedModel: model }),
 -   setTemperature: (temp) => set({ temperature: temp }),
 -   setTopP: (topP) => set({ top_p: topP }),
@@ -2348,7 +2348,7 @@ Lines added: 20, lines removed: 9
 +     setApiProvider: (provider) =>
 +       set({
 +         apiProvider: provider,
-+         selectedModel: provider === 'Gemini' ? 'gemini-1.5-flash' : 'anthropic/claude-3.5-sonnet',
++         selectedModel: provider === 'Gemini' ? 'gemini-2.5-flash' : 'anthropic/claude-3.5-sonnet',
 +       }),
 +     setSelectedModel: (model) => set({ selectedModel: model }),
 +     setTemperature: (temp) => set({ temperature: temp }),
@@ -2534,7 +2534,7 @@ Lines added: 35, lines removed: 15
 +                 'mistralai/mistral-large',
 +             ]);
 +         } else {
-+             setAvailableModels(['gemini-1.5-flash', 'gemini-1.5-pro']);
++             setAvailableModels(['gemini-2.5-flash', 'gemini-2.5-pro']);
 +         }
 +     };
 +     if (isOpen) {
@@ -4496,7 +4496,7 @@ Lines added: 154, lines removed: 123
 -                 'mistralai/mistral-large',
 -             ]);
 -         } else {
--             setAvailableModels(['gemini-1.5-flash', 'gemini-1.5-pro']);
+-             setAvailableModels(['gemini-2.5-flash', 'gemini-2.5-pro']);
 -         }
 -     };
 -     if (isOpen) {
@@ -4979,7 +4979,7 @@ Lines added: 21, lines removed: 1
 +                 'mistralai/mistral-large',
 +             ]);
 +         } else { // Gemini
-+             setAvailableModels(['gemini-1.5-flash', 'gemini-1.5-pro']);
++             setAvailableModels(['gemini-2.5-flash', 'gemini-2.5-pro']);
 +         }
 +     };
 +     if (isOpen && activeTab === 'ai') {
@@ -7920,7 +7920,7 @@ Lines added: 50, lines removed: 1
 +  * Default Model Constants
 +  */
 + export const DEFAULT_MODELS = {
-+     GEMINI: 'gemini-1.5-flash',
++     GEMINI: 'gemini-2.5-flash',
 +     OPENROUTER: 'anthropic/claude-3.5-sonnet',
 + };
 ```
@@ -8122,7 +8122,7 @@ Lines added: 1, lines removed: 1
 @@ -19,5 +20,5 @@
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
--         model: request.parameters?.model || 'gemini-1.5-flash',
+-         model: request.parameters?.model || 'gemini-2.5-flash',
 +         model: request.parameters?.model || DEFAULT_MODELS.GEMINI,
           generationConfig: {
             temperature: request.parameters?.temperature,
@@ -8135,7 +8135,7 @@ Lines added: 1, lines removed: 1
 @@ -60,5 +61,5 @@
         return {
           content: text,
--         model: request.parameters?.model || 'gemini-1.5-flash',
+-         model: request.parameters?.model || 'gemini-2.5-flash',
 +         model: request.parameters?.model || DEFAULT_MODELS.GEMINI,
           usage: {
               prompt_tokens: 0, // Gemini API doesn't provide this directly
@@ -8465,8 +8465,8 @@ Lines added: 2, lines removed: 2
                   'mistralai/mistral-large',
               ]);
           } else { // Gemini
--             setAvailableModels(['gemini-1.5-flash', 'gemini-1.5-pro']);
-+             setAvailableModels([DEFAULT_MODELS.GEMINI, 'gemini-1.5-pro']);
+-             setAvailableModels(['gemini-2.5-flash', 'gemini-2.5-pro']);
++             setAvailableModels([DEFAULT_MODELS.GEMINI, 'gemini-2.5-pro']);
           }
       };
 ```
@@ -8556,7 +8556,7 @@ Lines added: 1, lines removed: 1
 @@ -48,5 +49,5 @@
         set({
           apiProvider: provider,
--         selectedModel: provider === 'Gemini' ? 'gemini-1.5-flash' : 'anthropic/claude-3.5-sonnet',
+-         selectedModel: provider === 'Gemini' ? 'gemini-2.5-flash' : 'anthropic/claude-3.5-sonnet',
 +         selectedModel: provider === 'Gemini' ? DEFAULT_MODELS.GEMINI : DEFAULT_MODELS.OPENROUTER,
         }),
       setSelectedModel: (model) => set({ selectedModel: model }),

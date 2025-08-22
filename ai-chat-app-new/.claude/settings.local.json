@@ -40,7 +40,9 @@
       "Bash(vercel:*)",
       "Bash(timeout 60 npm run build)",
       "Bash(timeout:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "WebSearch",
+      "Bash(rd:*)"
     ],
     "deny": [],
     "ask": [],

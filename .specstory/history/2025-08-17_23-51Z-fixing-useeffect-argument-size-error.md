@@ -9511,7 +9511,7 @@ _**User**_
 
   // 標準モデル
   {
-    id: 'deepseek/deepseek-chat-v3-0324',
+    id: 'deepseek/deepseek-chat-v3.1',
     name: 'DeepSeek Chat v3',
     provider: 'DeepSeek',
     category: 'standard',
@@ -9672,7 +9672,7 @@ export interface VoiceSettings {
     'anthropic/claude-opus-4',
     'anthropic/claude-sonnet-4',
     'x-ai/grok-4',
-    'deepseek/deepseek-chat-v3-0324',
+    'deepseek/deepseek-chat-v3.1',
     'mistralai/mistral-medium-3.1',
     'qwen/qwen3-30b-a3b-instruct-2507', // 追加
     'z-ai/glm-4.5',
@@ -9755,7 +9755,7 @@ Lines added: 16, lines removed: 13
 -                   <option value="openai/gpt-4-turbo-preview">GPT-4 Turbo</option>
 -                   <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
 +                 <optgroup label="Standard Models">
-+                   <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat v3</option>
++                   <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
 +                   <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
 +                   <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
                   </optgroup>
@@ -10315,9 +10315,9 @@ Lines added: 2, lines removed: 3
 @@ -595,7 +595,6 @@
                   className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
                 >
--                 <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (最新)</option>
--                 <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (高速)</option>
--                 <option value="gemini-1.0-pro-latest">Gemini 1.0 Pro</option>
+-                 <option value="gemini-2.5-pro">Gemini 1.5 Pro (最新)</option>
+-                 <option value="gemini-2.5-flash">Gemini 1.5 Flash (高速)</option>
+-                 <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
 +                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
 +                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 </select>
@@ -10444,7 +10444,7 @@ Lines added: 2, lines removed: 7
 -   const handleProviderChange = (provider: 'gemini' | 'openrouter') => {
 -     setAPIProvider(provider);
 -     if (provider === 'gemini') {
--       setAPIModel('gemini-1.5-pro-latest');
+-       setAPIModel('gemini-2.5-pro');
 -     } else {
 -       setAPIModel('anthropic/claude-3-sonnet');
 -     }
@@ -10583,7 +10583,7 @@ Lines added: 78, lines removed: 152
 -                   <option value="openai/gpt-5-mini">GPT-5 Mini</option>
 -                 </optgroup>
 -                 <optgroup label="Standard Models">
--                   <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat v3</option>
+-                   <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
 -                   <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
 -                   <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
 -                 </optgroup>
@@ -10644,7 +10644,7 @@ Lines added: 78, lines removed: 152
 +             <option value="openai/gpt-5-mini">GPT-5 Mini</option>
 +           </optgroup>
 +           <optgroup label="Standard (OpenRouter)">
-+             <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat v3</option>
++             <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
 +             <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
 +             <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
 +           </optgroup>

@@ -617,7 +617,7 @@ const APIPanel: React.FC<APIPanelProps> = ({ apiConfig, openRouterApiKey, setAPI
             <option value="openai/gpt-5-mini">GPT-5 Mini</option>
           </optgroup>
           <optgroup label="Standard (OpenRouter)">
-            <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat v3</option>
+            <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
             <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
             <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
           </optgroup>

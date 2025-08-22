@@ -287,9 +287,9 @@ export class GeminiClient {
 
   getAvailableModels(): string[] {
     return [
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-flash-latest',
-      'gemini-1.0-pro-latest'
+      'pro',
+      'gemini-2.5-flash',
+      'gemini-1.0-pro'
     ];
   }
 
@@ -332,4 +332,4 @@ export class GeminiClient {
   }
 }
 
-export const geminiClient = new GeminiClient();
+export const geminiClient = new GeminiClient();gemini-2.5-

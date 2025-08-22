@@ -1,10 +1,11 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, PanelLeft, UserCircle, Bot, Settings, Users } from 'lucide-react'; // アイコンを追加
+import { PanelLeft, UserCircle, Bot, Phone, Users, Brain } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { GroupChatMode } from '@/types/core/group-chat.types';
+import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -39,6 +40,8 @@ const getModelDisplayName = (modelId: string): string => {
 };
 
 export const ChatHeader: React.FC = () => {
+    const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
+    
     const { 
         toggleLeftSidebar, 
         isLeftSidebarOpen,
@@ -49,10 +52,7 @@ export const ChatHeader: React.FC = () => {
         setShowPersonaGallery,
         getSelectedCharacter,
         getSelectedPersona,
-        apiConfig,
-        setShowSettingsModal,
         is_group_mode,
-        setGroupMode,
         active_group_session_id,
         groupSessions,
     } = useAppStore();
@@ -157,78 +157,46 @@ export const ChatHeader: React.FC = () => {
                 </div>
             </div>
             
-            {/* Right side buttons - group mode toggle and right panel toggle */}
+            {/* Right side - phone button and brain tracker */}
             <div className="flex items-center gap-3">
-                {/* グループチャットモード選択ドロップダウン */}
-                {is_group_mode && activeGroupSession && (
-                    <select
-                        value={activeGroupSession.chat_mode}
-                        onChange={(e) => {
-                            const newMode = e.target.value as GroupChatMode;
-                            // グループセッションのモードを更新
-                            useAppStore.setState(state => {
-                                const updatedSession = {
-                                    ...activeGroupSession,
-                                    chat_mode: newMode
-                                };
-                                return {
-                                    groupSessions: new Map(state.groupSessions).set(activeGroupSession.id, updatedSession)
-                                };
-                            });
-                        }}
-                        className="text-xs bg-slate-700 hover:bg-slate-600 text-white/80 px-3 py-2 rounded border border-white/10 focus:border-purple-400 focus:outline-none cursor-pointer"
-                    >
-                        <option value="sequential">📋 順次応答</option>
-                        <option value="simultaneous">⚡ 同時応答</option>
-                        <option value="random">🎲 ランダム</option>
-                        <option value="smart">🧠 スマート</option>
-                    </select>
-                )}
-
-                {/* グループチャットモード切り替え */}
+                {/* 音声通話ボタン - 直接通話開始/終了 */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => setGroupMode(!is_group_mode)}
-                    className={cn(
-                        "p-2 rounded-full transition-colors",
-                        is_group_mode ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10"
-                    )}
-                    title={is_group_mode ? "通常チャットに切り替え" : "グループチャットに切り替え"}
+                    onClick={() => setIsVoiceCallActive(!isVoiceCallActive)}
+                    className={`p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation ${
+                        isVoiceCallActive 
+                            ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" 
+                            : "bg-green-500/20 hover:bg-green-500/30 text-green-400"
+                    }`}
+                    title={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
                 >
-                    <Users className="w-5 h-5" />
-                </motion.button>
-
-                {/* 現在のモデル表示 */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowSettingsModal(true, 'api')}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-lg border border-white/10 transition-colors group"
-                    title="設定でモデルを変更"
-                >
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                        <span className="text-xs font-medium text-white/80 group-hover:text-white">
-                            {getModelDisplayName(apiConfig.model)}
-                        </span>
-                    </div>
-                    <Settings className="w-3 h-3 text-white/40 group-hover:text-white/60" />
+                    <Phone className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
                 </motion.button>
                 
+                {/* トラッカー（記憶情報）ボタン */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleRightPanel}
                     className={cn(
-                        "p-2 rounded-full transition-colors",
+                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation",
                         isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10"
                     )}
                     title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
                 >
-                    <Brain className="w-5 h-5" />
+                    <Brain className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
                 </motion.button>
             </div>
+            
+            {/* 音声通話インターフェース - コンパクト版 */}
+            {isVoiceCallActive && (
+                <VoiceCallInterface
+                    characterId={character?.id}
+                    isActive={isVoiceCallActive}
+                    onEnd={() => setIsVoiceCallActive(false)}
+                />
+            )}
         </div>
     );
 };

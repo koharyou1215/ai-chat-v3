@@ -383,9 +383,9 @@ export class APIManager {
       {
         provider: 'gemini',
         models: [
-          { id: 'gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro (最新)', description: '最高性能のGeminiモデル' },
-          { id: 'gemini-1.5-flash-latest', name: 'Gemini 1.5 Flash (高速)', description: '高速応答に最適化' },
-          { id: 'gemini-1.0-pro-latest', name: 'Gemini 1.0 Pro', description: '安定したパフォーマンス' }
+          { id: 'gemini-2.5-pro', name: 'Gemini 1.5 Pro (最新)', description: '最高性能のGeminiモデル' },
+          { id: 'gemini-2.5-flash', name: 'Gemini 1.5 Flash (高速)', description: '高速応答に最適化' },
+          { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro', description: '安定したパフォーマンス' }
         ]
       },
       {

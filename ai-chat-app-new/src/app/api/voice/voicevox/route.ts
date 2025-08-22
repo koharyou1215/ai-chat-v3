@@ -32,15 +32,19 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to create audio query: ${queryResponse.statusText}`);
     }
     const audioQuery = await queryResponse.json();
+    console.log('Audio query created:', audioQuery);
 
     // 2. 音声合成
     const synthesisResponse = await fetch(`${voicevoxUrl}/synthesis?speaker=${speakerId}`, { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...audioQuery, ...settings }) // 設定をマージ
+      body: JSON.stringify(audioQuery)
     });
+    
     if (!synthesisResponse.ok) {
-        throw new Error(`Failed to synthesize audio: ${synthesisResponse.statusText}`);
+        const errorText = await synthesisResponse.text();
+        console.error('VOICEVOX synthesis error:', errorText);
+        throw new Error(`Failed to synthesize audio: ${synthesisResponse.status} ${synthesisResponse.statusText} - ${errorText}`);
     }
     
     const audioBuffer = await synthesisResponse.arrayBuffer();
