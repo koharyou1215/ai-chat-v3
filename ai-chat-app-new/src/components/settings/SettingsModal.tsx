@@ -131,7 +131,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'emotion', label: '感情分析', icon: Brain },
     { id: 'tracker', label: 'トラッカー', icon: Activity },
     { id: 'performance', label: 'パフォーマンス', icon: Gauge },
-    { id: 'api', label: 'API設定', icon: Globe },
     { id: 'chat', label: 'チャット', icon: Brain },
     { id: 'appearance', label: '外観', icon: Palette },
     { id: 'voice', label: '音声', icon: Volume2 },
@@ -199,7 +198,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* コンテンツ */}
             <div className="flex-1 flex overflow-hidden">
               {/* サイドバー */}
-              <div className="w-48 border-r border-white/10 p-4">
+              <div className="w-48 border-r border-white/10 p-4 overflow-y-auto">
                 <nav className="space-y-1">
                   {tabs.map((tab) => (
                     <button
@@ -236,15 +235,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {activeTab === 'performance' && (
                   <PerformancePanel settings={localEffectSettings} updateSetting={updateEffectSetting} />
                 )}
-                {activeTab === 'api' && (
-                  <APIPanel 
-                    apiConfig={apiConfig}
-                    openRouterApiKey={openRouterApiKey ?? ''}
-                    setAPIModel={setAPIModel}
-                    setAPIProvider={setAPIProvider}
-                    setOpenRouterApiKey={setOpenRouterApiKey}
-                  />
-                )}
                 {activeTab === 'chat' && (
                   <ChatPanel />
                 )}
@@ -263,6 +253,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     enableSystemPrompt={enableSystemPrompt}
                     enableJailbreakPrompt={enableJailbreakPrompt}
                     apiConfig={apiConfig}
+                    openRouterApiKey={openRouterApiKey ?? ''}
                     showSystemPrompt={showSystemPrompt}
                     showJailbreakPrompt={showJailbreakPrompt}
                     showReplySuggestionPrompt={showReplySuggestionPrompt}
@@ -277,6 +268,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onToggleJailbreakPrompt={() => setShowJailbreakPrompt(!showJailbreakPrompt)}
                     onToggleReplySuggestionPrompt={() => setShowReplySuggestionPrompt(!showReplySuggestionPrompt)}
                     onToggleTextEnhancementPrompt={() => setShowTextEnhancementPrompt(!showTextEnhancementPrompt)}
+                    setAPIModel={setAPIModel}
+                    setAPIProvider={setAPIProvider}
+                    setOpenRouterApiKey={setOpenRouterApiKey}
                   />
                 )}
                 {['data', 'privacy', 'notifications', 'language', 'developer'].includes(activeTab) && (
@@ -558,127 +552,13 @@ const SettingItem: React.FC<{
   </div>
 );
 
-// API設定パネル
-import type { APIConfig } from '@/types/core/settings.types';
-
-interface APIPanelProps {
-  apiConfig: APIConfig;
-  openRouterApiKey: string;
-  setAPIModel: (model: string) => void;
-  setAPIProvider: (provider: string) => void;
-  setOpenRouterApiKey: (key: string) => void;
-}
-
-const APIPanel: React.FC<APIPanelProps> = ({ apiConfig, openRouterApiKey, setAPIModel, setAPIProvider, setOpenRouterApiKey }) => {
-  const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(openRouterApiKey || '');
-  const [showApiKey, setShowApiKey] = useState(false);
-
-  const handleModelChange = (modelId: string) => {
-    setAPIModel(modelId);
-    // モデルに基づいてプロバイダーを自動設定
-    if (modelId.includes('gemini')) {
-      setAPIProvider('gemini');
-    } else {
-      setAPIProvider('openrouter');
-    }
-  };
-
-  const handleApiKeyChange = (key: string) => {
-    setLocalOpenRouterApiKey(key);
-    setOpenRouterApiKey(key);
-  };
-
-  const isGemini = apiConfig.provider === 'gemini';
-
-  return (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-4">API設定</h3>
-      {/* モデル選択 */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-300">モデル選択</label>
-        <select
-          value={apiConfig.model}
-          onChange={(e) => handleModelChange(e.target.value)}
-          className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-        >
-          <optgroup label="Google">
-            <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
-            <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
-          </optgroup>
-          <optgroup label="Anthropic (OpenRouter)">
-            <option value="anthropic/claude-opus-4">Claude Opus 4</option>
-            <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
-          </optgroup>
-          <optgroup label="xAI (OpenRouter)">
-            <option value="x-ai/grok-4">Grok-4</option>
-          </optgroup>
-          <optgroup label="OpenAI (OpenRouter)">
-            <option value="openai/gpt-5-chat">GPT-5</option>
-            <option value="openai/gpt-5-mini">GPT-5 Mini</option>
-          </optgroup>
-          <optgroup label="Standard (OpenRouter)">
-            <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
-            <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
-            <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
-          </optgroup>
-          <optgroup label="Specialized (OpenRouter)">
-            <option value="qwen/qwen3-30b-a3b-instruct-2507">Qwen3 30B A3B</option>
-            <option value="z-ai/glm-4.5">GLM-4.5</option>
-            <option value="moonshotai/kimi-k2">Kimi K2</option>
-          </optgroup>
-        </select>
-        {isGemini ? (
-            <p className="text-xs text-blue-400 mt-1">
-              Gemini APIを使用します。APIキーは <code className="bg-gray-700 px-1 rounded">gemini-api-key.txt</code> から読み込まれます。
-            </p>
-        ) : (
-            <p className="text-xs text-purple-400 mt-1">
-              OpenRouter APIを使用します。
-            </p>
-        )}
-      </div>
-
-      {/* OpenRouter APIキー入力 */}
-      <AnimatePresence>
-        {!isGemini && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-2 overflow-hidden"
-          >
-            <label className="block text-sm font-medium text-gray-300">OpenRouter APIキー</label>
-            <div className="relative">
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={localOpenRouterApiKey}
-                onChange={(e) => handleApiKeyChange(e.target.value)}
-                className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                placeholder="sk-or-..."
-              />
-              <button
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-              >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">
-              OpenRouterのAPIキーを入力してください。キーは暗号化されてローカルに保存されます。
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 // AI設定パネル
 const AIPanel: React.FC<{
   systemPrompts: Record<string, string>;
   enableSystemPrompt: boolean;
   enableJailbreakPrompt: boolean;
-  apiConfig: Record<string, unknown>;
+  apiConfig: APIConfig; // APIConfig型を使用
+  openRouterApiKey: string; // openRouterApiKey を追加
   showSystemPrompt: boolean;
   showJailbreakPrompt: boolean;
   showReplySuggestionPrompt: boolean;
@@ -693,11 +573,15 @@ const AIPanel: React.FC<{
   onToggleJailbreakPrompt: () => void;
   onToggleReplySuggestionPrompt: () => void;
   onToggleTextEnhancementPrompt: () => void;
+  setAPIModel: (model: string) => void; // setAPIModel を追加
+  setAPIProvider: (provider: string) => void; // setAPIProvider を追加
+  setOpenRouterApiKey: (key: string) => void; // setOpenRouterApiKey を追加
 }> = ({
   systemPrompts,
   enableSystemPrompt,
   enableJailbreakPrompt,
   apiConfig,
+  openRouterApiKey,
   showSystemPrompt,
   showJailbreakPrompt,
   showReplySuggestionPrompt,
@@ -711,204 +595,310 @@ const AIPanel: React.FC<{
   onToggleSystemPrompt,
   onToggleJailbreakPrompt,
   onToggleReplySuggestionPrompt,
-  onToggleTextEnhancementPrompt
+  onToggleTextEnhancementPrompt,
+  setAPIModel,
+  setAPIProvider,
+  setOpenRouterApiKey
 }) => {
+  const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(openRouterApiKey || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  // apiConfig がなければ何も表示しない
+  if (!apiConfig) {
+    return null;
+  }
+
+  const handleModelChange = (modelId: string) => {
+    setAPIModel(modelId);
+    if (modelId.includes('gemini')) {
+      setAPIProvider('gemini');
+    } else {
+      setAPIProvider('openrouter');
+    }
+  };
+
+  const handleApiKeyChange = (key: string) => {
+    setLocalOpenRouterApiKey(key);
+    setOpenRouterApiKey(key);
+  };
+
+  const isGemini = apiConfig.provider === 'gemini';
 
   const handlePromptChange = (key: keyof SystemPrompts, value: string) => {
     onUpdateSystemPrompts({ ...systemPrompts, [key]: value });
   };
 
   const handleSavePrompts = () => {
-    console.log('Saving custom prompts:', systemPrompts); // ★ ログ設置
-    // onUpdateSystemPromptsは親コンポーネントのstateを更新するため、
-    // ここで再度呼び出す必要はないが、明示的な保存アクションとして残す
-    // 親の onUpdateSystemPrompts が Zustand の updateSystemPrompts に直接つながる場合
-    // このボタンは不要になる可能性もある。現状はローカルでの保存確認用。
+    console.log('Saving custom prompts:', systemPrompts);
   };
 
   return (
     <div className="space-y-6 max-h-[60vh] overflow-y-auto">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-white">AI設定</h3>
-        <Button onClick={handleSavePrompts} size="sm">
-          <Save className="w-4 h-4 mr-2" />
-          プロンプトを保存
-        </Button>
-      </div>
-
-      {/* AI パラメータ */}
+      {/* API設定セクション */}
       <div className="space-y-4">
-        <h4 className="text-lg font-medium text-white">生成パラメータ</h4>
+        <h4 className="text-lg font-medium text-white">API設定</h4>
         
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Temperature: {apiConfig.temperature}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="2"
-            step="0.1"
-            value={apiConfig.temperature}
-            onChange={(e) => onSetTemperature(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-          />
-          <p className="text-xs text-gray-400 mt-1">創造性の度合い (0: 保守的, 2: 創造的)</p>
+        {/* モデル選択 */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300">モデル選択</label>
+          <select
+            value={apiConfig.model}
+            onChange={(e) => handleModelChange(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+          >
+            <optgroup label="Google">
+              <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+            </optgroup>
+            <optgroup label="Anthropic (OpenRouter)">
+              <option value="anthropic/claude-opus-4">Claude Opus 4</option>
+              <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
+            </optgroup>
+            <optgroup label="xAI (OpenRouter)">
+              <option value="x-ai/grok-4">Grok-4</option>
+            </optgroup>
+            <optgroup label="OpenAI (OpenRouter)">
+              <option value="openai/gpt-5-chat">GPT-5</option>
+              <option value="openai/gpt-5-mini">GPT-5 Mini</option>
+            </optgroup>
+            <optgroup label="Standard (OpenRouter)">
+              <option value="deepseek/deepseek-chat-v3.1">DeepSeek Chat v3</option>
+              <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
+              <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
+            </optgroup>
+            <optgroup label="Specialized (OpenRouter)">
+              <option value="qwen/qwen3-30b-a3b-instruct-2507">Qwen3 30B A3B</option>
+              <option value="z-ai/glm-4.5">GLM-4.5</option>
+              <option value="moonshotai/kimi-k2">Kimi K2</option>
+            </optgroup>
+          </select>
+          {isGemini ? (
+              <p className="text-xs text-blue-400 mt-1">
+                Gemini APIを使用します。APIキーは <code className="bg-gray-700 px-1 rounded">gemini-api-key.txt</code> から読み込まれます。
+              </p>
+          ) : (
+              <p className="text-xs text-purple-400 mt-1">
+                OpenRouter APIを使用します。
+              </p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Max Tokens: {apiConfig.max_tokens}
-          </label>
-          <input
-            type="range"
-            min="256"
-            max="8192"
-            step="256"
-            value={apiConfig.max_tokens}
-            onChange={(e) => onSetMaxTokens(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-          />
-          <p className="text-xs text-gray-400 mt-1">最大出力トークン数</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Top-p: {apiConfig.top_p}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={apiConfig.top_p}
-            onChange={(e) => onSetTopP(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-          />
-          <p className="text-xs text-gray-400 mt-1">語彙の多様性 (0.1: 制限的, 1.0: 多様)</p>
-        </div>
+        {/* OpenRouter APIキー入力 */}
+        <AnimatePresence>
+          {!isGemini && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-2 overflow-hidden"
+            >
+              <label className="block text-sm font-medium text-gray-300">OpenRouter APIキー</label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={localOpenRouterApiKey}
+                  onChange={(e) => handleApiKeyChange(e.target.value)}
+                  className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  placeholder="sk-or-..."
+                />
+                <button
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">
+                OpenRouterのAPIキーを入力してください。キーは暗号化されてローカルに保存されます。
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* システムプロンプト */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="border-t border-white/10 pt-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold text-white">AI設定</h3>
+          <Button onClick={handleSavePrompts} size="sm">
+            <Save className="w-4 h-4 mr-2" />
+            プロンプトを保存
+          </Button>
+        </div>
+
+        {/* AI パラメータ */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-medium text-white">生成パラメータ</h4>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Temperature: {apiConfig.temperature}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={apiConfig.temperature}
+              onChange={(e) => onSetTemperature(parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-gray-400 mt-1">創造性の度合い (0: 保守的, 2: 創造的)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Max Tokens: {apiConfig.max_tokens}
+            </label>
+            <input
+              type="range"
+              min="256"
+              max="8192"
+              step="256"
+              value={apiConfig.max_tokens}
+              onChange={(e) => onSetMaxTokens(parseInt(e.target.value))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-gray-400 mt-1">最大出力トークン数</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Top-p: {apiConfig.top_p}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={apiConfig.top_p}
+              onChange={(e) => onSetTopP(parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-gray-400 mt-1">語彙の多様性 (0.1: 制限的, 1.0: 多様)</p>
+          </div>
+        </div>
+
+        {/* システムプロンプト */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cpu size={16} className="text-blue-500" />
+              <label className="text-sm font-medium">システムプロンプト</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enableSystemPrompt}
+                  onChange={(e) => onSetEnableSystemPrompt(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+              </label>
+              <button
+                onClick={onToggleSystemPrompt}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showSystemPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showSystemPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+          </div>
+          {showSystemPrompt && (
+            <textarea
+              value={systemPrompts.system}
+              onChange={(e) => handlePromptChange('system', e.target.value)}
+              className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+              placeholder="システムプロンプトを入力..."
+            />
+          )}
+        </div>
+
+        {/* 脱獄プロンプト */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-red-500" />
+              <label className="text-sm font-medium">脱獄プロンプト</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enableJailbreakPrompt}
+                  onChange={(e) => onSetEnableJailbreakPrompt(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+              </label>
+              <button
+                onClick={onToggleJailbreakPrompt}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+              >
+                {showJailbreakPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showJailbreakPrompt ? '隠す' : '表示'}
+              </button>
+            </div>
+          </div>
+          {showJailbreakPrompt && (
+            <textarea
+              value={systemPrompts.jailbreak}
+              onChange={(e) => handlePromptChange('jailbreak', e.target.value)}
+              className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
+              placeholder="脱獄プロンプトを入力..."
+            />
+          )}
+        </div>
+
+        {/* 返信提案プロンプト */}
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Cpu size={16} className="text-blue-500" />
-            <label className="text-sm font-medium">システムプロンプト</label>
+            <Lightbulb size={16} className="text-yellow-600" />
+            <label className="text-sm font-medium">返信提案💡プロンプト</label>
           </div>
           <div className="flex items-center gap-2">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={enableSystemPrompt}
-                onChange={(e) => onSetEnableSystemPrompt(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-            </label>
             <button
-              onClick={onToggleSystemPrompt}
+              onClick={onToggleReplySuggestionPrompt}
               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
             >
-              {showSystemPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showSystemPrompt ? '隠す' : '表示'}
+              {showReplySuggestionPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+              {showReplySuggestionPrompt ? '隠す' : '表示'}
             </button>
           </div>
+          {showReplySuggestionPrompt && (
+            <textarea
+              value={systemPrompts.replySuggestion}
+              onChange={(e) => handlePromptChange('replySuggestion', e.target.value)}
+              className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
+              placeholder="返信提案プロンプトを入力..."
+            />
+          )}
         </div>
-        {showSystemPrompt && (
-          <textarea
-            value={systemPrompts.system}
-            onChange={(e) => handlePromptChange('system', e.target.value)}
-            className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
-            placeholder="システムプロンプトを入力..."
-          />
-        )}
-      </div>
 
-      {/* 脱獄プロンプト */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        {/* 文章強化プロンプト */}
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Shield size={16} className="text-red-500" />
-            <label className="text-sm font-medium">脱獄プロンプト</label>
+            <Edit3 size={16} className="text-green-600" />
+            <label className="text-sm font-medium">文章強化✨プロンプト</label>
           </div>
           <div className="flex items-center gap-2">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={enableJailbreakPrompt}
-                onChange={(e) => onSetEnableJailbreakPrompt(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
-            </label>
             <button
-              onClick={onToggleJailbreakPrompt}
+              onClick={onToggleTextEnhancementPrompt}
               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
             >
-              {showJailbreakPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showJailbreakPrompt ? '隠す' : '表示'}
+              {showTextEnhancementPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
+              {showTextEnhancementPrompt ? '隠す' : '表示'}
             </button>
           </div>
+          {showTextEnhancementPrompt && (
+            <textarea
+              value={systemPrompts.textEnhancement}
+              onChange={(e) => handlePromptChange('textEnhancement', e.target.value)}
+              className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
+              placeholder="文章強化プロンプトを入力..."
+            />
+          )}
         </div>
-        {showJailbreakPrompt && (
-          <textarea
-            value={systemPrompts.jailbreak}
-            onChange={(e) => handlePromptChange('jailbreak', e.target.value)}
-            className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
-            placeholder="脱獄プロンプトを入力..."
-          />
-        )}
-      </div>
-
-      {/* 返信提案プロンプト */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Lightbulb size={16} className="text-yellow-600" />
-          <label className="text-sm font-medium">返信提案💡プロンプト</label>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleReplySuggestionPrompt}
-            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-          >
-            {showReplySuggestionPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-            {showReplySuggestionPrompt ? '隠す' : '表示'}
-          </button>
-        </div>
-        {showReplySuggestionPrompt && (
-          <textarea
-            value={systemPrompts.replySuggestion}
-            onChange={(e) => handlePromptChange('replySuggestion', e.target.value)}
-            className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
-            placeholder="返信提案プロンプトを入力..."
-          />
-        )}
-      </div>
-
-      {/* 文章強化プロンプト */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Edit3 size={16} className="text-green-600" />
-          <label className="text-sm font-medium">文章強化✨プロンプト</label>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleTextEnhancementPrompt}
-            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-          >
-            {showTextEnhancementPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-            {showTextEnhancementPrompt ? '隠す' : '表示'}
-          </button>
-        </div>
-        {showTextEnhancementPrompt && (
-          <textarea
-            value={systemPrompts.textEnhancement}
-            onChange={(e) => handlePromptChange('textEnhancement', e.target.value)}
-            className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
-            placeholder="文章強化プロンプトを入力..."
-          />
-        )}
       </div>
     </div>
   );
@@ -1032,138 +1022,6 @@ const ChatPanel: React.FC = () => {
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
             />
             <p className="text-xs text-gray-400">プロンプトに含める会話履歴の数</p>
-          </div>
-        </div>
-      </div>
-
-      {/* システムプロンプト設定 */}
-      <div className="space-y-4">
-        <h4 className="text-lg font-medium text-white">プロンプト設定</h4>
-        
-        {/* システムプロンプト有効化 */}
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="enable-system-prompt"
-            checked={enableSystemPrompt}
-            onChange={(e) => setEnableSystemPrompt(e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-slate-700 border-gray-600 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="enable-system-prompt" className="text-sm font-medium text-gray-300">
-            システムプロンプトを有効にする
-          </label>
-        </div>
-
-        {/* システムプロンプト表示/編集 */}
-        {enableSystemPrompt && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-300">カスタムシステムプロンプト（デフォルトに追加）</label>
-              <button
-                onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-              >
-                {showSystemPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showSystemPrompt ? '隠す' : '表示'}
-              </button>
-            </div>
-            {showSystemPrompt && (
-              <textarea
-                value={systemPrompts.system}
-                onChange={(e) => updateSystemPrompts({ system: e.target.value })}
-                className="w-full h-40 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
-                placeholder="追加のシステム指示を入力..."
-              />
-            )}
-          </div>
-        )}
-
-        {/* Jailbreak プロンプト有効化 */}
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="enable-jailbreak-prompt"
-            checked={enableJailbreakPrompt}
-            onChange={(e) => setEnableJailbreakPrompt(e.target.checked)}
-            className="w-4 h-4 text-red-500 bg-slate-700 border-gray-600 rounded focus:ring-red-500"
-          />
-          <label htmlFor="enable-jailbreak-prompt" className="text-sm font-medium text-gray-300">
-            Jailbreakプロンプトを有効にする
-          </label>
-        </div>
-
-        {/* Jailbreak プロンプト表示/編集 */}
-        {enableJailbreakPrompt && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-300">Jailbreakプロンプト</label>
-              <button
-                onClick={() => setShowJailbreakPrompt(!showJailbreakPrompt)}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-              >
-                {showJailbreakPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showJailbreakPrompt ? '隠す' : '表示'}
-              </button>
-            </div>
-            {showJailbreakPrompt && (
-              <textarea
-                value={systemPrompts.jailbreak}
-                onChange={(e) => updateSystemPrompts({ jailbreak: e.target.value })}
-                className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
-                placeholder="Jailbreakプロンプトを入力..."
-              />
-            )}
-          </div>
-        )}
-
-        {/* インスピレーションプロンプト設定 */}
-        <div className="space-y-4 border-t border-gray-600 pt-4">
-          <h5 className="text-md font-medium text-white">インスピレーションプロンプト</h5>
-          
-          {/* 返信提案プロンプト */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Lightbulb size={16} className="text-yellow-600" />
-              <label className="text-sm font-medium text-gray-300">返信提案プロンプト</label>
-              <button
-                onClick={() => setShowReplySuggestionPrompt(!showReplySuggestionPrompt)}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-              >
-                {showReplySuggestionPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showReplySuggestionPrompt ? '隠す' : '表示'}
-              </button>
-            </div>
-            {showReplySuggestionPrompt && (
-              <textarea
-                value={systemPrompts.replySuggestion}
-                onChange={(e) => updateSystemPrompts({ replySuggestion: e.target.value })}
-                className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
-                placeholder="返信提案プロンプトを入力..."
-              />
-            )}
-          </div>
-
-          {/* 文章強化プロンプト */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Edit3 size={16} className="text-green-600" />
-              <label className="text-sm font-medium text-gray-300">文章強化プロンプト</label>
-              <button
-                onClick={() => setShowTextEnhancementPrompt(!showTextEnhancementPrompt)}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
-              >
-                {showTextEnhancementPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showTextEnhancementPrompt ? '隠す' : '表示'}
-              </button>
-            </div>
-            {showTextEnhancementPrompt && (
-              <textarea
-                value={systemPrompts.textEnhancement}
-                onChange={(e) => updateSystemPrompts({ textEnhancement: e.target.value })}
-                className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
-                placeholder="文章強化プロンプトを入力..."
-              />
-            )}
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
-import { UnifiedCharacter } from '@/types/core/character.types';
+import { Character } from '@/types';
 import { GroupChatMode, GroupChatScenario, ScenarioTemplate } from '@/types/core/group-chat.types';
 import { Users, Plus, Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
 import { ScenarioSelector } from './ScenarioSelector';
@@ -21,6 +21,7 @@ interface GroupChatInterfaceProps {
 export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   onStartGroupChat
 }) => {
+  // 全てのフックを必ず最初に呼び出す（条件付きではない）
   const { 
     characters,
     getSelectedPersona,
@@ -37,14 +38,12 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   const [groupName, setGroupName] = useState('新しいグループチャット');
   const [chatMode, setChatMode] = useState<GroupChatMode>('sequential');
   const [showSetup, setShowSetup] = useState(false);
-  
-  // シナリオ関連
   const [currentStep, setCurrentStep] = useState<'characters' | 'scenario' | 'settings'>('characters');
   const [selectedScenario, setSelectedScenario] = useState<GroupChatScenario | null>(null);
   
+  // 値の計算（フックではないのでどこでも可能）
   const persona = getSelectedPersona();
   const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
-  
   const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
   
   
@@ -162,10 +161,11 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     chat_mode: newMode
                   };
                   
-                  // ストアを更新
-                  useAppStore.setState(state => ({
-                    groupSessions: new Map(state.groupSessions).set(activeGroupSession.id, updatedSession)
-                  }));
+                  // ストアを更新（安全な方法で）
+                  const store = useAppStore.getState();
+                  const updatedGroupSessions = new Map(store.groupSessions);
+                  updatedGroupSessions.set(activeGroupSession.id, updatedSession);
+                  useAppStore.setState({ groupSessions: updatedGroupSessions });
                 }}
                 className="text-xs bg-slate-700 hover:bg-slate-600 text-white/80 px-2 py-1 rounded border border-white/10 focus:border-purple-400 focus:outline-none cursor-pointer"
               >
@@ -256,19 +256,18 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                             const allCharacters = Array.from(characters.values());
                             const inactiveCount = allCharacters.filter(char => !char.is_active).length;
                             
-                            // ストアの状態を直接更新
-                            useAppStore.setState((state) => {
-                              const updatedCharacters = new Map(state.characters);
-                              
-                              // 全キャラクターのis_activeをtrueに設定
-                              updatedCharacters.forEach((char, id) => {
-                                if (!char.is_active) {
-                                  updatedCharacters.set(id, { ...char, is_active: true });
-                                }
-                              });
-                              
-                              return { characters: updatedCharacters };
+                            // ストアの状態を安全に更新
+                            const store = useAppStore.getState();
+                            const updatedCharacters = new Map(store.characters);
+                            
+                            // 全キャラクターのis_activeをtrueに設定
+                            updatedCharacters.forEach((char, id) => {
+                              if (!char.is_active) {
+                                updatedCharacters.set(id, { ...char, is_active: true });
+                              }
                             });
+                            
+                            useAppStore.setState({ characters: updatedCharacters });
                             
                             console.log(`Activated ${inactiveCount} characters`);
                             alert(`${inactiveCount}人のキャラクターをアクティブ化しました！`);

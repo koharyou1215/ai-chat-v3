@@ -42,7 +42,10 @@
       "Bash(timeout:*)",
       "Bash(npx next:*)",
       "WebSearch",
-      "Bash(rd:*)"
+      "Bash(rd:*)",
+      "Bash(Remove-Item -Recurse -Force .next)",
+      "Bash(Stop-Process -Id 29336 -Force)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": [],

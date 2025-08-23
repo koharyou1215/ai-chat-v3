@@ -10,8 +10,9 @@ import { promptBuilderService, PromptBuilderService } from '@/services/prompt-bu
 import { HistorySlice, createHistorySlice } from './slices/history.slice';
 import { SettingsSlice, createSettingsSlice } from './slices/settings.slice';
 import { SuggestionSlice, createSuggestionSlice } from './slices/suggestion.slice';
-import { UISlice, createUISlice } from './slices/ui.slice'; // インポート
+import { UISlice, createUISlice } from './slices/ui.slice';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { StateCreator } from 'zustand';
 
 export type AppStore = ChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
   apiManager: APIManager;
@@ -119,11 +120,12 @@ export const useAppStore = create<AppStore>()(
         return persistedState;
       },
       // Only persist state, not actions (functions)
+      // UI状態はハイドレーション問題を避けるため永続化しない
       partialize: (state) => ({
         // Chat sessions
         sessions: state.sessions,
         active_session_id: state.active_session_id,
-        trackerManagers: state.trackerManagers, // ★ トラッカー管理の永続化
+        trackerManagers: state.trackerManagers,
         
         // Characters and Personas
         characters: state.characters,
@@ -141,10 +143,6 @@ export const useAppStore = create<AppStore>()(
         voice: state.voice,
         imageGeneration: state.imageGeneration,
         
-        // UI State
-        isLeftSidebarOpen: state.isLeftSidebarOpen,
-        isRightPanelOpen: state.isRightPanelOpen,
-        
         // Memory System
         memories: state.memories,
         memoryCards: state.memory_cards,
@@ -153,6 +151,10 @@ export const useAppStore = create<AppStore>()(
         // Suggestion Data
         suggestions: state.suggestions,
         suggestionData: state.suggestionData,
+        
+        // UI状態は永続化しない（ハイドレーション問題回避のため）
+        // isLeftSidebarOpen: false, // 常にfalseで初期化
+        // isRightPanelOpen: false, // 常にfalseで初期化
       }),
     }
   )

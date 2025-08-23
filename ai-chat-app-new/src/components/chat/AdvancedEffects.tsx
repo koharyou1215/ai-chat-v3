@@ -114,7 +114,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   const { settings } = useEffectSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number>(0);
 
   useEffect(() => {
     if (!canvasRef.current || !settings.particleEffects) return;

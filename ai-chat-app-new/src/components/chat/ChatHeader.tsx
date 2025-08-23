@@ -1,11 +1,12 @@
 'use client';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PanelLeft, UserCircle, Bot, Phone, Users, Brain } from 'lucide-react';
+import { PanelLeft, UserCircle, Bot, Phone, Users, Brain, Settings, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { GroupChatMode } from '@/types/core/group-chat.types';
 import { VoiceCallInterface } from '../voice/VoiceCallInterface';
+import { VoiceCallModal } from '../voice/VoiceCallModal';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -16,6 +17,8 @@ const getModelDisplayName = (modelId: string): string => {
         const modelName = modelId.replace('google/', '');
         if (modelName.includes('gemini-2.5-pro')) return 'Gemini 2.5 Pro';
         if (modelName.includes('gemini-2.5-flash')) return 'Gemini 2.5 Flash';
+        if (modelName.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
+        if (modelName.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
         return 'Gemini';
     }
     
@@ -25,6 +28,12 @@ const getModelDisplayName = (modelId: string): string => {
         if (modelName.includes('claude-sonnet')) return 'Claude Sonnet';
         return 'Claude';
     }
+    
+    // Gemini直接指定の場合（プレフィックスなし）
+    if (modelId.includes('gemini-2.5-pro')) return 'Gemini 2.5 Pro';
+    if (modelId.includes('gemini-2.5-flash')) return 'Gemini 2.5 Flash';
+    if (modelId.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
+    if (modelId.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
     
     if (modelId.startsWith('x-ai/')) return 'Grok-4';
     if (modelId.startsWith('openai/')) return 'GPT-5';
@@ -41,6 +50,7 @@ const getModelDisplayName = (modelId: string): string => {
 
 export const ChatHeader: React.FC = () => {
     const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
+    const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
     
     const { 
         toggleLeftSidebar, 
@@ -53,6 +63,7 @@ export const ChatHeader: React.FC = () => {
         getSelectedCharacter,
         getSelectedPersona,
         is_group_mode,
+        setGroupMode,
         active_group_session_id,
         groupSessions,
     } = useAppStore();
@@ -155,24 +166,70 @@ export const ChatHeader: React.FC = () => {
                         <p className="text-white/50 text-sm">as Persona</p>
                     </div>
                 </div>
-            </div>
-            
-            {/* Right side - phone button and brain tracker */}
-            <div className="flex items-center gap-3">
-                {/* 音声通話ボタン - 直接通話開始/終了 */}
+                
+                {/* グループモード切り替えボタン */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => setIsVoiceCallActive(!isVoiceCallActive)}
-                    className={`p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation ${
-                        isVoiceCallActive 
-                            ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" 
-                            : "bg-green-500/20 hover:bg-green-500/30 text-green-400"
-                    }`}
-                    title={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
+                    onClick={() => setGroupMode(!is_group_mode)}
+                    className={cn(
+                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation",
+                        is_group_mode ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10 text-gray-400"
+                    )}
+                    title={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
                 >
-                    <Phone className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
+                    <Users className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
                 </motion.button>
+            </div>
+            
+            {/* Right side - model selector, phone button and brain tracker */}
+            <div className="flex items-center gap-3">
+                {/* モデル選択ドロップダウン */}
+                <div className="relative">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                            const { setShowSettingsModal } = useAppStore.getState();
+                            setShowSettingsModal(true, 'ai');
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors border border-white/10 text-sm font-medium"
+                        title="モデル設定を変更"
+                    >
+                        <Settings className="w-4 h-4 text-blue-400" />
+                        <span className="text-white/90 hidden md:inline">
+                            {getModelDisplayName(useAppStore.getState().apiConfig.model)}
+                        </span>
+                        <ChevronDown className="w-3 h-3 text-white/60" />
+                    </motion.button>
+                </div>
+                {/* 音声通話ボタン - 統合版 */}
+                <div className="relative">
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setIsVoiceCallActive(!isVoiceCallActive)}
+                        className={`p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation ${
+                            isVoiceCallActive 
+                                ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" 
+                                : "bg-green-500/20 hover:bg-green-500/30 text-green-400"
+                        }`}
+                        title={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
+                    >
+                        <Phone className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
+                    </motion.button>
+                    
+                    {/* フル画面モーダル切り替え用の小さなアイコン */}
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setIsVoiceCallModalOpen(true)}
+                        className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 hover:bg-purple-600 rounded-full flex items-center justify-center"
+                        title="フル画面モードで開く"
+                    >
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                    </motion.button>
+                </div>
                 
                 {/* トラッカー（記憶情報）ボタン */}
                 <motion.button
@@ -197,6 +254,13 @@ export const ChatHeader: React.FC = () => {
                     onEnd={() => setIsVoiceCallActive(false)}
                 />
             )}
+            
+            {/* フル画面音声通話モーダル */}
+            <VoiceCallModal
+                characterId={character?.id}
+                isOpen={isVoiceCallModalOpen}
+                onClose={() => setIsVoiceCallModalOpen(false)}
+            />
         </div>
     );
 };

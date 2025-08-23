@@ -1,7 +1,4 @@
 'use client';
-/* eslint-disable */
-// @ts-nocheck
-// @ts-ignore
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -17,6 +14,15 @@ import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { AppearancePanel } from './AppearancePanel'; // ★ 専門医をインポート
+
+// Type guard functions
+const isCharacter = (data: Character | Persona | null): data is Character => {
+  return data !== null && 'speaking_style' in data;
+};
+
+const isPersona = (data: Character | Persona | null): data is Persona => {
+  return data !== null && 'role' in data && !('speaking_style' in data);
+};
 
 interface CharacterFormProps {
     character?: Character | null;
@@ -1228,8 +1234,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         <p className="text-sm text-slate-400">心の中での本当の想いや感情</p>
                                         <Textarea
                                             placeholder="例: 実は寂しがり屋で、人に嫌われることを恐れている..."
-                                            value={formData?.internal_personality || ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, internal_personality: e.target.value} : null)}
+                                            value={isCharacter(formData) ? formData.internal_personality || '' : ''}
+                                            onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, internal_personality: e.target.value} : prev)}
                                             rows={4}
                                             className="bg-slate-800/50 border-slate-600 focus:border-amber-400 resize-none"
                                         />
@@ -1248,8 +1254,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <p className="text-sm text-slate-400">一人称、二人称、語尾、特徴的な表現など</p>
                                     <Textarea
                                         placeholder="例: 一人称は「私」。二人称は「あなた」。語尾に「です」「ます」を使う丁寧語..."
-                                        value={formData?.speaking_style || ''}
-                                        onChange={e => setFormData(prev => prev ? {...prev as any, speaking_style: e.target.value} : null)}
+                                        value={isCharacter(formData) ? formData.speaking_style || '' : ''}
+                                        onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, speaking_style: e.target.value} : prev)}
                                         rows={4}
                                         className="bg-slate-800/50 border-slate-600 focus:border-teal-400 resize-none"
                                     />
@@ -1269,8 +1275,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <p className="text-sm text-slate-400">キャラクターの過去、生い立ち、経歴など</p>
                                     <Textarea
                                         placeholder="例: 魔法学院で生まれ育った女の子。幼い頃から特別な魔力を持っていたが..."
-                                        value={formData?.background || ''}
-                                        onChange={e => setFormData(prev => prev ? {...prev as any, background: e.target.value} : null)}
+                                        value={isCharacter(formData) ? formData.background || '' : ''}
+                                        onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, background: e.target.value} : prev)}
                                         rows={6}
                                         className="bg-slate-800/50 border-slate-600 focus:border-emerald-400 resize-none"
                                     />
@@ -1288,8 +1294,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <p className="text-sm text-slate-400">会話が始まる状況や舞台設定</p>
                                     <Textarea
                                         placeholder="例: 学院の図書館で、夕日が差し込む中。あなたは古い本を読んでいると..."
-                                        value={formData?.scenario || ''}
-                                        onChange={e => setFormData(prev => prev ? {...prev as any, scenario: e.target.value} : null)}
+                                        value={isCharacter(formData) ? formData.scenario || '' : ''}
+                                        onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, scenario: e.target.value} : prev)}
                                         rows={6}
                                         className="bg-slate-800/50 border-slate-600 focus:border-indigo-400 resize-none"
                                     />
@@ -1307,8 +1313,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <p className="text-sm text-slate-400">キャラクターが最初に言う台詞</p>
                                     <Textarea
                                         placeholder="例: あら、こんなところに人がいたのね。私はエミリア。あなたは？"
-                                        value={formData?.first_message || ''}
-                                        onChange={e => setFormData(prev => prev ? {...prev as any, first_message: e.target.value} : null)}
+                                        value={isCharacter(formData) ? formData.first_message || '' : ''}
+                                        onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, first_message: e.target.value} : prev)}
                                         rows={4}
                                         className="bg-slate-800/50 border-slate-600 focus:border-pink-400 resize-none"
                                     />
@@ -1327,14 +1333,18 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <label className="block text-sm font-medium text-slate-300 mb-2">NSFWペルソナ</label>
                                 <Textarea
                                     placeholder="成人向けシーンでのキャラクターの特徴..."
-                                    value={formData?.nsfw_profile?.persona || ''}
-                                    onChange={e => setFormData({
-                                        ...formData, 
-                                        nsfw_profile: {
-                                            ...formData?.nsfw_profile,
-                                            persona: e.target.value
+                                    value={isCharacter(formData) ? formData.nsfw_profile?.persona || '' : ''}
+                                    onChange={e => {
+                                        if (isCharacter(formData)) {
+                                            setFormData({
+                                                ...formData, 
+                                                nsfw_profile: {
+                                                    ...formData.nsfw_profile,
+                                                    persona: e.target.value
+                                                }
+                                            });
                                         }
-                                    })}
+                                    }}
                                     rows={4}
                                 />
                             </div>
@@ -1343,14 +1353,18 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <label className="block text-sm font-medium text-slate-300 mb-2">性的欲求レベル</label>
                                 <Input
                                     placeholder="低い、中程度、高い など"
-                                    value={formData?.nsfw_profile?.libido_level || ''}
-                                    onChange={e => setFormData({
-                                        ...formData, 
-                                        nsfw_profile: {
-                                            ...formData?.nsfw_profile,
-                                            libido_level: e.target.value
+                                    value={isCharacter(formData) ? formData.nsfw_profile?.libido_level || '' : ''}
+                                    onChange={e => {
+                                        if (isCharacter(formData)) {
+                                            setFormData({
+                                                ...formData, 
+                                                nsfw_profile: {
+                                                    ...formData.nsfw_profile,
+                                                    libido_level: e.target.value
+                                                }
+                                            });
                                         }
-                                    })}
+                                    }}
                                 />
                             </div>
                             
@@ -1359,17 +1373,21 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <label className="block text-sm font-medium text-slate-300 mb-2">ハードリミット（絶対NG）</label>
                                     <Textarea
                                         placeholder="絶対に行わない行為..."
-                                        value={formData?.nsfw_profile?.limits?.hard || ''}
-                                        onChange={e => setFormData({
-                                            ...formData, 
-                                            nsfw_profile: {
-                                                ...formData?.nsfw_profile,
-                                                limits: {
-                                                    ...formData?.nsfw_profile?.limits,
-                                                    hard: e.target.value
-                                                }
+                                        value={isCharacter(formData) ? formData.nsfw_profile?.kinks?.find(k => k.startsWith('hard:'))?.replace('hard:', '') || '' : ''}
+                                        onChange={e => {
+                                            if (isCharacter(formData)) {
+                                                const kinks = formData.nsfw_profile?.kinks || [];
+                                                const updatedKinks = kinks.filter(k => !k.startsWith('hard:'));
+                                                if (e.target.value) updatedKinks.push(`hard:${e.target.value}`);
+                                                setFormData({
+                                                    ...formData, 
+                                                    nsfw_profile: {
+                                                        ...formData.nsfw_profile,
+                                                        kinks: updatedKinks
+                                                    }
+                                                });
                                             }
-                                        })}
+                                        }}
                                         rows={3}
                                     />
                                 </div>
@@ -1377,17 +1395,21 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <label className="block text-sm font-medium text-slate-300 mb-2">ソフトリミット（条件付きNG）</label>
                                     <Textarea
                                         placeholder="条件によってはNGとなる行為..."
-                                        value={formData?.nsfw_profile?.limits?.soft || ''}
-                                        onChange={e => setFormData({
-                                            ...formData, 
-                                            nsfw_profile: {
-                                                ...formData?.nsfw_profile,
-                                                limits: {
-                                                    ...formData?.nsfw_profile?.limits,
-                                                    soft: e.target.value
-                                                }
+                                        value={isCharacter(formData) ? formData.nsfw_profile?.kinks?.find(k => k.startsWith('soft:'))?.replace('soft:', '') || '' : ''}
+                                        onChange={e => {
+                                            if (isCharacter(formData)) {
+                                                const kinks = formData.nsfw_profile?.kinks || [];
+                                                const updatedKinks = kinks.filter(k => !k.startsWith('soft:'));
+                                                if (e.target.value) updatedKinks.push(`soft:${e.target.value}`);
+                                                setFormData({
+                                                    ...formData, 
+                                                    nsfw_profile: {
+                                                        ...formData.nsfw_profile,
+                                                        kinks: updatedKinks
+                                                    }
+                                                });
                                             }
-                                        })}
+                                        }}
                                         rows={3}
                                     />
                                 </div>
@@ -1395,34 +1417,38 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">性的嗜好・キンク</label>
-                                {(formData?.nsfw_profile?.kinks || []).map((kink: string, index: number) => (
+                                {(isCharacter(formData) ? formData.nsfw_profile?.kinks || [] : []).map((kink: string, index: number) => (
                                     <div key={index} className="flex items-center gap-2 mb-2">
                                         <Input 
                                             value={kink} 
                                             onChange={e => {
-                                                const newKinks = [...(formData?.nsfw_profile?.kinks || [])];
-                                                newKinks[index] = e.target.value;
-                                                setFormData({
-                                                    ...formData, 
-                                                    nsfw_profile: {
-                                                        ...formData?.nsfw_profile,
-                                                        kinks: newKinks
-                                                    }
-                                                });
+                                                if (isCharacter(formData)) {
+                                                    const newKinks = [...(formData.nsfw_profile?.kinks || [])];
+                                                    newKinks[index] = e.target.value;
+                                                    setFormData({
+                                                        ...formData, 
+                                                        nsfw_profile: {
+                                                            ...formData.nsfw_profile,
+                                                            kinks: newKinks
+                                                        }
+                                                    });
+                                                }
                                             }}
                                         />
                                         <Button 
                                             size="icon" 
                                             variant="ghost" 
                                             onClick={() => {
-                                                const newKinks = (formData?.nsfw_profile?.kinks || []).filter((_: string, i: number) => i !== index);
-                                                setFormData({
-                                                    ...formData, 
-                                                    nsfw_profile: {
-                                                        ...formData?.nsfw_profile,
-                                                        kinks: newKinks
-                                                    }
-                                                });
+                                                if (isCharacter(formData)) {
+                                                    const newKinks = (formData.nsfw_profile?.kinks || []).filter((_: string, i: number) => i !== index);
+                                                    setFormData({
+                                                        ...formData, 
+                                                        nsfw_profile: {
+                                                            ...formData.nsfw_profile,
+                                                            kinks: newKinks
+                                                        }
+                                                    });
+                                                }
                                             }}
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -1432,13 +1458,17 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <Button 
                                     size="sm" 
                                     variant="outline" 
-                                    onClick={() => setFormData({
-                                        ...formData, 
-                                        nsfw_profile: {
-                                            ...formData?.nsfw_profile,
-                                            kinks: [...(formData?.nsfw_profile?.kinks || []), '']
+                                    onClick={() => {
+                                        if (isCharacter(formData)) {
+                                            setFormData({
+                                                ...formData, 
+                                                nsfw_profile: {
+                                                    ...formData.nsfw_profile,
+                                                    kinks: [...(formData.nsfw_profile?.kinks || []), '']
+                                                }
+                                            });
                                         }
-                                    })}
+                                    }}
                                 >
                                     <PlusCircle className="w-4 h-4 mr-2" />
                                     キンクを追加
@@ -1454,8 +1484,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <label className="block text-sm font-medium text-slate-300 mb-2">システムプロンプト</label>
                                 <Textarea
                                     placeholder="AIへの指示やキャラクターの行動指針..."
-                                    value={formData?.system_prompt || ''}
-                                    onChange={e => setFormData(prev => prev ? {...prev as any, system_prompt: e.target.value} : null)}
+                                    value={isCharacter(formData) ? formData.system_prompt || '' : ''}
+                                    onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, system_prompt: e.target.value} : prev)}
                                     rows={8}
                                 />
                             </div>
@@ -1484,8 +1514,8 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         <label className="text-sm font-medium text-slate-300">性格（全体的な説明）</label>
                                         <Textarea
                                             placeholder="キャラクターの基本的な性格、価値観、行動パターンなどを詳しく記述..."
-                                            value={formData?.personality || ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, personality: e.target.value} : null)}
+                                            value={isCharacter(formData) ? formData.personality || '' : ''}
+                                            onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, personality: e.target.value} : prev)}
                                             rows={6}
                                             className="bg-slate-800/50 border-slate-600 focus:border-violet-400 resize-none"
                                         />

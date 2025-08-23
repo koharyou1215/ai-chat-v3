@@ -44,7 +44,7 @@ export const createSettingsSlice: StateCreator<
   
   apiConfig: {
     provider: 'gemini',
-    model: 'google/gemini-2.5-pro',
+    model: 'google/gemini-2.5-flash',
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 1.0,

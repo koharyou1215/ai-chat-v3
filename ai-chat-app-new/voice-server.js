@@ -9,7 +9,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const axios = require('axios');
-// const VAD = require('node-vad'); // VADを無効化
+const VAD = require('node-vad'); // VADを有効化
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 
@@ -132,7 +132,7 @@ class VoiceCallServer {
         isProcessing: false,
         lastSpeechTime: 0,
         conversationHistory: [],
-        vad: null, // VADを無効化
+        vad: new VAD(VAD.Mode.AGGRESSIVE), // VAD初期化
         responseQueue: [],
         isPlayingResponse: false,
         startTime: Date.now(),
@@ -202,8 +202,8 @@ class VoiceCallServer {
         return;
       }
 
-      // 音声検出を完全無効化 - すべての音声データを処理
-      const isSpeech = true; // 常に音声として扱う
+      // VADで音声区間検出
+      const isSpeech = await this.detectSpeech(audioData, session.vad);
       const currentTime = Date.now();
       
       const chunk = {
@@ -212,20 +212,23 @@ class VoiceCallServer {
         isSpeech
       };
       
-      // 音声データを蓄積
-      session.audioBuffer.push(chunk);
-      session.lastSpeechTime = currentTime;
-      
-      this.sendMessage(session.ws, {
-        type: 'voice_activity',
-        status: 'speaking',
-        timestamp: currentTime
-      });
-      
-      // 簡易的な発話終了検出：2秒分のデータが蓄積されたら処理開始
-      const bufferDuration = currentTime - (session.audioBuffer[0]?.timestamp || currentTime);
-      
-      if (bufferDuration > 2000 && !session.isProcessing) {
+      if (isSpeech) {
+        // 音声検出時
+        session.audioBuffer.push(chunk);
+        session.lastSpeechTime = currentTime;
+        
+        this.sendMessage(session.ws, {
+          type: 'voice_activity',
+          status: 'speaking',
+          timestamp: currentTime
+        });
+        
+      } else if (
+        session.lastSpeechTime > 0 && 
+        currentTime - session.lastSpeechTime > 500 && // 500ms の無音で発話終了
+        session.audioBuffer.length > 0 &&
+        !session.isProcessing
+      ) {
         // 発話終了検出
         session.isProcessing = true;
         
@@ -255,6 +258,40 @@ class VoiceCallServer {
       console.error(`[${sessionId}] Audio processing error:`, error);
       session.stats.errorsOccurred++;
     }
+  }
+
+  // VAD音声検出（安全版）
+  async detectSpeech(audioData, vad) {
+    return new Promise((resolve) => {
+      if (!vad) {
+        resolve(true); // VADが無効の場合は常に音声として扱う
+        return;
+      }
+
+      try {
+        // バッファサイズをチェックしてVADの処理に適したサイズに調整
+        if (audioData.length < 32) {
+          resolve(false); // データが小さすぎる場合は無音として扱う
+          return;
+        }
+
+        // VADが期待するサイズ（16bitサンプル）に調整
+        const expectedSize = Math.floor(audioData.length / 2) * 2;
+        const adjustedBuffer = audioData.slice(0, expectedSize);
+
+        vad.processAudio(adjustedBuffer, 16000, (err, res) => {
+          if (err) {
+            console.error('VAD error:', err);
+            resolve(false); // エラー時は無音として扱う（音声処理を停止）
+          } else {
+            resolve(res === VAD.Event.VOICE);
+          }
+        });
+      } catch (error) {
+        console.error('VAD processing error:', error);
+        resolve(false); // エラー時は無音として扱う
+      }
+    });
   }
 
   async handleControlMessage(sessionId, message) {
@@ -311,25 +348,6 @@ class VoiceCallServer {
     }
   }
 
-  async detectSpeech(audioData, vad) {
-    // シンプルな音量ベースの音声検出
-    if (!audioData || audioData.length < 16) {
-      return false;
-    }
-    
-    // 音声データを16bit整数として解釈し、音量レベルを計算
-    let sum = 0;
-    for (let i = 0; i < audioData.length - 1; i += 2) {
-      const sample = audioData.readInt16LE(i);
-      sum += Math.abs(sample);
-    }
-    
-    const average = sum / (audioData.length / 2);
-    const threshold = 1000; // 音量閾値（調整可能）
-    
-    return average > threshold;
-  }
-
   async processUtterance(sessionId, audioData) {
     const session = this.sessions.get(sessionId);
     if (!session) return;
@@ -380,6 +398,13 @@ class VoiceCallServer {
         await this.synthesizeAndSend(sessionId, currentSentence.trim());
       }
       
+      // AI応答をクライアントに送信
+      this.sendMessage(session.ws, {
+        type: 'ai_response',
+        text: fullResponse,
+        timestamp: Date.now()
+      });
+
       // 会話履歴更新
       session.conversationHistory.push(
         { role: 'user', content: text },

@@ -25,7 +25,7 @@ interface CharacterGalleryProps {
   selectedCharacterId?: string;
 }
 
-type SortField = 'last_used' | 'name' | 'created_at' | 'usage_count';
+type SortField = 'name' | 'tags';
 type SortOption = `${SortField}_${'asc' | 'desc'}`;
 
 export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
@@ -37,7 +37,7 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
 }) => {
   const { startEditingCharacter } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('last_used_desc');
+  const [sortOption, setSortOption] = useState<SortOption>('name_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const filteredAndSortedCharacters = useFilterAndSort({
@@ -46,22 +46,16 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
     searchKeys: ['name', 'tags'],
     sortOption,
     sortKeys: {
-      last_used: (c) => c.statistics?.last_used ? new Date(c.statistics.last_used).getTime() : 0,
-      usage_count: (c) => c.statistics?.usage_count ?? 0,
-      created_at: (c) => c.created_at ? new Date(c.created_at).getTime() : 0,
-      name: (c) => c.name || '',
+      name: (c: Character) => c.name || '',
+      tags: (c: Character) => c.tags.join(', '),
     },
   });
   
   const sortOptions: { value: SortOption; label: string }[] = [
-    { value: 'last_used_desc', label: '最終使用 (新しい順)' },
-    { value: 'last_used_asc', label: '最終使用 (古い順)' },
     { value: 'name_asc', label: '名前 (昇順)' },
     { value: 'name_desc', label: '名前 (降順)' },
-    { value: 'created_at_desc', label: '作成日 (新しい順)' },
-    { value: 'created_at_asc', label: '作成日 (古い順)' },
-    { value: 'usage_count_desc', label: '使用回数 (多い順)' },
-    { value: 'usage_count_asc', label: '使用回数 (少ない順)' },
+    { value: 'tags_asc', label: 'タグ (昇順)' },
+    { value: 'tags_desc', label: 'タグ (降順)' },
   ];
 
   const handleJsonUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,12 +116,12 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
 
         <Button asChild variant="ghost" className="h-9 px-3">
           <label htmlFor="json-upload" className="cursor-pointer">
-            <Upload className="w-4 h-4" title="JSON読込" />
+            <Upload className="w-4 h-4" />
             <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
           </label>
         </Button>
         <Button variant="ghost" onClick={onCreateCharacter} className="h-9 px-3">
-          <Plus className="w-4 h-4" title="新規作成" />
+          <Plus className="w-4 h-4" />
         </Button>
       </div>
 

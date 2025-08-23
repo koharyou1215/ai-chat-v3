@@ -379,21 +379,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     alert('このキャラクターのチャット・メモリ・トラッカーを全てリセットしました');
   };
 
-  // 自動再生済みかどうかを追跡するRef
-  const hasAutoPlayedRef = useRef(false);
+  // 自動再生済みメッセージIDを追跡するRef（グローバル管理）
+  const autoPlayedMessagesRef = useRef<Set<string>>(new Set());
 
-  // 音声自動再生機能
+  // 音声自動再生機能（重複防止強化版）
   useEffect(() => {
-    // 既存の音声を停止
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    // ユーザーメッセージや無効な条件の場合は早期リターン
+    if (isUser || !message.content || message.content.length === 0) {
+      return;
     }
     
-    // AIメッセージが最新かつ音声自動再生がオンで、まだ自動再生していない場合
-    if (!isUser && isLatest && voiceSettings?.autoPlay && !isSpeaking && 
-        message.content.length > 0 && !hasAutoPlayedRef.current) {
+    // 既に自動再生済みのメッセージかチェック
+    if (autoPlayedMessagesRef.current.has(message.id)) {
+      return;
+    }
+    
+    // AIメッセージが最新かつ音声自動再生がオンで、現在再生中でない場合
+    if (!isUser && isLatest && voiceSettings?.autoPlay && !isSpeaking) {
       
-      hasAutoPlayedRef.current = true; // 自動再生済みフラグを設定
+      // 自動再生済みとしてマーク（重複防止）
+      autoPlayedMessagesRef.current.add(message.id);
+      
+      // 既存の音声を停止
+      if (audioObj) {
+        audioObj.pause();
+        audioObj.currentTime = 0;
+        setAudioObj(null);
+      }
+      if (speechRef.current) {
+        window.speechSynthesis.cancel();
+        speechRef.current = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsSpeaking(false);
       
       // 少し遅延してから再生（UIのアニメーションが完了してから）
       const autoPlayTimer = setTimeout(() => {
@@ -402,11 +422,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       return () => clearTimeout(autoPlayTimer);
     }
-  }, [isLatest, isUser, voiceSettings?.autoPlay, message.content, isSpeaking]);
+  }, [isLatest, isUser, voiceSettings?.autoPlay, message.content, message.id, isSpeaking, audioObj]);
 
-  // メッセージが変わったときに自動再生フラグをリセット
+  // メッセージが変わったとき、古いメッセージIDをクリーンアップ（メモリリーク防止）
   useEffect(() => {
-    hasAutoPlayedRef.current = false;
+    // 100個を超えたら古いIDを削除（メモリ使用量制限）
+    if (autoPlayedMessagesRef.current.size > 100) {
+      const oldIds = Array.from(autoPlayedMessagesRef.current).slice(0, 50);
+      oldIds.forEach(id => autoPlayedMessagesRef.current.delete(id));
+    }
   }, [message.id]);
   
   // 個別メッセージ削除機能
@@ -788,7 +812,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 checkMenuPosition();
                 setShowActions(!showActions);
               }}
-              className="ml-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+              className="ml-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               title="メニューを表示"
             >
               <MoreVertical className="w-3 h-3 text-white/60" />

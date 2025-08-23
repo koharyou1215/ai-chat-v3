@@ -1,6 +1,6 @@
 // src/types/core/tracker.types.ts
 
-import { BaseEntity, UUID, Timestamp } from './base.types';
+import { BaseEntity, UUID, Timestamp, WithMetadata } from './base.types';
 
 /**
  * 統合トラッカー定義
@@ -127,13 +127,14 @@ export interface TrackerVisualization {
 /**
  * トラッカーインスタンス（実行時）
  */
-export interface TrackerInstance {
+export interface TrackerInstance extends BaseEntity {
   definition_id: UUID;
   session_id: UUID;
   character_id: UUID;
   current_value: unknown;
   history: TrackerHistoryEntry[];
   last_updated: Timestamp;
+  metadata: Record<string, unknown>;
 }
 
 export interface TrackerState {
@@ -143,12 +144,11 @@ export interface TrackerState {
   history: TrackerHistoryEntry[];
 }
 
-export interface TrackerHistoryEntry {
+export interface TrackerHistoryEntry extends BaseEntity, WithMetadata {
   timestamp: Timestamp;
   value: unknown;
   changed_by: 'user' | 'ai' | 'system';
   reason?: string;
-  metadata?: Record<string, unknown>;
 }
 
 export type NumericTrackerValue = Record<string, never>;

@@ -108,16 +108,16 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
     // 型に応じて初期値を設定
     switch (definition.config.type) {
       case 'numeric':
-        initial_value = (definition.config as Record<string, unknown>).initial_value || 0;
+        initial_value = (definition.config as any).initial_value || 0;
         break;
       case 'state':
-        initial_value = (definition.config as Record<string, unknown>).initial_state || '';
+        initial_value = (definition.config as any).initial_state || '';
         break;
       case 'boolean':
-        initial_value = (definition.config as Record<string, unknown>).initial_value || false;
+        initial_value = (definition.config as any).initial_value || false;
         break;
       case 'text':
-        initial_value = (definition.config as Record<string, unknown>).initial_value || '';
+        initial_value = (definition.config as any).initial_value || '';
         break;
       default:
         initial_value = null;
@@ -166,11 +166,11 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
         created_at: timestamp,
         updated_at: timestamp,
         version: 1,
-        tracker_instance_id: instance_id,
-        old_value,
-        new_value,
+        timestamp: timestamp,
+        value: new_value,
+        changed_by: 'user',
         reason,
-        metadata: {}
+        metadata: { old_value, instance_id: instance_id }
       };
       
       const newInstances = new Map(state.tracker_instances);
@@ -235,6 +235,7 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
     );
   }
 });
+
 
 
 

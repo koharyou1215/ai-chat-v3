@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAppStore } from '@/store';
+import { UnifiedMessage } from '@/types/core/message.types';
 
 interface VoiceCallInterfaceProps {
   characterId?: string;
@@ -10,6 +12,83 @@ interface VoiceCallInterfaceProps {
   onEnd?: () => void;
 }
 
+interface AudioVisualizerProps {
+  audioData: Uint8Array;
+  isActive: boolean;
+  className?: string;
+}
+
+// AudioVisualizer Component
+const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData, isActive, className = "" }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const draw = () => {
+      // Set canvas size
+      canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
+      canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
+      
+      ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+      
+      if (!isActive || !audioData || audioData.length === 0) {
+        // Show idle state
+        ctx.fillStyle = '#374151'; // gray-700
+        ctx.fillRect(0, canvas.offsetHeight / 2 - 1, canvas.offsetWidth, 2);
+        return;
+      }
+      
+      // Draw audio bars
+      const barWidth = canvas.offsetWidth / audioData.length;
+      const barSpacing = 1;
+      const maxBarHeight = canvas.offsetHeight - 4;
+      
+      for (let i = 0; i < audioData.length; i++) {
+        const barHeight = (audioData[i] / 255) * maxBarHeight;
+        const x = i * barWidth;
+        const y = (canvas.offsetHeight - barHeight) / 2;
+        
+        // Create gradient based on intensity
+        const intensity = audioData[i] / 255;
+        let color;
+        
+        if (intensity > 0.7) {
+          color = '#ef4444'; // red-500 - high intensity
+        } else if (intensity > 0.4) {
+          color = '#f59e0b'; // yellow-500 - medium intensity
+        } else if (intensity > 0.1) {
+          color = '#10b981'; // green-500 - low intensity
+        } else {
+          color = '#6b7280'; // gray-500 - very low
+        }
+        
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, Math.max(barWidth - barSpacing, 1), Math.max(barHeight, 2));
+      }
+    };
+
+    draw();
+  }, [audioData, isActive]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={`w-full h-8 rounded ${className}`}
+      style={{ 
+        background: 'linear-gradient(90deg, rgba(17,24,39,0.8) 0%, rgba(31,41,55,0.8) 100%)',
+        imageRendering: 'pixelated'
+      }}
+    />
+  );
+};
 
 export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   characterId,
@@ -26,6 +105,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [audioVisualizerData, setAudioVisualizerData] = useState<Uint8Array>(new Uint8Array(32));
   
   // Call state
   const [callDuration, setCallDuration] = useState(0);
@@ -53,6 +133,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   const callStartTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   const pingTimeRef = useRef<number>(0);
+  const visualizerUpdateRef = useRef<number>();
+  
+  // Store hooks
+  const { active_session_id, sendMessage } = useAppStore();
 
   // WebSocket connection
   const initializeWebSocket = useCallback(() => {
@@ -76,6 +160,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         console.log('🔍 WebSocket readyState:', ws.readyState);
         setIsConnected(true);
         setConnectionStatus('connected');
+        setVoiceActivityStatus('idle'); // 初期状態を設定
         
         // Wait a moment before sending ping to ensure connection is stable
         setTimeout(() => {
@@ -83,6 +168,14 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             pingTimeRef.current = Date.now();
             ws.send(JSON.stringify({ type: 'ping' }));
             console.log('📤 Ping sent to server');
+            
+            // 自動的に通話を開始
+            setTimeout(() => {
+              if (!isCallActive) {
+                console.log('🟢 Auto-starting voice call...');
+                startCall();
+              }
+            }, 500);
           } else {
             console.log('⚠️ WebSocket not open when trying to ping, state:', ws.readyState);
           }
@@ -171,6 +264,22 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       case 'transcription':
         setTranscription(message.text);
         setLastMessage(`You: ${message.text}`);
+        
+        // Add user message to chat history
+        if (active_session_id && message.text) {
+          const userMessage: Partial<UnifiedMessage> = {
+            role: 'user',
+            content: message.text,
+            session_id: active_session_id,
+            metadata: { 
+              source: 'voice',
+              timestamp: new Date().toISOString(),
+              call_duration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+            }
+          };
+          
+          sendMessage(userMessage as UnifiedMessage);
+        }
         break;
 
       case 'audio_start':
@@ -179,6 +288,24 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
       case 'audio_end':
         setVoiceActivityStatus('idle');
+        break;
+
+      case 'ai_response':
+        // Add AI response to chat history
+        if (active_session_id && message.text) {
+          const aiMessage: Partial<UnifiedMessage> = {
+            role: 'assistant',
+            content: message.text,
+            session_id: active_session_id,
+            metadata: { 
+              source: 'voice',
+              timestamp: new Date().toISOString(),
+              call_duration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+            }
+          };
+          
+          sendMessage(aiMessage as UnifiedMessage);
+        }
         break;
 
       case 'tts_error':
@@ -296,10 +423,19 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             view.setInt16(i * 2, s * 0x7FFF, true);
           }
           
-          console.log('🎤 Sending audio data:', buffer.byteLength, 'bytes');
+          // 音声レベルをチェックして状態を更新
+          const volume = inputData.reduce((sum, sample) => sum + Math.abs(sample), 0) / inputData.length;
+          if (volume > 0.01) { // 音声レベル閾値
+            setVoiceActivityStatus('speaking');
+          } else {
+            setVoiceActivityStatus('idle');
+          }
+          
+          console.log('🎤 Sending audio data:', buffer.byteLength, 'bytes, volume:', volume.toFixed(4));
           wsRef.current.send(buffer);
         } else {
           console.log('🔇 Audio not sent - muted:', isMuted, 'WS state:', wsRef.current?.readyState);
+          setVoiceActivityStatus('idle');
         }
       };
       
@@ -310,8 +446,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       setIsCallActive(true);
       callStartTimeRef.current = Date.now();
       
-      // Start visualizer
-      updateVisualizer();
+      // Start audio visualizer updates
+      updateAudioVisualizer();
       
     } catch (error) {
       console.error('Failed to start call:', error);
@@ -371,6 +507,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
+    
+    if (visualizerUpdateRef.current) {
+      cancelAnimationFrame(visualizerUpdateRef.current);
+    }
 
     // 7. WebSocketに停止シグナル送信
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -386,6 +526,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     setVoiceActivityStatus('idle');
     setTranscription('');
     setLastMessage('');
+    setAudioVisualizerData(new Uint8Array(32));
     
     // 9. 親コンポーネントに通知
     if (onEnd) {
@@ -396,18 +537,28 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   };
 
   // Update audio visualizer
-  const updateVisualizer = () => {
+  const updateAudioVisualizer = () => {
     if (!analyserRef.current || !isCallActive) return;
 
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
-
-    // Calculate audio level
-    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-    setAudioLevel(average);
-
-    animationFrameRef.current = requestAnimationFrame(updateVisualizer);
+    
+    // Reduce data to 32 bars for better performance
+    const reducedData = new Uint8Array(32);
+    const blockSize = Math.floor(dataArray.length / 32);
+    
+    for (let i = 0; i < 32; i++) {
+      let sum = 0;
+      for (let j = 0; j < blockSize; j++) {
+        sum += dataArray[i * blockSize + j];
+      }
+      reducedData[i] = Math.floor(sum / blockSize);
+    }
+    
+    setAudioVisualizerData(reducedData);
+    visualizerUpdateRef.current = requestAnimationFrame(updateAudioVisualizer);
   };
+
 
   // Update call duration
   useEffect(() => {
@@ -502,7 +653,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             </span>
           </div>
           
-          {/* Voice activity indicator */}
+          {/* Voice activity indicator with bouncy phone animation */}
           <AnimatePresence mode="wait">
             {voiceActivityStatus === 'speaking' && (
               <motion.div
@@ -511,7 +662,19 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
                 exit={{ scale: 0 }}
                 className="flex items-center space-x-1"
               >
-                <Mic className="animate-pulse text-green-400" size={14} />
+                <motion.div
+                  animate={{ 
+                    rotate: [-3, 3, -3], 
+                    scale: [1, 1.1, 1] 
+                  }}
+                  transition={{ 
+                    duration: 0.6, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                >
+                  <Mic className="text-green-400" size={14} />
+                </motion.div>
                 <span className="text-xs text-green-400">話中</span>
               </motion.div>
             )}
@@ -522,7 +685,19 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
                 exit={{ scale: 0 }}
                 className="flex items-center space-x-1"
               >
-                <Volume2 className="animate-pulse text-blue-400" size={14} />
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    opacity: [1, 0.7, 1]
+                  }}
+                  transition={{ 
+                    duration: 1.0, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                >
+                  <Volume2 className="text-blue-400" size={14} />
+                </motion.div>
                 <span className="text-xs text-blue-400">聴取</span>
               </motion.div>
             )}
@@ -533,11 +708,55 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
                 exit={{ scale: 0 }}
                 className="flex items-center space-x-1"
               >
-                <div className="animate-spin rounded-full h-3 w-3 border border-yellow-400 border-t-transparent" />
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360],
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity, 
+                    ease: "linear" 
+                  }}
+                >
+                  <Phone className="text-yellow-400" size={14} />
+                </motion.div>
                 <span className="text-xs text-yellow-400">処理</span>
               </motion.div>
             )}
+            {connectionStatus === 'connecting' && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="flex items-center space-x-1"
+              >
+                <motion.div
+                  animate={{ 
+                    y: [-2, 2, -2],
+                    rotate: [-5, 5, -5]
+                  }}
+                  transition={{ 
+                    duration: 0.8, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                >
+                  <Phone className="text-purple-400" size={14} />
+                </motion.div>
+                <span className="text-xs text-purple-400">接続中</span>
+              </motion.div>
+            )}
           </AnimatePresence>
+        </div>
+        
+        {/* Audio Visualizer */}
+        <div className="mb-3">
+          <AudioVisualizer 
+            audioData={audioVisualizerData} 
+            isActive={isCallActive}
+            className="border border-gray-600/30"
+          />
         </div>
         
         {/* Minimal control buttons */}
@@ -558,14 +777,29 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             {isMuted ? <MicOff size={18} className="md:w-4 md:h-4" /> : <Mic size={18} className="md:w-4 md:h-4" />}
           </button>
           
-          {/* End Call Button */}
-          <button
-            onClick={endCall}
-            className="p-2 md:p-2 max-md:p-3 rounded-full bg-red-500/30 hover:bg-red-500/50 text-red-400 transition-all touch-manipulation"
-            title="通話終了"
-          >
-            <PhoneOff size={18} className="md:w-4 md:h-4" />
-          </button>
+          {/* Start/End Call Button */}
+          {!isCallActive ? (
+            <button
+              onClick={startCall}
+              disabled={!isConnected}
+              className={`p-2 md:p-2 max-md:p-3 rounded-full transition-all touch-manipulation ${
+                isConnected
+                  ? 'bg-green-500/30 hover:bg-green-500/50 text-green-400 cursor-pointer'
+                  : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+              }`}
+              title={isConnected ? "通話開始" : "接続待機中"}
+            >
+              <Phone size={18} className="md:w-4 md:h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={endCall}
+              className="p-2 md:p-2 max-md:p-3 rounded-full bg-red-500/30 hover:bg-red-500/50 text-red-400 transition-all touch-manipulation cursor-pointer"
+              title="通話終了"
+            >
+              <PhoneOff size={18} className="md:w-4 md:h-4" />
+            </button>
+          )}
           
           {/* Speaker Button */}
           <button

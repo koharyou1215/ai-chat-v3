@@ -60,17 +60,18 @@ export interface Character extends BaseEntity {
   
   // UI状態
   is_favorite?: boolean;
+  is_active?: boolean;
   
   // 表示設定
   color_theme?: ColorTheme;
 }
 
 export interface NSFWProfile {
-    persona: string;
-    libido_level: string;
-    situation: string;
-    mental_state: string;
-    kinks: string[];
+    persona?: string;
+    libido_level?: string;
+    situation?: string;
+    mental_state?: string;
+    kinks?: string[];
 }
 
 export interface CharacterStatistics {

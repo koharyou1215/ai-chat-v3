@@ -679,6 +679,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         },
         edit_history: [],
         regeneration_count: 0,
+        is_deleted: false,
         metadata: {}
       };
 
@@ -819,6 +820,7 @@ ${character.scenario ? `シナリオ: ${character.scenario}` : ''}
         },
         edit_history: [],
         regeneration_count: 0,
+        is_deleted: false,
         metadata: { is_group_response: true }
       } as UnifiedMessage;
 
@@ -849,6 +851,7 @@ ${character.scenario ? `シナリオ: ${character.scenario}` : ''}
         },
         edit_history: [],
         regeneration_count: 0,
+        is_deleted: false,
         metadata: { is_group_response: true }
       } as UnifiedMessage;
     }

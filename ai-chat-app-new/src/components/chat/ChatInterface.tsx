@@ -19,7 +19,8 @@ import { VoiceSettingsModal } from '../voice/VoiceSettingsModal';
 import { CharacterForm } from '../character/CharacterForm';
 import { SuggestionModal } from './SuggestionModal';
 import { GroupChatInterface } from './GroupChatInterface';
-import ChatSidebar from './ChatSidebar'; // インポートを修正
+import ChatSidebar from './ChatSidebar';
+import { ClientOnlyProvider } from '../ClientOnlyProvider';
 import { cn } from '@/lib/utils';
 
 const EmptyState = () => (
@@ -124,9 +125,11 @@ export const ChatInterface: React.FC = () => {
     if (is_group_mode && !activeGroupSession) {
         return (
             <div className="flex h-screen bg-slate-900 text-white">
-                <AnimatePresence>
-                    {isLeftSidebarOpen && <ChatSidebar />}
-                </AnimatePresence>
+                <ClientOnlyProvider fallback={null}>
+                    <AnimatePresence>
+                        {isLeftSidebarOpen && <ChatSidebar />}
+                    </AnimatePresence>
+                </ClientOnlyProvider>
                 <div className="flex-1 flex flex-col">
                     <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
                         <ChatHeader />
@@ -151,9 +154,11 @@ export const ChatInterface: React.FC = () => {
     if (!is_group_mode && !session) {
         return (
             <div className="flex h-screen bg-slate-900 text-white">
-                <AnimatePresence>
-                    {isLeftSidebarOpen && <ChatSidebar />}
-                </AnimatePresence>
+                <ClientOnlyProvider fallback={null}>
+                    <AnimatePresence>
+                        {isLeftSidebarOpen && <ChatSidebar />}
+                    </AnimatePresence>
+                </ClientOnlyProvider>
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <EmptyState />
                 </div>
@@ -186,10 +191,11 @@ export const ChatInterface: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
-
-            <AnimatePresence>
-                {isLeftSidebarOpen && <ChatSidebar />}
-            </AnimatePresence>
+            <ClientOnlyProvider fallback={null}>
+                <AnimatePresence>
+                    {isLeftSidebarOpen && <ChatSidebar />}
+                </AnimatePresence>
+            </ClientOnlyProvider>
             
             <div className="flex flex-1 min-w-0">
                 {/* メインコンテンツエリア */}
@@ -248,56 +254,58 @@ export const ChatInterface: React.FC = () => {
                 </div>
 
                 {/* 右サイドパネル */}
-                <AnimatePresence>
-                    {isRightPanelOpen && (
-                        <motion.div
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 400, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="bg-slate-800 border-l border-white/10 flex flex-col h-full flex-shrink-0"
-                        >
-                            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-white">記憶情報</h3>
-                                <button onClick={() => setRightPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="flex p-2 bg-slate-900/50 border-b border-white/10">
-                                {sidePanelTabs.map(tab => (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => setActiveTab(tab.key)}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
-                                            activeTab === tab.key ? 'bg-purple-500/20 text-purple-300' : 'text-white/60 hover:bg-white/10'
-                                        )}
-                                    >
-                                        <tab.icon className="w-4 h-4" />
-                                        {tab.label}
+                <ClientOnlyProvider fallback={null}>
+                    <AnimatePresence>
+                        {isRightPanelOpen && (
+                            <motion.div
+                                initial={{ width: 0, opacity: 0 }}
+                                animate={{ width: 400, opacity: 1 }}
+                                exit={{ width: 0, opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="bg-slate-800 border-l border-white/10 flex flex-col h-full flex-shrink-0"
+                            >
+                                <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-white">記憶情報</h3>
+                                    <button onClick={() => setRightPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
+                                        <X className="w-5 h-5" />
                                     </button>
-                                ))}
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4">
-                                <AnimatePresence mode="wait">
+                                </div>
+                                <div className="flex p-2 bg-slate-900/50 border-b border-white/10">
                                     {sidePanelTabs.map(tab => (
-                                        activeTab === tab.key && (
-                                            <motion.div
-                                                key={tab.key}
-                                                initial={{ opacity: 0, x: 20 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                exit={{ opacity: 0, x: -20 }}
-                                                transition={{ duration: 0.2 }}
-                                            >
-                                                {tab.component}
-                                            </motion.div>
-                                        )
+                                        <button
+                                            key={tab.key}
+                                            onClick={() => setActiveTab(tab.key)}
+                                            className={cn(
+                                                "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                                                activeTab === tab.key ? 'bg-purple-500/20 text-purple-300' : 'text-white/60 hover:bg-white/10'
+                                            )}
+                                        >
+                                            <tab.icon className="w-4 h-4" />
+                                            {tab.label}
+                                        </button>
                                     ))}
-                                </AnimatePresence>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    <AnimatePresence mode="wait">
+                                        {sidePanelTabs.map(tab => (
+                                            activeTab === tab.key && (
+                                                <motion.div
+                                                    key={tab.key}
+                                                    initial={{ opacity: 0, x: 20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: -20 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    {tab.component}
+                                                </motion.div>
+                                            )
+                                        ))}
+                                    </AnimatePresence>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </ClientOnlyProvider>
 
                 {/* モーダル群 */}
                 <CharacterGalleryModal />

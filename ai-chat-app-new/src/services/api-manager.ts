@@ -10,7 +10,7 @@ export class APIManager {
   constructor() {
     this.currentConfig = {
       provider: 'gemini',
-      model: 'google/gemini-2.5-pro',
+      model: 'google/gemini-2.5-flash',
       temperature: 0.7,
       max_tokens: 2048,
       top_p: 0.9,
@@ -383,8 +383,8 @@ export class APIManager {
       {
         provider: 'gemini',
         models: [
-          { id: 'gemini-2.5-pro', name: 'Gemini 1.5 Pro (最新)', description: '最高性能のGeminiモデル' },
-          { id: 'gemini-2.5-flash', name: 'Gemini 1.5 Flash (高速)', description: '高速応答に最適化' },
+          { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (最新)', description: '最高性能のGeminiモデル' },
+          { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (高速)', description: '高速応答に最適化' },
           { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro', description: '安定したパフォーマンス' }
         ]
       },

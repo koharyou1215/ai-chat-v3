@@ -51,13 +51,6 @@ export interface WithMetadata<T = Record<string, unknown>> {
 }
 
 /**
- * 統一メッセージ型
+ * 統一メッセージ型は message.types.ts で定義されています
+ * 循環参照を避けるため、ここでは基本型のみ定義
  */
-export type UnifiedMessage = BaseEntity & SoftDeletable & WithMetadata<Record<string, unknown>>;
-
-// 例
-const _userMessage: UnifiedMessage = {
-  // ...既存プロパティ...
-  is_deleted: false,
-  metadata: {}
-};

@@ -45,6 +45,7 @@ export interface PermanentMemory {
 export interface MemoryCard extends BaseEntity, WithMetadata {
   // 元メッセージ情報
   source_message_ids: UUID[];
+  original_message_ids: UUID[]; // legacy support
   session_id: UUID;
   character_id?: UUID;
   
@@ -52,12 +53,14 @@ export interface MemoryCard extends BaseEntity, WithMetadata {
   title: string;                  // 10-15文字の自動生成タイトル
   summary: string;                // 50文字程度の要約
   full_content?: string;          // 詳細内容（オプション）
+  original_content?: string;      // 元の内容（legacy support）
   
   // 分類・タグ
   category: MemoryCategory;
   auto_tags: string[];
   user_tags?: string[];
   emotion_tags?: EmotionTag[];
+  keywords: string[];             // キーワードリスト
   
   // 重要度・信頼度
   importance: MemoryImportance;
@@ -66,6 +69,8 @@ export interface MemoryCard extends BaseEntity, WithMetadata {
   // ユーザー操作
   is_edited: boolean;
   is_verified: boolean;           // ユーザー確認済み
+  is_pinned: boolean;            // ピン留め
+  is_hidden: boolean;            // 非表示
   user_notes?: string;
   
   // ベクトル検索用

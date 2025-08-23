@@ -140,7 +140,7 @@ export const createHistorySlice: StateCreator<AppStore, [], [], HistorySlice> = 
     return [];
   },
   
-  generateConversationSummary: async (_session_id) => {
+  generateConversationSummary: async (session_id) => {
     // 実際の実装では、AIを使用して会話の要約を生成
     // 現在はダミーの要約を返す
     

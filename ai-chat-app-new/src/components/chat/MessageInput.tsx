@@ -16,7 +16,8 @@ import {
   Image as ImageIcon,
   Paperclip,
   Code,
-  X
+  X,
+  Cpu
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -167,11 +168,13 @@ export const MessageInput: React.FC = () => {
             onClose={() => setShowActionMenu(false)}
             onCharacterClick={() => setShowCharacterGallery(true)}
             onPersonaClick={() => setShowPersonaGallery(true)}
-            onModelClick={() => setShowSettingsModal(true, 'api')}
+            onModelClick={() => {
+              console.log("AI設定クリック: setShowSettingsModal(true, 'ai') を呼び出します");
+              setShowSettingsModal(true, 'ai');
+            }}
             onVoiceClick={() => setShowSettingsModal(true, 'voice')}
             onHistoryClick={() => setShowHistoryModal(true)}
             onChatSettingsClick={() => setShowSettingsModal(true, 'chat')}
-            onDetailedSettingsClick={() => setShowSettingsModal(true, 'developer')}
           />
         )}
       </AnimatePresence>
@@ -290,7 +293,6 @@ const ActionMenu = ({
   onVoiceClick,
   onHistoryClick,
   onChatSettingsClick,
-  onDetailedSettingsClick
 }: { 
   onClose: () => void;
   onCharacterClick: () => void;
@@ -299,17 +301,15 @@ const ActionMenu = ({
   onVoiceClick: () => void;
   onHistoryClick: () => void;
   onChatSettingsClick: () => void;
-  onDetailedSettingsClick: () => void;
 }) => {
   const menuItems = [
     { icon: User, label: 'キャラクター', action: onCharacterClick },
     { icon: Shield, label: 'ペルソナ', action: onPersonaClick },
-    { icon: Bot, label: 'モデル', action: onModelClick },
+    { icon: Cpu, label: 'AI設定', action: onModelClick },
     { icon: Mic, label: '音声', action: onVoiceClick },
     { icon: ImageIcon, label: '画像', action: () => {} }, // TODO
     { icon: History, label: 'チャット履歴', action: onHistoryClick },
     { icon: Settings, label: 'チャット設定', action: onChatSettingsClick },
-    { icon: Code, label: '詳細設定', action: onDetailedSettingsClick },
   ];
 
   const handleItemClick = (action: () => void) => {

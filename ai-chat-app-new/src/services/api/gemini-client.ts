@@ -54,7 +54,7 @@ export class GeminiClient {
   constructor() {
     this.apiKey = '';
     this.baseURL = 'https://generativelanguage.googleapis.com/v1beta/models';
-    this.model = 'gemini-2.5-pro'; // デフォルト値をプレフィックスなしに修正
+    this.model = 'gemini-2.5-pro'; // Gemini 2.5 Proモデル名
     this.initializeApiKey();
   }
 
@@ -287,8 +287,10 @@ export class GeminiClient {
 
   getAvailableModels(): string[] {
     return [
-      'pro',
-      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash', 
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
       'gemini-1.0-pro'
     ];
   }
@@ -300,18 +302,10 @@ export class GeminiClient {
   ): GeminiMessage[] {
     const messages: GeminiMessage[] = [];
 
-    // システムプロンプトを最初のuser messageとして追加
+    // システムプロンプトを最初のメッセージに統合
+    let firstMessage = '';
     if (systemPrompt.trim()) {
-      messages.push({
-        role: 'user',
-        parts: [{ text: systemPrompt }]
-      });
-      
-      // システムプロンプトに対するモデルの応答を追加
-      messages.push({
-        role: 'model',
-        parts: [{ text: '理解しました。指示に従って応答します。' }]
-      });
+      firstMessage = `${systemPrompt}\n\n`;
     }
 
     // 会話履歴を追加
@@ -322,14 +316,21 @@ export class GeminiClient {
       });
     }
 
-    // 現在のユーザーメッセージを追加
+    // 現在のユーザーメッセージを追加（初回の場合はシステムプロンプトも含める）
+    const finalUserMessage = conversationHistory.length === 0 ? firstMessage + userMessage : userMessage;
     messages.push({
       role: 'user',
-      parts: [{ text: userMessage }]
+      parts: [{ text: finalUserMessage }]
     });
+
+    console.log('=== Gemini Messages Debug ===');
+    console.log('System prompt:', systemPrompt.substring(0, 100) + '...');
+    console.log('Conversation history length:', conversationHistory.length);
+    console.log('Final messages:', JSON.stringify(messages, null, 2));
+    console.log('==============================');
 
     return messages;
   }
 }
 
-export const geminiClient = new GeminiClient();gemini-2.5-
+export const geminiClient = new GeminiClient();
