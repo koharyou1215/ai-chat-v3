@@ -3,22 +3,46 @@
 
 import { UnifiedMessage, InspirationSuggestion } from '@/types/memory';
 import { apiManager } from '@/services/api-manager';
-import { APIConfig } from '@/types';
+import { apiRequestQueue } from '@/services/api-request-queue';
+import { APIConfig, Character, Persona } from '@/types';
 
 export class InspirationService {
+  // 軽量キャッシュシステム（パフォーマンス最適化）
+  private suggestionCache = new Map<string, { 
+    suggestions: InspirationSuggestion[], 
+    timestamp: number 
+  }>();
+  private enhancementCache = new Map<string, { 
+    result: string, 
+    timestamp: number 
+  }>();
+  private cacheTimeout = 5 * 60 * 1000; // 5分間キャッシュ
   /**
    * 会話履歴から返信候補を生成
    * @param recentMessages 直近の会話（3ラウンド）
+   * @param character キャラクター情報
+   * @param user ユーザー情報
    * @param customPrompt カスタムプロンプト（ユーザー設定）
    * @param suggestionCount 生成する候補数
    */
   async generateReplySuggestions(
     recentMessages: UnifiedMessage[],
+    character: Character,
+    user: Persona,
     customPrompt?: string,
     suggestionCount: number = 4,
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<InspirationSuggestion[]> {
-    const context = this.buildConversationContext(recentMessages);
+    // 🚀 キャッシュチェック（パフォーマンス最適化）
+    const context = this.buildLightweightContext(recentMessages);
+    const cacheKey = `suggestions_${context.substring(0, 100)}_${customPrompt || 'default'}_${suggestionCount}`;
+    const cached = this.suggestionCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      console.log('✨ Using cached inspiration suggestions');
+      return cached.suggestions;
+    }
+    
     let prompt: string;
     let approaches: string[] = [];
 
@@ -30,16 +54,20 @@ export class InspirationService {
     } else {
       // デフォルトのアプローチをユーザー指定のものに書き換える
       approaches = [
-        '共感・受容型',
-        '探求・開発型（分析・調教師型）',
-        '挑発・逸脱型な返信文',
-        '甘え・依存型（ヤンデレ・年下彼氏型）',
+        '優しく寄り添う',
+        '冷静に分析する',
+        '少しからかう',
+        '興味を示す',
       ].slice(0, suggestionCount);
-      prompt = this.buildDefaultSuggestionPrompt(context, approaches);
+      prompt = this.buildDefaultSuggestionPrompt(context, approaches, character, user);
     }
 
     try {
-      const responseContent = await apiManager.generateMessage(prompt, '', [], apiConfig);
+      // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
+      const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
+        console.log('✨ Inspiration request started via queue');
+        return apiManager.generateMessage(prompt, '', [], apiConfig);
+      });
       const suggestions = this.parseSuggestions(responseContent, approaches);
       
       // アプローチが見つからない場合でも、レスポンスをそのまま提案として返す
@@ -62,6 +90,14 @@ export class InspirationService {
         confidence: 0.8,
         source: 'pattern'
       }));
+      
+      // 🚀 結果をキャッシュに保存
+      this.suggestionCache.set(cacheKey, {
+        suggestions: result,
+        timestamp: Date.now()
+      });
+      
+      return result;
     } catch (error) {
       console.error('Failed to generate suggestions:', error);
       return this.generateFallbackSuggestions(recentMessages);
@@ -72,15 +108,26 @@ export class InspirationService {
    * テキストを強化・拡張
    * @param inputText 入力されたテキスト
    * @param recentMessages 直近の会話
+   * @param user ユーザー（ペルソナ）情報
    * @param enhancePrompt カスタムプロンプト
    */
   async enhanceText(
     inputText: string,
     recentMessages: UnifiedMessage[],
+    user: Persona,
     enhancePrompt?: string,
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<string> {
-    const context = this.formatRecentMessages(recentMessages);
+    // 🚀 キャッシュチェック（パフォーマンス最適化）
+    const context = this.buildLightweightContext(recentMessages.slice(-3));
+    const cacheKey = `enhance_${inputText}_${context.substring(0, 50)}_${enhancePrompt || 'default'}`;
+    const cached = this.enhancementCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      console.log('✨ Using cached text enhancement');
+      return cached.result;
+    }
+    
     let prompt: string;
     
     if (enhancePrompt) {
@@ -91,23 +138,38 @@ export class InspirationService {
             .replace(/{{text}}/g, inputText); // {{text}} もエイリアスとして対応
     } else {
         // デフォルトの強化プロンプト
-        prompt = `
-以下のテキストを、会話の文脈を考慮して自然で丁寧な文章に拡張してください。
-元の意図は保ちつつ、より詳細で表現豊かにしてください。
+        prompt = `あなたは、ユーザー「${user.name}」本人です。
+以下の「元のテキスト」を、「${user.name}」のペルソナ設定に合わせて、より自然で魅力的な文章に書き換えてください。
 
-会話の文脈:
+### あなた（ユーザー）のペルソナ設定
+- 名前: ${user.name}
+- プロフィール: ${user.description}
+
+### 会話の文脈
 ${context}
 
-元のテキスト:
+### 元のテキスト
 ${inputText}
 
-強化されたテキスト:
-`;
+### 書き換え後のテキスト:`;
     }
 
     try {
-      const enhancedText = await apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: 1024 });
-      return enhancedText || inputText;
+      // ⚡ テキスト拡張もキュー経由で実行
+      const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
+        console.log('🎆 Text enhancement request started via queue');
+        return apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: 1024 });
+      });
+      
+      const result = enhancedText || inputText;
+      
+      // 🚀 結果をキャッシュに保存
+      this.enhancementCache.set(cacheKey, {
+        result,
+        timestamp: Date.now()
+      });
+      
+      return result;
     } catch (error) {
       console.error('Failed to enhance text:', error);
       return this.fallbackEnhance(inputText);
@@ -145,7 +207,23 @@ ${inputText}
   }
 
   /**
-   * 会話コンテキストの構築
+   * 軽量文脈構築 - インスピレーション生成用高速版
+   */
+  private buildLightweightContext(messages: UnifiedMessage[]): string {
+    // 最新3-5メッセージのみ使用（パフォーマンス優先）
+    const recentMessages = messages.slice(-5);
+    return recentMessages.map(msg => {
+      const role = msg.role === 'user' ? 'ユーザー' : (msg.character_name || 'アシスタント');
+      // 長いメッセージは要約（100文字制限）
+      const content = msg.content.length > 100 ? 
+        msg.content.substring(0, 100) + '...' : 
+        msg.content;
+      return `${role}: ${content}`;
+    }).join('\n');
+  }
+
+  /**
+   * 会話コンテキストの構築（フル版 - 後方互換性のため保持）
    */
   private buildConversationContext(messages: UnifiedMessage[]): string {
     return messages.map(msg => {
@@ -157,32 +235,35 @@ ${inputText}
   /**
    * 返信提案用プロンプトの構築（デフォルト）
    */
-  private buildDefaultSuggestionPrompt(context: string, approaches: string[]): string {
-    return `
-以下の会話の文脈を考慮して、指定された形式で返信を作成してください。
+  private buildDefaultSuggestionPrompt(
+    context: string, 
+    approaches: string[],
+    character: Character,
+    user: Persona
+  ): string {
+    return `あなたはユーザー「${user.name}」として、キャラクター「${character.name}」と会話しています。
+以下の状況設定と会話の流れを深く理解し、ユーザー「${user.name}」として次に行う返信として、最も自然で魅力的なものを4つの異なる方向性で提案してください。
 
-###**会話の文脈**
+### 対話相手のキャラクター情報
+- 名前: ${character.name}
+- 背景設定: ${character.background}
+- 現在のシナリオ: ${character.scenario}
+
+### あなた（ユーザー）のプロフィール
+${user.description}
+
+### 最近の会話
 ${context}
 
-###**出力形式**
+### 生成する提案の方向性
 ${approaches.map(approach => `[${approach}]`).join('\n')}
 
-**重要な指示:**
-- 何も頭に付けない箇条書き形式で出力
-- {{user}}視点の発言のみを生成
-- 前置き説明文や括弧内コメント禁止
-- 各カテゴリーの後に、そのスタイルに合った自然な返信文のみを記述
-- 「です・ます」調で統一
-
-例:
-[共感・受容型]
-そうですね、お気持ちよくわかります。
-
-[探求・開発型（分析・調教師型）]
-興味深いですね。もう少し詳しく教えていただけますか？
-
-このような形式で、各カテゴリーに対応した返信を生成してください。
-`;
+### 非常に重要な指示
+- **最優先事項**: 生成する文章は、必ずユーザー「${user.name}」視点の発言です。
+- キャラクター「${character.name}」のセリフは絶対に生成しないでください。
+- あなたのプロフィールを考慮した、適切な口調や態度で返信してください。
+- 各カテゴリの後に、そのスタイルに合った自然な返信文のみを記述してください。
+- 前置きや説明は一切不要です。`;
   }
 
   /**
@@ -435,4 +516,59 @@ ${approaches.map(approach => `[${approach}]`).join('\n')}
     
     return Math.min(score, 1.0);
   }
+
+  /**
+   * キャッシュクリーンアップ - メモリリーク防止
+   */
+  cleanupCache(): void {
+    const now = Date.now();
+    
+    // 期限切れのキャッシュエントリを削除
+    for (const [key, value] of this.suggestionCache.entries()) {
+      if (now - value.timestamp > this.cacheTimeout) {
+        this.suggestionCache.delete(key);
+      }
+    }
+    
+    for (const [key, value] of this.enhancementCache.entries()) {
+      if (now - value.timestamp > this.cacheTimeout) {
+        this.enhancementCache.delete(key);
+      }
+    }
+    
+    console.log('🧹 Inspiration cache cleanup completed');
+  }
+
+  /**
+   * キャッシュ統計情報取得
+   */
+  getCacheStats() {
+    return {
+      suggestions: {
+        size: this.suggestionCache.size,
+        entries: Array.from(this.suggestionCache.keys()).slice(0, 5) // サンプル表示
+      },
+      enhancements: {
+        size: this.enhancementCache.size,
+        entries: Array.from(this.enhancementCache.keys()).slice(0, 5) // サンプル表示
+      },
+      timeout: this.cacheTimeout / 1000 + ' seconds'
+    };
+  }
+}
+
+// 定期的なキャッシュクリーンアップ（開発環境のみ）
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  const inspirationService = new InspirationService();
+  
+  setInterval(() => {
+    inspirationService.cleanupCache();
+  }, 10 * 60 * 1000); // 10分ごと
+  
+  // デベロッパー用統計関数
+  (window as Record<string, unknown>).inspirationCacheStats = () => {
+    const stats = inspirationService.getCacheStats();
+    console.log('📊 Inspiration Cache Stats:', stats);
+    return stats;
+  };
 }

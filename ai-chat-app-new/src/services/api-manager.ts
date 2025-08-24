@@ -115,8 +115,8 @@ export class APIManager {
         return await this.generateWithGemini(systemPrompt, userMessage, conversationHistory, {
           model,
           temperature,
-          max_tokens,
-          top_p
+          maxTokens: max_tokens,
+          topP: top_p
         });
       } else if (provider === 'openrouter') {
         if (!this.openRouterApiKey) {
@@ -153,8 +153,8 @@ export class APIManager {
         return await this.generateStreamWithGemini(systemPrompt, userMessage, conversationHistory, onChunk, {
           model,
           temperature,
-          max_tokens,
-          top_p
+          maxTokens: max_tokens,
+          topP: top_p
         });
       } else if (provider === 'openrouter') {
         if (!this.openRouterApiKey) {
@@ -349,7 +349,7 @@ export class APIManager {
                 fullResponse += content;
                 onChunk(content);
               }
-            } catch (e) {
+            } catch (_e) {
               // Skip malformed JSON
             }
           }

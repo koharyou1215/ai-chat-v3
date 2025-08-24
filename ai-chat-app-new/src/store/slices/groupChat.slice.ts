@@ -1,10 +1,8 @@
 import { StateCreator } from 'zustand';
-import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
+import { UnifiedMessage, UUID, Character, Persona } from '@/types';
 import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core/group-chat.types';
 import { apiManager } from '@/services/api-manager';
-import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
-import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
 import { AppStore } from '..';
 
 export interface GroupChatSlice {
@@ -159,32 +157,49 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       // アクティブキャラクターからの応答を生成
       const activeCharacters = Array.from(groupSession.active_character_ids)
         .map(id => groupSession.characters.find(c => c.id === id))
-        .filter(Boolean);
+        .filter((char): char is Character => char !== undefined);
 
       const responses: UnifiedMessage[] = [];
 
       if (groupSession.chat_mode === 'simultaneous') {
-        // 同時応答 - 全キャラクターが同時に応答
-        const responsePromises = activeCharacters.map(async (character, index) => {
-          const response = await get().generateCharacterResponse(groupSession, character, content, []);
-          return { ...response, metadata: { ...response.metadata, response_order: index } };
-        });
+        // ⚡ スケジューリング改善: 2キャラクターずつバッチ処理でレート制限回避
+        const BATCH_SIZE = 2;
+        const STAGGER_DELAY = 300; // 300ms間隔
         
-        const parallelResponses = await Promise.all(responsePromises);
-        responses.push(...parallelResponses);
+        for (let i = 0; i < activeCharacters.length; i += BATCH_SIZE) {
+          const batch = activeCharacters.slice(i, i + BATCH_SIZE);
+          
+          const batchPromises = batch.map(async (character, batchIndex) => {
+            const globalIndex = i + batchIndex;
+            const response = await get().generateCharacterResponse(groupSession, character, content, []);
+            return { ...response, metadata: { ...response.metadata, response_order: globalIndex } };
+          });
+          
+          const batchResponses = await Promise.all(batchPromises);
+          responses.push(...batchResponses);
+          
+          // 最後のバッチでない場合は遅延
+          if (i + BATCH_SIZE < activeCharacters.length) {
+            await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY));
+          }
+        }
         
       } else if (groupSession.chat_mode === 'random') {
         // ランダム応答 - アクティブキャラクターからランダムに1人選択
         const randomCharacter = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
-        const response = await get().generateCharacterResponse(groupSession, randomCharacter, content, []);
-        responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        if (randomCharacter) { // null安全性チェック
+          const response = await get().generateCharacterResponse(groupSession, randomCharacter, content, []);
+          responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        }
         
       } else if (groupSession.chat_mode === 'smart') {
         // スマート応答 - AIが最適なキャラクターを選択
         // とりあえず最初のキャラクターを選択（後で改善可能）
-        const smartCharacter = activeCharacters[0]; // TODO: AI判断ロジック
-        const response = await get().generateCharacterResponse(groupSession, smartCharacter, content, []);
-        responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        const smartCharacter = activeCharacters[0];
+        if (smartCharacter) { // null安全性チェック
+          const response = await get().generateCharacterResponse(groupSession, smartCharacter, content, []);
+          responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
+        }
         
       } else {
         // 順次応答 (sequential) - キャラクターが順番に応答

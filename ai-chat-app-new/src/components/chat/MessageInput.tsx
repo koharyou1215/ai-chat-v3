@@ -61,8 +61,11 @@ export const MessageInput: React.FC = () => {
     const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
       ? systemPrompts.replySuggestion 
       : undefined;
+    
+    const character = session.participants.characters[0];
+    const user = session.participants.user;
         
-    await generateSuggestions(recentMessages, customPrompt);
+    await generateSuggestions(recentMessages, character, user, customPrompt);
   };
 
   const handleEnhanceClick = async () => {
@@ -72,10 +75,12 @@ export const MessageInput: React.FC = () => {
     setIsEnhancing(true);
     try {
         const session = getActiveSession();
+        if (!session) return;
         const recentMessages = session ? session.messages.slice(-6) : [];
         const enhancedText = await enhanceText(
           currentInputText,
           recentMessages,
+          session.participants.user,
           systemPrompts.textEnhancement
         );
         setCurrentInputText(enhancedText);

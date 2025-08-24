@@ -139,19 +139,30 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-1 mb-3 h-6 overflow-hidden">
-            {(character.tags || []).slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full"
-              >
-                #{tag}
-              </span>
-            ))}
-            {(character.tags || []).length > 3 && (
-              <span className="px-2 py-0.5 text-xs text-white/40">
-                +{(character.tags || []).length - 3}
-              </span>
-            )}
+            {(() => {
+              // tagsが文字列の場合は配列に変換
+              const tags = Array.isArray(character.tags) ? character.tags : 
+                          typeof character.tags === 'string' ? character.tags.split(',').map(tag => tag.trim()) : 
+                          [];
+              return tags.slice(0, 3).map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full"
+                >
+                  #{tag}
+                </span>
+              ));
+            })()}
+            {(() => {
+              const tags = Array.isArray(character.tags) ? character.tags : 
+                          typeof character.tags === 'string' ? character.tags.split(',').map(tag => tag.trim()) : 
+                          [];
+              return tags.length > 3 && (
+                <span className="px-2 py-0.5 text-xs text-white/40">
+                  +{tags.length - 3}
+                </span>
+              );
+            })()}
           </div>
 
           {/* 統計情報をボタンの上に移動 */}

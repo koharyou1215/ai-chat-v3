@@ -1,7 +1,7 @@
 // Memory Layer Management for AI Chat V3
 // Hierarchical memory system based on cognitive science memory models
 
-import { UnifiedMessage } from '@/types';
+// Removed unused import
 import { MemoryLayer } from '@/types/memory';
 
 /**

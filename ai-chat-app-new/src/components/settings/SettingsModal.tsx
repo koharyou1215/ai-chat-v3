@@ -29,43 +29,13 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
 import { useEffectSettings } from '@/contexts/EffectSettingsContext';
 import { SystemPrompts } from '@/types/core/settings.types';
+import { EffectSettings } from '@/store/slices/settings.slice';
 
-export interface EffectSettings {
-  // メッセージエフェクト
-  colorfulBubbles: boolean;
-  fontEffects: boolean;
-  particleEffects: boolean;
-  typewriterEffect: boolean;
-  
-  // 外観設定
-  bubbleOpacity: number; // 吹き出しの透明度 (0-100)
-  bubbleBlur: boolean; // 背景ぼかし効果
-  
-  // 3D機能
-  hologramMessages: boolean;
-  particleText: boolean;
-  rippleEffects: boolean;
-  backgroundParticles: boolean;
-  
-  // 感情分析
-  realtimeEmotion: boolean;
-  emotionBasedStyling: boolean;
-  autoReactions: boolean;
-  
-  // トラッカー
-  autoTrackerUpdate: boolean;
-  showTrackers: boolean;
-  
-  // パフォーマンス
-  effectQuality: 'low' | 'medium' | 'high';
-  animationSpeed: number;
-}
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: string;
-  effectSettings?: EffectSettings;
   onEffectSettingsChange?: (settings: EffectSettings) => void;
 }
 
@@ -73,7 +43,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'effects',
-  effectSettings,
   onEffectSettingsChange
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -92,7 +61,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     openRouterApiKey,
     setOpenRouterApiKey,
     setAPIModel,
-    setAPIProvider
+    setAPIProvider,
+    effectSettings,
+    updateEffectSettings
   } = useAppStore();
 
   useEffect(() => {
@@ -115,15 +86,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
   
   
-  // エフェクト設定のデフォルト値 - ContextSettingsを優先
-  const [localEffectSettings, setLocalEffectSettings] = useState<EffectSettings>(contextSettings);
+  // エフェクト設定のローカル状態 - Zustandストアから取得
+  const [localEffectSettings, setLocalEffectSettings] = useState<EffectSettings>(effectSettings);
   
-  // Propsから設定が渡された場合は上書き
+  // ストアの設定が変更された場合はローカル状態を更新
   useEffect(() => {
-    if (effectSettings) {
+    if (isOpen) {
       setLocalEffectSettings(effectSettings);
     }
-  }, [effectSettings]);
+  }, [isOpen, effectSettings]);
 
   const tabs = [
     { id: 'effects', label: 'エフェクト', icon: Sparkles },
@@ -149,7 +120,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
     setLocalEffectSettings(newSettings);
     
-    // 即座にEffectSettingsContextに反映
+    // Zustandストアに即座に保存（永続化される）
+    updateEffectSettings(newSettings);
+    
+    // 下位互換性のためEffectSettingsContextにも反映
     updateContextSettings(newSettings);
     if (onEffectSettingsChange) {
       onEffectSettingsChange(newSettings);

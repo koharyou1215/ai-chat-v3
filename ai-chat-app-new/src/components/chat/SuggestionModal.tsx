@@ -49,7 +49,12 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
   };
 
   const getApproachLabel = (index: number) => {
-    const approaches = ['共感的', '論理的', 'ユーモア', '質問形式', '簡潔'];
+    const approaches = [
+      '優しく寄り添う',
+      '冷静に分析する',
+      '少しからかう',
+      '興味を示す'
+    ];
     return approaches[index] || `候補 ${index + 1}`;
   };
 

@@ -2,7 +2,7 @@
 // Chunk-based and hierarchical summarization with cost optimization
 
 import { UnifiedMessage } from '@/types';
-import { MessageConverter } from '@/types/memory';
+// Removed unused import
 
 /**
  * 動的要約生成システム

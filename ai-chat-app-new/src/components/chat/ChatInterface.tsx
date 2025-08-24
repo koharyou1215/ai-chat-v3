@@ -104,7 +104,7 @@ export const ChatInterface: React.FC = () => {
         group_generating,
         active_group_session_id,
         groupSessions,
-        createGroupSession,
+        createGroupSession: _createGroupSession,
     } = useAppStore();
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得

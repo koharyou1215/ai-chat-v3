@@ -30,6 +30,11 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
   const autoPlayedRef = useRef<Set<string>>(new Set());
 
   const handleSpeak = useCallback(async () => {
+    // コンテンツが空の場合は処理を中断
+    if (!message.content || message.content.trim() === '') {
+      return;
+    }
+
     // 他のインスタンスが再生中なら停止
     if (isSpeaking) {
       stopGlobalPlayback();
@@ -48,7 +53,7 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: message.content,
-            speakerId: voiceSettings.voicevox?.speaker || 1,
+            speaker: voiceSettings.voicevox?.speaker || 1,
             settings: {
               speed: voiceSettings.voicevox?.speed || 1.0,
               pitch: voiceSettings.voicevox?.pitch || 0.0,

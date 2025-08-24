@@ -50,8 +50,8 @@ Following these best practices can help prevent common errors.
 7.  #API_Design
 8.  #Memory_System
 9.  #Tracker_System
-10. #System_Prompt_Integration
-11. #Settings_Management_System
+10. #Settings_Management_System
+11. #Visual_Effects_System
 12. #Voice_Synthesis_System
 13. #Development_Workflow
 14. #Debugging_Guide
@@ -85,31 +85,102 @@ Following these best practices can help prevent common errors.
 **Overall Architecture**
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Presentation  │    │    Business     │    │      Data       │
-│   (Components)  │◄──►│    (Services)   │◄──►│   (API/Store)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-    ┌────┴────┐            ┌─────┴─────┐          ┌──────┴──────┐
-    │UI Layer │            │Logic Layer│          │Storage Layer│
-    └─────────┘            └───────────┘          └─────────────┘
+  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+  │   Presentation  │    │    Business     │    │      Data       │
+  │   (Components)  │◄──►│    (Services)   │◄──►│   (API/Store)   │
+  └─────────────────┘    └─────────────────┘    └─────────────────┘
+           │                       │                       │
+      ┌────┴────┐            ┌─────┴─────┐          ┌──────┴──────┐
+      │UI Layer │            │Logic Layer│          │Storage Layer│
+      └─────────┘            └───────────┘          └─────────────┘
 ```
 
-**Data Flow**
+**Enhanced System Architecture (August 2025)**
 
 ```
-User Input → Component → Zustand Store → Service Layer → API → Response
-    ↑                                                              ↓
-    └──────────────── UI Update ← State Update ←──────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           AI Chat V3 System Architecture                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  UI Layer                                                                    │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐  ┌─────────────────┐   │
+│  │ ChatInterface│  │SettingsModal │  │MessageBubble│  │  EffectsSystem  │   │
+│  └─────────────┘  └──────────────┘  └─────────────┘  └─────────────────┘   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Service Layer                                                              │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐  ┌─────────────────┐   │
+│  │   APIManager│  │TrackerManager│  │EmotionAnalz │  │ PromptBuilder   │   │
+│  └─────────────┘  └──────────────┘  └─────────────┘  └─────────────────┘   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  State Management (Zustand)                                                │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐  ┌─────────────────┐   │
+│  │  ChatSlice  │  │SettingsSlice │  │MemorySlice  │  │  TrackerSlice   │   │
+│  └─────────────┘  └──────────────┘  └─────────────┘  └─────────────────┘   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Persistence Layer                                                         │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐  ┌─────────────────┐   │
+│  │ LocalStorage│  │    Zustand   │  │MemoryCards  │  │ EffectSettings  │   │
+│  │  (Unified)  │  │ Persistence  │  │   (Auto)     │  │   (Context)     │   │
+│  └─────────────┘  └──────────────┘  └─────────────┘  └─────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
+**Enhanced Data Flow**
+
+```
+User Action → Settings Modal → Zustand Store → Immediate UI Update
+    │                             │
+    │                             ├─→ Automatic Persistence
+    │                             │
+    │                             └─→ Effect System Triggers
+    │                                     │
+    └─→ Message Input ──→ Effect Analysis ─→ Emotion Detection
+                              │                     │
+                              ├─→ Visual Effects ──┘
+                              │
+                              └─→ Tracker Updates → Conversation Memory
+                                          │
+                                          └─→ AI Response Generation
+```
+
+**Settings System Integration Flow**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Settings Management Flow                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Settings Modal (7 Tabs)                                       │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ Effects │ 3D │ Emotion │ Tracker │ Performance │ Chat │ │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                          │                                      │
+│                          ▼                                      │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Zustand Settings Slice                     │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │   │
+│  │  │   Effect    │  │   Voice     │  │   Memory    │    │   │
+│  │  │  Settings   │  │  Settings   │  │  Settings   │    │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                          │                                      │
+│                          ▼                                      │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │           Automatic Persistence & Distribution          │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │   │
+│  │  │ LocalStorage│  │ Components  │  │  Effect     │    │   │
+│  │  │   (Sync)    │  │   (React)   │  │ Context     │    │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+  ---
 📁 **Directory Structure**
 
 ```
-src/
-├── app/                      # Next.js App Router
-│   ├── api/                 # API Routes
+  src/
+  ├── app/                      # Next.js App Router
+  │   ├── api/                 # API Routes
 │   │   ├── characters/      # Character management API
 │   │   ├── personas/        # Persona management API
 │   │   ├── upload/          # File upload API
@@ -119,175 +190,175 @@ src/
 │   └── page.tsx             # Home page
 ├── components/              # UI Components
 │   ├── chat/               # Chat-related UI
-│   │   ├── ChatInterface.tsx
-│   │   ├── MessageBubble.tsx
-│   │   ├── MessageInput.tsx
-│   │   ├── RichMessage.tsx
-│   │   └── AdvancedEffects.tsx
+  │   │   ├── ChatInterface.tsx
+  │   │   ├── MessageBubble.tsx
+  │   │   ├── MessageInput.tsx
+  │   │   ├── RichMessage.tsx
+  │   │   └── AdvancedEffects.tsx
 │   ├── character/          # Character management UI
 │   ├── settings/           # Settings UI
 │   ├── tracker/            # Tracker UI
 │   ├── memory/             # Memory management UI
 │   └── ui/                 # Common UI components
-├── contexts/               # React Context
-│   └── EffectSettingsContext.tsx
+  ├── contexts/               # React Context
+  │   └── EffectSettingsContext.tsx
 ├── services/               # Business Logic
 │   ├── api/                # API-related services
-│   │   ├── gemini-client.ts
+  │   │   ├── gemini-client.ts
 │   │   ├── openrouter-client.ts (deleted)
-│   │   └── vector-search.ts
+  │   │   └── vector-search.ts
 │   ├── memory/             # Memory system
-│   │   ├── conversation-manager.ts
-│   │   ├── dynamic-summarizer.ts
-│   │   ├── memory-layer-manager.ts
-│   │   └── vector-store.ts
+  │   │   ├── conversation-manager.ts
+  │   │   ├── dynamic-summarizer.ts
+  │   │   ├── memory-layer-manager.ts
+  │   │   └── vector-store.ts
 │   ├── tracker/            # Tracker system
-│   │   └── tracker-manager.ts
+  │   │   └── tracker-manager.ts
 │   ├── api-manager.ts      # Unified API Manager
 │   ├── inspiration-service.ts # Suggestion generation service
-│   └── prompt-builder.service.ts
+  │   └── prompt-builder.service.ts
 ├── store/                  # Zustand State Management
 │   ├── slices/             # State slices
-│   │   ├── chat.slice.ts
-│   │   ├── character.slice.ts
-│   │   ├── memory.slice.ts
-│   │   ├── settings.slice.ts
-│   │   ├── suggestion.slice.ts
-│   │   └── tracker.slice.ts
+  │   │   ├── chat.slice.ts
+  │   │   ├── character.slice.ts
+  │   │   ├── memory.slice.ts
+  │   │   ├── settings.slice.ts
+  │   │   ├── suggestion.slice.ts
+  │   │   └── tracker.slice.ts
 │   └── index.ts            # Store integration
 ├── types/                  # TypeScript Type Definitions
 │   ├── core/               # Core type definitions
-│   │   ├── base.types.ts
+  │   │   ├── base.types.ts
 │   │   ├── message.types.ts (unified)
-│   │   ├── character.types.ts
-│   │   ├── memory.types.ts
-│   │   ├── session.types.ts
-│   │   ├── tracker.types.ts
-│   │   └── settings.types.ts
+  │   │   ├── character.types.ts
+  │   │   ├── memory.types.ts
+  │   │   ├── session.types.ts
+  │   │   ├── tracker.types.ts
+  │   │   └── settings.types.ts
 │   ├── api/                # API type definitions
-│   │   ├── requests.types.ts
-│   │   └── responses.types.ts
+  │   │   ├── requests.types.ts
+  │   │   └── responses.types.ts
 │   ├── ui/                 # UI type definitions
 │   └── index.ts            # Type export aggregation
 ├── lib/                    # Utilities
-│   └── utils.ts
+  │   └── utils.ts
 └── hooks/                  # Custom Hooks
 ```
 
----
+  ---
 🔧 **Type Definition System**
 
 **Unified Message Type (Refactored August 2024)**
 
 ```typescript
-// src/types/core/message.types.ts
-export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata {
+  // src/types/core/message.types.ts
+  export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata {
   // Basic Info
-  session_id: UUID;
-  role: MessageRole;
-  content: string;
-  image_url?: string;
+    session_id: UUID;
+    role: MessageRole;
+    content: string;
+    image_url?: string;
 
   // Character Info
-  character_id?: UUID;
-  character_name?: string;
-  character_avatar?: string;
+    character_id?: UUID;
+    character_name?: string;
+    character_avatar?: string;
 
   // Memory Info
-  memory: {
-    importance: MemoryImportance;
-    is_pinned: boolean;
-    is_bookmarked: boolean;
-    keywords: string[];
-    summary?: string;
-  };
+    memory: {
+      importance: MemoryImportance;
+      is_pinned: boolean;
+      is_bookmarked: boolean;
+      keywords: string[];
+      summary?: string;
+    };
 
   // Expression Info
-  expression: {
-    emotion: EmotionState;
-    style: MessageStyle;
-    effects: VisualEffect[];
-  };
+    expression: {
+      emotion: EmotionState;
+      style: MessageStyle;
+      effects: VisualEffect[];
+    };
 
   // Edit History
-  edit_history: MessageEditEntry[];
-  regeneration_count: number;
-}
+    edit_history: MessageEditEntry[];
+    regeneration_count: number;
+  }
 ```
 
 **Base Entity Types**
 
 ```typescript
-// src/types/core/base.types.ts
-export interface BaseEntity {
-  id: UUID;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-  version: number;
-}
+  // src/types/core/base.types.ts
+  export interface BaseEntity {
+    id: UUID;
+    created_at: Timestamp;
+    updated_at: Timestamp;
+    version: number;
+  }
 
-export interface SoftDeletable {
-  is_deleted: boolean;
-}
+  export interface SoftDeletable {
+    is_deleted: boolean;
+  }
 
-export interface WithMetadata<T = Record<string, unknown>> {
-  metadata: T;
-}
+  export interface WithMetadata<T = Record<string, unknown>> {
+    metadata: T;
+  }
 ```
 
 **Character Type**
 
 ```typescript
-// src/types/core/character.types.ts
-export interface Character extends BaseEntity {
+  // src/types/core/character.types.ts
+  export interface Character extends BaseEntity {
   // Basic Info
-  name: string;
-  age: string;
-  occupation: string;
-  catchphrase: string;
-  
+    name: string;
+    age: string;
+    occupation: string;
+    catchphrase: string;
+    
   // Personality & Traits
-  personality: string;
-  external_personality: string;
-  internal_personality: string;
-  strengths: string[];
-  weaknesses: string[];
-  
+    personality: string;
+    external_personality: string;
+    internal_personality: string;
+    strengths: string[];
+    weaknesses: string[];
+    
   // Preferences & Hobbies
-  hobbies: string[];
-  likes: string[];
-  dislikes: string[];
-  
+    hobbies: string[];
+    likes: string[];
+    dislikes: string[];
+    
   // Appearance & Style
-  appearance: string;
-  avatar_url?: string;
-  background_url?: string;
-  image_prompt?: string;
-  negative_prompt?: string;
-  
+    appearance: string;
+    avatar_url?: string;
+    background_url?: string;
+    image_prompt?: string;
+    negative_prompt?: string;
+    
   // Speaking Style
-  speaking_style: string;
-  first_person: string;
-  second_person: string;
-  verbal_tics: string[];
-  
+    speaking_style: string;
+    first_person: string;
+    second_person: string;
+    verbal_tics: string[];
+    
   // Background & Scenario
-  background: string;
-  scenario: string;
-  
+    background: string;
+    scenario: string;
+    
   // AI System Settings
-  system_prompt: string;
-  first_message: string;
-  
+    system_prompt: string;
+    first_message: string;
+    
   // Metadata
-  tags: string[];
-  
+    tags: string[];
+    
   // Tracker Definitions
-  trackers: TrackerDefinition[];
-  
+    trackers: TrackerDefinition[];
+    
   // NSFW Profile (Optional)
-  nsfw_profile?: NSFWProfile;
-}
+    nsfw_profile?: NSFWProfile;
+  }
 ```
 
 ---
@@ -331,108 +402,108 @@ export interface Character extends BaseEntity {
 **Store Structure**
 
 ```typescript
-// src/store/index.ts
-export interface AppStore extends
-  ChatSlice,
-  CharacterSlice,
-  MemorySlice,
-  SettingsSlice,
-  SuggestionSlice,
-  TrackerSlice {}
+  // src/store/index.ts
+  export interface AppStore extends
+    ChatSlice,
+    CharacterSlice,
+    MemorySlice,
+    SettingsSlice,
+    SuggestionSlice,
+    TrackerSlice {}
 
 // Slice Integration
-export const useAppStore = create<AppStore>()(
-  persist(
-    (...args) => ({
-      ...createChatSlice(...args),
-      ...createCharacterSlice(...args),
-      ...createMemorySlice(...args),
-      ...createSettingsSlice(...args),
-      ...createSuggestionSlice(...args),
-      ...createTrackerSlice(...args),
-    }),
-    {
-      name: 'ai-chat-store',
-      partialize: (state) => ({
-        // Select state to persist
-        characters: state.characters,
-        personas: state.personas,
-        apiConfig: state.apiConfig,
-        voice: state.voice,
-        // Sessions are not persisted for security reasons
+  export const useAppStore = create<AppStore>()(
+    persist(
+      (...args) => ({
+        ...createChatSlice(...args),
+        ...createCharacterSlice(...args),
+        ...createMemorySlice(...args),
+        ...createSettingsSlice(...args),
+        ...createSuggestionSlice(...args),
+        ...createTrackerSlice(...args),
       }),
-    }
-  )
-);
+      {
+        name: 'ai-chat-store',
+        partialize: (state) => ({
+        // Select state to persist
+          characters: state.characters,
+          personas: state.personas,
+          apiConfig: state.apiConfig,
+          voice: state.voice,
+        // Sessions are not persisted for security reasons
+        }),
+      }
+    )
+  );
 ```
 
 **`ChatSlice`**
 
 ```typescript
-// src/store/slices/chat.slice.ts
-export interface ChatSlice {
-  sessions: Map<UUID, UnifiedChatSession>;
-  trackerManagers: Map<UUID, TrackerManager>;
-  active_session_id: UUID | null;
-  is_generating: boolean;
+  // src/store/slices/chat.slice.ts
+  export interface ChatSlice {
+    sessions: Map<UUID, UnifiedChatSession>;
+    trackerManagers: Map<UUID, TrackerManager>;
+    active_session_id: UUID | null;
+    is_generating: boolean;
 
   // Actions
-  createSession: (character: Character, persona: Persona) => Promise<UUID>;
-  sendMessage: (content: string, imageUrl?: string) => Promise<void>;
-  regenerateLastMessage: () => Promise<void>;
-  deleteMessage: (message_id: UUID) => void;
-}
+    createSession: (character: Character, persona: Persona) => Promise<UUID>;
+    sendMessage: (content: string, imageUrl?: string) => Promise<void>;
+    regenerateLastMessage: () => Promise<void>;
+    deleteMessage: (message_id: UUID) => void;
+  }
 ```
 
----
+  ---
 🔌 **API Design**
 
 **API Manager (Unified)**
 
 ```typescript
-// src/services/api-manager.ts
-export class APIManager {
-  private currentConfig: APIConfig;
-  private openRouterApiKey: string | null = null;
+  // src/services/api-manager.ts
+  export class APIManager {
+    private currentConfig: APIConfig;
+    private openRouterApiKey: string | null = null;
 
   // Unified message generation interface
-  async generateMessage(
-    systemPrompt: string,
-    userMessage: string,
-    conversationHistory: { role: 'user' | 'assistant'; content: string }[],
-    options?: Partial<APIConfig>
-  ): Promise<string>
+    async generateMessage(
+      systemPrompt: string,
+      userMessage: string,
+      conversationHistory: { role: 'user' | 'assistant'; content: string }[],
+      options?: Partial<APIConfig>
+    ): Promise<string>
 
   // Automatic switching between Gemini/OpenRouter
-  private async generateWithGemini(...)
-  private async generateWithOpenRouter(...)
-}
+    private async generateWithGemini(...)
+    private async generateWithOpenRouter(...)
+  }
 ```
 
 **API Routes**
 
 ```typescript
-// src/app/api/characters/route.ts
-export async function GET(): Promise<NextResponse<Character[]>>
-export async function POST(request: NextRequest): Promise<NextResponse>
+  // src/app/api/characters/route.ts
+  export async function GET(): Promise<NextResponse<Character[]>>
+  export async function POST(request: NextRequest): Promise<NextResponse>
 
-// src/app/api/voice/voicevox/route.ts
-export async function POST(request: NextRequest): Promise<NextResponse>
-// Body: { text: string, speakerId: number, settings: VoiceVoxSettings }
+  // src/app/api/voice/voicevox/route.ts
+  export async function POST(request: NextRequest): Promise<NextResponse>
+  // Body: { text: string, speakerId: number, settings: VoiceVoxSettings }
 
-// src/app/api/upload/image/route.ts
-export async function POST(request: NextRequest): Promise<NextResponse>
+  // src/app/api/upload/image/route.ts
+  export async function POST(request: NextRequest): Promise<NextResponse>
 // Supports image/video uploads (50MB limit)
 ```
 
----
+  ---
 🧠 **Memory System**
 
 **5-Layer Hierarchical Memory**
 
 ```typescript
-// src/services/memory/memory-layer-manager.ts
-interface MemoryLayers {
+  // src/services/memory/memory-layer-manager.ts
+  interface MemoryLayers {
   immediate_memory: MemoryLayer;    // Last 3 messages
   working_memory: MemoryLayer;      // Active 10 messages
   episodic_memory: MemoryLayer;     // 50 episodic messages
@@ -441,90 +512,474 @@ interface MemoryLayers {
 }
 
 // Automatic transition logic
-class MemoryLayerManager {
-  addMessage(message: UnifiedMessage): void
-  promoteMessage(messageId: string, fromLayer: string, toLayer: string): void
-  demoteMessage(messageId: string, fromLayer: string, toLayer: string): void
-  compressLayer(layerName: string): void
-}
+  class MemoryLayerManager {
+    addMessage(message: UnifiedMessage): void
+    promoteMessage(messageId: string, fromLayer: string, toLayer: string): void
+    demoteMessage(messageId: string, fromLayer: string, toLayer: string): void
+    compressLayer(layerName: string): void
+  }
 ```
 
 **Vector Search**
 
 ```typescript
-// src/services/memory/vector-store.ts
-class VectorStore {
-  private messages: Map<string, UnifiedMessage> = new Map();
-  private embeddings: Map<string, number[]> = new Map();
+  // src/services/memory/vector-store.ts
+  class VectorStore {
+    private messages: Map<string, UnifiedMessage> = new Map();
+    private embeddings: Map<string, number[]> = new Map();
 
-  async addMessage(message: UnifiedMessage): Promise<void>
-  async searchSimilar(query: string, limit: number = 5): Promise<SearchResult[]>
-  cosineSimilarity(a: number[], b: number[]): number
-}
+    async addMessage(message: UnifiedMessage): Promise<void>
+    async searchSimilar(query: string, limit: number = 5): Promise<SearchResult[]>
+    cosineSimilarity(a: number[], b: number[]): number
+  }
 ```
 
----
+  ---
 📊 **Tracker System**
 
 **Tracker Definition**
 
 ```typescript
-// src/types/core/tracker.types.ts
-export interface TrackerDefinition extends BaseEntity {
-  name: string;
-  display_name: string;
-  description?: string;
-  category: 'relationship' | 'status' | 'condition' | 'other';
-  config: TrackerConfig;
-}
+  // src/types/core/tracker.types.ts
+  export interface TrackerDefinition extends BaseEntity {
+    name: string;
+    display_name: string;
+    description?: string;
+    category: 'relationship' | 'status' | 'condition' | 'other';
+    config: TrackerConfig;
+  }
 
-export type TrackerConfig =
-  | NumericTrackerConfig
-  | StateTrackerConfig
-  | BooleanTrackerConfig
-  | TextTrackerConfig;
+  export type TrackerConfig =
+    | NumericTrackerConfig
+    | StateTrackerConfig
+    | BooleanTrackerConfig
+    | TextTrackerConfig;
 ```
 
 **Tracker Manager**
 
 ```typescript
-// src/services/tracker/tracker-manager.ts
-export class TrackerManager {
-  private trackerSets: Map<string, TrackerSet> = new Map();
+  // src/services/tracker/tracker-manager.ts
+  export class TrackerManager {
+    private trackerSets: Map<string, TrackerSet> = new Map();
 
-  initializeTrackerSet(characterId: string, trackers: TrackerDefinition[]): TrackerSet
-  updateTracker(characterId: string, trackerName: string, newValue: TrackerValue): void
-  getTrackersForPrompt(characterId: string): string
+    initializeTrackerSet(characterId: string, trackers: TrackerDefinition[]): TrackerSet
+    updateTracker(characterId: string, trackerName: string, newValue: TrackerValue): void
+    getTrackersForPrompt(characterId: string): string
 
   // Automatic update logic
-  analyzeMessageForTrackerUpdates(message: UnifiedMessage): TrackerUpdate[]
-}
+    analyzeMessageForTrackerUpdates(message: UnifiedMessage): TrackerUpdate[]
+  }
 ```
 
 ---
+⚙️ **Settings Management System**
+
+**Settings Modal Architecture**
+
+The settings system is built around a comprehensive modal with 7 main tabs:
+
+```typescript
+// src/components/settings/SettingsModal.tsx
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialTab?: string;
+  onEffectSettingsChange?: (settings: EffectSettings) => void;
+}
+
+// Available tabs
+const tabs = [
+  { id: 'effects', label: 'エフェクト', icon: Sparkles },
+  { id: '3d', label: '3D機能', icon: Wand2 },
+  { id: 'emotion', label: '感情分析', icon: Brain },
+  { id: 'tracker', label: 'トラッカー', icon: Activity },
+  { id: 'performance', label: 'パフォーマンス', icon: Gauge },
+  { id: 'chat', label: 'チャット', icon: Brain },
+  { id: 'voice', label: '音声', icon: Volume2 },
+  { id: 'ai', label: 'AI', icon: Cpu },
+  // Additional tabs: appearance, data, privacy, notifications, language, developer
+];
+```
+
+**Effect Settings Type Definition**
+
+```typescript
+// src/store/slices/settings.slice.ts
+export interface EffectSettings {
+  // Message Effects
+  colorfulBubbles: boolean;
+  fontEffects: boolean;
+  particleEffects: boolean;
+  typewriterEffect: boolean;
+  
+  // Appearance Settings
+  bubbleOpacity: number; // 0-100
+  bubbleBlur: boolean;
+  
+  // 3D Features
+  hologramMessages: boolean;
+  particleText: boolean;
+  rippleEffects: boolean;
+  backgroundParticles: boolean;
+  
+  // Emotion Analysis
+  realtimeEmotion: boolean;
+  emotionBasedStyling: boolean;
+  autoReactions: boolean;
+  
+  // Tracker Settings
+  autoTrackerUpdate: boolean;
+  showTrackers: boolean;
+  
+  // Performance Settings
+  effectQuality: 'low' | 'medium' | 'high';
+  animationSpeed: number; // 0.5-2.0
+}
+```
+
+**Memory Capacity Settings (Legacy)**
+
+```typescript
+// Chat Settings - Memory Management
+interface ChatSettings {
+  bubbleTransparency: number;
+  bubbleBlur: boolean;
+  responseFormat: ChatResponseFormat;
+  memoryCapacity: number; // Legacy setting (0-500)
+  generationCandidates: number;
+  memory_limits: {
+    max_working_memory: number;        // Active messages (default: 6)
+    max_memory_cards: number;          // Memory cards limit (default: 50)
+    max_relevant_memories: number;     // Related memories (default: 5)
+    max_prompt_tokens: number;         // Prompt token limit (default: 32000)
+    max_context_messages: number;      // Context messages (default: 20)
+  };
+}
+```
+
+**Voice Settings Enhancement**
+
+```typescript
+// src/types/core/settings.types.ts - Updated Voice Settings
+export interface VoiceSettings {
+  enabled: boolean;                    // Master voice toggle
+  provider: 'voicevox' | 'elevenlabs' | 'system';
+  autoPlay: boolean;
+  
+  voicevox: {
+    speaker: number;    // Speaker ID (0-46)
+    speed: number;      // Speed scale (0.5-2.0)
+    pitch: number;      // Pitch scale (-0.15-0.15)
+    intonation: number; // Intonation scale (0-2.0)
+    volume: number;     // Volume scale (0-2.0)
+  };
+  
+  elevenlabs: {
+    voiceId: string;
+    stability: number;
+    similarity: number;
+  };
+  
+  system: {            // NEW: System voice fallback
+    voice: string;
+    rate: number;
+    pitch: number;
+    volume: number;
+  };
+  
+  advanced: {          // NEW: Advanced audio settings
+    bufferSize: number;
+    crossfade: boolean;
+    normalization: boolean;
+    noiseReduction: boolean;
+    echoCancellation: boolean;
+  };
+}
+```
+
+**Unified Persistence Strategy**
+
+The settings system uses a unified Zustand store with automatic persistence:
+
+```typescript
+// src/store/slices/settings.slice.ts
+export interface SettingsSlice extends AISettings {
+  // Language and localization
+  languageSettings: LanguageSettings;
+  // Effect settings (integrated from Context)
+  effectSettings: EffectSettings;
+  
+  // Actions
+  updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
+  updateEffectSettings: (settings: Partial<EffectSettings>) => void;
+  // ... other actions
+}
+
+// Default values - Performance-first approach (all effects OFF by default)
+effectSettings: {
+  colorfulBubbles: false,
+  fontEffects: false,
+  particleEffects: false,
+  // ... all visual effects default to false
+  effectQuality: 'medium',
+  animationSpeed: 1.0
+}
+```
+
+**Settings Integration Flow**
+
+```
+User Changes Setting → SettingsModal Component → Zustand Store → Automatic Persistence
+                                               ↓
+                                     Component Re-renders → Visual Update
+```
+
+**Key Implementation Notes:**
+
+1. **Dual Persistence Resolution**: Eliminated the dual persistence issue between EffectSettingsContext and Zustand store
+2. **Performance-First Defaults**: All visual effects default to OFF to ensure optimal performance
+3. **Instant Updates**: Settings changes are applied immediately without requiring save confirmation
+4. **Type Safety**: Full TypeScript integration with strict type checking
+5. **Backward Compatibility**: Supports both legacy and new settings formats
+
+---
+✨ **Visual Effects System**
+
+**Effect System Architecture**
+
+The visual effects system provides real-time animations and visual enhancements based on user messages and emotions:
+
+```typescript
+// src/components/chat/MessageEffects.tsx
+interface MessageEffectsProps {
+  trigger: string;  // Message content that triggers effects
+  position: { x: number; y: number };
+}
+
+// Effect mapping system
+const effectMap: Record<string, () => void> = {
+  '愛してる': () => createHeartShower(),
+  'おめでとう': () => createConfetti(),
+  'ありがとう': () => createSparkles(),
+  '素晴らしい': () => createStarBurst(),
+  '最高': () => createRainbow()
+};
+```
+
+**Advanced 3D Effects**
+
+```typescript
+// src/components/chat/AdvancedEffects.tsx
+export const HologramMessage: React.FC<{
+  message: string;
+  isVisible: boolean;
+}> = ({ message, isVisible }) => {
+  // WebGL-based holographic message display
+  // Three.js integration for 3D text rendering
+  // Particle system for floating effect
+};
+
+export const ParticleText: React.FC<{
+  text: string;
+  animation: 'gather' | 'scatter';
+}> = ({ text, animation }) => {
+  // Text particle decomposition and reformation
+  // Canvas-based particle system
+  // Physics simulation for natural movement
+};
+```
+
+**Emotion-Based Styling System**
+
+```typescript
+// src/services/emotion/EmotionAnalyzer.ts
+export interface EmotionResult {
+  primary: string;            // Primary emotion detected
+  secondary: string[];        // Secondary emotions
+  implicit: string[];         // Implicit emotional undertones
+  intensity: number;          // Emotion intensity (0-1)
+  confidence: number;         // Detection confidence (0-1)
+  flow: EmotionFlow;         // Emotion transition data
+  suggestedReactions: AutoReaction[]; // Recommended visual reactions
+}
+
+export interface AutoReaction {
+  type: 'visual' | 'audio' | 'background' | 'avatar';
+  effect?: string;           // Effect name to trigger
+  sound?: string;           // Sound to play
+  color?: string;           // Color theme to apply
+  duration?: number;        // Effect duration in ms
+  animation?: string;       // Animation type
+  intensity?: number;       // Effect intensity
+}
+```
+
+**Real-time Emotion Detection**
+
+```typescript
+// src/components/emotion/EmotionDisplay.tsx
+export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({ 
+  message, 
+  onEmotionDetected 
+}) => {
+  const { settings } = useEffectSettings();
+  
+  useEffect(() => {
+    if (!settings.realtimeEmotion || !message.trim()) return;
+    
+    const analyzeEmotion = async () => {
+      const emotion = await analyzerRef.current.analyzeEmotion(message);
+      setCurrentEmotion(emotion);
+      
+      // Auto-trigger visual reactions
+      if (settings.autoReactions && emotion.suggestedReactions) {
+        triggerAutoReactions(emotion.suggestedReactions);
+      }
+      
+      // Apply emotion-based styling
+      if (settings.emotionBasedStyling) {
+        applyEmotionalStyling(emotion);
+      }
+    };
+    
+    const timeout = setTimeout(analyzeEmotion, 500); // Debounced
+    return () => clearTimeout(timeout);
+  }, [message, settings]);
+};
+```
+
+**Message Bubble Effects Integration**
+
+```typescript
+// src/components/chat/MessageBubble.tsx - Effect Integration
+const getEmotionAnimation = () => {
+  if (!emotion || !settings.emotionBasedStyling) return {};
+  
+  const emotionAnimations: Record<string, any> = {
+    joy: { scale: [1, 1.05, 1], transition: { duration: 0.3 } },
+    anger: { x: [-2, 2, -2, 2, 0], transition: { duration: 0.4 } },
+    sadness: { y: [0, -5, 0], opacity: [1, 0.8, 1] },
+    surprise: { scale: [1, 1.15, 1], rotate: [0, 2, -2, 0] },
+    fear: { filter: ['blur(0px)', 'blur(1px)', 'blur(0px)'] }
+  };
+  
+  return emotionAnimations[emotion.primary] || {};
+};
+
+// Apply effects in render
+<motion.div
+  animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() : {}}
+  className={cn(
+    'message-bubble',
+    settings.colorfulBubbles && 'colorful-gradient',
+    settings.bubbleBlur && 'backdrop-blur-sm'
+  )}
+  style={{
+    opacity: settings.bubbleOpacity / 100,
+    '--animation-speed': `${settings.animationSpeed}s`,
+  }}
+>
+  {/* Message content */}
+  
+  {/* Real-time emotion display */}
+  {settings.realtimeEmotion && (
+    <EmotionDisplay message={message.content} onEmotionDetected={setEmotion} />
+  )}
+  
+  {/* Particle effects */}
+  {settings.particleEffects && (
+    <MessageEffects trigger={message.content} position={bubblePosition} />
+  )}
+</motion.div>
+```
+
+**Effect Context Integration**
+
+```typescript
+// src/contexts/EffectSettingsContext.tsx - Backward Compatibility
+const defaultSettings: EffectSettings = {
+  // Performance-optimized defaults
+  colorfulBubbles: !safeMode,      // OFF in safe mode
+  fontEffects: !safeMode,          // OFF in safe mode
+  particleEffects: false,          // Always OFF (performance heavy)
+  typewriterEffect: !safeMode,     // OFF in safe mode
+  
+  // 3D features - OFF by default
+  hologramMessages: false,
+  particleText: false,
+  rippleEffects: false,
+  backgroundParticles: false,
+  
+  // Emotion analysis - Selective defaults
+  realtimeEmotion: !safeMode,      // OFF in safe mode
+  emotionBasedStyling: false,      // OFF (can cause UI instability)
+  autoReactions: false,            // OFF (CPU intensive)
+  
+  // Performance settings
+  effectQuality: safeMode ? 'low' : 'medium',
+  animationSpeed: safeMode ? 0 : 0.5  // Reduced for stability
+};
+```
+
+**Effect Performance Management**
+
+```typescript
+// Dynamic quality adjustment based on device capabilities
+const adjustEffectQuality = (settings: EffectSettings) => {
+  const performanceProfile = detectDevicePerformance();
+  
+  if (performanceProfile === 'low') {
+    return {
+      ...settings,
+      particleEffects: false,
+      hologramMessages: false,
+      effectQuality: 'low',
+      animationSpeed: Math.min(settings.animationSpeed, 0.5)
+    };
+  }
+  
+  return settings;
+};
+
+// Safe mode detection and auto-adjustment
+const safeMode = typeof window !== 'undefined' && 
+  localStorage.getItem('safe-mode') === 'true';
+```
+
+**Key Effect System Features:**
+
+1. **Keyword-based Triggers**: Effects triggered by specific keywords in messages
+2. **Real-time Emotion Analysis**: AI-powered emotion detection with visual feedback
+3. **Performance Optimization**: Safe mode and quality adjustment for low-end devices
+4. **Modular Architecture**: Each effect can be enabled/disabled independently
+5. **WebGL Integration**: Advanced 3D effects using Three.js and WebGL
+6. **Animation Debouncing**: Prevents effect spam and ensures smooth performance
+
+  ---
 🔧 **Development Workflow**
 
 **Setup**
 
 ```bash
 # 1. Install dependencies
-npm install
+  npm install
 
 # 2. Set up environment variables
-cp .env.local.example .env.local
-# NEXT_PUBLIC_GEMINI_API_KEY=your_api_key
-# ELEVENLABS_API_KEY=your_api_key
-# VOICEVOX_ENGINE_URL=http://127.0.0.1:50021
+  cp .env.local.example .env.local
+  # NEXT_PUBLIC_GEMINI_API_KEY=your_api_key
+  # ELEVENLABS_API_KEY=your_api_key
+  # VOICEVOX_ENGINE_URL=http://127.0.0.1:50021
 
 # 3. Start the development server
-npm run dev
-# http://localhost:3000
+  npm run dev
+  # http://localhost:3000
 
 # 4. Type check
-npx tsc --noEmit
+  npx tsc --noEmit
 
 # 5. Build for production
-npm run build
+  npm run build
 ```
 
 **Coding Standards**
@@ -532,33 +987,33 @@ npm run build
 ```typescript
 // 1. Prioritize Type Safety
 // ❌ Bad
-const message: any = getMessage();
+  const message: any = getMessage();
 
 // ✅ Good
-const message: UnifiedMessage = getMessage();
+  const message: UnifiedMessage = getMessage();
 
 // 2. Use Unified Message Type
 // ❌ Old (deleted)
-interface Message { sender: 'user' | 'assistant'; }
+  interface Message { sender: 'user' | 'assistant'; }
 
 // ✅ New
-interface UnifiedMessage { role: 'user' | 'assistant'; }
+  interface UnifiedMessage { role: 'user' | 'assistant'; }
 
 // 3. Separate Service Layer
 // ❌ Calling API directly in a component
-const response = await fetch('/api/chat');
+  const response = await fetch('/api/chat');
 
 // ✅ Using the service layer
-const response = await apiManager.generateMessage(prompt, message);
+  const response = await apiManager.generateMessage(prompt, message);
 
 // 4. Error Handling
-try {
-  const result = await someAsyncOperation();
-  return result;
-} catch (error) {
-  console.error('Operation failed:', error);
-  throw new Error(`Failed to complete operation: ${error.message}`);
-}
+  try {
+    const result = await someAsyncOperation();
+    return result;
+  } catch (error) {
+    console.error('Operation failed:', error);
+    throw new Error(`Failed to complete operation: ${error.message}`);
+  }
 ```
 
 ---
@@ -586,36 +1041,36 @@ try {
 4.  **Build Errors**
     ```bash
     # TypeScript type errors
-    npx tsc --noEmit --skipLibCheck
+  npx tsc --noEmit --skipLibCheck
 
     # Dependency issues
-    rm -rf node_modules package-lock.json
-    npm install
+  rm -rf node_modules package-lock.json
+  npm install
 
     # Clear Next.js cache
-    rm -rf .next
-    npm run build
+  rm -rf .next
+  npm run build
     ```
 
 **Debugging Tools Setup**
 
 ```typescript
 // 1. Console Log Helper
-// src/lib/debug.ts
-export const debugLog = (component: string, data: any) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[${component}]`, data);
-  }
-};
+  // src/lib/debug.ts
+  export const debugLog = (component: string, data: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${component}]`, data);
+    }
+  };
 
-// 2. Zustand DevTools
-import { devtools } from 'zustand/middleware';
-export const useAppStore = create<AppStore>()(
-  devtools(
-    persist(...),
-    { name: 'ai-chat-store' }
-  )
-);
+  // 2. Zustand DevTools
+  import { devtools } from 'zustand/middleware';
+  export const useAppStore = create<AppStore>()(
+    devtools(
+      persist(...),
+      { name: 'ai-chat-store' }
+    )
+  );
 
 // 3. React DevTools Profiler is recommended.
 ```
@@ -624,20 +1079,44 @@ export const useAppStore = create<AppStore>()(
 
 ```typescript
 // 1. Optimize Rendering
-const MemoizedComponent = React.memo(ExpensiveComponent);
+  const MemoizedComponent = React.memo(ExpensiveComponent);
 
 // 2. Optimize State Updates
 // ❌ Causes excessive re-renders
-const allMessages = useAppStore(state => state.sessions);
+  const allMessages = useAppStore(state => state.sessions);
 
 // ✅ Select only what's needed
-const activeMessages = useAppStore(state =>
-  state.sessions.get(state.active_session_id)?.messages || []
-);
+  const activeMessages = useAppStore(state =>
+    state.sessions.get(state.active_session_id)?.messages || []
+  );
 
 // 3. Virtualize Large Lists
-import { FixedSizeList as List } from 'react-window';
+  import { FixedSizeList as List } from 'react-window';
 ```
+
+  ---
+⚡ **Performance Principles**
+
+This project prioritizes a highly responsive user experience. All development should adhere to the following performance principles, derived from the analysis in the [Performance Optimization Report](./docs/PERFORMANCE_OPTIMIZATION_REPORT.md).
+
+1.  **Non-Blocking UI (UI First):**
+    *   **Rule:** Expensive operations (API calls, heavy computation) must not block the UI thread.
+    *   **Implementation:** For actions like sending a message, update the UI state immediately with the user's input first. Then, execute asynchronous operations like API calls, memory processing, and tracker analysis in the background. This provides immediate feedback to the user.
+    *   **Reference:** See the refactored `sendMessage` function in `src/store/slices/chat.slice.ts` for a practical example.
+
+2.  **Stateful and Efficient Resource Management:**
+    *   **Rule:** Heavy objects or services like `ConversationManager` should not be re-initialized on every use.
+    *   **Implementation:** These resources should be instantiated once per session and managed within the Zustand store. Subsequent operations should perform differential updates rather than reprocessing the entire state.
+    *   **Status:** This is a future optimization target. The current implementation creates instances on-demand.
+
+3.  **Strategic Caching:**
+    *   **Rule:** Avoid re-computing or re-fetching data that has not changed.
+    *   **Implementation:** Persisted state in Zustand should be leveraged to cache results of expensive operations like vector embeddings or conversation summaries. For details on the current persistence strategy, see the `persist` middleware configuration in `src/store/index.ts`.
+
+4.  **Future Optimization Roadmap:**
+    *   **Web Workers:** For computationally intensive tasks like vector similarity calculations or large data processing, offload the work from the main thread using Web Workers.
+    *   **Streaming Responses:** For AI responses, use streaming to display text progressively as it is generated, rather than waiting for the full response.
+    *   **Server-Side Caching:** Implement a server-side cache (e.g., Redis) for frequently accessed data or API responses to reduce latency.
 
 ---
 🚀 **Deployment**
@@ -645,22 +1124,22 @@ import { FixedSizeList as List } from 'react-window';
 **Vercel Configuration**
 
 ```json
-// vercel.json
-{
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
+  // vercel.json
+  {
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "outputDirectory": ".next",
+    "functions": {
+      "src/app/api/**/*.ts": {
+        "maxDuration": 30
+      }
+    },
+    "env": {
+      "NEXT_PUBLIC_GEMINI_API_KEY": "@gemini-api-key",
+      "ELEVENLABS_API_KEY": "@elevenlabs-api-key",
+      "VOICEVOX_ENGINE_URL": "@voicevox-url"
     }
-  },
-  "env": {
-    "NEXT_PUBLIC_GEMINI_API_KEY": "@gemini-api-key",
-    "ELEVENLABS_API_KEY": "@elevenlabs-api-key",
-    "VOICEVOX_ENGINE_URL": "@voicevox-url"
   }
-}
 ```
 
 **Environment Variables**
@@ -678,17 +1157,17 @@ VOICEVOX_ENGINE_URL=            # VoiceVox Engine URL
 
 ```bash
 # 1. Verify local build
-npm run build
+  npm run build
 
 # 2. Deploy to Vercel
-npx vercel --prod
+  npx vercel --prod
 
 # 3. Remove project (if needed)
-vercel rm project-name --yes
+  vercel rm project-name --yes
 
 # 4. Create a new project
-rm -rf .vercel
-npx vercel --prod --yes
+  rm -rf .vercel
+  npx vercel --prod --yes
 ```
 
 ---
@@ -760,24 +1239,36 @@ npx vercel --prod --yes
 **Key Files**
 
 *   🔥 **Core (Most Important)**
-    *   `src/types/core/message.types.ts`    # Unified Message Type
-    *   `src/store/index.ts`                 # Zustand Integrated Store
-    *   `src/services/api-manager.ts`        # Unified API Manager
-    *   `src/components/chat/ChatInterface.tsx`
-    *   `src/components/chat/MessageBubble.tsx`
+    *   `src/types/core/message.types.ts`       # Unified Message Type
+    *   `src/store/index.ts`                    # Zustand Integrated Store
+    *   `src/services/api-manager.ts`           # Unified API Manager
+    *   `src/components/chat/ChatInterface.tsx` # Main Chat Interface
+    *   `src/components/chat/MessageBubble.tsx` # Message Display with Effects
 
-*   ⚡ **Important (Key Features)**
-    *   `src/services/tracker/tracker-manager.ts`
-    *   `src/services/memory/memory-layer-manager.ts`
-    *   `src/store/slices/chat.slice.ts`
-    *   `src/components/tracker/TrackerDisplay.tsx`
-    *   `src/contexts/EffectSettingsContext.tsx`
+*   ⚡ **Settings & Effects (Critical)**
+    *   `src/components/settings/SettingsModal.tsx`  # 7-Tab Settings System
+    *   `src/store/slices/settings.slice.ts`         # Unified Settings Store
+    *   `src/components/chat/MessageEffects.tsx`     # Visual Effects Engine
+    *   `src/services/emotion/EmotionAnalyzer.ts`    # AI Emotion Detection
+    *   `src/contexts/EffectSettingsContext.tsx`     # Backward Compatibility
+
+*   📊 **Data & Memory Management**
+    *   `src/services/tracker/tracker-manager.ts`    # Tracker System
+    *   `src/services/memory/memory-layer-manager.ts` # 5-Layer Memory
+    *   `src/store/slices/chat.slice.ts`            # Chat State Management
+    *   `src/components/tracker/TrackerDisplay.tsx`  # Tracker UI
+
+*   🎨 **Visual & Audio Systems**
+    *   `src/components/chat/AdvancedEffects.tsx`    # 3D Effects & Holograms
+    *   `src/components/emotion/EmotionDisplay.tsx`  # Real-time Emotion UI
+    *   `src/types/core/settings.types.ts`          # Enhanced Settings Types
+    *   `src/hooks/useAudioPlayback.ts`             # Voice Playback Hook
 
 *   🛠️ **Config & Utilities**
-    *   `src/types/index.ts`
-    *   `src/lib/utils.ts`
-    *   `next.config.js`
-    *   `tailwind.config.js`
+    *   `src/types/index.ts`        # Type Aggregation
+    *   `src/lib/utils.ts`          # Utility Functions
+    *   `next.config.js`            # Next.js Configuration
+    *   `tailwind.config.js`        # Tailwind CSS Configuration
 
 **Development Commands**
 
@@ -800,23 +1291,82 @@ npm install                   # Reinstall dependencies
 ---
 🎯 **Summary**
 
-This AI Chat V3 project is designed with a strong emphasis on type safety, maintainability, and extensibility.
+This AI Chat V3 project is designed with a strong emphasis on type safety, maintainability, and extensibility. The August 2025 updates have significantly enhanced the system with comprehensive settings management, visual effects, and performance optimization.
+
+**Core System Features (Updated August 2025)**
+
+1. **Unified Settings Management**: 7-tab comprehensive settings system with automatic persistence
+2. **Advanced Visual Effects**: Real-time emotion detection, 3D effects, and performance-optimized animations
+3. **Enhanced Voice System**: Multi-provider support with advanced audio controls and fallback mechanisms
+4. **Memory Management**: Dual-layer memory system with legacy and modern interfaces
+5. **Tracker Integration**: Automatic state tracking with seamless UI integration
 
 **Development Guidelines**
 
 1.  Always use the `UnifiedMessage` type (the old `Message` type is deleted).
-2.  Make API calls through the service layer.
-3.  Manage state using the Zustand slice pattern.
-4.  Run TypeScript type checks regularly.
+2.  Make API calls through the unified service layer.
+3.  Manage state using the Zustand slice pattern with automatic persistence.
+4.  Use the settings system for all user-configurable options.
+5.  Implement effects with performance-first approach (default OFF).
+6.  Run TypeScript type checks regularly to maintain strict mode compliance.
+
+**Performance Guidelines**
+
+1. **Effect Defaults**: All visual effects default to OFF for optimal performance
+2. **Safe Mode Support**: Automatic performance adjustments for low-end devices
+3. **Quality Management**: Dynamic effect quality based on device capabilities  
+4. **Memory Efficiency**: Optimized state management with selective persistence
 
 **Guidelines for Extension**
 
 1.  Implement new features following the existing architecture.
 2.  Create type definitions before implementation.
 3.  Build with small, testable components.
+4.  Add new settings through the unified settings slice.
+5.  Implement visual effects with performance considerations.
+6.  Ensure backward compatibility with existing systems.
 
 ---
 ## 🆕 Latest Updates
+
+### Critical Update: August 24, 2025
+
+#### 🔧 Settings System Complete Overhaul
+- **Dual Persistence Resolution:** Eliminated duplicate persistence between EffectSettingsContext and Zustand store
+- **Unified Settings Architecture:** All settings now managed through single Zustand store with automatic persistence  
+- **Settings Modal Enhancement:** Complete 7-tab settings interface with comprehensive controls
+- **Performance-First Defaults:** All visual effects default to OFF for optimal performance
+
+#### ✨ Visual Effects System Restoration
+- **Effect Dependencies Fixed:** Restored all visual effect dependencies after performance optimization
+- **Emotion Analysis Integration:** Real-time emotion detection with automatic visual reactions
+- **3D Effects Support:** Complete implementation of hologram messages, particle text, and advanced animations
+- **Keyword-Based Triggers:** Smart effect triggering based on message content analysis
+
+#### 🎵 Voice System Type Safety Enhancement
+- **VoiceSettings Interface Updated:** Added missing `enabled`, `system`, and `advanced` properties
+- **Provider Support Enhancement:** Full support for VoiceVox, ElevenLabs, and system voice fallback
+- **Advanced Audio Settings:** Buffer management, crossfade, normalization, and noise reduction controls
+
+#### 📊 Memory Management Improvements
+- **Legacy Settings Integration:** Comprehensive memory capacity controls with both legacy and modern interfaces
+- **Memory Limits Configuration:** Granular control over working memory, memory cards, and context limits
+- **Prompt Token Management:** Advanced token limit controls for optimized AI interactions
+
+#### 🎯 Tracker System Stability
+- **Auto-Update Restoration:** Fixed automatic tracker updates based on conversation content
+- **Display Integration:** Seamless tracker panel integration with settings controls
+- **Performance Optimization:** Efficient tracker management without UI blocking
+
+#### 🏗️ Architecture Improvements  
+- **Type Safety Enhancement:** Resolved all TypeScript strict mode violations in settings system
+- **Component Integration:** Improved component communication between settings modal and effect systems
+- **State Management:** Streamlined state updates with immediate persistence and UI reflection
+
+#### 🛠️ Developer Experience
+- **Documentation Alignment:** Complete synchronization between implementation and documentation
+- **Code Quality:** Eliminated all `any` types and improved type definitions
+- **Performance Monitoring:** Added effect quality management and safe mode detection
 
 ### Major Update: August 21, 2025
 

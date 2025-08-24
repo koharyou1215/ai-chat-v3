@@ -31,7 +31,9 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
     setGroupMode,
     createGroupSession,
     setActiveGroupSession,
-    updateCharacter
+    updateCharacter,
+    toggleGroupCharacter,
+    setGroupChatMode
   } = useAppStore();
   
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
@@ -149,32 +151,6 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* チャットモード切り替えドロップダウン */}
-            <div className="relative">
-              <select
-                value={activeGroupSession.chat_mode}
-                onChange={(e) => {
-                  const newMode = e.target.value as GroupChatMode;
-                  // グループセッションのモードを更新
-                  const updatedSession = {
-                    ...activeGroupSession,
-                    chat_mode: newMode
-                  };
-                  
-                  // ストアを更新（安全な方法で）
-                  const store = useAppStore.getState();
-                  const updatedGroupSessions = new Map(store.groupSessions);
-                  updatedGroupSessions.set(activeGroupSession.id, updatedSession);
-                  useAppStore.setState({ groupSessions: updatedGroupSessions });
-                }}
-                className="text-xs bg-slate-700 hover:bg-slate-600 text-white/80 px-2 py-1 rounded border border-white/10 focus:border-purple-400 focus:outline-none cursor-pointer"
-              >
-                <option value="sequential">📋 順次応答</option>
-                <option value="simultaneous">⚡ 同時応答</option>
-                <option value="random">🎲 ランダム</option>
-                <option value="smart">🧠 スマート</option>
-              </select>
-            </div>
             <button
               onClick={() => setGroupMode(false)}
               className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white/80 text-sm rounded transition-colors"
@@ -184,30 +160,107 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
           </div>
         </div>
         
-        {/* アクティブキャラクター表示 */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {activeGroupSession.characters.map(character => (
-            <div
-              key={character.id}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1 rounded-full text-sm border",
-                activeGroupSession.active_character_ids.has(character.id)
-                  ? "bg-purple-500/20 border-purple-400/30 text-purple-300"
-                  : "bg-slate-700/50 border-white/10 text-white/60"
-              )}
-            >
-              {character.avatar_url ? (
-                <img 
-                  src={character.avatar_url} 
-                  alt={character.name}
-                  className="w-4 h-4 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-4 h-4 rounded-full bg-slate-600" />
-              )}
-              <span>{character.name}</span>
-            </div>
-          ))}
+        {/* 🎭 発見しやすい応答モード変更UI */}
+        <div className="mt-4 px-4 py-3 bg-slate-800/30 rounded-lg border border-white/10">
+          <h4 className="text-sm font-medium text-white/80 mb-3">応答モード</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {chatModeOptions.map((option) => {
+              const isSelected = activeGroupSession.chat_mode === option.mode;
+              const IconComponent = option.icon;
+              
+              return (
+                <motion.button
+                  key={option.mode}
+                  whileHover={{ scale: isSelected ? 1 : 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={cn(
+                    "p-3 rounded-lg border text-left transition-all",
+                    isSelected
+                      ? "bg-purple-500/20 border-purple-400/50 text-purple-200"
+                      : "bg-slate-700/30 border-white/10 text-white/70 hover:bg-slate-600/40 hover:border-white/20"
+                  )}
+                  onClick={() => {
+                    if (!isSelected) {
+                      setGroupChatMode(activeGroupSession.id, option.mode);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <IconComponent className="w-4 h-4" />
+                    <span className="font-medium text-xs">{option.label}</span>
+                  </div>
+                  <p className="text-xs text-white/50 leading-tight">{option.description}</p>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+        
+        <div className="px-4">
+        </div>
+        
+        {/* 🎭 クリック可能なキャラクター参加・脱退UI */}
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-white/80">参加キャラクター</h4>
+            <span className="text-xs text-white/50">
+              {activeGroupSession.active_character_ids.size}/{activeGroupSession.max_active_characters}人
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {activeGroupSession.characters.map(character => {
+              const isActive = activeGroupSession.active_character_ids.has(character.id);
+              const canToggle = !isActive || activeGroupSession.active_character_ids.size > 1; // 最低1人は必要
+              const canJoin = isActive || activeGroupSession.active_character_ids.size < activeGroupSession.max_active_characters;
+              
+              return (
+                <motion.div
+                  key={character.id}
+                  whileHover={canToggle && canJoin ? { scale: 1.05 } : {}}
+                  whileTap={canToggle && canJoin ? { scale: 0.95 } : {}}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-all cursor-pointer",
+                    isActive
+                      ? "bg-purple-500/20 border-purple-400/50 text-purple-200 shadow-purple-500/20 shadow-lg"
+                      : canJoin
+                        ? "bg-slate-700/50 border-white/20 text-white/60 hover:bg-slate-600/50 hover:border-white/30"
+                        : "bg-slate-800/50 border-white/10 text-white/30 cursor-not-allowed",
+                    canToggle && canJoin && "hover:shadow-md"
+                  )}
+                  onClick={() => {
+                    if (canToggle && canJoin) {
+                      toggleGroupCharacter(activeGroupSession.id, character.id);
+                    }
+                  }}
+                  title={
+                    !canToggle ? "最低1人のキャラクターが必要です" :
+                    !canJoin ? `最大${activeGroupSession.max_active_characters}人まで参加できます` :
+                    isActive ? "クリックで脱退" : "クリックで参加"
+                  }
+                >
+                  {character.avatar_url ? (
+                    <img 
+                      src={character.avatar_url} 
+                      alt={character.name}
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-xs">
+                      {character.name[0]?.toUpperCase()}
+                    </div>
+                  )}
+                  <span className="font-medium">{character.name}</span>
+                  {isActive && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-2 h-2 bg-green-400 rounded-full"
+                    />
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -229,13 +282,35 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </div>
             
             {availableCharacters.length >= 2 ? (
-              <button
-                onClick={() => setShowSetup(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                グループチャットを開始
-              </button>
+              <div className="space-y-3">
+                {/* 🚀 ワンクリック開始オプション */}
+                <button
+                  onClick={() => {
+                    if (availableCharacters.length >= 2 && persona) {
+                      const firstTwoChars = availableCharacters.slice(0, 2);
+                      createGroupSession(
+                        firstTwoChars,
+                        persona,
+                        'sequential',
+                        `${firstTwoChars.map(c => c.name).join('、')}とのグループチャット`,
+                        undefined
+                      );
+                    }
+                  }}
+                  className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl font-medium shadow-lg transition-all transform hover:scale-105"
+                >
+                  <Zap className="w-5 h-5" />
+                  すぐに開始 (最初の2キャラクター)
+                </button>
+                
+                <button
+                  onClick={() => setShowSetup(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  詳細設定して開始
+                </button>
+              </div>
             ) : (
               <div className="text-center text-white/50 space-y-4">
                 <p>グループチャットには2人以上のキャラクターが必要です</p>
@@ -384,6 +459,39 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             />
           </div>
           
+          {/* 🎯 進捗インジケーター */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
+                currentStep === 'characters' ? "bg-purple-600 text-white" : "bg-slate-600 text-white/60"
+              )}>
+                1
+              </div>
+              <div className={cn(
+                "w-12 h-0.5",
+                ['scenario', 'settings'].includes(currentStep) ? "bg-purple-600" : "bg-slate-600"
+              )} />
+              <div className={cn(
+                "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
+                currentStep === 'scenario' ? "bg-purple-600 text-white" : 
+                currentStep === 'settings' ? "bg-purple-600 text-white" : "bg-slate-600 text-white/60"
+              )}>
+                2
+              </div>
+              <div className={cn(
+                "w-12 h-0.5",
+                currentStep === 'settings' ? "bg-purple-600" : "bg-slate-600"
+              )} />
+              <div className={cn(
+                "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
+                currentStep === 'settings' ? "bg-purple-600 text-white" : "bg-slate-600 text-white/60"
+              )}>
+                3
+              </div>
+            </div>
+          </div>
+
           {/* ステップ表示 */}
           {currentStep === 'characters' && (
             <>

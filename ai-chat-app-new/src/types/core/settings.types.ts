@@ -49,7 +49,8 @@ export interface ImageGenerationSettings {
 }
 
 export interface VoiceSettings {
-  provider: 'voicevox' | 'elevenlabs';
+  enabled: boolean;
+  provider: 'voicevox' | 'elevenlabs' | 'system';
   autoPlay: boolean;
   voicevox: {
     speaker: number;
@@ -62,6 +63,19 @@ export interface VoiceSettings {
     voiceId: string;
     stability: number;
     similarity: number;
+  };
+  system: {
+    voice: string;
+    rate: number;
+    pitch: number;
+    volume: number;
+  };
+  advanced: {
+    bufferSize: number;
+    crossfade: boolean;
+    normalization: boolean;
+    noiseReduction: boolean;
+    echoCancellation: boolean;
   };
 }
 

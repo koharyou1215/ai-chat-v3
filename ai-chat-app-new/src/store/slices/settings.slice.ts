@@ -12,14 +12,49 @@ export interface LanguageSettings {
   currency: string;
 }
 
+// エフェクト設定の型定義を追加
+export interface EffectSettings {
+  // メッセージエフェクト
+  colorfulBubbles: boolean;
+  fontEffects: boolean;
+  particleEffects: boolean;
+  typewriterEffect: boolean;
+  
+  // 外観設定
+  bubbleOpacity: number;
+  bubbleBlur: boolean;
+  
+  // 3D機能
+  hologramMessages: boolean;
+  particleText: boolean;
+  rippleEffects: boolean;
+  backgroundParticles: boolean;
+  
+  // 感情分析
+  realtimeEmotion: boolean;
+  emotionBasedStyling: boolean;
+  autoReactions: boolean;
+  
+  // トラッカー
+  autoTrackerUpdate: boolean;
+  showTrackers: boolean;
+  
+  // パフォーマンス
+  effectQuality: 'low' | 'medium' | 'high';
+  animationSpeed: number;
+}
+
 export interface SettingsSlice extends AISettings {
   // Language and localization
   languageSettings: LanguageSettings;
+  // Effect settings
+  effectSettings: EffectSettings;
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
   // Actions
   updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
+  updateEffectSettings: (settings: Partial<EffectSettings>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
@@ -55,6 +90,38 @@ export const createSettingsSlice: StateCreator<
     dateFormat: 'YYYY/MM/DD',
     timeFormat: '24',
     currency: 'JPY',
+  },
+
+  // Effect settings - デフォルトはオフ（ユーザー要求通り）
+  effectSettings: {
+    // メッセージエフェクト
+    colorfulBubbles: false,
+    fontEffects: false,
+    particleEffects: false,
+    typewriterEffect: false,
+    
+    // 外観設定
+    bubbleOpacity: 85,
+    bubbleBlur: true,
+    
+    // 3D機能
+    hologramMessages: false,
+    particleText: false,
+    rippleEffects: false,
+    backgroundParticles: false,
+    
+    // 感情分析
+    realtimeEmotion: false,
+    emotionBasedStyling: false,
+    autoReactions: false,
+    
+    // トラッカー
+    autoTrackerUpdate: false,
+    showTrackers: true,
+    
+    // パフォーマンス
+    effectQuality: 'medium',
+    animationSpeed: 1.0
   },
   
   // Initial state
@@ -182,6 +249,11 @@ export const createSettingsSlice: StateCreator<
   updateLanguageSettings: (settings) =>
     set((state) => ({
       languageSettings: { ...state.languageSettings, ...settings },
+    })),
+  
+  updateEffectSettings: (settings) =>
+    set((state) => ({
+      effectSettings: { ...state.effectSettings, ...settings },
     })),
   
   updateSystemPrompts: (prompts) => {

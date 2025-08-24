@@ -2,7 +2,7 @@
 // Automatically creates memory cards from conversations
 
 import { UnifiedMessage, MemoryCard } from '@/types';
-import { memoryCardGenerator } from './memory-card-generator';
+// Removed unused import
 
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;

@@ -22,7 +22,7 @@ export class MemoryCardGenerator {
   async generateMemoryCard(
     messages: UnifiedMessage[],
     session_id: string,
-    character_id?: string
+    _character_id?: string
   ): Promise<Partial<MemoryCard>> {
     if (messages.length === 0) {
       throw new Error('No messages provided for memory card generation');

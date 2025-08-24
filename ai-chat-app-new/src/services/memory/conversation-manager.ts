@@ -69,27 +69,37 @@ export class ConversationManager {
     if (limits.max_context_messages) this.config.maxContextMessages = limits.max_context_messages;
   }
 
+  /**
+   * メッセージの一括インポート（パフォーマンス最適化）
+   */
   public async importMessages(messages: UnifiedMessage[]): Promise<void> {
       this.allMessages = messages;
       this.messageCount = messages.length;
       
+      // バッチ処理でメモリレイヤーを更新
       for (const message of messages) {
           this.memoryLayers.addMessage(message);
-          if (this.shouldIndexMessage(message)) {
-              await this.vectorStore.addMessage(message);
-          }
+      }
+      
+      // インデックス対象メッセージを抽出してバッチ処理
+      const messagesToIndex = messages.filter(msg => this.shouldIndexMessage(msg));
+      
+      if (messagesToIndex.length > 0) {
+          // バッチでベクトルストアに追加（大幅なパフォーマンス向上）
+          await this.vectorStore.addMessagesBatch(messagesToIndex);
       }
   }
 
   /**
    * メッセージを追加して処理
+   * パフォーマンス最適化: 重い処理を非同期化して即座にレスポンス
    */
   async addMessage(
     role: 'user' | 'assistant',
     content: string,
     metadata?: Record<string, unknown>
   ): Promise<UnifiedMessage> {
-    // メッセージオブジェクトの作成
+    // メッセージオブジェクトの作成（軽量処理のみ）
     const now = new Date().toISOString();
     const message: UnifiedMessage = {
       id: this.generateMessageId(),
@@ -136,29 +146,50 @@ export class ConversationManager {
       is_deleted: false
     };
 
-    // 全メッセージリストに追加
+    // 即座に基本データを更新（UI ブロッキング回避）
     this.allMessages.push(message);
     this.messageCount++;
 
+    // 重い処理は非同期で実行（UIをブロックしない）
+    this.processMessageAsync(message).catch(error => {
+      console.error('Async message processing failed:', error);
+    });
+
+    return message;
+  }
+  
+  /**
+   * 非同期でのメッセージ処理（UIをブロックしない）
+   */
+  private async processMessageAsync(message: UnifiedMessage): Promise<void> {
+    const processingTasks = [];
+    
     // 階層的メモリに追加
-    this.memoryLayers.addMessage(message);
+    processingTasks.push(
+      Promise.resolve().then(() => this.memoryLayers.addMessage(message))
+    );
 
     // ベクトルストアに追加（コスト最適化考慮）
     if (this.shouldIndexMessage(message)) {
-      await this.vectorStore.addMessage(message);
+      processingTasks.push(
+        this.vectorStore.addMessage(message)
+      );
     }
 
     // 自動要約のトリガー
     if (this.messageCount % this.config.summarizeInterval === 0) {
-      await this.updateSessionSummary();
+      processingTasks.push(
+        this.updateSessionSummary()
+      );
     }
 
-    // 重要な情報の自動抽出とピン留め
+    // 全ての処理を並列実行
+    await Promise.allSettled(processingTasks);
+
+    // 重要な情報の自動抽出とピン留め（最後に実行）
     if (await this.shouldAutoPinMessage(message)) {
       this.pinMessage(message.id);
     }
-
-    return message;
   }
 
   /**
@@ -242,7 +273,7 @@ export class ConversationManager {
       if (character.age) prompt += `Age: ${character.age}\n`;
       if (character.occupation) prompt += `Occupation: ${character.occupation}\n`;
       if (character.catchphrase) prompt += `Catchphrase: "${character.catchphrase}"\n`;
-      if (character.tags && character.tags.length > 0) {
+      if (character.tags && Array.isArray(character.tags) && character.tags.length > 0) {
         prompt += `Tags: ${character.tags.join(', ')}\n`;
       }
       
@@ -259,22 +290,27 @@ export class ConversationManager {
       if (character.internal_personality) prompt += `Internal (True feelings): ${character.internal_personality}\n`;
       
       // 長所・短所
-      if (character.strengths && character.strengths.length > 0) {
-        prompt += `Strengths: ${character.strengths.join(', ')}\n`;
+      if (character.strengths && (Array.isArray(character.strengths) ? character.strengths.length > 0 : character.strengths)) {
+        const strengths = Array.isArray(character.strengths) ? character.strengths : `${character.strengths}`.split(',').map(s => s.trim());
+        prompt += `Strengths: ${strengths.join(', ')}\n`;
       }
-      if (character.weaknesses && character.weaknesses.length > 0) {
-        prompt += `Weaknesses: ${character.weaknesses.join(', ')}\n`;
+      if (character.weaknesses && (Array.isArray(character.weaknesses) ? character.weaknesses.length > 0 : character.weaknesses)) {
+        const weaknesses = Array.isArray(character.weaknesses) ? character.weaknesses : `${character.weaknesses}`.split(',').map(s => s.trim());
+        prompt += `Weaknesses: ${weaknesses.join(', ')}\n`;
       }
       
       // 趣味・好み
-      if (character.hobbies && character.hobbies.length > 0) {
-        prompt += `Hobbies: ${character.hobbies.join(', ')}\n`;
+      if (character.hobbies && (Array.isArray(character.hobbies) ? character.hobbies.length > 0 : character.hobbies)) {
+        const hobbies = Array.isArray(character.hobbies) ? character.hobbies : `${character.hobbies}`.split(',').map(s => s.trim());
+        prompt += `Hobbies: ${hobbies.join(', ')}\n`;
       }
-      if (character.likes && character.likes.length > 0) {
-        prompt += `Likes: ${character.likes.join(', ')}\n`;
+      if (character.likes && (Array.isArray(character.likes) ? character.likes.length > 0 : character.likes)) {
+        const likes = Array.isArray(character.likes) ? character.likes : `${character.likes}`.split(',').map(s => s.trim());
+        prompt += `Likes: ${likes.join(', ')}\n`;
       }
-      if (character.dislikes && character.dislikes.length > 0) {
-        prompt += `Dislikes: ${character.dislikes.join(', ')}\n`;
+      if (character.dislikes && (Array.isArray(character.dislikes) ? character.dislikes.length > 0 : character.dislikes)) {
+        const dislikes = Array.isArray(character.dislikes) ? character.dislikes : `${character.dislikes}`.split(',').map(s => s.trim());
+        prompt += `Dislikes: ${dislikes.join(', ')}\n`;
       }
       
       // 話し方・言語スタイル
@@ -282,8 +318,9 @@ export class ConversationManager {
       if (character.speaking_style) prompt += `Speaking Style: ${character.speaking_style}\n`;
       if (character.first_person) prompt += `First Person: ${character.first_person}\n`;
       if (character.second_person) prompt += `Second Person: ${character.second_person}\n`;
-      if (character.verbal_tics && character.verbal_tics.length > 0) {
-        prompt += `Verbal Tics: ${character.verbal_tics.join(', ')}\n`;
+      if (character.verbal_tics && (Array.isArray(character.verbal_tics) ? character.verbal_tics.length > 0 : character.verbal_tics)) {
+        const verbal_tics = Array.isArray(character.verbal_tics) ? character.verbal_tics : `${character.verbal_tics}`.split(',').map(s => s.trim());
+        prompt += `Verbal Tics: ${verbal_tics.join(', ')}\n`;
       }
       
       // 背景・シナリオ
@@ -697,6 +734,13 @@ export class ConversationManager {
         await this.vectorStore.addMessage(message);
       }
     }
+  }
+
+  /**
+   * 全メッセージを取得（PromptBuilderService で使用）
+   */
+  public getAllMessages(): UnifiedMessage[] {
+    return [...this.allMessages];
   }
 
   /**

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, speakerId, settings } = body;
+    // speakerId を speaker に修正
+    const { text, speaker, settings } = body;
 
     const voicevoxUrl = process.env.VOICEVOX_ENGINE_URL || 'http://localhost:50021';
     
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. audio_queryの作成
-    const queryResponse = await fetch(`${voicevoxUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { 
+    const queryResponse = await fetch(`${voicevoxUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speaker}`, { 
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -32,10 +33,19 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to create audio query: ${queryResponse.statusText}`);
     }
     const audioQuery = await queryResponse.json();
+    
+    // settings があれば audioQuery にマージ
+    if (settings) {
+      audioQuery.speedScale = settings.speed ?? 1.0;
+      audioQuery.pitchScale = settings.pitch ?? 0.0;
+      audioQuery.intonationScale = settings.intonation ?? 1.0;
+      audioQuery.volumeScale = settings.volume ?? 1.0;
+    }
+    
     console.log('Audio query created:', audioQuery);
 
     // 2. 音声合成
-    const synthesisResponse = await fetch(`${voicevoxUrl}/synthesis?speaker=${speakerId}`, { 
+    const synthesisResponse = await fetch(`${voicevoxUrl}/synthesis?speaker=${speaker}`, { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(audioQuery)

@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { InspirationService } from '@/services/inspiration-service';
 import { UnifiedMessage } from '@/types/memory';
 import { AppStore } from '..';
+import { Character, Persona } from '@/types';
 
 export interface SuggestionData {
   id: string;
@@ -23,8 +24,18 @@ export interface SuggestionSlice {
   setIsGeneratingSuggestions: (isGenerating: boolean) => void;
   
   // Enhanced methods
-  generateSuggestions: (messages: UnifiedMessage[], customPrompt?: string) => Promise<void>;
-  enhanceText: (text: string, messages: UnifiedMessage[], enhancePrompt?: string) => Promise<string>;
+  generateSuggestions: (
+    messages: UnifiedMessage[], 
+    character: Character, 
+    user: Persona, 
+    customPrompt?: string
+  ) => Promise<void>;
+  enhanceText: (
+    text: string, 
+    messages: UnifiedMessage[], 
+    user: Persona, 
+    enhancePrompt?: string
+  ) => Promise<string>;
 }
 
 export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSlice> = (set, get) => ({
@@ -39,15 +50,17 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setShowSuggestionModal: (show) => set({ showSuggestionModal: show }),
   setIsGeneratingSuggestions: (isGenerating) => set({ isGeneratingSuggestions: isGenerating }),
   
-  generateSuggestions: async (messages, customPrompt) => {
+  generateSuggestions: async (messages, character, user, customPrompt) => {
     const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey } = get();
     if (isGeneratingSuggestions) return;
     
-    set({ isGeneratingSuggestions: true });
+    set({ isGeneratingSuggestions: true, suggestions: [], suggestionData: [] });
     
     try {
       const suggestions = await inspirationService.generateReplySuggestions(
         messages,
+        character,
+        user,
         customPrompt,
         4,
         { ...apiConfig, openRouterApiKey }
@@ -72,10 +85,10 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
     }
   },
   
-  enhanceText: async (text, messages, enhancePrompt) => {
+  enhanceText: async (text, messages, user, enhancePrompt) => {
     const { inspirationService, apiConfig, openRouterApiKey } = get();
     try {
-      return await inspirationService.enhanceText(text, messages, enhancePrompt, { ...apiConfig, openRouterApiKey });
+      return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey });
     } catch (error) {
       console.error('Failed to enhance text:', error);
       return text;

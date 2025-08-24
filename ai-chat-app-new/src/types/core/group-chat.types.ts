@@ -1,5 +1,5 @@
 // src/types/core/group-chat.types.ts
-import { BaseEntity, SoftDeletable, WithMetadata, UUID, Timestamp } from './base.types';
+import { BaseEntity, SoftDeletable, WithMetadata, Timestamp } from './base.types';
 import { UnifiedMessage } from './message.types';
 import { Character } from './character.types';
 import { Persona } from './persona.types';

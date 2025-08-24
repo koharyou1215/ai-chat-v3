@@ -218,14 +218,17 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
         )}
       </div>
 
-      {/* スキップボタン */}
-      <div className="text-center pt-4 border-t border-white/10">
+      {/* 🚀 改善されたスキップボタン */}
+      <div className="text-center pt-6 border-t border-white/10 space-y-3">
         <button
           onClick={onSkip}
-          className="text-white/60 hover:text-white transition-colors text-sm"
+          className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-white/10 hover:border-white/20"
         >
-          シナリオなしで開始
+          🏃‍♂️ シナリオなしですぐに開始
         </button>
+        <p className="text-xs text-white/40">
+          後からでもシナリオを追加できます
+        </p>
       </div>
     </div>
   );

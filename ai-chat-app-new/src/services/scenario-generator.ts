@@ -28,6 +28,10 @@ export interface GeneratedScenario {
 }
 
 export class ScenarioGenerator {
+  // ⚡ シナリオキャッシュ for 高速化
+  private scenarioCache: Map<string, GeneratedScenario> = new Map();
+  private readonly CACHE_EXPIRY = 30 * 60 * 1000; // 30分
+  
   private templates: ScenarioTemplate[] = [
     {
       id: 'magic_academy',
@@ -140,6 +144,14 @@ export class ScenarioGenerator {
    * AIを使用してカスタムシナリオを生成
    */
   async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string): Promise<GeneratedScenario> {
+    // ⚡ キャッシュキー生成
+    const cacheKey = `${characters.map(c => c.id).sort().join('-')}-${persona.id}-${userRequest || 'default'}`;
+    const cachedScenario = this.scenarioCache.get(cacheKey);
+    
+    if (cachedScenario) {
+      console.log('⚡ シナリオキャッシュヒット!');
+      return cachedScenario;
+    }
     const characterDescriptions = characters.map(char => ({
       name: char.name,
       occupation: char.occupation,
@@ -192,13 +204,18 @@ ${allParticipantRoles}
         userRequest: userRequest || 'なし'
       });
 
-      // 十分なトークン数でシナリオ生成を試行
-      let response = await apiManager.generateMessage(
-        'あなたは創造的なシナリオライターです。キャラクターの設定を理解し、魅力的なグループシナリオを作成してください。必ずJSON形式で回答してください。',
-        prompt,
-        [],
-        { max_tokens: 4096 } // シナリオ生成には十分なトークン数を確保
-      );
+      // ⚡ 高速化されたシナリオ生成（タイムアウト付き）
+      let response = await Promise.race([
+        apiManager.generateMessage(
+          'あなたはシナリオ生成AIです。JSONのみで簡潔に生成してください。',
+          prompt,
+          [],
+          { max_tokens: 1024 } // ⚡ 4096→1024で高速化
+        ),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('AI生成タイムアウト')), 8000) // 8秒タイムアウト
+        )
+      ]);
 
       console.log('AI レスポンス:', response);
 
@@ -223,12 +240,17 @@ JSON:
   "background_context": "背景"
 }`;
 
-        response = await apiManager.generateMessage(
-          'JSON形式でシナリオを生成してください。',
-          shorterPrompt,
-          [],
-          { max_tokens: 2048 }
-        );
+        response = await Promise.race([
+          apiManager.generateMessage(
+            'JSONのみで簡潔に生成。',
+            shorterPrompt,
+            [],
+            { max_tokens: 512 } // ⚡ 再試行ではさらに短縮
+          ),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('再試行タイムアウト')), 5000)
+          )
+        ]);
         
         console.log('再試行レスポンス:', response);
       }
@@ -265,7 +287,7 @@ JSON:
           
           // 必須フィールドの検証
           if (scenarioData.title && scenarioData.setting) {
-            return {
+            const generatedScenario = {
               title: scenarioData.title,
               setting: scenarioData.setting,
               situation: scenarioData.situation || 'シナリオが開始されます',
@@ -274,6 +296,10 @@ JSON:
               objectives: Array.isArray(scenarioData.objectives) ? scenarioData.objectives : ['楽しい時間を過ごす'],
               background_context: scenarioData.background_context || scenarioData.setting || ''
             };
+            
+            // ⚡ キャッシュに保存
+            this.scenarioCache.set(cacheKey, generatedScenario);
+            return generatedScenario;
           } else {
             console.warn('必須フィールドが不足:', scenarioData);
           }
@@ -303,7 +329,10 @@ JSON:
     }
 
     // フォールバック：基本シナリオを生成
-    return this.generateBasicScenario(characters, persona);
+    const fallbackScenario = this.generateBasicScenario(characters, persona);
+    // ⚡ フォールバックシナリオもキャッシュに保存
+    this.scenarioCache.set(cacheKey, fallbackScenario);
+    return fallbackScenario;
   }
 
   /**
@@ -391,7 +420,7 @@ JSON:
       try {
         const objectivesStr = '[' + objectivesMatch[1] + ']';
         result.objectives = JSON.parse(objectivesStr);
-      } catch (e) {
+      } catch (_e) {
         // パースに失敗した場合は簡単な分割で対応
         const simpleObjectives = objectivesMatch[1]
           .split(',')

@@ -1,7 +1,8 @@
 import { StateCreator } from 'zustand';
 import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
-import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core/group-chat.types';
-import { apiManager } from '@/services/api-manager';
+// Removed unused imports
+import { apiRequestQueue } from '@/services/api-request-queue';
+import { promptValidator } from '@/utils/prompt-validator';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
@@ -127,12 +128,19 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
 
   sendMessage: async (content, imageUrl) => {
-    const activeSessionId = get().active_session_id;
+    // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
+    const state = get();
+    if (state.is_group_mode && state.active_group_session_id) {
+      console.log('📞 Redirecting to group chat sendMessage');
+      return await state.sendGroupMessage(content, imageUrl);
+    }
+    
+    const activeSessionId = state.active_session_id;
     if (!activeSessionId) return;
-    const activeSession = get().sessions.get(activeSessionId);
+    const activeSession = state.sessions.get(activeSessionId);
     if (!activeSession) return;
 
-    if (get().is_generating) return;
+    if (state.is_generating) return;
     set({ is_generating: true });
     
     // 1. ユーザーメッセージを作成
@@ -179,26 +187,54 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       try {
         const trackerManager = get().trackerManagers.get(activeSessionId);
         
-        const systemPrompt = await promptBuilderService.buildPrompt(
-            sessionWithUserMessage, 
-            content,
+        // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
+        const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
+            sessionWithUserMessage,
+            content, 
             trackerManager
         );
+        
+        console.log('⚡ Base prompt ready, starting API call...');
 
         const apiConfig = get().apiConfig;
-        const response = await fetch('/api/chat/generate', {
+        // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
+        const response = await apiRequestQueue.enqueueChatRequest(async () => {
+          console.log('🚀 Chat request started via queue');
+          
+          // 🔍 デバッグ: プロンプト品質検証
+          if (process.env.NODE_ENV === 'development') {
+            const character = activeSession.participants.characters[0];
+            const validation = promptValidator.validatePrompt(basePrompt, character?.name || 'Character');
+            console.log('🔍 Prompt Validation:', validation);
+            
+            if (validation.recommendation === 'critical') {
+              console.error('🚨 Critical prompt issues detected:', validation.issues);
+            } else if (validation.recommendation === 'warning') {
+              console.warn('⚠️ Prompt warnings:', validation.issues);
+            }
+          }
+          
+          return fetch('/api/chat/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                systemPrompt,
-                userMessage: content,
-                conversationHistory: activeSession.messages.slice(-10).map(msg => ({ role: msg.role, content: msg.content })),
-                apiConfig: {
-                    ...apiConfig,
-                    openRouterApiKey: get().openRouterApiKey
-                }
+              systemPrompt: basePrompt, // 最初はベースプロンプトで開始
+              userMessage: content,
+              conversationHistory: activeSession.messages.slice(-5).map(msg => ({ role: msg.role, content: msg.content })), // 5メッセージに短縮で高速化
+              apiConfig: {
+                ...apiConfig,
+                openRouterApiKey: get().openRouterApiKey
+              },
+              useEnhancedPrompt: false // フラグで制御
             }),
+          });
         });
+        
+        // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
+        enhancePrompt().then(enhancedPrompt => {
+          console.log('✨ Enhanced prompt ready for future use:', enhancedPrompt.length + ' chars');
+          // 将来のリクエストで使用するためにキャッシュ可能
+        }).catch(err => console.warn('⚠️ Enhanced prompt failed:', err));
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -207,6 +243,19 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
         const data = await response.json();
         const aiResponseContent = data.response;
+        
+        // 🔍 デバッグ: 応答品質検証（メタ発言チェック）
+        if (process.env.NODE_ENV === 'development') {
+          const character = activeSession.participants.characters[0];
+          const responseCheck = promptValidator.checkResponseForMeta(aiResponseContent, character?.name || 'Character');
+          
+          if (responseCheck.hasMeta) {
+            console.warn('⚠️ Meta conversation detected:', responseCheck);
+            console.warn('🔍 Response content:', aiResponseContent.substring(0, 200) + '...');
+          } else {
+            console.log('✅ Response looks good - no meta conversation detected');
+          }
+        }
         
         const aiResponse: UnifiedMessage = {
             id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -248,17 +297,36 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             sessions: new Map(state.sessions).set(activeSessionId, sessionWithAiResponse),
         }));
 
-        await autoMemoryManager.processNewMessage(
-            aiResponse,
-            activeSessionId,
-            activeSession.participants.characters[0]?.id,
-            get().createMemoryCard
-        );
-        
-        if (trackerManager) {
-            trackerManager.analyzeMessageForTrackerUpdates(userMessage, activeSession.participants.characters[0]?.id);
-            trackerManager.analyzeMessageForTrackerUpdates(aiResponse, activeSession.participants.characters[0]?.id);
-        }
+        // パフォーマンス最適化: 後処理作業を完全にバックグラウンド化
+        // ⚡ パフォーマンス最適化: 後処理をバックグラウンドキューで処理しUIを完全非ブロッキング化
+        setTimeout(() => {
+          Promise.allSettled([
+            autoMemoryManager.processNewMessage(
+              aiResponse,
+              activeSessionId,
+              activeSession.participants.characters[0]?.id,
+              get().createMemoryCard
+            ),
+            trackerManager ? Promise.all([
+              trackerManager.analyzeMessageForTrackerUpdates(userMessage, activeSession.participants.characters[0]?.id),
+              trackerManager.analyzeMessageForTrackerUpdates(aiResponse, activeSession.participants.characters[0]?.id)
+            ]) : Promise.resolve()
+          ]).then(results => {
+            const memoryResult = results[0];
+            const trackerResult = results[1];
+            
+            if (memoryResult.status === 'rejected') {
+              console.error('Auto-memory processing failed:', memoryResult.reason);
+            }
+            if (trackerResult.status === 'rejected') {
+              console.error('Tracker analysis failed:', trackerResult.reason);
+            }
+            
+            console.log('✨ Background processing completed');
+          }).catch(error => {
+            console.error('⚠️ Background processing error:', error);
+          });
+        }, 0); // 次のEvent Loopで実行しUIをブロックしない
 
       } catch (error) {
         console.error('AI応答生成エラー:', error);
@@ -337,7 +405,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const newMessages = [...session.messages];
       newMessages[lastAiMessageIndex] = newAiMessage;
 
-      set(state => {
+      set(_state => {
         const updatedSession = {
           ...session,
           messages: newMessages,
@@ -367,8 +435,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             message_count: updatedMessages.length,
             updated_at: new Date().toISOString()
         };
-        set(state => ({
-            sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+        set(_state => ({
+            sessions: new Map(_state.sessions).set(activeSessionId, updatedSession)
         }));
     }
   },
@@ -398,8 +466,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         updated_at: new Date().toISOString(),
       };
       
-      set(state => ({
-        sessions: new Map(state.sessions).set(activeSessionId, clearedSession)
+      set(_state => ({
+        sessions: new Map(_state.sessions).set(activeSessionId, clearedSession)
       }));
     }
   },
@@ -486,14 +554,14 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     });
   },
   updateSession: (session) => {
-    set(state => {
-      const targetSession = state.sessions.get(session.id);
+    set(_state => {
+      const targetSession = _state.sessions.get(session.id);
       if (targetSession) {
         const updatedSession = { ...targetSession, ...session };
-        const newSessions = new Map(state.sessions).set(session.id, updatedSession);
+        const newSessions = new Map(_state.sessions).set(session.id, updatedSession);
         return { sessions: newSessions };
       }
-      return state;
+      return _state;
     });
   },
 

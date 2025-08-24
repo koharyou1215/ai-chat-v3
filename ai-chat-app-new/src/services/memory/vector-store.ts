@@ -36,23 +36,22 @@ export class VectorStore {
    */
   private async embed(text: string): Promise<number[]> {
     try {
-      /*
+      // 実際のOpenAI Embedding API呼び出し
       const response = await fetch('/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
       
-      const data = await response.json();
-      */
+      if (!response.ok) {
+        throw new Error(`Embedding API failed: ${response.status}`);
+      }
       
-      // ダミーのベクトルデータで代替
-      const embedding = Array(1536).fill(0).map(() => Math.random());
-
-      return embedding;
+      const data = await response.json();
+      return data.embedding;
     } catch (error) {
       console.error('Embedding error:', error);
-      // フォールバック: 簡易的なハッシュベースの疑似ベクトル
+      // フォールバック: より品質の高いハッシュベースのベクトル
       return this.createFallbackEmbedding(text);
     }
   }
@@ -113,37 +112,35 @@ export class VectorStore {
    * バッチ処理でメッセージを追加（コスト最適化）
    */
   async addMessagesBatch(messages: UnifiedMessage[]): Promise<void> {
+    // 既存メッセージをフィルタリング（コスト削減）
+    const newMessages = messages.filter(msg => 
+      !this.messages.has(msg.id) && 
+      (msg.memory?.importance?.score === undefined || msg.memory.importance.score >= 0.3)
+    );
+    
+    if (newMessages.length === 0) return;
+    
     try {
-      /*
-      const response = await fetch('/api/embeddings/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: messages.map(m => m.content) })
+      // バッチでembedding取得（API効率化）
+      const texts = newMessages.map(m => m.content);
+      const embeddings = await this.embedBatch(texts);
+
+      // メモリとインデックスに追加
+      newMessages.forEach((message, i) => {
+        const embedding = embeddings[i];
+        this.embeddings.set(message.id, embedding);
+        this.messages.set(message.id, { ...message, embedding });
       });
 
-      if (!response.ok) {
-        throw new Error('Batch embedding API call failed');
-      }
-
-      const { embeddings } = await response.json();
-      */
-
-      // ダミーのベクトルデータで代替
-      const embeddings = messages.map(() => Array(1536).fill(0).map(() => Math.random()));
-
-      const _itemsToIndex = messages.map((message, i) => ({
-        id: message.id,
-        embedding: embeddings[i]
-      }));
-
-      // FAISSインデックスに追加
-      // 実際: await this.pythonBridge.addToIndexBatch(itemsToIndex);
-    } catch (_error) {
-      console.error('Batch embedding error:', _error);
-      // フォールバック: ダミーベクトルを使用
-      messages.forEach(message => {
-        this.embeddings.set(message.id, this.createFallbackEmbedding(message.content));
-        this.messages.set(message.id, { ...message, embedding: this.createFallbackEmbedding(message.content) });
+      // FAISSインデックスに追加（実装時）
+      // await this.pythonBridge.addToIndexBatch(itemsToIndex);
+    } catch (error) {
+      console.error('Batch embedding error:', error);
+      // フォールバック: より品質の高い疑似ベクトル
+      newMessages.forEach(message => {
+        const embedding = this.createFallbackEmbedding(message.content);
+        this.embeddings.set(message.id, embedding);
+        this.messages.set(message.id, { ...message, embedding });
       });
     }
   }
@@ -153,23 +150,40 @@ export class VectorStore {
    */
   private async embedBatch(texts: string[]): Promise<number[][]> {
     try {
-      /*
-      const response = await fetch('/api/embeddings/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts })
+      // バッチサイズ制限（APIの制限に応じて調整）
+      const batchSize = 100;
+      const batches: string[][] = [];
+      
+      for (let i = 0; i < texts.length; i += batchSize) {
+        batches.push(texts.slice(i, i + batchSize));
+      }
+      
+      const allEmbeddings: number[][] = [];
+      
+      // 並列でバッチ処理
+      const batchPromises = batches.map(async (batch) => {
+        const response = await fetch('/api/embeddings/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: batch })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Batch embedding API failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.embeddings;
       });
       
-      const data = await response.json();
-      */
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(embeddings => allEmbeddings.push(...embeddings));
       
-      // ダミーのベクトルデータで代替
-      const embeddings = texts.map(_text => Array(1536).fill(0).map(() => Math.random()));
-
-      return embeddings;
-    } catch (_error) {
-      // フォールバック
-      return texts.map(_text => this.createFallbackEmbedding(_text));
+      return allEmbeddings;
+    } catch (error) {
+      console.error('Batch embedding error:', error);
+      // フォールバック: より品質の高い疑似ベクトル
+      return texts.map(text => this.createFallbackEmbedding(text));
     }
   }
 

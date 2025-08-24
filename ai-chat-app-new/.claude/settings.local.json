@@ -47,7 +47,10 @@
       "Bash(Stop-Process -Id 29336 -Force)",
       "Bash(cmd /c:*)",
       "Bash(find:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(dir /a /s C:ai-chat-v3ai-chat-app-new.next)",
+      "Bash(dir:*)",
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)"
     ],
     "deny": [],
     "ask": [],

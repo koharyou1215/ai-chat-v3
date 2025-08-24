@@ -1,5 +1,6 @@
 import { TrackerDefinition, TrackerUpdate, TrackerValue, UnifiedMessage } from '@/types';
-import type { NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
+import type { NumericTrackerConfig, StateTrackerConfig } from '@/types/core/tracker.types';
+// Removed unused imports: BooleanTrackerConfig, TextTrackerConfig
 
 // 古い形式のトラッカー定義（下位互換性のため）
 interface LegacyTrackerDefinition {
@@ -593,7 +594,7 @@ export class TrackerManager {
   /**
    * 状態トラッカーの分析
    */
-  private analyzeStateTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: string; reason: string } | null {
+  private analyzeStateTracker(tracker: Tracker, content: string, _isUserMessage: boolean): { value: string; reason: string } | null {
     const config = tracker.config as StateTrackerConfig;
     const possibleStates = config.possible_states || [];
     
@@ -627,7 +628,7 @@ export class TrackerManager {
   /**
    * ブール値トラッカーの分析
    */
-  private analyzeBooleanTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: boolean; reason: string } | null {
+  private analyzeBooleanTracker(tracker: Tracker, content: string, _isUserMessage: boolean): { value: boolean; reason: string } | null {
     const trackerName = tracker.name.toLowerCase();
     
     if (trackerName.includes('デート') || trackerName.includes('date')) {
@@ -648,7 +649,7 @@ export class TrackerManager {
   /**
    * テキストトラッカーの分析
    */
-  private analyzeTextTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: string; reason: string } | null {
+  private analyzeTextTracker(tracker: Tracker, content: string, _isUserMessage: boolean): { value: string; reason: string } | null {
     const trackerName = tracker.name.toLowerCase();
     
     if (trackerName.includes('最後の話題') || trackerName.includes('topic')) {

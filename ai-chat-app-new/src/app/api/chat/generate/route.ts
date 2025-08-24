@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiManager } from '@/services/api-manager';
-import type { APIConfig } from '@/types';
+// Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
   try {

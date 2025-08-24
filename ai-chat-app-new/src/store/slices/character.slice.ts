@@ -147,12 +147,12 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             personality: characterData.personality || '',
             external_personality: characterData.external_personality || '',
             internal_personality: characterData.internal_personality || '',
-            strengths: characterData.strengths || [],
-            weaknesses: characterData.weaknesses || [],
+            strengths: Array.isArray(characterData.strengths) ? characterData.strengths : (typeof characterData.strengths === 'string' ? characterData.strengths.split(',').map(s => s.trim()) : []),
+            weaknesses: Array.isArray(characterData.weaknesses) ? characterData.weaknesses : (typeof characterData.weaknesses === 'string' ? characterData.weaknesses.split(',').map(s => s.trim()) : []),
             
-            hobbies: characterData.hobbies || [],
-            likes: characterData.likes || [],
-            dislikes: characterData.dislikes || [],
+            hobbies: Array.isArray(characterData.hobbies) ? characterData.hobbies : (typeof characterData.hobbies === 'string' ? characterData.hobbies.split(',').map(s => s.trim()) : []),
+            likes: Array.isArray(characterData.likes) ? characterData.likes : (typeof characterData.likes === 'string' ? characterData.likes.split(',').map(s => s.trim()) : []),
+            dislikes: Array.isArray(characterData.dislikes) ? characterData.dislikes : (typeof characterData.dislikes === 'string' ? characterData.dislikes.split(',').map(s => s.trim()) : []),
             
             appearance: characterData.appearance || '',
             avatar_url: characterData.avatar_url,
@@ -161,7 +161,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             speaking_style: characterData.speaking_style || '',
             first_person: characterData.first_person || '私',
             second_person: characterData.second_person || 'あなた',
-            verbal_tics: characterData.verbal_tics || [],
+            verbal_tics: Array.isArray(characterData.verbal_tics) ? characterData.verbal_tics : (typeof characterData.verbal_tics === 'string' ? characterData.verbal_tics.split(',').map(s => s.trim()) : []),
 
             background: characterData.background || '',
             scenario: characterData.scenario || '',
@@ -169,7 +169,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             system_prompt: characterData.system_prompt || '',
             first_message: characterData.first_message || '',
             
-            tags: characterData.tags || [],
+            tags: Array.isArray(characterData.tags) ? characterData.tags : (typeof characterData.tags === 'string' ? characterData.tags.split(',').map(s => s.trim()) : []),
             trackers: (characterData.trackers || []).reduce((acc: TrackerDefinition[], t: Record<string, unknown>) => {
               if (!t || typeof t.name !== 'string' || typeof t.type !== 'string') {
                   console.warn('Skipping invalid tracker data:', t);

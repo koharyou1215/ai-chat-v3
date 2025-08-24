@@ -55,13 +55,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const persona = getSelectedPersona();
   const character = characters.get(message.character_id || '');
 
-  // useMemoで計算結果をメモ化
-  const { avatarUrl, displayName, initial } = useMemo(() => {
-    const avatar = isUser ? persona?.avatar_url : character?.avatar_url;
-    const name = isUser ? persona?.name : character?.name;
-    const init = name?.[0] || (isUser ? 'U' : 'A');
-    return { avatarUrl: avatar, displayName: name, initial: init };
-  }, [isUser, persona, character]);
+  // 🎭 グループチャット対応の改善されたキャラクター情報取得
+  const { avatarUrl, displayName, initial, characterColor } = useMemo(() => {
+    if (isUser) {
+      return {
+        avatarUrl: persona?.avatar_url,
+        displayName: persona?.name,
+        initial: persona?.name?.[0] || 'U',
+        characterColor: '#3b82f6' // ユーザー用青色
+      };
+    }
+    
+    // グループチャット：メッセージに埋め込まれたキャラクター情報を優先使用
+    if (isGroupChat && (message.character_name || message.character_avatar)) {
+      const name = message.character_name || character?.name || 'AI';
+      const avatar = message.character_avatar || character?.avatar_url;
+      const colorHash = message.character_id ? message.character_id.slice(-6) : 'purple';
+      const color = `#${colorHash.padEnd(6, '0').slice(0, 6)}`;
+      
+      return {
+        avatarUrl: avatar,
+        displayName: name,
+        initial: name[0]?.toUpperCase() || 'A',
+        characterColor: color
+      };
+    }
+    
+    // フォールバック：通常のキャラクター取得
+    const name = character?.name || 'AI';
+    return {
+      avatarUrl: character?.avatar_url,
+      displayName: name,
+      initial: name[0]?.toUpperCase() || 'A',
+      characterColor: '#8b5cf6' // デフォルト紫色
+    };
+  }, [isUser, persona, character, isGroupChat, message.character_name, message.character_avatar, message.character_id]);
   
   // --- アクションハンドラ群 ---
   // 再生成本実装
@@ -428,15 +456,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 </span>
               )}
             </div>
-            {/* グループチャットでキャラクター名を表示 */}
-            {isGroupChat && displayName && (
-              <motion.span
+            {/* 🎭 改善されたグループチャットキャラクター名表示 */}
+            {isGroupChat && displayName && !isUser && (
+              <motion.div
                 initial={isLatest ? { opacity: 0, y: -5 } : false}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-xs text-white/60 mt-1 text-center max-w-[80px] truncate"
+                className="mt-1 text-center"
               >
-                {displayName}
-              </motion.span>
+                <span 
+                  className="text-xs font-medium px-2 py-1 rounded-full bg-black/20 border max-w-[80px] truncate inline-block"
+                  style={{ 
+                    borderColor: characterColor + '40',
+                    color: characterColor,
+                    backgroundColor: characterColor + '15'
+                  }}
+                  title={displayName}
+                >
+                  {displayName}
+                </span>
+              </motion.div>
             )}
           </div>
         </motion.div>
