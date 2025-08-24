@@ -1,4 +1,4 @@
-import { UnifiedChatSession, UnifiedMessage } from '@/types';
+import { UnifiedChatSession, UnifiedMessage, Character, Persona } from '@/types';
 import { ConversationManager } from './memory/conversation-manager';
 import { TrackerManager } from './tracker/tracker-manager';
 import { useAppStore } from '@/store';
@@ -112,9 +112,7 @@ export class PromptBuilderService {
     // 1. 最小限のベースプロンプトを即座に構築 (50-100ms)
     const character = session.participants.characters[0];
     const user = session.participants.user;
-    // 最新のユーザー入力（userInput）が重複しないように、メッセージ履歴から最後尾を除外
-    const messagesForContext = session.messages.slice(0, -1);
-    const recentMessages = messagesForContext.slice(-3); // 最新3メッセージのみ
+    const recentMessages = session.messages.slice(-3); // 最新3メッセージのみ
     
     const basePrompt = this.buildBalancedPrompt(character, user, recentMessages, userInput, trackerManager);
     
@@ -147,7 +145,7 @@ export class PromptBuilderService {
     trackerManager?: TrackerManager
   ): string {
     const userName = user?.name || 'ユーザー';
-    const _recentContext = recentMessages.map(msg => 
+    const recentContext = recentMessages.map(msg => 
       `${msg.role === 'user' ? userName : character.name}: ${msg.content}`
     ).join('\n');
     
@@ -178,19 +176,19 @@ ${character.catchphrase ? `Catchphrase: "${character.catchphrase}"` : ''}
 ${character.personality ? `Personality: ${character.personality}` : ''}
 ${character.external_personality ? `External: ${character.external_personality}` : ''}
 ${character.internal_personality ? `Internal: ${character.internal_personality}` : ''}
-${character.strengths && (Array.isArray(character.strengths) ? character.strengths.length > 0 : character.strengths) ? `Strengths: ${(Array.isArray(character.strengths) ? character.strengths : `${character.strengths}`.split(',').map(s => s.trim())).join(', ')}` : ''}
-${character.weaknesses && (Array.isArray(character.weaknesses) ? character.weaknesses.length > 0 : character.weaknesses) ? `Weaknesses: ${(Array.isArray(character.weaknesses) ? character.weaknesses : `${character.weaknesses}`.split(',').map(s => s.trim())).join(', ')}` : ''}
+${character.strengths && Array.isArray(character.strengths) && character.strengths.length > 0 ? `Strengths: ${character.strengths.join(', ')}` : ''}
+${character.weaknesses && Array.isArray(character.weaknesses) && character.weaknesses.length > 0 ? `Weaknesses: ${character.weaknesses.join(', ')}` : ''}
 
 ## Preferences & Style
-${character.likes && (Array.isArray(character.likes) ? character.likes.length > 0 : character.likes) ? `Likes: ${(Array.isArray(character.likes) ? character.likes : `${character.likes}`.split(',').map(s => s.trim())).join(', ')}` : ''}
-${character.dislikes && (Array.isArray(character.dislikes) ? character.dislikes.length > 0 : character.dislikes) ? `Dislikes: ${(Array.isArray(character.dislikes) ? character.dislikes : `${character.dislikes}`.split(',').map(s => s.trim())).join(', ')}` : ''}
-${character.hobbies && (Array.isArray(character.hobbies) ? character.hobbies.length > 0 : character.hobbies) ? `Hobbies: ${(Array.isArray(character.hobbies) ? character.hobbies : `${character.hobbies}`.split(',').map(s => s.trim())).join(', ')}` : ''}
+${character.likes && character.likes.length > 0 ? `Likes: ${character.likes.join(', ')}` : ''}
+${character.dislikes && character.dislikes.length > 0 ? `Dislikes: ${character.dislikes.join(', ')}` : ''}
+${character.hobbies && character.hobbies.length > 0 ? `Hobbies: ${character.hobbies.join(', ')}` : ''}
 
 ## Communication Style
 ${character.speaking_style ? `Speaking Style: ${character.speaking_style}` : ''}
 ${character.first_person ? `First Person: ${character.first_person}` : ''}
 ${character.second_person ? `Second Person: ${character.second_person}` : ''}
-${character.verbal_tics && (Array.isArray(character.verbal_tics) ? character.verbal_tics.length > 0 : character.verbal_tics) ? `Verbal Tics: ${(Array.isArray(character.verbal_tics) ? character.verbal_tics : `${character.verbal_tics}`.split(',').map(s => s.trim())).join(', ')}` : ''}
+${character.verbal_tics && character.verbal_tics.length > 0 ? `Verbal Tics: ${character.verbal_tics.join(', ')}` : ''}
 
 ## Context
 ${character.background ? `Background: ${character.background}` : ''}
@@ -223,6 +221,15 @@ ${trackerInfo}
         console.warn('Failed to get tracker info:', error);
       }
     }
+
+    prompt += `
+
+## Recent Conversation
+${recentContext}
+
+## Current Interaction
+{{user}}: ${userInput}
+{{char}}:`;
 
     return prompt;
   }

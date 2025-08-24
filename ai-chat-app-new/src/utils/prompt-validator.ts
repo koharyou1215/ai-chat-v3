@@ -144,7 +144,7 @@ export class PromptValidator {
   /**
    * 検証レポートを生成
    */
-  generateReport(promptResult: PromptValidationResult, responseResult?: { hasMeta: boolean; metaIndicators: string[]; severity: string }): string {
+  generateReport(promptResult: PromptValidationResult, responseResult?: { hasMeta: boolean; metaIndicators: string[]; severity: 'low' | 'medium' | 'high' }): string {
     let report = '📋 プロンプト品質レポート\n';
     report += '========================\n\n';
 

@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect as _useEffect } from 'react';
+import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
-import { Character } from '@/types';
-import { GroupChatMode, GroupChatScenario, ScenarioTemplate } from '@/types/core/group-chat.types';
-import { Users, Plus, Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Character as _Character } from '@/types';
+import { GroupChatMode, GroupChatScenario, ScenarioTemplate as _ScenarioTemplate } from '@/types/core/group-chat.types';
+import { Users, Plus, Settings as _Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
 import { ScenarioSelector } from './ScenarioSelector';
 import { cn } from '@/lib/utils';
 
 interface GroupChatInterfaceProps {
-  onStartGroupChat: (
+  _onStartGroupChat: (
     name: string,
     characterIds: string[],
     mode: GroupChatMode,
@@ -19,7 +19,7 @@ interface GroupChatInterfaceProps {
 }
 
 export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
-  onStartGroupChat
+  _onStartGroupChat
 }) => {
   // 全てのフックを必ず最初に呼び出す（条件付きではない）
   const { 
@@ -31,7 +31,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
     setGroupMode,
     createGroupSession,
     setActiveGroupSession,
-    updateCharacter,
+    _updateCharacter: updateCharacter,
     toggleGroupCharacter,
     setGroupChatMode
   } = useAppStore();

@@ -189,7 +189,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = (_error) => {
         console.log('❌ WebSocket error event occurred');
         setConnectionStatus('error');
         setIsConnected(false);

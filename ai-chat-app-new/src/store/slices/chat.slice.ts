@@ -412,7 +412,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           updated_at: new Date().toISOString(),
         };
         return {
-          sessions: new Map(state.sessions).set(session.id, updatedSession)
+          sessions: new Map(_state.sessions).set(session.id, updatedSession)
         };
       });
     } catch (error) {
@@ -525,7 +525,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         });
         
         // TrackerManagersを更新
-        set(state => ({
+        set(_state => ({
           trackerManagers: new Map(trackerManagers),
           active_session_id: sessionId
         }));
@@ -573,7 +573,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       trackerManager.initializeTrackerSet(character.id, character.trackers);
       trackerManagers.set(character.id, trackerManager);
       
-      set(state => ({
+      set(_state => ({
         trackerManagers: new Map(trackerManagers)
       }));
       

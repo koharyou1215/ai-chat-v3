@@ -10,12 +10,12 @@ import {
   Plus, 
   User,
   Settings,
-  Bot,
+  Bot as _Bot,
   Shield,
   History,
   Image as ImageIcon,
   Paperclip,
-  Code,
+  Code as _Code,
   X,
   Cpu
 } from 'lucide-react';
@@ -39,7 +39,7 @@ export const MessageInput: React.FC = () => {
     setShowPersonaGallery,
     setShowHistoryModal,
     setShowSettingsModal,
-    setShowVoiceSettingsModal,
+    _setShowVoiceSettingsModal: setShowVoiceSettingsModal,
     setShowSuggestionModal,
     generateSuggestions,
     enhanceText,

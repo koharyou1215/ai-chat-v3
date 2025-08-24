@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { PanelLeft, UserCircle, Bot, Phone, Users, Brain, Settings, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
-import { GroupChatMode } from '@/types/core/group-chat.types';
+import { GroupChatMode as _GroupChatMode } from '@/types/core/group-chat.types';
 import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
 import { useTranslation, commonTexts } from '@/hooks/useLanguage';

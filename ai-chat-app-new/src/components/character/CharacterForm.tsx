@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion as _motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label as _Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Upload, X, PlusCircle, Trash2 } from 'lucide-react';
 import { Character, Persona } from '@/types';
 import { cn } from '@/lib/utils';
-import { AnimatePresence } from 'framer-motion';
-import { ImageUploader } from '@/components/ui/image-uploader';
+import { AnimatePresence as _AnimatePresence } from 'framer-motion';
+import { ImageUploader as _ImageUploader } from '@/components/ui/image-uploader';
 import { AppearancePanel } from './AppearancePanel'; // ★ 専門医をインポート
 import { BasicInfoPanel } from './BasicInfoPanel';
 import { PersonalityPanel } from './PersonalityPanel';
@@ -23,7 +23,7 @@ const isCharacter = (data: Character | Persona | null): data is Character => {
   return data !== null && 'speaking_style' in data;
 };
 
-const isPersona = (data: Character | Persona | null): data is Persona => {
+const _isPersona = (data: Character | Persona | null): data is Persona => {
   return data !== null && 'role' in data && !('speaking_style' in data);
 };
 

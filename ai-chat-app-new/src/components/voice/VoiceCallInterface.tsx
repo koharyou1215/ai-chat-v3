@@ -91,7 +91,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData, isActive, 
 };
 
 export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
-  characterId,
+  _characterId: characterId,
   isActive,
   onEnd
 }) => {
@@ -104,18 +104,18 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   // Audio state
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [_audioLevel, _setAudioLevel] = useState(0);
   const [audioVisualizerData, setAudioVisualizerData] = useState<Uint8Array>(new Uint8Array(32));
   
   // Call state
   const [callDuration, setCallDuration] = useState(0);
   const [voiceActivityStatus, setVoiceActivityStatus] = useState<'idle' | 'speaking' | 'listening' | 'processing'>('idle');
-  const [transcription, setTranscription] = useState<string>('');
-  const [lastMessage, setLastMessage] = useState<string>('');
+  const [_transcription, _setTranscription] = useState<string>('');
+  const [_lastMessage, _setLastMessage] = useState<string>('');
   
   
   // Performance stats
-  const [stats, setStats] = useState({
+  const [_stats, _setStats] = useState({
     latency: 0,
     packetsLost: 0,
     audioQuality: 100
@@ -254,7 +254,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
       case 'pong':
         const latency = Date.now() - pingTimeRef.current;
-        setStats(prev => ({ ...prev, latency }));
+        _setStats(prev => ({ ...prev, latency }));
         break;
 
       case 'voice_activity':
@@ -262,8 +262,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         break;
 
       case 'transcription':
-        setTranscription(message.text);
-        setLastMessage(`You: ${message.text}`);
+        _setTranscription(message.text);
+        _setLastMessage(`You: ${message.text}`);
         
         // Add user message to chat history
         if (active_session_id && message.text) {

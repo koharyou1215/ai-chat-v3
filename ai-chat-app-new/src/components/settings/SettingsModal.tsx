@@ -46,7 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onEffectSettingsChange
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const { settings: contextSettings, updateSettings: updateContextSettings } = useEffectSettings();
+  const { settings: _contextSettings, updateSettings: updateContextSettings } = useEffectSettings();
   const {
     systemPrompts,
     enableSystemPrompt,
@@ -80,10 +80,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, systemPrompts]);
 
-  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
-  const [showJailbreakPrompt, setShowJailbreakPrompt] = useState(false);
-  const [showReplySuggestionPrompt, setShowReplySuggestionPrompt] = useState(false);
-  const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
+  const [_showSystemPrompt, _setShowSystemPrompt] = useState(false);
+  const [_showJailbreakPrompt, _setShowJailbreakPrompt] = useState(false);
+  const [_showReplySuggestionPrompt, _setShowReplySuggestionPrompt] = useState(false);
+  const [_showTextEnhancementPrompt, _setShowTextEnhancementPrompt] = useState(false);
   
   
   // エフェクト設定のローカル状態 - Zustandストアから取得
@@ -228,20 +228,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     enableJailbreakPrompt={enableJailbreakPrompt}
                     apiConfig={apiConfig}
                     openRouterApiKey={openRouterApiKey ?? ''}
-                    showSystemPrompt={showSystemPrompt}
-                    showJailbreakPrompt={showJailbreakPrompt}
-                    showReplySuggestionPrompt={showReplySuggestionPrompt}
-                    showTextEnhancementPrompt={showTextEnhancementPrompt}
+                    showSystemPrompt={_showSystemPrompt}
+                    showJailbreakPrompt={_showJailbreakPrompt}
+                    showReplySuggestionPrompt={_showReplySuggestionPrompt}
+                    showTextEnhancementPrompt={_showTextEnhancementPrompt}
                     onUpdateSystemPrompts={setLocalSystemPrompts}
                     onSetEnableSystemPrompt={setEnableSystemPrompt}
                     onSetEnableJailbreakPrompt={setEnableJailbreakPrompt}
                     onSetTemperature={setTemperature}
                     onSetMaxTokens={setMaxTokens}
                     onSetTopP={setTopP}
-                    onToggleSystemPrompt={() => setShowSystemPrompt(!showSystemPrompt)}
-                    onToggleJailbreakPrompt={() => setShowJailbreakPrompt(!showJailbreakPrompt)}
-                    onToggleReplySuggestionPrompt={() => setShowReplySuggestionPrompt(!showReplySuggestionPrompt)}
-                    onToggleTextEnhancementPrompt={() => setShowTextEnhancementPrompt(!showTextEnhancementPrompt)}
+                    onToggleSystemPrompt={() => _setShowSystemPrompt(!_showSystemPrompt)}
+                    onToggleJailbreakPrompt={() => _setShowJailbreakPrompt(!_showJailbreakPrompt)}
+                    onToggleReplySuggestionPrompt={() => _setShowReplySuggestionPrompt(!_showReplySuggestionPrompt)}
+                    onToggleTextEnhancementPrompt={() => _setShowTextEnhancementPrompt(!_showTextEnhancementPrompt)}
                     setAPIModel={setAPIModel}
                     setAPIProvider={setAPIProvider}
                     setOpenRouterApiKey={setOpenRouterApiKey}
@@ -886,18 +886,18 @@ const ChatPanel: React.FC = () => {
   const { 
     chat, 
     updateChatSettings,
-    systemPrompts,
-    enableSystemPrompt,
-    enableJailbreakPrompt,
+    _systemPrompts: systemPrompts,
+    _enableSystemPrompt: enableSystemPrompt,
+    _enableJailbreakPrompt: enableJailbreakPrompt,
     updateSystemPrompts,
-    setEnableSystemPrompt,
-    setEnableJailbreakPrompt
+    _setEnableSystemPrompt: setEnableSystemPrompt,
+    _setEnableJailbreakPrompt: setEnableJailbreakPrompt
   } = useAppStore();
 
-  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
-  const [showJailbreakPrompt, setShowJailbreakPrompt] = useState(false);
-  const [showReplySuggestionPrompt, setShowReplySuggestionPrompt] = useState(false);
-  const [showTextEnhancementPrompt, setShowTextEnhancementPrompt] = useState(false);
+  const [_showSystemPrompt, _setShowSystemPrompt] = useState(false);
+  const [_showJailbreakPrompt, _setShowJailbreakPrompt] = useState(false);
+  const [_showReplySuggestionPrompt, _setShowReplySuggestionPrompt] = useState(false);
+  const [_showTextEnhancementPrompt, _setShowTextEnhancementPrompt] = useState(false);
 
   const handleMemoryLimitChange = (key: string, value: number) => {
     const currentLimits = chat.memory_limits || {
@@ -1229,7 +1229,7 @@ const VoicePanel: React.FC = () => {
     try {
       const response = await fetch('/api/voice/voicevox/check', { method: 'GET' });
       setVoiceVoxStatus(response.ok ? 'available' : 'unavailable');
-    } catch (err) {
+    } catch (_err) {
       setVoiceVoxStatus('unavailable');
     }
   };
