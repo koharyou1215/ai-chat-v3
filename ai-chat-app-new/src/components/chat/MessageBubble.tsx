@@ -488,7 +488,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             borderColor: isUser ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)',
             boxShadow: `0 0 30px ${isUser ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}`
           }}
-          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() as any : {}}
+          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() : {}}
         >
           {/* 重要度インジケーター */}
           {message.memory.importance.score > 0.8 && (

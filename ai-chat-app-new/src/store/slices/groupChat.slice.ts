@@ -23,7 +23,7 @@ export interface GroupChatSlice {
   setGroupChatMode: (sessionId: UUID, mode: GroupChatMode) => void;
   
   // ヘルパー関数
-  generateCharacterResponse: (groupSession: GroupChatSession, character: any, userMessage: string, previousResponses: UnifiedMessage[]) => Promise<UnifiedMessage>;
+  generateCharacterResponse: (groupSession: GroupChatSession, character: Character, userMessage: string, previousResponses: UnifiedMessage[]) => Promise<UnifiedMessage>;
 }
 
 export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice> = (set, get) => ({

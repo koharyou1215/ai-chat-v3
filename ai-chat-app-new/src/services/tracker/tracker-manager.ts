@@ -1,4 +1,23 @@
 import { TrackerDefinition, TrackerUpdate, TrackerValue, UnifiedMessage } from '@/types';
+import type { NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
+
+// 古い形式のトラッカー定義（下位互換性のため）
+interface LegacyTrackerDefinition {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  category: string;
+  type?: string;
+  initial_value?: number;
+  min_value?: number;
+  max_value?: number;
+  initial_state?: string;
+  possible_states?: Array<{ id: string; label: string; }>;
+  initial_boolean?: boolean;
+  initial_text?: string;
+  config?: TrackerDefinition['config'];
+}
 
 // This is a placeholder for the full TrackerSet from the specs
 // We will expand on this later.
@@ -27,9 +46,9 @@ export class TrackerManager {
       // 古い形式から新しい形式への変換
       let normalizedDefinition: TrackerDefinition;
       
-      if (!definition.config && (definition as any).type) {
+      if (!definition.config && (definition as LegacyTrackerDefinition).type) {
         // 古い形式の場合、新しい形式に変換
-        const oldFormat = definition as any;
+        const oldFormat = definition as LegacyTrackerDefinition;
         normalizedDefinition = {
           ...definition,
           config: {
@@ -388,7 +407,7 @@ export class TrackerManager {
    */
   private analyzeNumericTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: number; reason: string } | null {
     const currentValue = tracker.current_value as number;
-    const config = tracker.config as any;
+    const config = tracker.config as NumericTrackerConfig;
     
     // トラッカー名に基づく分析パターン
     const trackerName = tracker.name.toLowerCase();
@@ -415,7 +434,7 @@ export class TrackerManager {
   /**
    * 好感度トラッカーの分析
    */
-  private analyzeAffectionTracker(currentValue: number, content: string, isUserMessage: boolean, config: any): { value: number; reason: string } | null {
+  private analyzeAffectionTracker(currentValue: number, content: string, isUserMessage: boolean, config: NumericTrackerConfig): { value: number; reason: string } | null {
     let change = 0;
     let reason = '';
 
@@ -465,7 +484,7 @@ export class TrackerManager {
   /**
    * 興奮度トラッカーの分析
    */
-  private analyzeArousalTracker(currentValue: number, content: string, isUserMessage: boolean, config: any): { value: number; reason: string } | null {
+  private analyzeArousalTracker(currentValue: number, content: string, isUserMessage: boolean, config: NumericTrackerConfig): { value: number; reason: string } | null {
     let change = 0;
     let reason = '';
 
@@ -506,7 +525,7 @@ export class TrackerManager {
   /**
    * 信頼度トラッカーの分析
    */
-  private analyzeTrustTracker(currentValue: number, content: string, isUserMessage: boolean, config: any): { value: number; reason: string } | null {
+  private analyzeTrustTracker(currentValue: number, content: string, isUserMessage: boolean, config: NumericTrackerConfig): { value: number; reason: string } | null {
     let change = 0;
     let reason = '';
 
@@ -540,7 +559,7 @@ export class TrackerManager {
   /**
    * ストレストラッカーの分析
    */
-  private analyzeStressTracker(currentValue: number, content: string, isUserMessage: boolean, config: any): { value: number; reason: string } | null {
+  private analyzeStressTracker(currentValue: number, content: string, isUserMessage: boolean, config: NumericTrackerConfig): { value: number; reason: string } | null {
     let change = 0;
     let reason = '';
 
@@ -575,7 +594,7 @@ export class TrackerManager {
    * 状態トラッカーの分析
    */
   private analyzeStateTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: string; reason: string } | null {
-    const config = tracker.config as any;
+    const config = tracker.config as StateTrackerConfig;
     const possibleStates = config.possible_states || [];
     
     // キーワードマッピング

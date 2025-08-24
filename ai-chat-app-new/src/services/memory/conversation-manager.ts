@@ -200,7 +200,10 @@ export class ConversationManager {
     character?: Character,
     persona?: Record<string, unknown>,
     systemSettings?: {
-      systemPrompts: any;
+      systemPrompts: {
+        system?: string;
+        jailbreak?: string;
+      };
       enableSystemPrompt: boolean;
       enableJailbreakPrompt: boolean;
     }
@@ -229,16 +232,81 @@ export class ConversationManager {
     
     prompt += `<system_instructions>\n${systemPromptContent}\n</system_instructions>\n\n`;
 
-    // 4. Character Information
+    // 4. Character Information (Enhanced)
     if (character) {
       prompt += '<character_information>\n';
+      
+      // 基本情報
+      prompt += `## Basic Information\n`;
       prompt += `Name: ${character.name}\n`;
-      prompt += `Age: ${character.age}\n`;
-      prompt += `Occupation: ${character.occupation}\n`;
-      prompt += `Personality: ${character.personality}\n`;
-      prompt += `Speaking Style: ${character.speaking_style}\n`;
-      prompt += `Background: ${character.background}\n`;
-      prompt += `Scenario: ${character.scenario}\n`;
+      if (character.age) prompt += `Age: ${character.age}\n`;
+      if (character.occupation) prompt += `Occupation: ${character.occupation}\n`;
+      if (character.catchphrase) prompt += `Catchphrase: "${character.catchphrase}"\n`;
+      if (character.tags && character.tags.length > 0) {
+        prompt += `Tags: ${character.tags.join(', ')}\n`;
+      }
+      
+      // 外見
+      if (character.appearance) {
+        prompt += `\n## Appearance\n`;
+        prompt += `${character.appearance}\n`;
+      }
+      
+      // 性格詳細
+      prompt += `\n## Personality\n`;
+      if (character.personality) prompt += `Overall: ${character.personality}\n`;
+      if (character.external_personality) prompt += `External (How others see them): ${character.external_personality}\n`;
+      if (character.internal_personality) prompt += `Internal (True feelings): ${character.internal_personality}\n`;
+      
+      // 長所・短所
+      if (character.strengths && character.strengths.length > 0) {
+        prompt += `Strengths: ${character.strengths.join(', ')}\n`;
+      }
+      if (character.weaknesses && character.weaknesses.length > 0) {
+        prompt += `Weaknesses: ${character.weaknesses.join(', ')}\n`;
+      }
+      
+      // 趣味・好み
+      if (character.hobbies && character.hobbies.length > 0) {
+        prompt += `Hobbies: ${character.hobbies.join(', ')}\n`;
+      }
+      if (character.likes && character.likes.length > 0) {
+        prompt += `Likes: ${character.likes.join(', ')}\n`;
+      }
+      if (character.dislikes && character.dislikes.length > 0) {
+        prompt += `Dislikes: ${character.dislikes.join(', ')}\n`;
+      }
+      
+      // 話し方・言語スタイル
+      prompt += `\n## Communication Style\n`;
+      if (character.speaking_style) prompt += `Speaking Style: ${character.speaking_style}\n`;
+      if (character.first_person) prompt += `First Person: ${character.first_person}\n`;
+      if (character.second_person) prompt += `Second Person: ${character.second_person}\n`;
+      if (character.verbal_tics && character.verbal_tics.length > 0) {
+        prompt += `Verbal Tics: ${character.verbal_tics.join(', ')}\n`;
+      }
+      
+      // 背景・シナリオ
+      if (character.background) {
+        prompt += `\n## Background\n${character.background}\n`;
+      }
+      if (character.scenario) {
+        prompt += `\n## Current Scenario\n${character.scenario}\n`;
+      }
+      
+      // 初回メッセージ（参考として）
+      if (character.first_message) {
+        prompt += `\n## Reference First Message\n"${character.first_message}"\n`;
+      }
+      
+      // NSFW設定（適切に処理）
+      if (character.nsfw_profile && character.nsfw_profile.persona) {
+        prompt += `\n## Special Context\n`;
+        if (character.nsfw_profile.persona) prompt += `Context Persona: ${character.nsfw_profile.persona}\n`;
+        if (character.nsfw_profile.situation) prompt += `Situation: ${character.nsfw_profile.situation}\n`;
+        if (character.nsfw_profile.mental_state) prompt += `Mental State: ${character.nsfw_profile.mental_state}\n`;
+      }
+      
       prompt += '</character_information>\n\n';
     }
 

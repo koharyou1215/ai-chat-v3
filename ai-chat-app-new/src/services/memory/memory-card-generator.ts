@@ -4,6 +4,17 @@
 import { UnifiedMessage, MemoryCard, MemoryCategory } from '@/types';
 import { apiManager } from '@/services/api-manager';
 
+// AI分析結果の型定義
+interface MemoryAnalysisResult {
+  title?: string;
+  summary?: string;
+  keywords?: string[];
+  category?: string;
+  importance?: number;
+  emotional_impact?: number;
+  [key: string]: unknown;
+}
+
 export class MemoryCardGenerator {
   /**
    * メッセージからメモリーカードを自動生成
@@ -109,7 +120,7 @@ ${content}
   /**
    * AI分析結果をパース
    */
-  private parseAnalysisResult(response: string): any {
+  private parseAnalysisResult(response: string): MemoryAnalysisResult | null {
     try {
       // JSONブロックを抽出
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -128,8 +139,8 @@ ${content}
   /**
    * 手動レスポンスパース（JSONが失敗した場合）
    */
-  private manualParseResponse(response: string): any {
-    const result: any = {};
+  private manualParseResponse(response: string): MemoryAnalysisResult {
+    const result: MemoryAnalysisResult = {};
     
     // タイトル抽出
     const titleMatch = response.match(/title[\"']?\s*:\s*[\"']([^\"']+)[\"']/i);

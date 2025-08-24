@@ -5,10 +5,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // ESLint設定 - 一時的にデプロイエラー回避のため無効化
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // ESLint設定 - 型エラー修正のため一時的に有効化
+  // eslint: {
+  //   ignoreDuringBuilds: true,
+  // },
   
   // ビルド最適化設定
   experimental: {

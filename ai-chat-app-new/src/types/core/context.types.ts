@@ -7,6 +7,14 @@ import { UUID } from "./base.types";
 export type Mood = Record<string, never>;
 // export interface Mood {}
 
+// Mood state type definition
+export interface MoodState {
+  type: 'happy' | 'sad' | 'angry' | 'excited' | 'calm' | 'anxious' | 'neutral';
+  intensity: number; // 0-1
+  stability: number; // 0-1, how stable the mood is
+  duration?: number; // in minutes
+}
+
 /**
  * リアルタイムコンテキスト
  */
@@ -15,7 +23,7 @@ export interface ConversationContext {
   // 現在の状態
   current_emotion: EmotionState;
   current_topic: string;
-  current_mood: any; // TODO: Define MoodState type
+  current_mood: MoodState;
   
   // 直近のコンテキスト
   recent_messages: UnifiedMessage[];

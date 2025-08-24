@@ -7,6 +7,12 @@ import {
   TrackerType,
   UUID 
 } from '@/types';
+import type { 
+  NumericTrackerConfig, 
+  StateTrackerConfig, 
+  BooleanTrackerConfig, 
+  TextTrackerConfig 
+} from '@/types/core/tracker.types';
 
 export interface TrackerSlice {
   tracker_definitions: Map<UUID, TrackerDefinition>;
@@ -108,16 +114,16 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
     // 型に応じて初期値を設定
     switch (definition.config.type) {
       case 'numeric':
-        initial_value = (definition.config as any).initial_value || 0;
+        initial_value = (definition.config as NumericTrackerConfig).initial_value || 0;
         break;
       case 'state':
-        initial_value = (definition.config as any).initial_state || '';
+        initial_value = (definition.config as StateTrackerConfig).initial_state || '';
         break;
       case 'boolean':
-        initial_value = (definition.config as any).initial_value || false;
+        initial_value = (definition.config as BooleanTrackerConfig).initial_value || false;
         break;
       case 'text':
-        initial_value = (definition.config as any).initial_value || '';
+        initial_value = (definition.config as TextTrackerConfig).initial_value || '';
         break;
       default:
         initial_value = null;

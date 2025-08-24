@@ -3,6 +3,17 @@ import { APIConfig, APIProvider } from '@/types';
 
 export type { APIProvider };
 
+// OpenRouter API レスポンス型定義
+interface OpenRouterModel {
+  id: string;
+  name?: string;
+  description?: string;
+}
+
+interface OpenRouterModelsResponse {
+  data?: OpenRouterModel[];
+}
+
 export class APIManager {
   private currentConfig: APIConfig;
   private openRouterApiKey: string | null = null;
@@ -421,8 +432,8 @@ export class APIManager {
         throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-      return data.data?.map((model: any) => ({
+      const data: OpenRouterModelsResponse = await response.json();
+      return data.data?.map((model: OpenRouterModel) => ({
         id: model.id,
         name: model.name || model.id,
         description: model.description

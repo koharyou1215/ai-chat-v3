@@ -39,7 +39,7 @@ export const MessageConverter = {
       created_at: msg.timestamp.toISOString(),
       updated_at: now,
       version: 1,
-      metadata: (msg.metadata as any) || {},
+      metadata: msg.metadata || {},
 
       // Core message fields  
       session_id: '', // セッションIDは呼び出し側で設定
@@ -66,7 +66,7 @@ export const MessageConverter = {
       // Expression fields
       expression: {
         emotion: {
-          primary: (msg.emotion?.primary as any) || 'neutral',
+          primary: msg.emotion?.primary || 'neutral',
           intensity: msg.emotion?.intensity || 0.5,
           emoji: '😐'
         },
@@ -100,7 +100,7 @@ export const MessageConverter = {
         secondary: [],
         intensity: msg.expression.emotion.intensity
       },
-      metadata: (msg.metadata as any)
+      metadata: msg.metadata
     };
   }
 };

@@ -4,6 +4,21 @@ import { BaseEntity, SoftDeletable, WithMetadata, UUID, Timestamp } from './base
 import { EmotionState } from './expression.types';
 import { MemoryImportance } from './memory.types';
 
+// Voice data type definition
+export interface VoiceData {
+  provider: 'voicevox' | 'elevenlabs' | 'system';
+  voice_id?: string;
+  speaker_id?: number;
+  settings?: {
+    speed?: number;
+    pitch?: number;
+    volume?: number;
+    intonation?: number;
+    stability?: number;
+    similarity?: number;
+  };
+}
+
 /**
  * 統合メッセージ型
  * 対話・記憶・表現の全要素を包含
@@ -36,7 +51,7 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
     emotion: EmotionState;
     style: MessageStyle;
     effects: MessageEffect[];
-    voice?: any; // TODO: Define VoiceData type
+    voice?: VoiceData;
   };
   
   // 状態変更関連

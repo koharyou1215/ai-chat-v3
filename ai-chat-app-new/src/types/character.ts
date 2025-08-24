@@ -2,7 +2,7 @@
 // 新しい型定義は src/types/core/character.types.ts と src/types/core/tracker.types.ts を使用してください
 
 import { Character as UnifiedCharacter } from './core/character.types';
-import { TrackerDefinition } from './core/tracker.types';
+import { TrackerDefinition, TrackerCategory, TrackerType } from './core/tracker.types';
 
 // 下位互換性のため従来型を維持（段階的移行用）
 export type TrackerType = 'state' | 'numeric' | 'boolean';
@@ -70,10 +70,10 @@ export const CharacterConverter = {
       name: tracker.name,
       display_name: tracker.display_name,
       description: tracker.description,
-      category: tracker.category as any,
-      type: tracker.type as any,
+      category: tracker.category as TrackerCategory,
+      type: tracker.type as TrackerType,
       config: {
-        type: tracker.type as any,
+        type: tracker.type as TrackerType,
         initial_value: tracker.initial_value,
         initial_state: tracker.initial_state,
         possible_states: tracker.possible_states?.map(state => ({ 
