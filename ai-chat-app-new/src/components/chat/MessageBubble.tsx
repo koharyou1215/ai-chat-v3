@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, Trash2, X, MoreVertical, MoreHorizontal } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, MoreHorizontal } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ import { HologramMessage, ParticleText } from './AdvancedEffects';
 import { EmotionDisplay, EmotionReactions } from '@/components/emotion/EmotionDisplay';
 import { EmotionResult } from '@/services/emotion/EmotionAnalyzer';
 import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -26,19 +27,16 @@ interface MessageBubbleProps {
   isGroupChat?: boolean;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ 
   message, 
-  _previousMessage,
+  previousMessage: _previousMessage,
   isLatest,
   isGroupChat = false
 }) => {
   // ローディング・再生状態
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [audioObj, setAudioObj] = useState<HTMLAudioElement | null>(null);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const voiceSettings = useAppStore(state => state.voice);
+  const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   
   // **Zustandストアからの取得を最適化**
   const characters = useAppStore(state => state.characters);
@@ -49,8 +47,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const trackerManagers = useAppStore(state => state.trackerManagers);
   const activeSessionId = useAppStore(state => state.active_session_id);
   const activeCharacterId = useAppStore(state => state.active_character_id);
-  const clearActiveConversation = useAppStore(state => state.clearActiveConversation);
-  const clearLayer = useAppStore(state => state.clearLayer);
+  const _clearActiveConversation = useAppStore(state => state.clearActiveConversation);
+  const _clearLayer = useAppStore(state => state.clearLayer);
   const _addMessageToLayers = useAppStore(state => state.addMessageToLayers);
 
   const isUser = message.role === 'user';
@@ -81,7 +79,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     try {
       const session = useAppStore.getState().sessions.get(activeSessionId || '');
       if (!session) return;
-      const trackerManager = trackerManagers.get(activeSessionId);
+      const trackerManager = trackerManagers.get(activeSessionId || '');
       // 最後のAIメッセージを探す
       const lastAiMsg = [...session.messages].reverse().find(m => m.role === 'assistant');
       if (!lastAiMsg) {
@@ -100,7 +98,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       const aiResponseContent = await apiManager.generateMessage(
         systemPrompt,
         lastAiMsg.content,
-        session.messages.slice(-10).map(msg => ({ role: msg.role, content: msg.content }))
+        session.messages.slice(-10).filter(msg => msg.role === 'user' || msg.role === 'assistant').map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
       );
       // AIメッセージを追加
       const newMessage = {
@@ -130,125 +128,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     navigator.clipboard.writeText(message.content);
     alert('コピーしました');
   };
-  const handleSpeak = async () => {
-    console.log('Voice settings:', voiceSettings);
-    
-    if (isSpeaking) {
-      // 停止
-      if (audioObj) {
-        audioObj.pause();
-        audioObj.currentTime = 0;
-        setIsSpeaking(false);
-        setAudioObj(null);
-      } else if (speechRef.current) {
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-        speechRef.current = null;
-      }
-      return;
-    }
-    
-    // 再生 - VoiceVoxの場合
-    if (voiceSettings?.provider?.toLowerCase() === 'voicevox') {
-      setIsSpeaking(true);
-      try {
-        const res = await fetch('/api/voice/voicevox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: message.content,
-            speakerId: voiceSettings.voicevox?.speaker || 1,
-            settings: {
-              speed: voiceSettings.voicevox?.speed || 1.0,
-              pitch: voiceSettings.voicevox?.pitch || 0.0,
-              intonation: voiceSettings.voicevox?.intonation || 1.0,
-              volume: voiceSettings.voicevox?.volume || 1.0
-            }
-          })
-        });
-        const data = await res.json();
-        if (data.success && data.audioData) {
-          const audio = new window.Audio(data.audioData);
-          setAudioObj(audio);
-          audio.volume = Math.min(1.0, Math.max(0.0, voiceSettings.voicevox?.volume || 1.0));
-          audio.play();
-          audio.onended = () => {
-            setIsSpeaking(false);
-            setAudioObj(null);
-          };
-          audio.onerror = () => {
-            setIsSpeaking(false);
-            setAudioObj(null);
-            console.error('音声再生エラー');
-          };
-        } else {
-          alert('音声合成に失敗しました: ' + (data.error || 'APIエラー'));
-          setIsSpeaking(false);
-        }
-      } catch (error) {
-        console.error('VoiceVox音声合成通信エラー:', error);
-        alert('音声合成通信エラー');
-        setIsSpeaking(false);
-      }
-    } 
-    // 再生 - ElevenLabsの場合
-    else if (voiceSettings?.provider?.toLowerCase() === 'elevenlabs') {
-      setIsSpeaking(true);
-      try {
-        const res = await fetch('/api/voice/elevenlabs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: message.content,
-            voice_id: voiceSettings.elevenlabs?.voiceId || 'default',
-            stability: voiceSettings.elevenlabs?.stability || 0.5,
-            similarity_boost: voiceSettings.elevenlabs?.similarity || 0.75
-          })
-        });
-        const data = await res.json();
-        if (data.success && data.audioData) {
-          const audio = new window.Audio(data.audioData);
-          setAudioObj(audio);
-          audio.play();
-          audio.onended = () => {
-            setIsSpeaking(false);
-            setAudioObj(null);
-          };
-          audio.onerror = () => {
-            setIsSpeaking(false);
-            setAudioObj(null);
-            console.error('ElevenLabs音声再生エラー');
-          };
-        } else {
-          alert('ElevenLabs音声合成に失敗しました: ' + (data.error || 'APIエラー'));
-          setIsSpeaking(false);
-        }
-      } catch (error) {
-        console.error('ElevenLabs音声合成通信エラー:', error);
-        alert('ElevenLabs音声合成通信エラー');
-        setIsSpeaking(false);
-      }
-    } 
-    // フォールバック - ブラウザ内蔵音声合成
-    else if ('speechSynthesis' in window) {
-      setIsSpeaking(true);
-      const utter = new window.SpeechSynthesisUtterance(message.content);
-      speechRef.current = utter;
-      
-      // ブラウザ内蔵音声の詳細設定を適用
-      if (voiceSettings?.voicevox) {
-        utter.rate = voiceSettings.voicevox.speed || 1.0;
-        utter.pitch = Math.max(0, Math.min(2, (voiceSettings.voicevox.pitch || 0) / 100 + 1));
-        utter.volume = voiceSettings.voicevox.volume || 1.0;
-      }
-      
-      utter.onend = () => { setIsSpeaking(false); speechRef.current = null; };
-      utter.onerror = () => { setIsSpeaking(false); speechRef.current = null; };
-      window.speechSynthesis.speak(utter);
-    } else {
-      alert('音声再生はこのブラウザでサポートされていません');
-    }
-  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.content);
   const [showEditOptions, setShowEditOptions] = useState(false);
@@ -361,6 +241,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
     alert('このメッセージまで巻き戻しました');
   };
+  /*
   // オールクリア本実装
   const handleClearAll = () => {
     // チャット履歴クリア
@@ -378,61 +259,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
     alert('このキャラクターのチャット・メモリ・トラッカーを全てリセットしました');
   };
+  */
 
-  // 自動再生済みメッセージIDを追跡するRef（グローバル管理）
-  const autoPlayedMessagesRef = useRef<Set<string>>(new Set());
-
-  // 音声自動再生機能（重複防止強化版）
-  useEffect(() => {
-    // ユーザーメッセージや無効な条件の場合は早期リターン
-    if (isUser || !message.content || message.content.length === 0) {
-      return;
-    }
-    
-    // 既に自動再生済みのメッセージかチェック
-    if (autoPlayedMessagesRef.current.has(message.id)) {
-      return;
-    }
-    
-    // AIメッセージが最新かつ音声自動再生がオンで、現在再生中でない場合
-    if (!isUser && isLatest && voiceSettings?.autoPlay && !isSpeaking) {
-      
-      // 自動再生済みとしてマーク（重複防止）
-      autoPlayedMessagesRef.current.add(message.id);
-      
-      // 既存の音声を停止
-      if (audioObj) {
-        audioObj.pause();
-        audioObj.currentTime = 0;
-        setAudioObj(null);
-      }
-      if (speechRef.current) {
-        window.speechSynthesis.cancel();
-        speechRef.current = null;
-      }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-      setIsSpeaking(false);
-      
-      // 少し遅延してから再生（UIのアニメーションが完了してから）
-      const autoPlayTimer = setTimeout(() => {
-        handleSpeak();
-      }, 800); // 0.8秒後に自動再生
-
-      return () => clearTimeout(autoPlayTimer);
-    }
-  }, [isLatest, isUser, voiceSettings?.autoPlay, message.content, message.id, isSpeaking, audioObj]);
-
-  // メッセージが変わったとき、古いメッセージIDをクリーンアップ（メモリリーク防止）
-  useEffect(() => {
-    // 100個を超えたら古いIDを削除（メモリ使用量制限）
-    if (autoPlayedMessagesRef.current.size > 100) {
-      const oldIds = Array.from(autoPlayedMessagesRef.current).slice(0, 50);
-      oldIds.forEach(id => autoPlayedMessagesRef.current.delete(id));
-    }
-  }, [message.id]);
-  
   // 個別メッセージ削除機能
   const handleDeleteMessage = () => {
     if (!confirm('このメッセージを削除しますか？')) return;
@@ -491,10 +319,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const { languageSettings } = useAppStore.getState();
+      const locale = languageSettings?.language === 'ja' ? 'ja-JP' : 
+                    languageSettings?.language === 'zh' ? 'zh-CN' :
+                    languageSettings?.language === 'ko' ? 'ko-KR' : 'en-US';
+      
       setFormattedTimestamp(
-        new Date(message.created_at).toLocaleTimeString('ja-JP', {
+        new Date(message.created_at).toLocaleTimeString(locale, {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          hour12: languageSettings?.timeFormat === '12' || false,
+          timeZone: languageSettings?.timezone || 'Asia/Tokyo'
         })
       );
     }
@@ -519,14 +354,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     const emojis = emojiMap[emotion.primary] || emojiMap.neutral;
-    const intensity = emotion.score || 0.5;
+    const intensity = emotion.score ?? emotion.intensity ?? 0.5;
     const index = Math.floor(intensity * emojis.length);
     
     return emojis[Math.min(index, emojis.length - 1)];
   };
 
   // 感情に基づくアニメーション効果（安全な実装）
-  const getEmotionAnimation = () => {
+  const getEmotionAnimation = (): object => {
     const emotion = message.expression?.emotion;
     if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
 
@@ -653,7 +488,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             borderColor: isUser ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)',
             boxShadow: `0 0 30px ${isUser ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}`
           }}
-          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() : {}}
+          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() as any : {}}
         >
           {/* 重要度インジケーター */}
           {message.memory.importance.score > 0.8 && (
@@ -673,6 +508,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {/* 画像表示 */}
               {message.image_url && (
                 <div className="mb-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={message.image_url}
                     alt="Attached image"
@@ -743,7 +579,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
                     <RichMessage
                       content={message.content}
-                      role={message.role}
+                      role={message.role as 'user' | 'assistant'}
                       characterColor='#8b5cf6'
                       enableEffects={isLatest}
                       typingSpeed={isLatest ? 30 : 0}
@@ -791,9 +627,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               >
                 <span className="text-sm">{getDynamicEmoji()}</span>
                 <span>{message.expression.emotion.primary}</span>
-                {message.expression.emotion.score && (
+                {(message.expression.emotion.score ?? message.expression.emotion.intensity) && (
                   <span className="text-xs opacity-60">
-                    ({Math.round(message.expression.emotion.score * 100)}%)
+                    ({Math.round((message.expression.emotion.score ?? message.expression.emotion.intensity) * 100)}%)
                   </span>
                 )}
               </motion.span>
@@ -874,7 +710,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </motion.div>
     </>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';
+
 const ActionButton: React.FC<{
   icon: React.ElementType;
   onClick: () => void;

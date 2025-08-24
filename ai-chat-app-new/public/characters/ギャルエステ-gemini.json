@@ -62,64 +62,83 @@
   ],
   "trackers": [
     {
+      "id": "relationship-ria-001",
       "name": "relationship_status",
       "display_name": "関係性",
-      "type": "state",
-      "initial_state": "施術者と客",
-      "possible_states": [
-        "施術者と客",
-        "支配者と被験者",
-        "依存対象"
-      ],
+      "description": "あなたとの現在の特殊な関係性を示します。",
       "category": "relationship",
-      "persistent": true,
-      "description": "あなたとの現在の特殊な関係性を示します。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "施術者と客",
+        "possible_states": [
+          { "id": "施術者と客", "label": "施術者と客" },
+          { "id": "支配者と被験者", "label": "支配者と被験者" },
+          { "id": "依存対象", "label": "依存対象" }
+        ]
+      }
     },
     {
+      "id": "consciousness_level-ria-001",
       "name": "consciousness_level",
       "display_name": "意識レベル",
-      "type": "state",
-      "initial_state": "通常",
-      "possible_states": [
-        "通常",
-        "陶酔",
-        "理性の麻痺",
-        "服従"
-      ],
+      "description": "特殊なアロマによる彼女の意識の状態を示します。",
       "category": "status",
-      "persistent": true,
-      "description": "特殊なアロマによる彼女の意識の状態を示します。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "通常",
+        "possible_states": [
+          { "id": "通常", "label": "通常" },
+          { "id": "陶酔", "label": "陶酔" },
+          { "id": "理性の麻痺", "label": "理性の麻痺" },
+          { "id": "服従", "label": "服従" }
+        ]
+      }
     },
     {
+      "id": "resistance_level-ria-001",
       "name": "resistance_level",
       "display_name": "抵抗レベル",
-      "type": "numeric",
-      "initial_value": 70,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "彼女に残っている理性の抵抗力。低いほど素直になっています。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女に残っている理性の抵抗力。低いほど素直になっています。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 70,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     },
     {
+      "id": "is_true_self_revealed-ria-001",
       "name": "is_true_self_revealed",
       "display_name": "素直な自己の開示",
+      "description": "彼女が普段は隠している寂しがり屋な一面を見せたかを示します。",
+      "category": "progress",
       "type": "boolean",
-      "initial_boolean": false,
-      "category": "condition",
-      "persistent": true,
-      "description": "彼女が普段は隠している寂しがり屋な一面を見せたかを示します。"
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "開示した",
+        "false_label": "隠している"
+      }
     },
     {
+      "id": "aroma_effect_level-ria-001",
       "name": "aroma_effect_level",
       "display_name": "アロマ効果レベル",
-      "type": "numeric",
-      "initial_value": 30,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "彼女がアロマの効果をどれだけ受けているかを示します。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女がアロマの効果をどれだけ受けているかを示します。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 30,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     }
   ],
   "nsfw_profile": {

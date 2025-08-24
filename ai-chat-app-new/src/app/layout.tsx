@@ -5,12 +5,20 @@ import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
 import { ErrorBoundary } from "@/components/utils/ErrorBoundary";
 import { EmergencyReset } from "@/components/utils/EmergencyReset";
 
-const inter = Inter({ subsets: ["latin"] });
+// 日本語フォント対応
+const inter = Inter({ 
+  subsets: ["latin", "latin-ext"],
+  display: 'swap',
+  variable: '--font-inter'
+});
 
 
 export const metadata: Metadata = {
-  title: "AI Chat V3",
-  description: "Advanced AI Chat Application",
+  title: "AI Chat V3 - 高度なAIチャットアプリケーション",
+  description: "次世代のAI対話システム - キャラクターとペルソナを使った高度なチャット体験",
+  keywords: ["AI", "チャット", "人工知能", "対話システム", "キャラクター"],
+  authors: [{ name: "AI Chat V3 Team" }],
+  robots: "index, follow",
 };
 
 export const viewport = {

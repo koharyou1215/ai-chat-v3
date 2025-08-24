@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // TypeScript設定
+  // TypeScript設定 - 一時的にデプロイエラー回避のため無効化
   typescript: {
     ignoreBuildErrors: true,
   },
-  // ESLint設定
+  // ESLint設定 - 一時的にデプロイエラー回避のため無効化
   eslint: {
     ignoreDuringBuilds: true,
   },

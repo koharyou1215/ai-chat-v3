@@ -20,6 +20,7 @@ export interface HistorySlice {
   
   // 履歴の統計・分析
   getHistoryStatistics: () => HistoryStatistics;
+  getSessionStatistics: (session_id: UUID) => Promise<HistoryStatistics>;
   getPopularTopics: (limit?: number) => Promise<TopicAnalysis[]>;
   getConversationTrends: (days?: number) => Promise<TrendAnalysis[]>;
   
@@ -213,6 +214,7 @@ export const createHistorySlice: StateCreator<AppStore, [], [], HistorySlice> = 
           updated_at: new Date().toISOString(),
           version: 1,
           session_id: `session-${i}`,
+          is_deleted: false,
           role: 'assistant',
           content: `検索クエリ「${query}」に関連するメッセージ ${i + 1}`,
           memory: {
@@ -255,6 +257,25 @@ export const createHistorySlice: StateCreator<AppStore, [], [], HistorySlice> = 
       total_conversation_hours: 7.5
     };
     
+    return stats;
+  },
+  
+  getSessionStatistics: async (session_id) => {
+    // 実際の実装では、指定されたセッションの統計を計算
+    // 現在はダミーの統計を返す
+    
+    const stats: HistoryStatistics = {
+      total_sessions: 1,
+      total_messages: 12,
+      total_characters: 1,
+      average_session_length: 12,
+      average_messages_per_session: 12,
+      most_active_character: 'Selected Character',
+      most_active_time: '現在時刻',
+      total_conversation_hours: 0.5
+    };
+    
+    console.log(`Getting statistics for session: ${session_id}`);
     return stats;
   },
   

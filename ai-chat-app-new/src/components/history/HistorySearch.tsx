@@ -56,7 +56,7 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           break;
         case 'vector':
           const vectorResults = await vectorSearch(searchQuery, 10);
-          results = vectorResults.messages || [];
+          results = vectorResults.map(result => result.memory_item).filter((item): item is UnifiedMessage => 'role' in item) || [];
           break;
         case 'pattern':
           // パターン検索は別途実装
@@ -105,13 +105,13 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
     const loadHistoryData = async () => {
       try {
         const [historyStats, popularTopics] = await Promise.all([
-          getHistoryStatistics(session_id),
-          getPopularTopics(session_id),
-          getConversationTrends(session_id)
+          getHistoryStatistics(),
+          getPopularTopics(),
+          getConversationTrends()
         ]);
         
-        setStats(historyStats);
-        setTopics(popularTopics);
+        setStats(historyStats as unknown as Record<string, unknown>);
+        setTopics(popularTopics as unknown as Record<string, unknown>[]);
         // setTrends(conversationTrends);
       } catch (error) {
         console.error('履歴データ読み込みエラー:', error);

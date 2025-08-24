@@ -88,7 +88,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
       return <span>{text}</span>;
     }
 
-    const elements: JSX.Element[] = [];
+    const elements: React.JSX.Element[] = [];
     
     // パターンマッチング
     const patterns = [

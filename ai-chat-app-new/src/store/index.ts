@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ChatSlice, createChatSlice } from './slices/chat.slice';
+import { GroupChatSlice, createGroupChatSlice } from './slices/groupChat.slice';
 import { CharacterSlice, createCharacterSlice } from './slices/character.slice';
 import { PersonaSlice, createPersonaSlice } from './slices/persona.slice';
 import { MemorySlice, createMemorySlice } from './slices/memory.slice';
@@ -14,13 +15,14 @@ import { UISlice, createUISlice } from './slices/ui.slice';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { StateCreator } from 'zustand';
 
-export type AppStore = ChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
+export type AppStore = ChatSlice & GroupChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
   apiManager: APIManager;
   promptBuilderService: PromptBuilderService;
 }; // 追加
 
 const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   ...createChatSlice(...args),
+  ...createGroupChatSlice(...args),
   ...createCharacterSlice(...args),
   ...createPersonaSlice(...args),
   ...createMemorySlice(...args),
@@ -127,6 +129,11 @@ export const useAppStore = create<AppStore>()(
         active_session_id: state.active_session_id,
         trackerManagers: state.trackerManagers,
         
+        // Group Chat sessions
+        groupSessions: state.groupSessions,
+        active_group_session_id: state.active_group_session_id,
+        is_group_mode: state.is_group_mode,
+
         // Characters and Personas
         characters: state.characters,
         selectedCharacterId: state.selectedCharacterId,

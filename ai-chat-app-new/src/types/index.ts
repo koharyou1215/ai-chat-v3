@@ -14,3 +14,6 @@ export type { UnifiedMessage, MessageRole, MessageEditEntry, MessageMetadata } f
 
 export * from './api';
 export * from './ui';
+
+// Store型のエクスポート
+export type { HistoryStatistics } from '../store/slices/history.slice';

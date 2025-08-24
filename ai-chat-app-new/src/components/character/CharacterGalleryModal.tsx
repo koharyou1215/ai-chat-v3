@@ -50,7 +50,7 @@ export const CharacterGalleryModal: React.FC = () => {
         }
       };
       
-      addCharacter(character);
+      addCharacter(character as Character);
       console.log('Character imported successfully:', character);
     } catch (error) {
       console.error('Failed to import character:', error);

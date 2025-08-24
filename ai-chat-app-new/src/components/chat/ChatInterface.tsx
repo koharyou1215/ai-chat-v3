@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { MessageBubble } from './MessageBubble';
@@ -11,17 +11,20 @@ import { MemoryGallery } from '../memory/MemoryGallery';
 import { TrackerDisplay } from '../tracker/TrackerDisplay';
 import { HistorySearch } from '../history/HistorySearch';
 import { MemoryLayerDisplay } from '../memory/MemoryLayerDisplay';
-import { CharacterGalleryModal } from '../character/CharacterGalleryModal';
-import { PersonaGalleryModal } from '../persona/PersonaGalleryModal';
-import { SettingsModal } from '../settings/SettingsModal';
-import { ChatHistoryModal } from '../history/ChatHistoryModal';
-import { VoiceSettingsModal } from '../voice/VoiceSettingsModal';
-import { CharacterForm } from '../character/CharacterForm';
-import { SuggestionModal } from './SuggestionModal';
+
+const CharacterGalleryModal = lazy(() => import('../character/CharacterGalleryModal').then(module => ({ default: module.CharacterGalleryModal })));
+const PersonaGalleryModal = lazy(() => import('../persona/PersonaGalleryModal').then(module => ({ default: module.PersonaGalleryModal })));
+const SettingsModal = lazy(() => import('../settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
+const ChatHistoryModal = lazy(() => import('../history/ChatHistoryModal').then(module => ({ default: module.ChatHistoryModal })));
+const VoiceSettingsModal = lazy(() => import('../voice/VoiceSettingsModal').then(module => ({ default: module.VoiceSettingsModal })));
+const CharacterForm = lazy(() => import('../character/CharacterForm').then(module => ({ default: module.CharacterForm })));
+const SuggestionModal = lazy(() => import('./SuggestionModal').then(module => ({ default: module.SuggestionModal })));
+
 import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
 import { cn } from '@/lib/utils';
+import { Character } from '@/types';
 
 const EmptyState = () => (
     <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
@@ -102,8 +105,6 @@ export const ChatInterface: React.FC = () => {
         active_group_session_id,
         groupSessions,
         createGroupSession,
-        setShowCharacterGallery,
-        setShowPersonaGallery,
     } = useAppStore();
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得
@@ -112,6 +113,29 @@ export const ChatInterface: React.FC = () => {
     
     // グループチャットセッションの取得
     const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
+
+    // キャラクターIDを安全に取得
+    const currentCharacterId = useMemo(() => {
+        if (is_group_mode && activeGroupSession) {
+            return activeGroupSession.character_ids[0];
+        }
+        if (session && session.participants.characters.length > 0) {
+            return session.participants.characters[0].id;
+        }
+        return undefined;
+    }, [is_group_mode, activeGroupSession, session]);
+    
+    // セッションの決定（グループセッションまたは通常セッション）
+    const displaySession = is_group_mode ? activeGroupSession : session;
+    const currentMessages = displaySession?.messages || [];
+    const displaySessionId = displaySession?.id || '';
+
+    const sidePanelTabs = useMemo(() => [
+        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId!} /> },
+        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId!} /> },
+        { key: 'history' as const, icon: History, label: '履歴検索', component: <HistorySearch session_id={displaySessionId} /> },
+        { key: 'layers' as const, icon: Layers, label: '記憶層', component: <MemoryLayerDisplay session_id={displaySessionId} /> },
+    ], [displaySessionId, currentCharacterId]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -136,7 +160,7 @@ export const ChatInterface: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)'}}>
                         <GroupChatInterface 
-                            onStartGroupChat={(name, characterIds, mode) => {
+                            onStartGroupChat={(_name, _characterIds, _mode) => {
                                 // This will be handled by the GroupChatInterface component itself
                             }}
                         />
@@ -144,8 +168,10 @@ export const ChatInterface: React.FC = () => {
                 </div>
                 
                 {/* モーダル群 */}
-                <CharacterGalleryModal />
-                <PersonaGalleryModal />
+                <Suspense fallback={null}>
+                    <CharacterGalleryModal />
+                    <PersonaGalleryModal />
+                </Suspense>
             </div>
         );
     }
@@ -166,29 +192,6 @@ export const ChatInterface: React.FC = () => {
         );
     }
     
-    // セッションの決定（グループセッションまたは通常セッション）
-    const displaySession = is_group_mode ? activeGroupSession : session;
-    const currentMessages = displaySession?.messages || [];
-    const displaySessionId = displaySession?.id || '';
-    
-    // キャラクターIDを安全に取得
-    const currentCharacterId = useMemo(() => {
-        if (is_group_mode && activeGroupSession) {
-            return activeGroupSession.character_ids[0];
-        }
-        if (session && session.participants.characters.length > 0) {
-            return session.participants.characters[0].id;
-        }
-        return undefined;
-    }, [is_group_mode, activeGroupSession, session]);
-
-    const sidePanelTabs = [
-        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: displaySession && currentCharacterId ? <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId} /> : null },
-        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: displaySession && currentCharacterId ? <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId} /> : null },
-        { key: 'history' as const, icon: History, label: '履歴検索', component: displaySession ? <HistorySearch session_id={displaySessionId} /> : null },
-        { key: 'layers' as const, icon: Layers, label: '記憶層', component: displaySession ? <MemoryLayerDisplay session_id={displaySessionId} /> : null },
-    ];
-
     return (
         <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
             <ClientOnlyProvider fallback={null}>
@@ -287,19 +290,21 @@ export const ChatInterface: React.FC = () => {
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4">
                                     <AnimatePresence mode="wait">
-                                        {sidePanelTabs.map(tab => (
-                                            activeTab === tab.key && (
-                                                <motion.div
-                                                    key={tab.key}
-                                                    initial={{ opacity: 0, x: 20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    exit={{ opacity: 0, x: -20 }}
-                                                    transition={{ duration: 0.2 }}
-                                                >
-                                                    {tab.component}
-                                                </motion.div>
-                                            )
-                                        ))}
+                                        <Suspense fallback={<div>Loading...</div>}>
+                                            {sidePanelTabs.map(tab => (
+                                                activeTab === tab.key && displaySession && (
+                                                    <motion.div
+                                                        key={tab.key}
+                                                        initial={{ opacity: 0, x: 20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        exit={{ opacity: 0, x: -20 }}
+                                                        transition={{ duration: 0.2 }}
+                                                    >
+                                                        {tab.component}
+                                                    </motion.div>
+                                                )
+                                            ))}
+                                        </Suspense>
                                     </AnimatePresence>
                                 </div>
                             </motion.div>
@@ -308,33 +313,36 @@ export const ChatInterface: React.FC = () => {
                 </ClientOnlyProvider>
 
                 {/* モーダル群 */}
-                <CharacterGalleryModal />
-                <PersonaGalleryModal />
-                <SettingsModal 
-                    isOpen={showSettingsModal} 
-                    onClose={() => setShowSettingsModal(false)}
-                    initialTab={initialSettingsTab}
-                />
-                <ChatHistoryModal />
-                <VoiceSettingsModal />
-                <SuggestionModal
-                    isOpen={showSuggestionModal}
-                    onClose={() => setShowSuggestionModal(false)}
-                    suggestions={suggestions}
-                    isLoading={isGeneratingSuggestions}
-                    onSelect={(suggestion) => {
-                        setCurrentInputText(suggestion);
-                    }}
-                />
-                {showCharacterForm && (
-                    <CharacterForm
-                        isOpen={showCharacterForm}
-                        onClose={closeCharacterForm}
-                        character={editingCharacter}
-                        onSave={saveCharacter}
-                        mode="character"
+                <Suspense fallback={null}>
+                    <CharacterGalleryModal />
+                    <PersonaGalleryModal />
+                    <SettingsModal 
+                        isOpen={showSettingsModal} 
+                        onClose={() => setShowSettingsModal(false)}
+                        initialTab={initialSettingsTab}
                     />
-                )}
+                    <ChatHistoryModal />
+                    <VoiceSettingsModal />
+                    <SuggestionModal
+                        isOpen={showSuggestionModal}
+                        onClose={() => setShowSuggestionModal(false)}
+                        suggestions={suggestions}
+                        isLoading={isGeneratingSuggestions}
+                        onSelect={(suggestion) => {
+                            setCurrentInputText(suggestion);
+                        }}
+                    />
+                    {showCharacterForm && editingCharacter && 'age' in editingCharacter && (
+                        <CharacterForm
+                            isOpen={showCharacterForm}
+                            onClose={closeCharacterForm}
+                            character={editingCharacter as Character}
+                            persona={null}
+                            onSave={(data) => saveCharacter(data as Character)}
+                            mode="character"
+                        />
+                    )}
+                </Suspense>
             </div>
         </div>
     );

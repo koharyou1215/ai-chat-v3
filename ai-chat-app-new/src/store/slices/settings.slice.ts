@@ -3,11 +3,23 @@ import { AISettings, SystemPrompts, ChatSettings, VoiceSettings, ImageGeneration
 import { apiManager } from '@/services/api-manager';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_JAILBREAK_PROMPT } from '@/constants/prompts';
 
+// 言語設定の型定義
+export interface LanguageSettings {
+  language: 'ja' | 'en' | 'zh' | 'ko';
+  timezone: string;
+  dateFormat: string;
+  timeFormat: '12' | '24';
+  currency: string;
+}
+
 export interface SettingsSlice extends AISettings {
+  // Language and localization
+  languageSettings: LanguageSettings;
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
   // Actions
+  updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
@@ -36,6 +48,15 @@ export const createSettingsSlice: StateCreator<
   [],
   SettingsSlice
 > = (set, get) => ({
+  // Language settings - 日本語をデフォルトに設定
+  languageSettings: {
+    language: 'ja',
+    timezone: 'Asia/Tokyo',
+    dateFormat: 'YYYY/MM/DD',
+    timeFormat: '24',
+    currency: 'JPY',
+  },
+  
   // Initial state
   // Modal states
   showSettingsModal: false,
@@ -158,6 +179,11 @@ export const createSettingsSlice: StateCreator<
   },
 
   // Actions
+  updateLanguageSettings: (settings) =>
+    set((state) => ({
+      languageSettings: { ...state.languageSettings, ...settings },
+    })),
+  
   updateSystemPrompts: (prompts) => {
     set((state) => {
       const updatedPrompts = { ...state.systemPrompts, ...prompts };

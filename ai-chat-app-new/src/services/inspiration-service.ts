@@ -3,6 +3,7 @@
 
 import { UnifiedMessage, InspirationSuggestion } from '@/types/memory';
 import { apiManager } from '@/services/api-manager';
+import { APIConfig } from '@/types';
 
 export class InspirationService {
   /**
@@ -14,7 +15,8 @@ export class InspirationService {
   async generateReplySuggestions(
     recentMessages: UnifiedMessage[],
     customPrompt?: string,
-    suggestionCount: number = 4
+    suggestionCount: number = 4,
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<InspirationSuggestion[]> {
     const context = this.buildConversationContext(recentMessages);
     let prompt: string;
@@ -37,7 +39,7 @@ export class InspirationService {
     }
 
     try {
-      const responseContent = await apiManager.generateMessage(prompt, '', [], { max_tokens: 4096 });
+      const responseContent = await apiManager.generateMessage(prompt, '', [], apiConfig);
       const suggestions = this.parseSuggestions(responseContent, approaches);
       
       // アプローチが見つからない場合でも、レスポンスをそのまま提案として返す
@@ -75,7 +77,8 @@ export class InspirationService {
   async enhanceText(
     inputText: string,
     recentMessages: UnifiedMessage[],
-    enhancePrompt?: string
+    enhancePrompt?: string,
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<string> {
     const context = this.formatRecentMessages(recentMessages);
     let prompt: string;
@@ -103,7 +106,7 @@ ${inputText}
     }
 
     try {
-      const enhancedText = await apiManager.generateMessage(prompt, '', [], { max_tokens: 1024 });
+      const enhancedText = await apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: 1024 });
       return enhancedText || inputText;
     } catch (error) {
       console.error('Failed to enhance text:', error);

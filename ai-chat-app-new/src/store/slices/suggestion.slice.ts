@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { InspirationService } from '@/services/inspiration-service';
 import { UnifiedMessage } from '@/types/memory';
+import { AppStore } from '..';
 
 export interface SuggestionData {
   id: string;
@@ -26,7 +27,7 @@ export interface SuggestionSlice {
   enhanceText: (text: string, messages: UnifiedMessage[], enhancePrompt?: string) => Promise<string>;
 }
 
-export const createSuggestionSlice: StateCreator<SuggestionSlice, [], [], SuggestionSlice> = (set, get) => ({
+export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSlice> = (set, get) => ({
   suggestions: [],
   suggestionData: [],
   showSuggestionModal: false,
@@ -39,16 +40,17 @@ export const createSuggestionSlice: StateCreator<SuggestionSlice, [], [], Sugges
   setIsGeneratingSuggestions: (isGenerating) => set({ isGeneratingSuggestions: isGenerating }),
   
   generateSuggestions: async (messages, customPrompt) => {
-    const state = get();
-    if (state.isGeneratingSuggestions) return;
+    const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey } = get();
+    if (isGeneratingSuggestions) return;
     
     set({ isGeneratingSuggestions: true });
     
     try {
-      const suggestions = await state.inspirationService.generateReplySuggestions(
+      const suggestions = await inspirationService.generateReplySuggestions(
         messages,
         customPrompt,
-        4
+        4,
+        { ...apiConfig, openRouterApiKey }
       );
       
       const suggestionData: SuggestionData[] = suggestions.map((suggestion) => ({
@@ -71,9 +73,9 @@ export const createSuggestionSlice: StateCreator<SuggestionSlice, [], [], Sugges
   },
   
   enhanceText: async (text, messages, enhancePrompt) => {
-    const state = get();
+    const { inspirationService, apiConfig, openRouterApiKey } = get();
     try {
-      return await state.inspirationService.enhanceText(text, messages, enhancePrompt);
+      return await inspirationService.enhanceText(text, messages, enhancePrompt, { ...apiConfig, openRouterApiKey });
     } catch (error) {
       console.error('Failed to enhance text:', error);
       return text;

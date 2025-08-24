@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { GroupChatMode } from '@/types/core/group-chat.types';
 import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
+import { useTranslation, commonTexts } from '@/hooks/useLanguage';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -51,6 +52,7 @@ const getModelDisplayName = (modelId: string): string => {
 export const ChatHeader: React.FC = () => {
     const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
     const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
+    const { t } = useTranslation();
     
     const { 
         toggleLeftSidebar, 
@@ -111,7 +113,12 @@ export const ChatHeader: React.FC = () => {
                         <div>
                             <h1 className="text-white text-lg font-bold">{activeGroupSession.name}</h1>
                             <p className="text-white/50 text-sm">
-                                {activeGroupSession.active_character_ids.size}人のキャラクター • {activeGroupSession.message_count} messages
+                                {t({ 
+                                    ja: `${activeGroupSession.active_character_ids.size}人のキャラクター • ${typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
+                                    en: `${activeGroupSession.active_character_ids.size} characters • ${typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
+                                    zh: `${activeGroupSession.active_character_ids.size}个角色 • ${typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(activeGroupSession.message_count) : `${activeGroupSession.message_count} 消息`}`,
+                                    ko: `${activeGroupSession.active_character_ids.size}개 캐릭터 • ${typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(activeGroupSession.message_count) : `${activeGroupSession.message_count} 메시지`}`
+                                })}
                             </p>
                         </div>
                     </div>
@@ -137,7 +144,12 @@ export const ChatHeader: React.FC = () => {
                             <h1 className="text-white text-lg font-bold">{character.name}</h1>
                             {session && (
                                 <p className="text-white/50 text-sm">
-                                    {session.message_count} messages
+                                    {t({
+                                        ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
+                                        en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
+                                        zh: typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(session.message_count) : `${session.message_count} 消息`,
+                                        ko: typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(session.message_count) : `${session.message_count} 메시지`
+                                    })}
                                 </p>
                             )}
                         </div>

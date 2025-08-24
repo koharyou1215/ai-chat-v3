@@ -154,7 +154,7 @@ export const CharacterConverter = {
       display_name: tracker.display_name,
       type: tracker.type as TrackerType,
       initial_state: tracker.config.initial_state,
-      possible_states: tracker.config.possible_states?.map(s => 
+      possible_states: tracker.config.possible_states?.map((s: string | { value: string }) => 
         typeof s === 'string' ? s : s.value
       ),
       initial_value: tracker.config.initial_value,

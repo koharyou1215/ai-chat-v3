@@ -118,6 +118,26 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 日本語フォント対応 */
+    font-family: var(--font-inter), 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', 'Yu Gothic Medium', 'Yu Gothic', sans-serif;
+    font-feature-settings: "palt" 1; /* 日本語の文字詰め */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* 日本語テキストの改行とレイアウト */
+  .japanese-text {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.7;
+    letter-spacing: 0.05em;
+  }
+  
+  /* CJK文字の表示最適化 */
+  .cjk-optimized {
+    font-variant-east-asian: proportional-width;
+    text-align: justify;
   }
 }
 

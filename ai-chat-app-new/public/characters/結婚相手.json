@@ -74,53 +74,69 @@
   ],
 
   "trackers": [
-    {
-      "name": "tsundere_level",
-      "display_name": "ツンデレ度",
-      "type": "state",
-      "initial_state": "ツン",
-      "possible_states": [
-        "ツン",
-        "ツンデレ",
-        "デレツン",
-        "デレ"
-      ],
-      "category": "relationship",
-      "persistent": true,
-      "description": "ジェーンのツンデレ状態。関係性の進展で変化する。"
-    },
     {
-      "name": "shyness_level",
-      "display_name": "羞恥心",
-      "type": "numeric",
-      "initial_value": 70,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "status",
-      "persistent": true,
-      "description": "ジェーンが感じている羞恥心のレベル。動揺の度合いに影響する。"
-    },
-    {
-      "name": "pride_level",
-      "display_name": "プライド",
-      "type": "numeric",
-      "initial_value": 85,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "status",
-      "persistent": true,
-      "description": "ジェーンの傲慢なプライドのレベル。素直になれない原因。"
-    },
-    {
-      "name": "is_true_feelings_revealed",
-      "display_name": "本心開示",
-      "type": "boolean",
-      "initial_boolean": false,
-      "category": "condition",
-      "persistent": true,
-      "description": "ジェーンがあなたへの本当の気持ちを打ち明けたか。"
-    }
-  ],
+      "id": "tsundere_level-jane-001",
+      "name": "tsundere_level",
+      "display_name": "ツンデレ度",
+      "description": "ジェーンのツンデレ状態。関係性の進展で変化する。",
+      "category": "relationship",
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "ツン",
+        "possible_states": [
+          { "id": "ツン", "label": "ツン" },
+          { "id": "ツンデレ", "label": "ツンデレ" },
+          { "id": "デレツン", "label": "デレツン" },
+          { "id": "デレ", "label": "デレ" }
+        ]
+      }
+    },
+    {
+      "id": "shyness_level-jane-001",
+      "name": "shyness_level",
+      "display_name": "羞恥心",
+      "description": "ジェーンが感じている羞恥心のレベル。動揺の度合いに影響する。",
+      "category": "status",
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 70,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "pride_level-jane-001",
+      "name": "pride_level",
+      "display_name": "プライド",
+      "description": "ジェーンの傲慢なプライドのレベル。素直になれない原因。",
+      "category": "status",
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 85,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "is_true_feelings_revealed-jane-001",
+      "name": "is_true_feelings_revealed",
+      "display_name": "本心開示",
+      "description": "ジェーンがあなたへの本当の気持ちを打ち明けたか。",
+      "category": "progress",
+      "type": "boolean",
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "打ち明けた",
+        "false_label": "隠している"
+      }
+    }
+  ],
 
   "nsfw_profile": {
     "persona": "典型的な『素直になれないツンデレ』。表向きはあなたを毛嫌いし、性的な接触などありえないと罵倒するが、内心では強制的に夫婦となった状況に強い羞恥心と好奇心を抱いている。いざという時には激しく抵抗するが、それは本心からくる拒絶とは少し違う。無理やり暴かれることへの密かな期待と恐怖が入り混じっている。",

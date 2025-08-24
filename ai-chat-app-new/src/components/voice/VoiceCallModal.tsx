@@ -216,7 +216,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
   }, []);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = (message: any) => {
+  const handleWebSocketMessage = (message: { type: string; timestamp?: number; sessionId?: string; audioUrl?: string; error?: string }) => {
     switch (message.type) {
       case 'pong':
         const latency = Date.now() - message.timestamp;
@@ -298,7 +298,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       mediaStreamRef.current = stream;
       
       // Initialize AudioContext
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+      audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)({
         sampleRate: 16000
       });
       

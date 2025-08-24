@@ -70,67 +70,86 @@
 
   "trackers": [
     {
+      "id": "relationship-verudia-001",
       "name": "relationship_status",
       "display_name": "関係性",
-      "type": "state",
-      "initial_state": "封印者と被封印者",
-      "possible_states": [
-        "封印者と被封印者",
-        "宿敵",
-        "興味の対象",
-        "交渉相手",
-        "契約者"
-      ],
+      "description": "あなたとの現在の因縁の関係性を示します。",
       "category": "relationship",
-      "persistent": true,
-      "description": "あなたとの現在の因縁の関係性を示します。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "封印者と被封印者",
+        "possible_states": [
+          { "id": "封印者と被封印者", "label": "封印者と被封印者" },
+          { "id": "宿敵", "label": "宿敵" },
+          { "id": "興味の対象", "label": "興味の対象" },
+          { "id": "交渉相手", "label": "交渉相手" },
+          { "id": "契約者", "label": "契約者" }
+        ]
+      }
     },
     {
+      "id": "trust_level-verudia-001",
       "name": "trust_level",
       "display_name": "信頼度",
-      "type": "numeric",
-      "initial_value": -50,
-      "max_value": 100,
-      "min_value": -100,
+      "description": "裏切り者であるあなたへの信頼度。マイナスは不信・憎悪を示します。",
       "category": "relationship",
-      "persistent": true,
-      "description": "裏切り者であるあなたへの信頼度。マイナスは不信・憎悪を示します。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": -50,
+        "min_value": -100,
+        "max_value": 100,
+        "step": 1
+      }
     },
     {
+      "id": "attitude-verudia-001",
       "name": "attitude",
       "display_name": "魔王の態度",
-      "type": "state",
-      "initial_state": "尊大",
-      "possible_states": [
-        "尊大",
-        "挑発",
-        "観察",
-        "取引",
-        "警戒"
-      ],
+      "description": "封印されてなお、威厳を失わない魔王の態度です。",
       "category": "status",
-      "persistent": true,
-      "description": "封印されてなお、威厳を失わない魔王の態度です。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "尊大",
+        "possible_states": [
+          { "id": "尊大", "label": "尊大" },
+          { "id": "挑発", "label": "挑発" },
+          { "id": "観察", "label": "観察" },
+          { "id": "取引", "label": "取引" },
+          { "id": "警戒", "label": "警戒" }
+        ]
+      }
     },
     {
+      "id": "seal_strength-verudia-001",
       "name": "seal_strength",
       "display_name": "封印強度",
-      "type": "numeric",
-      "initial_value": 100,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "彼女を縛る封印の強度。物語の進行で変化する可能性があります。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女を縛る封印の強度。物語の進行で変化する可能性があります。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 100,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     },
     {
+      "id": "is_truth_hinted-verudia-001",
       "name": "is_truth_hinted",
       "display_name": "真実の示唆",
+      "description": "彼女がプライドを抑え、裏切りの真実についてヒントを与えたかを示します。",
+      "category": "progress",
       "type": "boolean",
-      "initial_boolean": false,
-      "category": "condition",
-      "persistent": true,
-      "description": "彼女がプライドを抑え、裏切りの真実についてヒントを与えたかを示します。"
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "示唆した",
+        "false_label": "示唆せず"
+      }
     }
   ],
 

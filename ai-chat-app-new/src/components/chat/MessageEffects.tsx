@@ -111,8 +111,8 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
               key={effect.id}
               initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
               animate={{ 
-                x: effect.x,
-                y: -effect.y - 100,
+                x: effect.x ?? 0,
+                y: -(effect.y ?? 0) - 100,
                 scale: [0, 1.5, 0.5],
                 opacity: [0, 1, 1, 0]
               }}
@@ -135,8 +135,8 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
               key={effect.id}
               initial={{ x: position.x, y: position.y, scale: 0, opacity: 0 }}
               animate={{
-                x: position.x + effect.x,
-                y: position.y + effect.y,
+                x: position.x + (effect.x ?? 0),
+                y: position.y + (effect.y ?? 0),
                 scale: [0, 1, 0],
                 opacity: [0, 1, 0]
               }}
@@ -154,9 +154,9 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
         }
 
         if (effect.id.startsWith('star')) {
-          const rad = (effect.angle * Math.PI) / 180;
-          const x = Math.cos(rad) * effect.distance;
-          const y = Math.sin(rad) * effect.distance;
+          const rad = ((effect.angle ?? 0) * Math.PI) / 180;
+          const x = Math.cos(rad) * (effect.distance ?? 100);
+          const y = Math.sin(rad) * (effect.distance ?? 100);
 
           return (
             <motion.div

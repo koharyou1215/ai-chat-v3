@@ -8,12 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Upload, X, PlusCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Character, Persona, TrackerDefinition, TrackerConfig } from '@/types'; // Assuming types exist
+import { Upload, X, PlusCircle, Trash2 } from 'lucide-react';
+import { Character, Persona } from '@/types';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { AppearancePanel } from './AppearancePanel'; // ★ 専門医をインポート
+import { BasicInfoPanel } from './BasicInfoPanel';
+import { PersonalityPanel } from './PersonalityPanel';
+import { TrackersPanel } from './TrackersPanel';
 
 // Type guard functions
 const isCharacter = (data: Character | Persona | null): data is Character => {
@@ -33,101 +36,6 @@ interface CharacterFormProps {
     onSave: (data: Character | Persona) => void;
 }
 
-const TrackerEditor: React.FC<{
-    tracker: TrackerDefinition;
-    onChange: (newConfig: TrackerConfig) => void;
-}> = ({ tracker, onChange }) => {
-    
-    const config = tracker?.config; // Use optional chaining
-
-    if (!config) {
-        return <p className="text-sm text-slate-400">トラッカーの設定情報が見つかりません。</p>;
-    }
-
-    switch(config.type) {
-        case 'numeric':
-            return (
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label className="text-white">初期値</Label>
-                        <Input type="number" value={config.initial_value} onChange={e => onChange({...config, initial_value: +e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                    <div>
-                        <Label className="text-white">最小値</Label>
-                        <Input type="number" value={config.min_value} onChange={e => onChange({...config, min_value: +e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                    <div>
-                        <Label className="text-white">最大値</Label>
-                        <Input type="number" value={config.max_value} onChange={e => onChange({...config, max_value: +e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                    <div>
-                        <Label className="text-white">ステップ</Label>
-                        <Input type="number" value={config.step} onChange={e => onChange({...config, step: +e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                    <div>
-                        <Label className="text-white">単位</Label>
-                        <Input value={config.unit || ''} onChange={e => onChange({...config, unit: e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                </div>
-            )
-        case 'state':
-            return (
-                <div className="space-y-2">
-                    <div>
-                        <Label className="text-white">初期状態</Label>
-                        <Input value={config.initial_state} onChange={e => onChange({...config, initial_state: e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-white">状態リスト</label>
-                        {config.possible_states.map((state, i) => (
-                            <div key={i} className="flex items-center gap-2 mt-1">
-                                <Input value={state.label} onChange={e => {
-                                    const newStates = [...config.possible_states];
-                                    newStates[i] = {...newStates[i], label: e.target.value};
-                                    onChange({...config, possible_states: newStates});
-                                }} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                                <Input type="color" value={state.color || '#ffffff'} onChange={e => {
-                                    const newStates = [...config.possible_states];
-                                    newStates[i] = {...newStates[i], color: e.target.value};
-                                    onChange({...config, possible_states: newStates});
-                                }} className="w-12 h-10 p-1 bg-slate-800/50 border-slate-600" />
-                                <Button size="icon" variant="ghost" onClick={() => {
-                                     const newStates = config.possible_states.filter((_, idx) => idx !== i);
-                                     onChange({...config, possible_states: newStates});
-                                }}>
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        ))}
-                         <Button size="sm" variant="outline" className="mt-2" onClick={() => {
-                             const newStates = [...config.possible_states, {id: `state_${Date.now()}`, label: '新しい状態'}];
-                             onChange({...config, possible_states: newStates});
-                         }}>
-                            <PlusCircle className="w-4 h-4 mr-2" />
-                            状態を追加
-                        </Button>
-                    </div>
-                </div>
-            )
-        case 'boolean':
-             return <p className="text-sm text-slate-400">ブール型トラッカーには追加設定はありません。</p>
-        case 'text':
-            return (
-                 <div className="space-y-2">
-                     <div>
-                         <Label className="text-white">初期テキスト</Label>
-                         <Textarea placeholder="初期テキスト" value={config.initial_value} onChange={e => onChange({...config, initial_value: e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                     </div>
-                     <div>
-                         <Label className="text-white">最大文字数</Label>
-                         <Input type="number" value={config.max_length || ''} onChange={e => onChange({...config, max_length: +e.target.value})} className="bg-slate-800/50 border-slate-600 text-white focus:border-blue-400" />
-                     </div>
-                </div>
-            )
-        default:
-            return null;
-    }
-}
 
 
 export const CharacterForm: React.FC<CharacterFormProps> = ({
@@ -142,7 +50,6 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
         mode === 'character' ? (character || null) : (persona || null)
     );
     const [activeTab, setActiveTab] = useState("basic");
-    const [expandedTracker, setExpandedTracker] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false); // Add uploading state
 
     const handleSave = () => {
@@ -463,485 +370,12 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-6">
                         <TabsContent value="basic" className="space-y-8">
-                            {/* ヘッダー部分 */}
-                            <div className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold text-white">{mode === 'character' ? 'キャラクター設定' : 'ペルソナ設定'}</h2>
-                                <p className="text-slate-400 text-sm">基本情報とプロフィールを設定します</p>
-                            </div>
-
-                            {/* 画像アップロード部分 */}
-                            <div className="mb-8 space-y-6">
-                                {mode === 'character' ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        <div className="space-y-4">
-                                            <label className="block text-sm font-medium text-slate-300">🎭 アバター画像</label>
-                                            <ImageUploader
-                                                url={formData?.avatar_url}
-                                                onFileUpload={(file) => handleFileUpload(file, 'avatar_url')}
-                                                onClear={() => setFormData(prev => prev ? {...prev as any, avatar_url: ''} : null)}
-                                                supportVideo={false}
-                                                aspectRatio="square"
-                                                className="h-64"
-                                                placeholder="アバター画像をドラッグ&ドロップ"
-                                            />
-                                        </div>
-                                        {mode === 'character' && (
-                                            <div className="space-y-4">
-                                                <label className="block text-sm font-medium text-slate-300">🖼️ 背景画像・動画</label>
-                                                <ImageUploader
-                                                    url={(formData as Character)?.background_url}
-                                                    onFileUpload={(file) => handleFileUpload(file, 'background_url')}
-                                                    onClear={() => setFormData(prev => prev ? {...prev as Character, background_url: ''} : null)}
-                                                    supportVideo={true}
-                                                    aspectRatio="16:9"
-                                                    className="h-48"
-                                                    placeholder="背景画像・動画をドラッグ&ドロップ"
-                                                    showPreviewControls={true}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-center mb-6">
-                                        <div className="w-full max-w-md space-y-4">
-                                            <label className="block text-sm font-medium text-slate-300">🎭 アバター画像</label>
-                                            <ImageUploader
-                                                url={formData?.avatar_url}
-                                                onFileUpload={(file) => handleFileUpload(file, 'avatar_url')}
-                                                onClear={() => setFormData(prev => prev ? {...prev as any, avatar_url: ''} : null)}
-                                                supportVideo={false}
-                                                aspectRatio="square"
-                                                className="h-64"
-                                                placeholder="ペルソナアバターをドラッグ&ドロップ"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* 基本情報カード */}
-                            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-6 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                                        <span className="text-purple-400 text-lg">👤</span>
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white">基本情報</h3>
-                                </div>
-                                <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-300">名前 *</label>
-                                            <Input 
-                                                placeholder="キャラクターの名前を入力" 
-                                                value={formData?.name || ''} 
-                                                onChange={e => setFormData(prev => prev ? {...prev as any, name: e.target.value} : null)}
-                                                className="bg-slate-800/50 border-slate-600 focus:border-purple-400"
-                                            />
-                                        </div>
-                                        {mode === 'character' && (
-                                            <div className="space-y-2">
-                                                <div className="flex-1">
-                                                    <Label htmlFor="character-age">年齢</Label>
-                                                    <Input
-                                                        id="character-age"
-                                                        placeholder="例: 18歳、不明、永遠の17歳"
-                                                        value={(formData as Character)?.age || ''}
-                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), age: e.target.value} : prev)}
-                                                        className="bg-slate-800/50 border-slate-600 focus:border-purple-400"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {mode === 'character' && (
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-300">職業・役割</label>
-                                            <Input 
-                                                placeholder="例: 高校生、魔法使い、騎士" 
-                                                value={(formData as Character)?.occupation || ''} 
-                                                onChange={e => setFormData(prev => prev ? {...prev as Character, occupation: e.target.value} : null)}
-                                                className="bg-slate-800/50 border-slate-600 focus:border-purple-400"
-                                            />
-                                        </div>
-                                    )}
-                                    {mode === 'character' && (
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-300">キャッチフレーズ</label>
-                                            <Textarea 
-                                                placeholder="キャラクターを表す短いフレーズ (30文字以内)" 
-                                                value={(formData as Character)?.catchphrase || ''} 
-                                                onChange={e => setFormData(prev => prev ? {...prev as Character, catchphrase: e.target.value} : null)}
-                                                className="bg-slate-800/50 border-slate-600 focus:border-purple-400 resize-none"
-                                                rows={2}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* タグセクション - キャラクターのみ */}
-                            {mode === 'character' && (
-                                <div className="bg-gradient-to-br from-blue-900/20 to-indigo-900/20 p-6 rounded-xl border border-blue-700/30">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                            <span className="text-blue-400 text-lg">🏷️</span>
-                                        </div>
-                                        <h4 className="text-lg font-semibold text-white">タグ</h4>
-                                        <p className="text-sm text-slate-400">キャラクターの特徴を表すキーワード</p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        {((formData as Character)?.tags || []).map((tag: string, index: number) => (
-                                            <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 rounded-full text-sm border border-purple-400/30">
-                                                <span className="font-medium">{tag}</span>
-                                                <button 
-                                                    onClick={() => {
-                                                        const newTags = (formData as Character)?.tags?.filter((_: string, i: number) => i !== index) || [];
-                                                        setFormData(prev => prev ? {...prev as Character, tags: newTags} : null);
-                                                    }} 
-                                                    className="hover:text-purple-100 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Input 
-                                            placeholder="新しいタグを入力（例: 魔法使い、ツンデレ、幼馴染）" 
-                                            className="bg-slate-800/50 border-slate-600 focus:border-blue-400"
-                                            onKeyPress={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    const input = e.target as HTMLInputElement;
-                                                    const newTag = input.value.trim();
-                                                    if (newTag && !((formData as Character)?.tags || []).includes(newTag)) {
-                                                        setFormData(prev => prev ? {...prev as any, tags: [...((prev as Character)?.tags || []), newTag]} : null);
-                                                        input.value = '';
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                        <Button 
-                                            type="button" 
-                                            size="sm" 
-                                            className="bg-blue-600 hover:bg-blue-500"
-                                            onClick={() => {
-                                                const input = document.querySelector('input[placeholder*="新しいタグを入力"]') as HTMLInputElement;
-                                                const newTag = input?.value.trim();
-                                                if (newTag && !((formData as Character)?.tags || []).includes(newTag)) {
-                                                    setFormData(prev => prev ? {...prev as any, tags: [...((prev as Character)?.tags || []), newTag]} : null);
-                                                    input.value = '';
-                                                }
-                                            }}
-                                        >
-                                            追加
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 好み・趣味セクション - キャラクターのみ */}
-                            {mode === 'character' && (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="bg-gradient-to-br from-green-900/20 to-emerald-900/20 p-5 rounded-xl border border-green-700/30">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="text-green-400 text-lg">🎨</span>
-                                            <h4 className="text-lg font-semibold text-white">趣味</h4>
-                                        </div>
-                                        <div className="space-y-2 mb-4">
-                                            {((formData as Character)?.hobbies || []).map((hobby: string, index: number) => (
-                                                <div key={index} className="flex items-center gap-2">
-                                                    <Input 
-                                                        value={hobby} 
-                                                        placeholder="趣味を入力"
-                                                        className="bg-slate-800/50 border-slate-600 focus:border-green-400 text-sm"
-                                                        onChange={e => {
-                                                            const newHobbies = [...((formData as Character)?.hobbies || [])];
-                                                            newHobbies[index] = e.target.value;
-                                                            setFormData(prev => prev ? {...prev as Character, hobbies: newHobbies} : null);
-                                                        }}
-                                                    />
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost" 
-                                                        className="text-red-400 hover:text-red-300 shrink-0"
-                                                        onClick={() => {
-                                                            const newHobbies = ((formData as Character)?.hobbies || []).filter((_: string, i: number) => i !== index);
-                                                            setFormData(prev => prev ? {...prev as Character, hobbies: newHobbies} : null);
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <Button 
-                                            size="sm" 
-                                            variant="outline" 
-                                            className="w-full border-green-600 text-green-300 hover:bg-green-600/20"
-                                            onClick={() => setFormData(prev => prev ? {...prev as Character, hobbies: [...((prev as Character)?.hobbies || []), '']} : null)}
-                                        >
-                                            <PlusCircle className="w-4 h-4 mr-2" />
-                                            趣味を追加
-                                        </Button>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-pink-900/20 to-rose-900/20 p-5 rounded-xl border border-pink-700/30">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="text-pink-400 text-lg">❤️</span>
-                                            <h4 className="text-lg font-semibold text-white">好きなもの</h4>
-                                        </div>
-                                        <div className="space-y-2 mb-4">
-                                            {(formData?.likes || []).map((like: string, index: number) => (
-                                                <div key={index} className="flex items-center gap-2">
-                                                    <Input 
-                                                        value={like} 
-                                                        placeholder="好きなものを入力"
-                                                        className="bg-slate-800/50 border-slate-600 focus:border-pink-400 text-sm"
-                                                        onChange={e => {
-                                                            const newLikes = [...((formData as Character)?.likes || [])];
-                                                            newLikes[index] = e.target.value;
-                                                            setFormData(prev => prev ? {...prev as Character, likes: newLikes} : null);
-                                                        }}
-                                                    />
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost" 
-                                                        className="text-red-400 hover:text-red-300 shrink-0"
-                                                        onClick={() => {
-                                                            const newLikes = ((formData as Character)?.likes || []).filter((_: string, i: number) => i !== index);
-                                                            setFormData(prev => prev ? {...prev as Character, likes: newLikes} : null);
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <Button 
-                                            size="sm" 
-                                            variant="outline" 
-                                            className="w-full border-pink-600 text-pink-300 hover:bg-pink-600/20"
-                                            onClick={() => setFormData(prev => prev ? {...prev as Character, likes: [...((prev as Character)?.likes || []), '']} : null)}
-                                        >
-                                            <PlusCircle className="w-4 h-4 mr-2" />
-                                            好きなものを追加
-                                        </Button>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-red-900/20 to-orange-900/20 p-5 rounded-xl border border-red-700/30">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="text-red-400 text-lg">💢</span>
-                                            <h4 className="text-lg font-semibold text-white">嫌いなもの</h4>
-                                        </div>
-                                        <div className="space-y-2 mb-4">
-                                            {(formData?.dislikes || []).map((dislike: string, index: number) => (
-                                                <div key={index} className="flex items-center gap-2">
-                                                    <Input 
-                                                        value={dislike} 
-                                                        placeholder="嫌いなものを入力"
-                                                        className="bg-slate-800/50 border-slate-600 focus:border-red-400 text-sm"
-                                                        onChange={e => {
-                                                            const newDislikes = [...(formData?.dislikes || [])];
-                                                            newDislikes[index] = e.target.value;
-                                                            setFormData(prev => prev ? {...prev as any, dislikes: newDislikes} : null);
-                                                        }}
-                                                    />
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost" 
-                                                        className="text-red-400 hover:text-red-300 shrink-0"
-                                                        onClick={() => {
-                                                            const newDislikes = (formData?.dislikes || []).filter((_: string, i: number) => i !== index);
-                                                            setFormData(prev => prev ? {...prev as any, dislikes: newDislikes} : null);
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <Button 
-                                            size="sm" 
-                                            variant="outline" 
-                                            className="w-full border-red-600 text-red-300 hover:bg-red-600/20"
-                                            onClick={() => setFormData(prev => prev ? {...prev as any, dislikes: [...(formData?.dislikes || []), '']} : null)}
-                                        >
-                                            <PlusCircle className="w-4 h-4 mr-2" />
-                                            嫌いなものを追加
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ペルソナ独自のフィールド */}
-                            {mode === 'persona' && (
-                                <div className="space-y-6">
-                                    <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-6 rounded-xl border border-slate-700/50">
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                                                <span className="text-purple-400 text-lg">📝</span>
-                                            </div>
-                                            <h3 className="text-xl font-bold text-white">説明・役割</h3>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-300">説明</label>
-                                                <Textarea 
-                                                    placeholder="このペルソナの簡潔な説明" 
-                                                    value={(formData as Persona)?.description || ''} 
-                                                    onChange={e => setFormData(prev => prev ? {...(prev as Persona), description: e.target.value} : null)}
-                                                    className="bg-slate-800/50 border-slate-600 focus:border-purple-400 resize-none"
-                                                    rows={3}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-300">役割</label>
-                                                <Input 
-                                                    placeholder="例: メンター、アシスタント、専門家" 
-                                                    value={(formData as Persona)?.role || ''} 
-                                                    onChange={e => setFormData(prev => prev ? {...(prev as Persona), role: e.target.value} : null)}
-                                                    className="bg-slate-800/50 border-slate-600 focus:border-purple-400"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-cyan-900/20 to-blue-900/20 p-6 rounded-xl border border-cyan-700/30">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-                                                <span className="text-cyan-400 text-lg">✨</span>
-                                            </div>
-                                            <h3 className="text-xl font-bold text-white">特徴・特性</h3>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-300">特徴</label>
-                                                {((formData as Persona)?.traits || []).map((trait: string, index: number) => (
-                                                    <div key={index} className="flex items-center gap-2">
-                                                        <Input
-                                                            value={trait}
-                                                            onChange={e => {
-                                                                const newTraits = [...((formData as Persona)?.traits || [])];
-                                                                newTraits[index] = e.target.value;
-                                                                setFormData(prev => prev ? {...(prev as Persona), traits: newTraits} : null);
-                                                            }}
-                                                            className="flex-1 bg-slate-800/50 border-slate-600 focus:border-cyan-400"
-                                                        />
-                                                        <Button 
-                                                            size="icon" 
-                                                            variant="ghost" 
-                                                            className="text-red-400 hover:bg-red-500/20"
-                                                            onClick={() => {
-                                                                const newTraits = ((formData as Persona)?.traits || []).filter((_: string, i: number) => i !== index);
-                                                                setFormData(prev => prev ? {...(prev as Persona), traits: newTraits} : null);
-                                                            }}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                                <Button 
-                                                    size="sm" 
-                                                    variant="outline" 
-                                                    className="w-full border-cyan-600 text-cyan-300 hover:bg-cyan-600/20"
-                                                    onClick={() => setFormData(prev => prev ? {...(prev as Persona), traits: [...((formData as Persona)?.traits || []), '']} : null)}
-                                                >
-                                                    <PlusCircle className="w-4 h-4 mr-2" />
-                                                    特徴を追加
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-gradient-to-br from-green-900/20 to-emerald-900/20 p-5 rounded-xl border border-green-700/30">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <span className="text-green-400 text-lg">❤️</span>
-                                                <h4 className="text-lg font-semibold text-white">好きなもの</h4>
-                                            </div>
-                                            <div className="space-y-2 mb-4">
-                                                {(formData?.likes || []).map((like: string, index: number) => (
-                                                    <div key={index} className="flex items-center gap-2">
-                                                        <Input 
-                                                            value={like} 
-                                                            placeholder="好きなものを入力"
-                                                            className="bg-slate-800/50 border-slate-600 focus:border-green-400 text-sm"
-                                                            onChange={e => {
-                                                                const newLikes = [...(formData?.likes || [])];
-                                                                newLikes[index] = e.target.value;
-                                                                setFormData(prev => prev ? {...prev as any, likes: newLikes} : null);
-                                                            }}
-                                                        />
-                                                        <Button 
-                                                            size="icon" 
-                                                            variant="ghost" 
-                                                            className="text-red-400 hover:text-red-300 shrink-0"
-                                                            onClick={() => {
-                                                                const newLikes = (formData?.likes || []).filter((_: string, i: number) => i !== index);
-                                                                setFormData(prev => prev ? {...prev as any, likes: newLikes} : null);
-                                                            }}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <Button 
-                                                size="sm" 
-                                                variant="outline" 
-                                                className="w-full border-green-600 text-green-300 hover:bg-green-600/20"
-                                                onClick={() => setFormData(prev => prev ? {...prev as any, likes: [...(formData?.likes || []), '']} : null)}
-                                            >
-                                                <PlusCircle className="w-4 h-4 mr-2" />
-                                                好きなものを追加
-                                            </Button>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-red-900/20 to-orange-900/20 p-5 rounded-xl border border-red-700/30">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <span className="text-red-400 text-lg">💢</span>
-                                                <h4 className="text-lg font-semibold text-white">嫌いなもの</h4>
-                                            </div>
-                                            <div className="space-y-2 mb-4">
-                                                {(formData?.dislikes || []).map((dislike: string, index: number) => (
-                                                    <div key={index} className="flex items-center gap-2">
-                                                        <Input 
-                                                            value={dislike} 
-                                                            placeholder="嫌いなものを入力"
-                                                            className="bg-slate-800/50 border-slate-600 focus:border-red-400 text-sm"
-                                                            onChange={e => {
-                                                                const newDislikes = [...(formData?.dislikes || [])];
-                                                                newDislikes[index] = e.target.value;
-                                                                setFormData(prev => prev ? {...prev as any, dislikes: newDislikes} : null);
-                                                            }}
-                                                        />
-                                                        <Button 
-                                                            size="icon" 
-                                                            variant="ghost" 
-                                                            className="text-red-400 hover:text-red-300 shrink-0"
-                                                            onClick={() => {
-                                                                const newDislikes = (formData?.dislikes || []).filter((_: string, i: number) => i !== index);
-                                                                setFormData(prev => prev ? {...prev as any, dislikes: newDislikes} : null);
-                                                            }}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <Button 
-                                                size="sm" 
-                                                variant="outline" 
-                                                className="w-full border-red-600 text-red-300 hover:bg-red-600/20"
-                                                onClick={() => setFormData(prev => prev ? {...prev as any, dislikes: [...(formData?.dislikes || []), '']} : null)}
-                                            >
-                                                <PlusCircle className="w-4 h-4 mr-2" />
-                                                嫌いなものを追加
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <BasicInfoPanel
+                                formData={formData}
+                                setFormData={setFormData}
+                                mode={mode}
+                                handleFileUpload={handleFileUpload}
+                            />
                         </TabsContent>
                         <TabsContent value="appearance" className="space-y-8">
                             <div className="bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-6 rounded-xl border border-indigo-700/30">
@@ -957,7 +391,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         <Textarea
                                             placeholder="身長、髪型、服装、特徴的な外見など詳しく記述してください..."
                                             value={mode === 'character' && formData ? (formData as Character).appearance || '' : ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, appearance: e.target.value} : null)}
+                                            onChange={e => setFormData(prev => prev ? {...(prev as Character), appearance: e.target.value} : null)}
                                             rows={6}
                                             className="bg-slate-800/50 border-slate-600 focus:border-indigo-400 resize-none"
                                         />
@@ -971,12 +405,12 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     <input 
                                                         type="color" 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.primary || '#8b5cf6' : '#8b5cf6'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, primary: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), primary: e.target.value}} : null)}
                                                         className="w-10 h-8 rounded border border-slate-600"
                                                     />
                                                     <Input 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.primary || '#8b5cf6' : '#8b5cf6'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, primary: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), primary: e.target.value}} : null)}
                                                         className="bg-slate-800/50 border-slate-600 text-xs"
                                                     />
                                                 </div>
@@ -987,12 +421,12 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     <input 
                                                         type="color" 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.secondary || '#a0aec0' : '#a0aec0'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, secondary: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), secondary: e.target.value}} : null)}
                                                         className="w-10 h-8 rounded border border-slate-600"
                                                     />
                                                     <Input 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.secondary || '#a0aec0' : '#a0aec0'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, secondary: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), secondary: e.target.value}} : null)}
                                                         className="bg-slate-800/50 border-slate-600 text-xs"
                                                     />
                                                 </div>
@@ -1003,12 +437,12 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     <input 
                                                         type="color" 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.accent || '#f59e0b' : '#f59e0b'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, accent: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), accent: e.target.value}} : null)}
                                                         className="w-10 h-8 rounded border border-slate-600"
                                                     />
                                                     <Input 
                                                         value={mode === 'character' && formData ? (formData as Character).color_theme?.accent || '#f59e0b' : '#f59e0b'}
-                                                        onChange={e => setFormData(prev => prev ? {...prev as any, color_theme: {...(prev as any)?.color_theme, accent: e.target.value}} : null)}
+                                                        onChange={e => setFormData(prev => prev ? {...(prev as Character), color_theme: {...((prev as Character)?.color_theme || { primary: '#8b5cf6', secondary: '#8b5cf6', accent: '#8b5cf6' }), accent: e.target.value}} : null)}
                                                         className="bg-slate-800/50 border-slate-600 text-xs"
                                                     />
                                                 </div>
@@ -1032,7 +466,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         <Textarea
                                             placeholder="例: anime girl, long silver hair, purple eyes, white dress, fantasy style..."
                                             value={mode === 'character' && formData ? (formData as Character).image_prompt || '' : ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, image_prompt: e.target.value} : null)}
+                                            onChange={e => setFormData(prev => prev ? {...(prev as Character), image_prompt: e.target.value} : null)}
                                             rows={4}
                                             className="bg-slate-800/50 border-slate-600 focus:border-cyan-400 resize-none"
                                         />
@@ -1042,7 +476,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <Textarea
                                             placeholder="例: ugly, deformed, blurry, low quality, extra limbs..."
                                             value={mode === 'character' && formData ? (formData as Character).negative_prompt || '' : ''}
-                                            onChange={e => setFormData(prev => prev ? {...prev as any, negative_prompt: e.target.value} : null)}
+                                            onChange={e => setFormData(prev => prev ? {...(prev as Character), negative_prompt: e.target.value} : null)}
                                             rows={3}
                                             className="bg-slate-800/50 border-slate-600 focus:border-cyan-400 resize-none"
                                         />
@@ -1065,7 +499,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     onChange={e => {
                                                         const newStrengths = [...(mode === 'character' && formData ? (formData as Character).strengths || [] : [])];
                                                         newStrengths[index] = e.target.value;
-                                                        setFormData(prev => prev ? {...prev as any, strengths: newStrengths} : null);
+                                                        setFormData(prev => prev ? {...(prev as Character), strengths: newStrengths} : null);
                                                     }}
                                                 />
                                                 <Button 
@@ -1074,7 +508,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     className="text-red-400 hover:text-red-300 shrink-0"
                                                     onClick={() => {
                                                         const newStrengths = (mode === 'character' && formData ? (formData as Character).strengths || [] : []).filter((_: string, i: number) => i !== index);
-                                                        setFormData(prev => prev ? {...prev as any, strengths: newStrengths} : null);
+                                                        setFormData(prev => prev ? {...(prev as Character), strengths: newStrengths} : null);
                                                     }}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -1086,7 +520,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         size="sm" 
                                         variant="outline" 
                                         className="w-full border-emerald-600 text-emerald-300 hover:bg-emerald-600/20"
-                                        onClick={() => setFormData(prev => prev ? {...prev as any, strengths: [...(mode === 'character' && formData ? (formData as Character).strengths || [] : []), '']} : null)}
+                                        onClick={() => setFormData(prev => prev ? {...(prev as Character), strengths: [...(mode === 'character' && formData ? (formData as Character).strengths || [] : []), '']} : null)}
                                     >
                                         <PlusCircle className="w-4 h-4 mr-2" />
                                         強みを追加
@@ -1108,7 +542,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     onChange={e => {
                                                         const newWeaknesses = [...(mode === 'character' && formData ? (formData as Character).weaknesses || [] : [])];
                                                         newWeaknesses[index] = e.target.value;
-                                                        setFormData(prev => prev ? {...prev as any, weaknesses: newWeaknesses} : null);
+                                                        setFormData(prev => prev ? {...(prev as Character), weaknesses: newWeaknesses} : null);
                                                     }}
                                                 />
                                                 <Button 
@@ -1117,7 +551,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                     className="text-red-400 hover:text-red-300 shrink-0"
                                                     onClick={() => {
                                                         const newWeaknesses = (mode === 'character' && formData ? (formData as Character).weaknesses || [] : []).filter((_: string, i: number) => i !== index);
-                                                        setFormData(prev => prev ? {...prev as any, weaknesses: newWeaknesses} : null);
+                                                        setFormData(prev => prev ? {...(prev as Character), weaknesses: newWeaknesses} : null);
                                                     }}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -1129,7 +563,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         size="sm" 
                                         variant="outline" 
                                         className="w-full border-orange-600 text-orange-300 hover:bg-orange-600/20"
-                                        onClick={() => setFormData(prev => prev ? {...prev as any, weaknesses: [...(mode === 'character' && formData ? (formData as Character).weaknesses || [] : []), '']} : null)}
+                                        onClick={() => setFormData(prev => prev ? {...(prev as Character), weaknesses: [...(mode === 'character' && formData ? (formData as Character).weaknesses || [] : []), '']} : null)}
                                     >
                                         <PlusCircle className="w-4 h-4 mr-2" />
                                         弱みを追加
@@ -1138,129 +572,18 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             </div>
                         </TabsContent>
                         <TabsContent value="trackers" className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-lg font-semibold text-white">トラッカー設定</h3>
-                                <Button variant="outline" size="sm" onClick={() => console.log("Add new tracker")}>
-                                    <PlusCircle className="w-4 h-4 mr-2" />
-                                    新規トラッカーを追加
-                                </Button>
-                            </div>
-                            <div className="space-y-4">
-                                {(mode === 'character' && formData ? (formData as Character).trackers : [])?.map((tracker: TrackerDefinition, index: number) => (
-                                    <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setExpandedTracker(expandedTracker === index ? null : index)}>
-                                            <span className="font-semibold text-white">{tracker.display_name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">{tracker.type}</span>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); console.log("Delete tracker", index)}}>
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                                {expandedTracker === index ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-slate-400 mt-1">{tracker.description}</p>
-                                        <AnimatePresence>
-                                        {expandedTracker === index && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="mt-4"
-                                            >
-                                                <TrackerEditor 
-                                                    tracker={tracker} 
-                                                    onChange={(newConfig) => {
-                                                        const newTrackers = [...(formData && mode === 'character' ? (formData as Character).trackers || [] : [])];
-                                                        newTrackers[index] = { ...newTrackers[index], config: newConfig };
-                                                        setFormData(prev => prev ? { ...prev, trackers: newTrackers } as any : null);
-                                                    }}
-                                                />
-                                            </motion.div>
-                                        )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                                {(mode !== 'character' || !formData || !(formData as Character).trackers || (formData as Character).trackers.length === 0) && (
-                                    <p className="text-slate-500 text-center py-4">
-                                        このキャラクターにはトラッカーが設定されていません。
-                                    </p>
-                                )}
-                            </div>
+                            <TrackersPanel
+                                formData={formData}
+                                setFormData={setFormData}
+                                mode={mode}
+                            />
                         </TabsContent>
                         <TabsContent value="personality" className="space-y-8">
-                            <div className="bg-gradient-to-br from-violet-900/20 to-purple-900/20 p-6 rounded-xl border border-violet-700/30">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-8 h-8 bg-violet-500/20 rounded-lg flex items-center justify-center">
-                                        <span className="text-violet-400 text-lg">🧠</span>
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white">性格の詳細</h3>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300">性格（全体的な説明）</label>
-                                    <Textarea
-                                        placeholder="キャラクターの基本的な性格、価値観、行動パターンなどを詳しく記述..."
-                                        value={mode === 'character' && formData ? (formData as Character).personality || '' : ''}
-                                        onChange={e => setFormData(prev => prev ? {...prev as any, personality: e.target.value} : null)}
-                                        rows={6}
-                                        className="bg-slate-800/50 border-slate-600 focus:border-violet-400 resize-none"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="bg-gradient-to-br from-sky-900/20 to-blue-900/20 p-5 rounded-xl border border-sky-700/30">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="text-sky-400 text-lg">😊</span>
-                                        <h4 className="text-lg font-semibold text-white">表面的な性格</h4>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-slate-400">他人から見える性格や振る舞い</p>
-                                        <Textarea
-                                            placeholder="例: 明るく元気で、いつも笑顔を絶やさない。友達思いで誠実..."
-                                            value={(formData && 'external_personality' in formData) ? formData.external_personality || '' : ''}
-                                            onChange={e => setFormData(prev => prev && 'external_personality' in prev ? {...prev, external_personality: e.target.value} : prev)}
-                                            rows={4}
-                                            className="bg-slate-800/50 border-slate-600 focus:border-sky-400 resize-none"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="bg-gradient-to-br from-amber-900/20 to-orange-900/20 p-5 rounded-xl border border-amber-700/30">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="text-amber-400 text-lg">🕰️</span>
-                                        <h4 className="text-lg font-semibold text-white">内面的な性格</h4>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-slate-400">心の中での本当の想いや感情</p>
-                                        <Textarea
-                                            placeholder="例: 実は寂しがり屋で、人に嫌われることを恐れている..."
-                                            value={isCharacter(formData) ? formData.internal_personality || '' : ''}
-                                            onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, internal_personality: e.target.value} : prev)}
-                                            rows={4}
-                                            className="bg-slate-800/50 border-slate-600 focus:border-amber-400 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-teal-900/20 to-cyan-900/20 p-6 rounded-xl border border-teal-700/30">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center">
-                                        <span className="text-teal-400 text-lg">💬</span>
-                                    </div>
-                                    <h4 className="text-lg font-semibold text-white">話し方・口調</h4>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-slate-400">一人称、二人称、語尾、特徴的な表現など</p>
-                                    <Textarea
-                                        placeholder="例: 一人称は「私」。二人称は「あなた」。語尾に「です」「ます」を使う丁寧語..."
-                                        value={isCharacter(formData) ? formData.speaking_style || '' : ''}
-                                        onChange={e => setFormData(prev => isCharacter(prev) ? {...prev, speaking_style: e.target.value} : prev)}
-                                        rows={4}
-                                        className="bg-slate-800/50 border-slate-600 focus:border-teal-400 resize-none"
-                                    />
-                                </div>
-                            </div>
+                            <PersonalityPanel
+                                formData={formData}
+                                setFormData={setFormData}
+                                mode={mode}
+                            />
                         </TabsContent>
 
                         <TabsContent value="scenario" className="space-y-8">
@@ -1496,8 +819,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             {mode === 'character' && (
                                 <AppearancePanel
                                     formData={formData as Character | null}
-                                    setFormData={setFormData as React.Dispatch<React.SetStateAction<Character | null>>}
-                                    handleFileUpload={handleFileUpload}
+                                    setFormData={setFormData}
                                 />
                             )}
 

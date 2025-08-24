@@ -590,6 +590,10 @@ export class TrackerManager {
     };
 
     for (const state of possibleStates) {
+      if (typeof state !== 'string') {
+        console.warn(`Tracker "${tracker.name}" has a non-string state:`, state);
+        continue;
+      }
       const keywords = stateKeywords[state] || [state.toLowerCase()];
       for (const keyword of keywords) {
         if (content.includes(keyword)) {

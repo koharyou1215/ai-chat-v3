@@ -26,7 +26,7 @@ export const ChatHistoryModal: React.FC = () => {
   const loadHistory = useCallback(async () => {
     if (!active_session_id) return;
     setIsLoading(true);
-    const history = await getSessionHistory(active_session_id);
+    const history = await getSessionHistory();
     setSessions(history);
     setIsLoading(false);
   }, [active_session_id, getSessionHistory]);

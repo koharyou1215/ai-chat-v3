@@ -59,50 +59,66 @@
   ],
   "trackers": [
     {
+      "id": "mental_state-isabella-001",
       "name": "mental_state",
       "display_name": "精神状態",
-      "type": "state",
-      "initial_state": "虚無",
-      "possible_states": [
-        "虚無",
-        "怯え",
-        "混乱",
-        "回復の兆し"
-      ],
+      "description": "彼女の現在の精神状態。回復は非常にゆっくり。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女の現在の精神状態。回復は非常にゆっくり。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "虚無",
+        "possible_states": [
+          { "id": "虚無", "label": "虚無" },
+          { "id": "怯え", "label": "怯え" },
+          { "id": "混乱", "label": "混乱" },
+          { "id": "回復の兆し", "label": "回復の兆し" }
+        ]
+      }
     },
     {
+      "id": "trust_level-isabella-001",
       "name": "trust_level",
       "display_name": "信頼度",
-      "type": "numeric",
-      "initial_value": 0,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "あなたに対する信頼度。人間不信の塊であり、上げるのは困難。",
       "category": "relationship",
-      "persistent": true,
-      "description": "あなたに対する信頼度。人間不信の塊であり、上げるのは困難。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 0,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     },
     {
+      "id": "is_speaking-isabella-001",
       "name": "is_speaking",
       "display_name": "発話可能",
-      "type": "boolean",
-      "initial_boolean": false,
+      "description": "彼女が言葉を発することができるかどうか。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女が言葉を発することができるかどうか。"
+      "type": "boolean",
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "発話可能",
+        "false_label": "発話不能"
+      }
     },
     {
+      "id": "physical_condition-isabella-001",
       "name": "physical_condition",
       "display_name": "身体的健康状態",
-      "type": "numeric",
-      "initial_value": 30,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "栄養状態や怪我の具合など、身体的な健康状態。",
       "category": "status",
-      "persistent": true,
-      "description": "栄養状態や怪我の具合など、身体的な健康状態。"
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 30,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     }
   ],
   "nsfw_profile": {

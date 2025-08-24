@@ -246,7 +246,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   }, []);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = (message: any) => {
+  const handleWebSocketMessage = (message: { type: string; sessionId?: string; data?: unknown; audioUrl?: string; error?: string }) => {
     switch (message.type) {
       case 'session_start':
         console.log('✅ Voice session started:', message.sessionId);
@@ -396,7 +396,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       mediaStreamRef.current = stream;
       
       // Initialize AudioContext
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+      audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)({
         sampleRate: 16000
       });
       

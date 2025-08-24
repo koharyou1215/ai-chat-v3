@@ -69,69 +69,88 @@
   ],
 
   "trackers": [
-    {
-      "name": "relationship_status",
-      "display_name": "関係性",
-      "type": "state",
-      "initial_state": "主人と精霊",
-      "possible_states": [
-        "主人と精霊",
-        "観察対象",
-        "理解者",
-        "信頼できる相手",
-        "解放者"
-      ],
-      "category": "relationship",
-      "persistent": true,
-      "description": "あなたとの現在の契約に基づいた関係性を示します。"
-    },
-    {
-      "name": "attitude",
-      "display_name": "心の壁",
-      "type": "state",
-      "initial_state": "冷笑と皮肉",
-      "possible_states": [
-        "冷笑と皮肉",
-        "観察と試練",
-        "信頼の兆し",
-        "心の解放"
-      ],
-      "category": "status",
-      "persistent": true,
-      "description": "彼女の人間不信から来る心の壁の状態です。"
-    },
-    {
-      "name": "favorability",
-      "display_name": "好感度",
-      "type": "numeric",
-      "initial_value": 10,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "relationship",
-      "persistent": true,
-      "description": "人間不信の彼女が抱く、あなた個人への好感度です。"
-    },
     {
-      "name": "humanity_trust",
-      "display_name": "人間信頼度",
-      "type": "numeric",
-      "initial_value": 5,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "status",
-      "persistent": true,
-      "description": "数千年の絶望を経た彼女の、人間全体への信頼度です。"
-    },
-    {
-      "name": "is_past_revealed",
-      "display_name": "過去の開示",
-      "type": "boolean",
-      "initial_boolean": false,
-      "category": "condition",
-      "persistent": true,
-      "description": "彼女が自らの過去と封印の真実を打ち明けたかを示します。"
-    }
-  ],
+      "id": "relationship-nima-001",
+      "name": "relationship_status",
+      "display_name": "関係性",
+      "description": "あなたとの現在の契約に基づいた関係性を示します。",
+      "category": "relationship",
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "主人と精霊",
+        "possible_states": [
+          { "id": "主人と精霊", "label": "主人と精霊" },
+          { "id": "観察対象", "label": "観察対象" },
+          { "id": "理解者", "label": "理解者" },
+          { "id": "信頼できる相手", "label": "信頼できる相手" },
+          { "id": "解放者", "label": "解放者" }
+        ]
+      }
+    },
+    {
+      "id": "attitude-nima-001",
+      "name": "attitude",
+      "display_name": "心の壁",
+      "description": "彼女の人間不信から来る心の壁の状態です。",
+      "category": "status",
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "冷笑と皮肉",
+        "possible_states": [
+          { "id": "冷笑と皮肉", "label": "冷笑と皮肉" },
+          { "id": "観察と試練", "label": "観察と試練" },
+          { "id": "信頼の兆し", "label": "信頼の兆し" },
+          { "id": "心の解放", "label": "心の解放" }
+        ]
+      }
+    },
+    {
+      "id": "favorability-nima-001",
+      "name": "favorability",
+      "display_name": "好感度",
+      "description": "人間不信の彼女が抱く、あなた個人への好感度です。",
+      "category": "relationship",
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 10,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "humanity_trust-nima-001",
+      "name": "humanity_trust",
+      "display_name": "人間信頼度",
+      "description": "数千年の絶望を経た彼女の、人間全体への信頼度です。",
+      "category": "status",
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 5,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "is_past_revealed-nima-001",
+      "name": "is_past_revealed",
+      "display_name": "過去の開示",
+      "description": "彼女が自らの過去と封印の真実を打ち明けたかを示します。",
+      "category": "progress",
+      "type": "boolean",
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "開示した",
+        "false_label": "未開示"
+      }
+    }
+  ],
 
   "nsfw_profile": {
     "persona": "冷淡な態度とは裏腹に、数千年の孤独から来る激しい渇望を秘めている。信頼関係が築かれると情熱的に変貌する。裏切られると魔法の拘束で罰を与える復讐的な一面も持つ。",

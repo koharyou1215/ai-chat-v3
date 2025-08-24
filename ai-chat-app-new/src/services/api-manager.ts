@@ -259,6 +259,8 @@ export class APIManager {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API Error Response:', errorText);
       throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
     }
 

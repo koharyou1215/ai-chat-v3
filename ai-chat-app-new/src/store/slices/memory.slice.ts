@@ -23,6 +23,10 @@ export interface MemorySlice {
   sortMemoriesByImportance: (memories: MemoryCard[]) => MemoryCard[];
   sortMemoriesByDate: (memories: MemoryCard[]) => MemoryCard[];
   
+  // レイヤー管理
+  clearLayer: (layer: string) => void;
+  addMessageToLayers: (message: UnifiedMessage) => void;
+  
   // 統計情報
   getLayerStatistics: () => {
     total: number;
@@ -57,7 +61,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
     }
     
     // 指定されたメッセージIDのメッセージを取得
-    const messages = session.messages.filter(msg => message_ids.includes(msg.id));
+    const messages = session.messages.filter((msg: UnifiedMessage) => message_ids.includes(msg.id));
     
     if (messages.length === 0) {
       throw new Error('No messages found for the specified IDs');
@@ -131,7 +135,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         session_id,
         character_id,
         original_message_ids: message_ids,
-        original_content: messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+        original_content: messages.map((m: UnifiedMessage) => `${m.role}: ${m.content}`).join('\n'),
         
         // フォールバック内容
         title: `会話の記録 ${new Date().toLocaleDateString('ja-JP')}`,
@@ -313,6 +317,18 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         return acc;
       }, {} as Record<string, number>)
     };
+  },
+  
+  clearLayer: (layer) => {
+    console.log(`Clearing memory layer: ${layer}`);
+    // 実装: 指定されたレイヤーのメモリーカードをクリア
+    // この実装は要件に応じて調整が必要
+  },
+  
+  addMessageToLayers: (message) => {
+    console.log(`Adding message to layers:`, message.id);
+    // 実装: メッセージをメモリーレイヤーに追加
+    // この実装は要件に応じて調整が必要
   }
 });
 

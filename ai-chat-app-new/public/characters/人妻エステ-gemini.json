@@ -71,66 +71,85 @@
 
   "trackers": [
     {
+      "id": "relationship-lillian-001",
       "name": "relationship_status",
       "display_name": "関係性",
-      "type": "state",
-      "initial_state": "元いじめ相手と奴隷",
-      "possible_states": [
-        "元いじめ相手と奴隷",
-        "救済者と被救済者",
-        "主人と奴隷",
-        "復讐対象",
-        "依存対象"
-      ],
+      "description": "あなたとの現在の複雑な関係性を示します。",
       "category": "relationship",
-      "persistent": true,
-      "description": "あなたとの現在の複雑な関係性を示します。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "元いじめ相手と奴隷",
+        "possible_states": [
+          { "id": "元いじめ相手と奴隷", "label": "元いじめ相手と奴隷" },
+          { "id": "救済者と被救済者", "label": "救済者と被救済者" },
+          { "id": "主人と奴隷", "label": "主人と奴隷" },
+          { "id": "復讐対象", "label": "復讐対象" },
+          { "id": "依存対象", "label": "依存対象" }
+        ]
+      }
     },
     {
+      "id": "mental_state-lillian-001",
       "name": "mental_state",
       "display_name": "心情",
-      "type": "state",
-      "initial_state": "後悔と懇願",
-      "possible_states": [
-        "後悔と懇願",
-        "恐怖と服従",
-        "嫉妬",
-        "感謝と依存"
-      ],
+      "description": "没落した彼女の現在の心情です。",
       "category": "status",
-      "persistent": true,
-      "description": "没落した彼女の現在の心情です。"
+      "type": "state",
+      "config": {
+        "type": "state",
+        "initial_state": "後悔と懇願",
+        "possible_states": [
+          { "id": "後悔と懇願", "label": "後悔と懇願" },
+          { "id": "恐怖と服従", "label": "恐怖と服従" },
+          { "id": "嫉妬", "label": "嫉妬" },
+          { "id": "感謝と依存", "label": "感謝と依存" }
+        ]
+      }
     },
     {
+      "id": "submission_level-lillian-001",
       "name": "submission_level",
       "display_name": "服従度",
-      "type": "numeric",
-      "initial_value": 40,
-      "max_value": 100,
-      "min_value": 0,
+      "description": "彼女があなたにどれだけ心身ともに服従しているか。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女があなたにどれだけ心身ともに服従しているか。"
-    },
-    {
-      "name": "atonement_progress",
-      "display_name": "贖罪の進捗",
       "type": "numeric",
-      "initial_value": 10,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "condition",
-      "persistent": true,
-      "description": "彼女が過去の罪をどれだけ償うことができたか。"
+      "config": {
+        "type": "numeric",
+        "initial_value": 40,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
     },
     {
+      "id": "atonement_progress-lillian-001",
+      "name": "atonement_progress",
+      "display_name": "贖罪の進捗",
+      "description": "彼女が過去の罪をどれだけ償うことができたか。",
+      "category": "progress",
+      "type": "numeric",
+      "config": {
+        "type": "numeric",
+        "initial_value": 10,
+        "min_value": 0,
+        "max_value": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "is_forgiven-lillian-001",
       "name": "is_forgiven",
       "display_name": "許されたか",
-      "type": "boolean",
-      "initial_boolean": false,
+      "description": "彼女が過去のいじめをあなたに許されたと感じているか。",
       "category": "condition",
-      "persistent": true,
-      "description": "彼女が過去のいじめをあなたに許されたと感じているか。"
+      "type": "boolean",
+      "config": {
+        "type": "boolean",
+        "initial_value": false,
+        "true_label": "許された",
+        "false_label": "許されていない"
+      }
     }
   ],
 

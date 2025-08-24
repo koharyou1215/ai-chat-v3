@@ -10,6 +10,7 @@ export interface CharacterSlice {
     showCharacterForm: boolean; // 編集フォームの表示状態
     isCharactersLoaded: boolean;
     addCharacter: (character: Character) => void;
+    updateCharacter: (character: Character) => void;
     selectCharacter: (characterId: UUID) => void;
     setSelectedCharacterId: (characterId: UUID | null) => void; // 追加
     getSelectedCharacter: () => Character | null;
@@ -38,6 +39,13 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       
       characters.set(character.id, character);
       return { characters };
+    });
+  },
+  updateCharacter: (character) => {
+    set(state => {
+      const characters = new Map(state.characters);
+      characters.set(character.id, character);
+      return { characters, editingCharacter: character };
     });
   },
   selectCharacter: (characterId) => {

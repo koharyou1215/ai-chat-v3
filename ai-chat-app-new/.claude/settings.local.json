@@ -45,7 +45,8 @@
       "Bash(rd:*)",
       "Bash(Remove-Item -Recurse -Force .next)",
       "Bash(Stop-Process -Id 29336 -Force)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": [],

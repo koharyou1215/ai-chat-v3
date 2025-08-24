@@ -4,12 +4,12 @@
 export interface APIResponse<T> {
   success: boolean;
   data?: T;
-  error?: APIError;
+  error?: APIErrorInterface;
   metadata?: APIMetadata;
 }
 
-// APIエラー型
-export interface APIError {
+// APIエラー型（インターフェース）
+export interface APIErrorInterface {
   code: string;
   message: string;
   details?: unknown;

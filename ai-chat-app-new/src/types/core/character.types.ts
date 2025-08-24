@@ -12,6 +12,7 @@ export interface Character extends BaseEntity {
   age: string;
   occupation: string;
   catchphrase: string;
+  description?: string; // 下位互換性のため（personalityの要約）
   
   // 性格・特徴
   personality: string;

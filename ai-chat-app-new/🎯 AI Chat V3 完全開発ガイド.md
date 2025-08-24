@@ -1,835 +1,947 @@
-#🎯 AI Chat V3 完全開発ガイド
+# 🎯 AI Chat V3 Complete Development Guide
 
-  📋 目次
+**Development Principles**
 
-  1. #プロジェクト概要
-  2. #アーキテクチャ設計
-  3. #ディレクトリ構造
-  4. #型定義システム
-  5. #主要コンポーネント
-  6. #状態管理zustand
-  7. #api設計
-  8. #メモリシステム
-  9. #トラッカーシステム
-  10. #システムプロンプト統合
-  11. #設定管理システム
-  12. #音声合成システム
-  13. #開発フロー
-  14. #デバッグガイド
-  15. #デプロイメント
-  16. #最新更新情報
+Adherence to the following rules is of the **highest priority** in this project.
 
-  ---
-  📊 プロジェクト概要
+1.  **Strict Prohibition of `any` Type:**
+    *   To maintain code safety and maintainability, the use of TypeScript's `any` type is strictly prohibited.
+    *   In cases where type inference is difficult or external library type definitions are insufficient, do not resort to `any`. Instead, use the `unknown` type, generics, or create custom type definitions (`.d.ts`).
+    *   If you find existing code using `any`, you are strongly encouraged to refactor it with the appropriate types.
 
-  技術スタック
+2.  **Absolute Reference to Project Documentation:**
+    *   Before starting any development work, you must consult this `🎯 AI Chat V3 Complete Development Guide.md`.
+    *   When making any changes to the code (e.g., adding features, refactoring, specification changes), you **must** also update this document to ensure consistency between the implementation and the documentation.
 
-  Frontend: Next.js 15.4.6 + TypeScript + Tailwind CSS
-  State: Zustand (スライス分割アーキテクチャ)
-  Animation: Framer Motion
-  UI: Radix UI + Lucide React Icons
-  API: Gemini AI + OpenRouter + VoiceVox + ElevenLabs
-  Deployment: Vercel
+**Common Pitfalls and Best Practices**
 
-  主要機能
+Following these best practices can help prevent common errors.
 
-  - AIチャット: Gemini/OpenRouter/Claude対応
-  - キャラクターシステム: カスタムペルソナ機能
-  - メモリ管理: 5層階層メモリシステム
-  - トラッカーシステム: リアルタイム状態追跡
-  - 音声合成: VoiceVox/ElevenLabs対応
-  - エフェクト: リアルタイム感情分析・視覚効果
+1.  **Character Data Integrity:**
+    *   **Problem:** A `TypeError: state.toLowerCase is not a function` may occur in `tracker-manager.ts`.
+    *   **Cause:** The `possible_states` array in a character's JSON file contains non-string values (e.g., `null`, numbers).
+    *   **Solution:** When editing character data, ensure all elements in the `possible_states` array are strings.
 
-  ---
-  🏗️ アーキテクチャ設計
+2.  **API Keys and External API Errors:**
+    *   **Problem:** A `SyntaxError: Unexpected token '<'` (JSON parsing error) may occur.
+    *   **Cause:** The API server returns an HTML error page when an API key is invalid or has reached its usage limit.
+    *   **Solution:** If errors with external APIs like OpenRouter occur frequently, verify the API key's validity and check your account status (e.g., credits) on the official website.
 
-  全体アーキテクチャ
+3.  **Next.js Dev Server Cache:**
+    *   **Problem:** Build-related errors such as `EPERM` or `missing bootstrap script` can occur.
+    *   **Cause:** Corruption or inconsistency in the `.next` directory's build cache.
+    *   **Solution:** After significant changes (e.g., large refactors, library updates), it is recommended to stop the dev server, delete the `.next` folder, and restart it.
 
-  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-  │   Presentation  │    │    Business     │    │      Data       │
-  │   (Components)  │◄──►│    (Services)   │◄──►│   (API/Store)   │
-  └─────────────────┘    └─────────────────┘    └─────────────────┘
-           │                       │                       │
-      ┌────┴────┐            ┌─────┴─────┐          ┌──────┴──────┐
-      │UI Layer │            │Logic Layer│          │Storage Layer│
-      └─────────┘            └───────────┘          └─────────────┘
-
-  データフロー
-
-  User Input → Component → Zustand Store → Service Layer → API → Response
-      ↑                                                              ↓
-      └──────────────── UI Update ← State Update ←──────────────────┘
-
-  ---
-  📁 ディレクトリ構造
-
-  src/
-  ├── app/                      # Next.js App Router
-  │   ├── api/                 # API Routes
-  │   │   ├── characters/      # キャラクター管理API
-  │   │   ├── personas/        # ペルソナ管理API
-  │   │   ├── upload/          # ファイルアップロードAPI
-  │   │   └── voice/           # 音声合成API
-  │   ├── globals.css          # グローバルスタイル
-  │   ├── layout.tsx           # ルートレイアウト
-  │   └── page.tsx            # ホームページ
-  ├── components/              # UIコンポーネント
-  │   ├── chat/               # チャット関連UI
-  │   │   ├── ChatInterface.tsx
-  │   │   ├── MessageBubble.tsx
-  │   │   ├── MessageInput.tsx
-  │   │   ├── RichMessage.tsx
-  │   │   └── AdvancedEffects.tsx
-  │   ├── character/          # キャラクター管理UI
-  │   ├── settings/           # 設定UI
-  │   ├── tracker/            # トラッカーUI
-  │   ├── memory/             # メモリ管理UI
-  │   └── ui/                 # 共通UIコンポーネント
-  ├── contexts/               # React Context
-  │   └── EffectSettingsContext.tsx
-  ├── services/               # ビジネスロジック
-  │   ├── api/                # API関連サービス
-  │   │   ├── gemini-client.ts
-  │   │   ├── openrouter-client.ts (削除済み)
-  │   │   └── vector-search.ts
-  │   ├── memory/             # メモリシステム
-  │   │   ├── conversation-manager.ts
-  │   │   ├── dynamic-summarizer.ts
-  │   │   ├── memory-layer-manager.ts
-  │   │   └── vector-store.ts
-  │   ├── tracker/            # トラッカーシステム
-  │   │   └── tracker-manager.ts
-  │   ├── api-manager.ts      # 統合APIマネージャー
-  │   ├── inspiration-service.ts # 提案生成サービス
-  │   └── prompt-builder.service.ts
-  ├── store/                  # Zustand状態管理
-  │   ├── slices/             # 状態スライス
-  │   │   ├── chat.slice.ts
-  │   │   ├── character.slice.ts
-  │   │   ├── memory.slice.ts
-  │   │   ├── settings.slice.ts
-  │   │   ├── suggestion.slice.ts
-  │   │   └── tracker.slice.ts
-  │   └── index.ts            # ストア統合
-  ├── types/                  # TypeScript型定義
-  │   ├── core/               # コア型定義
-  │   │   ├── base.types.ts
-  │   │   ├── message.types.ts (統一済み)
-  │   │   ├── character.types.ts
-  │   │   ├── memory.types.ts
-  │   │   ├── session.types.ts
-  │   │   ├── tracker.types.ts
-  │   │   └── settings.types.ts
-  │   ├── api/                # API型定義
-  │   │   ├── requests.types.ts
-  │   │   └── responses.types.ts
-  │   ├── ui/                 # UI型定義
-  │   └── index.ts            # 型エクスポート統合
-  ├── lib/                    # ユーティリティ
-  │   └── utils.ts
-  └── hooks/                  # カスタムフック
-
-  ---
-  🔧 型定義システム
-
-  統一メッセージ型（2024年8月リファクタリング済み）
-
-  // src/types/core/message.types.ts
-  export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata {
-    // 基本情報
-    session_id: UUID;
-    role: MessageRole;
-    content: string;
-    image_url?: string;
-
-    // キャラクター関連
-    character_id?: UUID;
-    character_name?: string;
-    character_avatar?: string;
-
-    // メモリ関連
-    memory: {
-      importance: MemoryImportance;
-      is_pinned: boolean;
-      is_bookmarked: boolean;
-      keywords: string[];
-      summary?: string;
-    };
-
-    // 表現関連
-    expression: {
-      emotion: EmotionState;
-      style: MessageStyle;
-      effects: VisualEffect[];
-    };
-
-    // 編集履歴
-    edit_history: MessageEditEntry[];
-    regeneration_count: number;
-  }
-
-  基本エンティティ型
-
-  // src/types/core/base.types.ts
-  export interface BaseEntity {
-    id: UUID;
-    created_at: Timestamp;
-    updated_at: Timestamp;
-    version: number;
-  }
-
-  export interface SoftDeletable {
-    is_deleted: boolean;
-  }
-
-  export interface WithMetadata<T = Record<string, unknown>> {
-    metadata: T;
-  }
-
-  キャラクター型
-
-  // src/types/core/character.types.ts
-  export interface UnifiedCharacter extends BaseEntity, WithMetadata {
-    name: string;
-    age: string;
-    occupation: string;
-    personality: string;
-    external_personality: string;
-    internal_personality: string;
-    speaking_style: string;
-    background: string;
-    scenario: string;
-    first_message: string;
-    avatar_url?: string;
-    trackers: TrackerDefinition[];
-    nsfw_profile?: NSFWProfile;
-  }
-
-  ---
-  🧩 主要コンポーネント
-
-  ChatInterface.tsx
-
-  // メインチャットインターフェース
-  // 役割: 全体レイアウト・モーダル管理・セッション制御
-  // 依存: すべてのサブコンポーネント
-
-  Key Features:
-  - セッション管理
-  - モーダル統合管理
-  - レスポンシブレイアウト
-  - キーボードショートカット
-
-  MessageBubble.tsx
-
-  // 個別メッセージ表示コンポーネント
-  // 役割: メッセージレンダリング・インタラクション・エフェクト
-
-  Key Features:
-  - 動的メッセージスタイリング
-  - 編集機能（2024年8月追加）
-  - 音声再生・合成
-  - 感情ベースアニメーション
-  - アクションメニュー（再生成・コピー・編集・削除等）
-
-  TrackerDisplay.tsx
-
-  // トラッカー表示・操作コンポーネント
-  // 役割: リアルタイム状態表示・インタラクティブ更新
-
-  Key Features:
-  - カテゴリ別グループ化
-  - 数値・状態・ブール・テキストトラッカー対応
-  - リアルタイム変更インジケーター
-  - 視覚的フィードバック
-
-  ---
-  🏪 状態管理（Zustand）
-
-  ストア構造
-
-  // src/store/index.ts
-  export interface AppStore extends
-    ChatSlice,
-    CharacterSlice,
-    MemorySlice,
-    SettingsSlice,
-    SuggestionSlice,
-    TrackerSlice {}
-
-  // スライス統合
-  export const useAppStore = create<AppStore>()(
-    persist(
-      (...args) => ({
-        ...createChatSlice(...args),
-        ...createCharacterSlice(...args),
-        ...createMemorySlice(...args),
-        ...createSettingsSlice(...args),
-        ...createSuggestionSlice(...args),
-        ...createTrackerSlice(...args),
-      }),
-      {
-        name: 'ai-chat-store',
-        partialize: (state) => ({
-          // 永続化対象の選択
-          characters: state.characters,
-          personas: state.personas,
-          apiConfig: state.apiConfig,
-          voice: state.voice,
-          // セッションは永続化しない（セキュリティ考慮）
-        }),
-      }
-    )
-  );
-
-  ChatSlice
-
-  // src/store/slices/chat.slice.ts
-  export interface ChatSlice {
-    sessions: Map<UUID, UnifiedChatSession>;
-    trackerManagers: Map<UUID, TrackerManager>;
-    active_session_id: UUID | null;
-    is_generating: boolean;
-
-    // アクション
-    createSession: (character: Character, persona: Persona) => Promise<UUID>;
-    sendMessage: (content: string, imageUrl?: string) => Promise<void>;
-    regenerateLastMessage: () => Promise<void>;
-    deleteMessage: (message_id: UUID) => void;
-  }
-
-  ---
-  🔌 API設計
-
-  APIマネージャー（統合済み）
-
-  // src/services/api-manager.ts
-  export class APIManager {
-    private currentConfig: APIConfig;
-    private openRouterApiKey: string | null = null;
-
-    // 統一メッセージ生成インターフェース
-    async generateMessage(
-      systemPrompt: string,
-      userMessage: string,
-      conversationHistory: { role: 'user' | 'assistant'; content: string }[],
-      options?: Partial<APIConfig>
-    ): Promise<string>
-
-    // Gemini/OpenRouter自動切り替え
-    private async generateWithGemini(...)
-    private async generateWithOpenRouter(...)
-  }
-
-  API Routes
-
-  // src/app/api/characters/route.ts
-  export async function GET(): Promise<NextResponse<Character[]>>
-  export async function POST(request: NextRequest): Promise<NextResponse>
-
-  // src/app/api/voice/voicevox/route.ts
-  export async function POST(request: NextRequest): Promise<NextResponse>
-  // Body: { text: string, speakerId: number, settings: VoiceVoxSettings }
-
-  // src/app/api/upload/image/route.ts
-  export async function POST(request: NextRequest): Promise<NextResponse>
-  // 画像・動画アップロード対応（50MB制限）
-
-  ---
-  🧠 メモリシステム
-
-  5層階層メモリ
-
-  // src/services/memory/memory-layer-manager.ts
-  interface MemoryLayers {
-    immediate_memory: MemoryLayer;    // 直近3メッセージ
-    working_memory: MemoryLayer;      // 活発な10メッセージ
-    episodic_memory: MemoryLayer;     // エピソード50メッセージ
-    semantic_memory: MemoryLayer;     // 重要な200メッセージ
-    permanent_memory: PermanentLayer; // ピン留めメッセージ・要約
-  }
-
-  // 自動移行ロジック
-  class MemoryLayerManager {
-    addMessage(message: UnifiedMessage): void
-    promoteMessage(messageId: string, fromLayer: string, toLayer: string): void
-    demoteMessage(messageId: string, fromLayer: string, toLayer: string): void
-    compressLayer(layerName: string): void
-  }
-
-  ベクトル検索
-
-  // src/services/memory/vector-store.ts
-  class VectorStore {
-    private messages: Map<string, UnifiedMessage> = new Map();
-    private embeddings: Map<string, number[]> = new Map();
-
-    async addMessage(message: UnifiedMessage): Promise<void>
-    async searchSimilar(query: string, limit: number = 5): Promise<SearchResult[]>
-    cosineSimilarity(a: number[], b: number[]): number
-  }
-
-  ---
-  📊 トラッカーシステム
-
-  トラッカー定義
-
-  // src/types/core/tracker.types.ts
-  export interface TrackerDefinition extends BaseEntity {
-    name: string;
-    display_name: string;
-    description?: string;
-    category: 'relationship' | 'status' | 'condition' | 'other';
-    config: TrackerConfig;
-  }
-
-  export type TrackerConfig =
-    | NumericTrackerConfig
-    | StateTrackerConfig
-    | BooleanTrackerConfig
-    | TextTrackerConfig;
-
-  トラッカーマネージャー
-
-  // src/services/tracker/tracker-manager.ts
-  export class TrackerManager {
-    private trackerSets: Map<string, TrackerSet> = new Map();
-
-    initializeTrackerSet(characterId: string, trackers: TrackerDefinition[]): TrackerSet
-    updateTracker(characterId: string, trackerName: string, newValue: TrackerValue): void
-    getTrackersForPrompt(characterId: string): string
-
-    // 自動更新ロジック
-    analyzeMessageForTrackerUpdates(message: UnifiedMessage): TrackerUpdate[]
-  }
-
-  ---
-  🔧 開発フロー
-
-  セットアップ
-
-  # 1. 依存関係インストール
-  npm install
-
-  # 2. 環境変数設定
-  cp .env.local.example .env.local
-  # NEXT_PUBLIC_GEMINI_API_KEY=your_api_key
-  # ELEVENLABS_API_KEY=your_api_key
-  # VOICEVOX_ENGINE_URL=http://127.0.0.1:50021
-
-  # 3. 開発サーバー起動
-  npm run dev
-  # http://localhost:3000
-
-  # 4. 型チェック
-  npx tsc --noEmit
-
-  # 5. ビルド
-  npm run build
-
-  コーディング規約
-
-  // 1. 型安全性優先
-  // ❌ 悪い例
-  const message: any = getMessage();
-
-  // ✅ 良い例
-  const message: UnifiedMessage = getMessage();
-
-  // 2. 統一メッセージ型使用
-  // ❌ 旧型（削除済み）
-  interface Message { sender: 'user' | 'assistant'; }
-
-  // ✅ 新型
-  interface UnifiedMessage { role: 'user' | 'assistant'; }
-
-  // 3. サービス層分離
-  // ❌ コンポーネント内でAPI直接呼び出し
-  const response = await fetch('/api/chat');
-
-  // ✅ サービス経由
-  const response = await apiManager.generateMessage(prompt, message);
-
-  // 4. エラーハンドリング
-  try {
-    const result = await someAsyncOperation();
-    return result;
-  } catch (error) {
-    console.error('Operation failed:', error);
-    throw new Error(`Failed to complete operation: ${error.message}`);
-  }
-
-  ---
-  🐛 デバッグガイド
-
-  一般的な問題と解決方法
-
-  1. 型エラー
-
-  // エラー: Property 'sender' does not exist on type 'UnifiedMessage'
-  // 解決: 旧型参照を新型に更新
-  message.sender → message.role
-
-  2. トラッカー表示問題
-
-  // エラー: トラッカーの初期値が表示されない
-  // 解決: tracker.config.type を正しく参照
-  tracker.type → tracker.config?.type
-
-  3. 音声再生エラー
-
-  // エラー: VoiceVox APIパラメータエラー
-  // 解決: 正しいパラメータ形式使用
-  { speaker: 1, speed: 1.0 }
-  →
-  { speakerId: 1, settings: { speed: 1.0 } }
-
-  4. ビルドエラー
-
-  # TypeScript型エラー
-  npx tsc --noEmit --skipLibCheck
-
-  # 依存関係問題
-  rm -rf node_modules package-lock.json
-  npm install
-
-  # Next.js キャッシュクリア
-  rm -rf .next
-  npm run build
-
-  デバッグツール設定
-
-  // 1. コンソールログ設定
-  // src/lib/debug.ts
-  export const debugLog = (component: string, data: any) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[${component}]`, data);
-    }
-  };
-
-  // 2. Zustand DevTools
-  import { devtools } from 'zustand/middleware';
-  export const useAppStore = create<AppStore>()(
-    devtools(
-      persist(...),
-      { name: 'ai-chat-store' }
-    )
-  );
-
-  // 3. React DevTools Profiler使用推奨
-
-  パフォーマンス監視
-
-  // 1. レンダリング最適化
-  const MemoizedComponent = React.memo(ExpensiveComponent);
-
-  // 2. 状態更新最適化
-  // ❌ 過度な再レンダリング
-  const allMessages = useAppStore(state => state.sessions);
-
-  // ✅ 必要な部分のみ
-  const activeMessages = useAppStore(state =>
-    state.sessions.get(state.active_session_id)?.messages || []
-  );
-
-  // 3. 大きなリスト仮想化
-  import { FixedSizeList as List } from 'react-window';
-
-  ---
-  🚀 デプロイメント
-
-  Vercel設定
-
-  // vercel.json
-  {
-    "buildCommand": "npm run build",
-    "installCommand": "npm install",
-    "outputDirectory": ".next",
-    "functions": {
-      "src/app/api/**/*.ts": {
-        "maxDuration": 30
-      }
-    },
-    "env": {
-      "NEXT_PUBLIC_GEMINI_API_KEY": "@gemini-api-key",
-      "ELEVENLABS_API_KEY": "@elevenlabs-api-key",
-      "VOICEVOX_ENGINE_URL": "@voicevox-url"
-    }
-  }
-
-  環境変数
-
-  # 本番環境
-  NEXT_PUBLIC_GEMINI_API_KEY=     # Gemini APIキー
-  ELEVENLABS_API_KEY=             # ElevenLabs APIキー
-  OPENROUTER_TITLE=               # OpenRouterアプリ名
-  RUNWARE_API_KEY=                # 画像生成APIキー
-  VOICEVOX_ENGINE_URL=            # VoiceVoxエンジンURL
-
-  デプロイコマンド
-
-  # 1. ローカルビルド確認
-  npm run build
-
-  # 2. Vercelデプロイ
-  npx vercel --prod
-
-  # 3. プロジェクト削除（必要時）
-  vercel rm project-name --yes
-
-  # 4. 新規プロジェクト作成
-  rm -rf .vercel
-  npx vercel --prod --yes
-
-  ---
-  🔍 システム状況確認（2024年8月20日時点）
-
-  ## メモリシステム現状
-
-  ### メモリ記憶層
-  - **自動更新**: ❌ 未実装
-  - **階層管理**: memory-layer-manager.ts は存在するが、自動移行ロジックは未実装
-  - **手動操作**: ✅ 限定的に可能
-    - 各レイヤーの展開・詳細表示（MemoryLayerDisplay.tsx:129-131）
-    - レイヤークリア機能（MemoryLayerDisplay.tsx:133-137）
-    - 統計情報表示（メッセージ数、操作数）
-
-  ### メモリカード機能
-  - **手動作成**: ✅ AI自動生成実装済み - memory.slice.ts:49-169
-    - ユーザーが「新規作成」ボタンで任意のタイミングで作成
-    - 最新5メッセージからAI分析による自動生成
-    - タイトル、要約、キーワード、カテゴリーを自動判定
-    - 重要度スコア・感情タグ・文脈タグの自動付与
-    - フォールバック機能付き（AI失敗時の代替処理）
-  - **完全自動作成**: ✅ 新規実装 - auto-memory-manager.ts
-    - 会話中の重要なメッセージを自動検出してメモリー作成
-    - 重要キーワード・感情重み・会話深度・時間的重要性を総合判定
-    - 閾値スコア0.7以上で自動作成実行
-    - chat.slice.ts:260-272で各AIメッセージ後に実行
-  - **AI生成サービス**: memory-card-generator.ts
-    - JSON形式での構造化分析
-    - 感情重み・繰り返し度・強調度の自動計算
-    - 類似度検出・レーベンシュタイン距離による重複判定
-  - **表示・編集**: ✅ 実装済み - MemoryCard.tsx
-  - **フィルター・検索**: ✅ 実装済み
-
-  ## インスピレーション機能現状
-
-  ### 返信提案機能
-  - **プロンプト参照**: ✅ チャット設定から参照
-  - **実装場所**: inspiration-service.ts:14-67
-  - **カスタムプロンプト対応**: ✅ customPrompt パラメータで設定可能
-  - **プレースホルダー**: {{conversation}} が会話コンテキストに置換
-  - **デフォルトカテゴリー**: ハードコーディング済み（inspiration-service.ts:30-35）
-    - 共感・受容型
-    - 探求・開発型（分析・調教師型）  
-    - 挑発・逸脱型な返信文
-    - 甘え・依存型（ヤンデレ・年下彼氏型）
-  - **解析機能強化**: 複数の解析方式で柔軟対応（inspiration-service.ts:188-261）
-    - [カテゴリー]形式の正確マッチング
-    - 番号付きリスト（1. 2. 3.）での分割
-    - 箇条書き（- •）での分割  
-    - 段落分割による最終フォールバック
-  - **出力形式改善**: {{user}}視点・箇条書き・説明文禁止の指示追加
-
-  ### 文章強化機能  
-  - **プロンプト参照**: ✅ チャット設定から参照
-  - **実装場所**: inspiration-service.ts:75-112
-  - **カスタムプロンプト対応**: ✅ enhancePrompt パラメータで設定可能
-  - **プレースホルダー**: {{conversation}}, {{user}}, {{text}} が置換
-  - **必須プレースホルダー**: {{user}} または {{text}} のいずれか（入力テキスト用）
-
-  ## トラッカーシステム現状
-  - **自動更新**: ✅ 正常動作
-  - **UI表示**: ✅ 正常動作
-  - **リアルタイム反映**: ✅ 正常動作
-
-  ---
-  📚 追加リソース
-
-  重要ファイル一覧
-
-  🔥 最重要（コア機能）
-  ├── src/types/core/message.types.ts    # 統一メッセージ型
-  ├── src/store/index.ts                 # Zustand統合ストア
-  ├── src/services/api-manager.ts        # API統合マネージャー
-  ├── src/components/chat/ChatInterface.tsx
-  └── src/components/chat/MessageBubble.tsx
-
-  ⚡ 重要（主要機能）
-  ├── src/services/tracker/tracker-manager.ts
-  ├── src/services/memory/memory-layer-manager.ts
-  ├── src/store/slices/chat.slice.ts
-  ├── src/components/tracker/TrackerDisplay.tsx
-  └── src/contexts/EffectSettingsContext.tsx
-
-  🛠️ 設定・ユーティリティ
-  ├── src/types/index.ts
-  ├── src/lib/utils.ts
-  ├── next.config.js
-  └── tailwind.config.js
-
-  開発コマンド集
-
-  # 開発
-  npm run dev                    # 開発サーバー起動
-  npm run build                  # 本番ビルド
-  npm run start                  # 本番サーバー起動
-  npx tsc --noEmit              # 型チェックのみ
-
-  # デバッグ
-  npm run dev -- --port 3001   # ポート指定起動
-  npm run build -- --debug     # デバッグビルド
-
-  # クリーンアップ
-  rm -rf .next node_modules     # 完全リセット
-  npm install                   # 再インストール
-
-  ---
-  🎯 まとめ
-
-  このAI Chat V3プロジェクトは、型安全性、保守性、拡張性を重視して設計されています。
-
-  開発時の注意点
-
-  1. 必ずUnifiedMessage型を使用（旧Message型は削除済み）
-  2. サービス層を経由してAPI呼び出し
-  3. Zustandスライスパターンで状態管理
-  4. TypeScript型チェックを常時実行
-
-  拡張時のガイドライン
-
-  1. 新機能は既存アーキテクチャに従って実装
-  2. 型定義を先に作成してから実装
-  3. テスト可能な小さなコンポーネントで構築
+4.  **Async Operations in Zustand Store:**
+    *   **Problem:** The UI may freeze for an extended period when performing actions that involve API calls.
+    *   **Cause:** The store action waits synchronously for a heavy asynchronous operation to complete before updating the UI state.
+    *   **Solution:** Adopt a "UI First" approach. Update the UI state immediately (e.g., display the user's message) and then execute time-consuming asynchronous operations in the background.
 
 ---
-## 🆕 最新更新情報
 
-### 2025-08-21 メジャーアップデート
+📋 **Table of Contents**
 
-#### 🔧 システム修正
-- **JSONパースエラー修正**: ローカルストレージの破損データ対応により、コンソールエラーを完全解消
-- **サイドパネル位置修正**: モバイルでの右サイドパネル表示問題を解決
-- **useMemoインポート追加**: ChatInterfaceでの型エラーを修正
+1.  #Project_Overview
+2.  #Architecture_Design
+3.  #Directory_Structure
+4.  #Type_Definition_System
+5.  #Key_Components
+6.  #State_Management_Zustand
+7.  #API_Design
+8.  #Memory_System
+9.  #Tracker_System
+10. #System_Prompt_Integration
+11. #Settings_Management_System
+12. #Voice_Synthesis_System
+13. #Development_Workflow
+14. #Debugging_Guide
+15. #Deployment
+16. #Latest_Updates
 
-#### 🎵 音声システム改善  
-- **音声自動再生機能**: AIメッセージの自動音声再生を実装
-- **重複再生防止**: 音声の重複・リピート再生を完全解決
-- **VoiceVox/ElevenLabs対応**: 両プロバイダーでの音声自動再生
+---
+📊 **Project Overview**
 
-#### 📊 トラッカーシステム強化
-- **新旧フォーマット対応**: 統一されたキャラクター設定形式をサポート
-- **表示問題解決**: トラッカーパネルの半分表示問題を修正
-- **初期化処理改善**: キャラクター切り替え時の安定性向上
+**Tech Stack**
 
-#### 🧠 メモリカード機能復旧
-- **自動更新機能**: トラッカー連動によるメモリカード自動生成を復活
-- **重要度判定**: 会話の重要度に基づく自動メモリ作成
+*   **Frontend:** Next.js 15.4.6 + TypeScript + Tailwind CSS
+*   **State Management:** Zustand (Slice-based architecture)
+*   **Animation:** Framer Motion
+*   **UI:** Radix UI + Lucide React Icons
+*   **APIs:** Gemini AI + OpenRouter + VoiceVox + ElevenLabs
+*   **Deployment:** Vercel
 
-#### ⚙️ 設定システム改善
-- **カスタムプロンプト**: 削除後の復活問題を解決
-- **設定永続化**: より安全な設定保存・読み込み
-- **リセット機能**: システムプロンプトの初期化機能追加
+**Core Features**
 
-#### 🎨 UI/UX向上
-- **「続きを出力」ボタン**: チャットメニューに復活
-- **モバイル対応**: レスポンシブレイアウトの改善
-- **エラー処理**: より適切なユーザー通知
+*   **AI Chat:** Support for Gemini/OpenRouter/Claude
+*   **Character System:** Custom persona functionality
+*   **Memory Management:** 5-layer hierarchical memory system
+*   **Tracker System:** Real-time state tracking
+*   **Voice Synthesis:** VoiceVox/ElevenLabs integration
+*   **Effects:** Real-time emotion analysis and visual effects
 
-#### 📝 開発体験向上
-- **型安全性**: TypeScript strict モードでの完全対応
-- **デバッグ情報**: コンソールログでの詳細な動作確認
-- **コード品質**: ESLint/Prettier による自動フォーマット
+---
+🏗️ **Architecture Design**
 
-#### 🎤 音声通話機能実装（2025-01-21）
-- **WebSocket音声サーバー**: Node.js + TypeScript によるリアルタイム音声通話システム
-- **音声認識・合成パイプライン**: Whisper API + VoiceVox/ElevenLabs 統合
-- **VAD（音声活動検知）**: 自動発話開始・終了検出による自然な会話体験
-- **低レイテンシー最適化**: ストリーミング応答・段階的音声合成・音声キャッシング
-- **既存システム統合**: Zustandストア・キャラクターシステム・チャット履歴との完全連携
+**Overall Architecture**
 
-### 2025-01-21 音声通話機能実装状況
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Presentation  │    │    Business     │    │      Data       │
+│   (Components)  │◄──►│    (Services)   │◄──►│   (API/Store)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+    ┌────┴────┐            ┌─────┴─────┐          ┌──────┴──────┐
+    │UI Layer │            │Logic Layer│          │Storage Layer│
+    └─────────┘            └───────────┘          └─────────────┘
+```
 
-#### 🏗️ 音声通話システムアーキテクチャ
+**Data Flow**
 
-**サーバー側実装**
-- **WebSocket音声サーバー**: `音声通話/voice-server.js` - ポート8082で動作
-- **音声処理パイプライン**: 音声認識 → AI応答生成 → 音声合成 → ストリーミング送信
-- **VAD実装**: 簡易音声レベル検出による発話区間の自動判定
-- **エラーハンドリング**: OpenAI APIキーなしでもモック機能で動作確認可能
+```
+User Input → Component → Zustand Store → Service Layer → API → Response
+    ↑                                                              ↓
+    └──────────────── UI Update ← State Update ←──────────────────┘
+```
 
-**クライアント側実装**
-- **音声通話インターフェース**: `音声通話/voice-test-component.ts` - 段階的テスト機能
-- **WebSocket通信**: リアルタイム音声データの双方向ストリーミング
-- **音声ビジュアライザー**: リアルタイム音声レベル表示
-- **マイク制御**: 録音開始・停止・ミュート機能
+---
+📁 **Directory Structure**
 
-#### 📁 音声通話関連ファイル構成
+```
+src/
+├── app/                      # Next.js App Router
+│   ├── api/                 # API Routes
+│   │   ├── characters/      # Character management API
+│   │   ├── personas/        # Persona management API
+│   │   ├── upload/          # File upload API
+│   │   └── voice/           # Voice synthesis API
+│   ├── globals.css          # Global styles
+│   ├── layout.tsx           # Root layout
+│   └── page.tsx             # Home page
+├── components/              # UI Components
+│   ├── chat/               # Chat-related UI
+│   │   ├── ChatInterface.tsx
+│   │   ├── MessageBubble.tsx
+│   │   ├── MessageInput.tsx
+│   │   ├── RichMessage.tsx
+│   │   └── AdvancedEffects.tsx
+│   ├── character/          # Character management UI
+│   ├── settings/           # Settings UI
+│   ├── tracker/            # Tracker UI
+│   ├── memory/             # Memory management UI
+│   └── ui/                 # Common UI components
+├── contexts/               # React Context
+│   └── EffectSettingsContext.tsx
+├── services/               # Business Logic
+│   ├── api/                # API-related services
+│   │   ├── gemini-client.ts
+│   │   ├── openrouter-client.ts (deleted)
+│   │   └── vector-search.ts
+│   ├── memory/             # Memory system
+│   │   ├── conversation-manager.ts
+│   │   ├── dynamic-summarizer.ts
+│   │   ├── memory-layer-manager.ts
+│   │   └── vector-store.ts
+│   ├── tracker/            # Tracker system
+│   │   └── tracker-manager.ts
+│   ├── api-manager.ts      # Unified API Manager
+│   ├── inspiration-service.ts # Suggestion generation service
+│   └── prompt-builder.service.ts
+├── store/                  # Zustand State Management
+│   ├── slices/             # State slices
+│   │   ├── chat.slice.ts
+│   │   ├── character.slice.ts
+│   │   ├── memory.slice.ts
+│   │   ├── settings.slice.ts
+│   │   ├── suggestion.slice.ts
+│   │   └── tracker.slice.ts
+│   └── index.ts            # Store integration
+├── types/                  # TypeScript Type Definitions
+│   ├── core/               # Core type definitions
+│   │   ├── base.types.ts
+│   │   ├── message.types.ts (unified)
+│   │   ├── character.types.ts
+│   │   ├── memory.types.ts
+│   │   ├── session.types.ts
+│   │   ├── tracker.types.ts
+│   │   └── settings.types.ts
+│   ├── api/                # API type definitions
+│   │   ├── requests.types.ts
+│   │   └── responses.types.ts
+│   ├── ui/                 # UI type definitions
+│   └── index.ts            # Type export aggregation
+├── lib/                    # Utilities
+│   └── utils.ts
+└── hooks/                  # Custom Hooks
+```
+
+---
+🔧 **Type Definition System**
+
+**Unified Message Type (Refactored August 2024)**
+
+```typescript
+// src/types/core/message.types.ts
+export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata {
+  // Basic Info
+  session_id: UUID;
+  role: MessageRole;
+  content: string;
+  image_url?: string;
+
+  // Character Info
+  character_id?: UUID;
+  character_name?: string;
+  character_avatar?: string;
+
+  // Memory Info
+  memory: {
+    importance: MemoryImportance;
+    is_pinned: boolean;
+    is_bookmarked: boolean;
+    keywords: string[];
+    summary?: string;
+  };
+
+  // Expression Info
+  expression: {
+    emotion: EmotionState;
+    style: MessageStyle;
+    effects: VisualEffect[];
+  };
+
+  // Edit History
+  edit_history: MessageEditEntry[];
+  regeneration_count: number;
+}
+```
+
+**Base Entity Types**
+
+```typescript
+// src/types/core/base.types.ts
+export interface BaseEntity {
+  id: UUID;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  version: number;
+}
+
+export interface SoftDeletable {
+  is_deleted: boolean;
+}
+
+export interface WithMetadata<T = Record<string, unknown>> {
+  metadata: T;
+}
+```
+
+**Character Type**
+
+```typescript
+// src/types/core/character.types.ts
+export interface Character extends BaseEntity {
+  // Basic Info
+  name: string;
+  age: string;
+  occupation: string;
+  catchphrase: string;
+  
+  // Personality & Traits
+  personality: string;
+  external_personality: string;
+  internal_personality: string;
+  strengths: string[];
+  weaknesses: string[];
+  
+  // Preferences & Hobbies
+  hobbies: string[];
+  likes: string[];
+  dislikes: string[];
+  
+  // Appearance & Style
+  appearance: string;
+  avatar_url?: string;
+  background_url?: string;
+  image_prompt?: string;
+  negative_prompt?: string;
+  
+  // Speaking Style
+  speaking_style: string;
+  first_person: string;
+  second_person: string;
+  verbal_tics: string[];
+  
+  // Background & Scenario
+  background: string;
+  scenario: string;
+  
+  // AI System Settings
+  system_prompt: string;
+  first_message: string;
+  
+  // Metadata
+  tags: string[];
+  
+  // Tracker Definitions
+  trackers: TrackerDefinition[];
+  
+  // NSFW Profile (Optional)
+  nsfw_profile?: NSFWProfile;
+}
+```
+
+---
+🧩 **Key Components**
+
+**`ChatInterface.tsx`**
+
+*   **Description:** The main chat interface component.
+*   **Responsibilities:** Manages the overall layout, modals, and session control.
+*   **Dependencies:** All sub-components.
+*   **Key Features:**
+    *   Session management
+    *   Integrated modal control
+    *   Responsive layout
+    *   Keyboard shortcuts
+
+**`MessageBubble.tsx`**
+
+*   **Description:** Renders an individual message.
+*   **Responsibilities:** Message rendering, user interactions, and visual effects.
+*   **Key Features:**
+    *   Dynamic message styling
+    *   Edit functionality (added August 2024)
+    *   Voice playback and synthesis
+    *   Emotion-based animations
+    *   Action menu (regenerate, copy, edit, delete, etc.)
+
+**`TrackerDisplay.tsx`**
+
+*   **Description:** Displays and manages trackers.
+*   **Responsibilities:** Real-time state display and interactive updates.
+*   **Key Features:**
+    *   Grouping by category
+    *   Supports numeric, state, boolean, and text trackers
+    *   Real-time change indicators
+    *   Visual feedback
+
+---
+🏪 **State Management (Zustand)**
+
+**Store Structure**
+
+```typescript
+// src/store/index.ts
+export interface AppStore extends
+  ChatSlice,
+  CharacterSlice,
+  MemorySlice,
+  SettingsSlice,
+  SuggestionSlice,
+  TrackerSlice {}
+
+// Slice Integration
+export const useAppStore = create<AppStore>()(
+  persist(
+    (...args) => ({
+      ...createChatSlice(...args),
+      ...createCharacterSlice(...args),
+      ...createMemorySlice(...args),
+      ...createSettingsSlice(...args),
+      ...createSuggestionSlice(...args),
+      ...createTrackerSlice(...args),
+    }),
+    {
+      name: 'ai-chat-store',
+      partialize: (state) => ({
+        // Select state to persist
+        characters: state.characters,
+        personas: state.personas,
+        apiConfig: state.apiConfig,
+        voice: state.voice,
+        // Sessions are not persisted for security reasons
+      }),
+    }
+  )
+);
+```
+
+**`ChatSlice`**
+
+```typescript
+// src/store/slices/chat.slice.ts
+export interface ChatSlice {
+  sessions: Map<UUID, UnifiedChatSession>;
+  trackerManagers: Map<UUID, TrackerManager>;
+  active_session_id: UUID | null;
+  is_generating: boolean;
+
+  // Actions
+  createSession: (character: Character, persona: Persona) => Promise<UUID>;
+  sendMessage: (content: string, imageUrl?: string) => Promise<void>;
+  regenerateLastMessage: () => Promise<void>;
+  deleteMessage: (message_id: UUID) => void;
+}
+```
+
+---
+🔌 **API Design**
+
+**API Manager (Unified)**
+
+```typescript
+// src/services/api-manager.ts
+export class APIManager {
+  private currentConfig: APIConfig;
+  private openRouterApiKey: string | null = null;
+
+  // Unified message generation interface
+  async generateMessage(
+    systemPrompt: string,
+    userMessage: string,
+    conversationHistory: { role: 'user' | 'assistant'; content: string }[],
+    options?: Partial<APIConfig>
+  ): Promise<string>
+
+  // Automatic switching between Gemini/OpenRouter
+  private async generateWithGemini(...)
+  private async generateWithOpenRouter(...)
+}
+```
+
+**API Routes**
+
+```typescript
+// src/app/api/characters/route.ts
+export async function GET(): Promise<NextResponse<Character[]>>
+export async function POST(request: NextRequest): Promise<NextResponse>
+
+// src/app/api/voice/voicevox/route.ts
+export async function POST(request: NextRequest): Promise<NextResponse>
+// Body: { text: string, speakerId: number, settings: VoiceVoxSettings }
+
+// src/app/api/upload/image/route.ts
+export async function POST(request: NextRequest): Promise<NextResponse>
+// Supports image/video uploads (50MB limit)
+```
+
+---
+🧠 **Memory System**
+
+**5-Layer Hierarchical Memory**
+
+```typescript
+// src/services/memory/memory-layer-manager.ts
+interface MemoryLayers {
+  immediate_memory: MemoryLayer;    // Last 3 messages
+  working_memory: MemoryLayer;      // Active 10 messages
+  episodic_memory: MemoryLayer;     // 50 episodic messages
+  semantic_memory: MemoryLayer;     // 200 important messages
+  permanent_memory: PermanentLayer; // Pinned messages & summaries
+}
+
+// Automatic transition logic
+class MemoryLayerManager {
+  addMessage(message: UnifiedMessage): void
+  promoteMessage(messageId: string, fromLayer: string, toLayer: string): void
+  demoteMessage(messageId: string, fromLayer: string, toLayer: string): void
+  compressLayer(layerName: string): void
+}
+```
+
+**Vector Search**
+
+```typescript
+// src/services/memory/vector-store.ts
+class VectorStore {
+  private messages: Map<string, UnifiedMessage> = new Map();
+  private embeddings: Map<string, number[]> = new Map();
+
+  async addMessage(message: UnifiedMessage): Promise<void>
+  async searchSimilar(query: string, limit: number = 5): Promise<SearchResult[]>
+  cosineSimilarity(a: number[], b: number[]): number
+}
+```
+
+---
+📊 **Tracker System**
+
+**Tracker Definition**
+
+```typescript
+// src/types/core/tracker.types.ts
+export interface TrackerDefinition extends BaseEntity {
+  name: string;
+  display_name: string;
+  description?: string;
+  category: 'relationship' | 'status' | 'condition' | 'other';
+  config: TrackerConfig;
+}
+
+export type TrackerConfig =
+  | NumericTrackerConfig
+  | StateTrackerConfig
+  | BooleanTrackerConfig
+  | TextTrackerConfig;
+```
+
+**Tracker Manager**
+
+```typescript
+// src/services/tracker/tracker-manager.ts
+export class TrackerManager {
+  private trackerSets: Map<string, TrackerSet> = new Map();
+
+  initializeTrackerSet(characterId: string, trackers: TrackerDefinition[]): TrackerSet
+  updateTracker(characterId: string, trackerName: string, newValue: TrackerValue): void
+  getTrackersForPrompt(characterId: string): string
+
+  // Automatic update logic
+  analyzeMessageForTrackerUpdates(message: UnifiedMessage): TrackerUpdate[]
+}
+```
+
+---
+🔧 **Development Workflow**
+
+**Setup**
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set up environment variables
+cp .env.local.example .env.local
+# NEXT_PUBLIC_GEMINI_API_KEY=your_api_key
+# ELEVENLABS_API_KEY=your_api_key
+# VOICEVOX_ENGINE_URL=http://127.0.0.1:50021
+
+# 3. Start the development server
+npm run dev
+# http://localhost:3000
+
+# 4. Type check
+npx tsc --noEmit
+
+# 5. Build for production
+npm run build
+```
+
+**Coding Standards**
+
+```typescript
+// 1. Prioritize Type Safety
+// ❌ Bad
+const message: any = getMessage();
+
+// ✅ Good
+const message: UnifiedMessage = getMessage();
+
+// 2. Use Unified Message Type
+// ❌ Old (deleted)
+interface Message { sender: 'user' | 'assistant'; }
+
+// ✅ New
+interface UnifiedMessage { role: 'user' | 'assistant'; }
+
+// 3. Separate Service Layer
+// ❌ Calling API directly in a component
+const response = await fetch('/api/chat');
+
+// ✅ Using the service layer
+const response = await apiManager.generateMessage(prompt, message);
+
+// 4. Error Handling
+try {
+  const result = await someAsyncOperation();
+  return result;
+} catch (error) {
+  console.error('Operation failed:', error);
+  throw new Error(`Failed to complete operation: ${error.message}`);
+}
+```
+
+---
+🐛 **Debugging Guide**
+
+**Common Issues and Solutions**
+
+1.  **Type Errors**
+    *   **Error:** `Property 'sender' does not exist on type 'UnifiedMessage'`
+    *   **Solution:** Update references from old types to the new unified types.
+        `message.sender` → `message.role`
+
+2.  **Tracker Display Issues**
+    *   **Error:** Tracker's initial value is not displayed.
+    *   **Solution:** Reference the type correctly via `tracker.config`.
+        `tracker.type` → `tracker.config?.type`
+
+3.  **Voice Playback Errors**
+    *   **Error:** VoiceVox API parameter error.
+    *   **Solution:** Use the correct parameter format.
+        `{ speaker: 1, speed: 1.0 }`
+        →
+        `{ speakerId: 1, settings: { speed: 1.0 } }`
+
+4.  **Build Errors**
+    ```bash
+    # TypeScript type errors
+    npx tsc --noEmit --skipLibCheck
+
+    # Dependency issues
+    rm -rf node_modules package-lock.json
+    npm install
+
+    # Clear Next.js cache
+    rm -rf .next
+    npm run build
+    ```
+
+**Debugging Tools Setup**
+
+```typescript
+// 1. Console Log Helper
+// src/lib/debug.ts
+export const debugLog = (component: string, data: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${component}]`, data);
+  }
+};
+
+// 2. Zustand DevTools
+import { devtools } from 'zustand/middleware';
+export const useAppStore = create<AppStore>()(
+  devtools(
+    persist(...),
+    { name: 'ai-chat-store' }
+  )
+);
+
+// 3. React DevTools Profiler is recommended.
+```
+
+**Performance Monitoring**
+
+```typescript
+// 1. Optimize Rendering
+const MemoizedComponent = React.memo(ExpensiveComponent);
+
+// 2. Optimize State Updates
+// ❌ Causes excessive re-renders
+const allMessages = useAppStore(state => state.sessions);
+
+// ✅ Select only what's needed
+const activeMessages = useAppStore(state =>
+  state.sessions.get(state.active_session_id)?.messages || []
+);
+
+// 3. Virtualize Large Lists
+import { FixedSizeList as List } from 'react-window';
+```
+
+---
+🚀 **Deployment**
+
+**Vercel Configuration**
+
+```json
+// vercel.json
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_GEMINI_API_KEY": "@gemini-api-key",
+    "ELEVENLABS_API_KEY": "@elevenlabs-api-key",
+    "VOICEVOX_ENGINE_URL": "@voicevox-url"
+  }
+}
+```
+
+**Environment Variables**
+
+```
+# Production Environment
+NEXT_PUBLIC_GEMINI_API_KEY=     # Gemini API Key
+ELEVENLABS_API_KEY=             # ElevenLabs API Key
+OPENROUTER_TITLE=               # OpenRouter App Name
+RUNWARE_API_KEY=                # Image Generation API Key
+VOICEVOX_ENGINE_URL=            # VoiceVox Engine URL
+```
+
+**Deployment Commands**
+
+```bash
+# 1. Verify local build
+npm run build
+
+# 2. Deploy to Vercel
+npx vercel --prod
+
+# 3. Remove project (if needed)
+vercel rm project-name --yes
+
+# 4. Create a new project
+rm -rf .vercel
+npx vercel --prod --yes
+```
+
+---
+🔍 **System Status (as of August 20, 2024)**
+
+**Memory System Status**
+
+*   **Memory Layers**
+    *   **Auto-update:** ❌ Not implemented
+    *   **Layer Management:** `memory-layer-manager.ts` exists, but auto-transition logic is not implemented.
+    *   **Manual Operations:** ✅ Limited functionality available
+        *   Expand/view layer details (`MemoryLayerDisplay.tsx:129-131`)
+        *   Clear layer function (`MemoryLayerDisplay.tsx:133-137`)
+        *   Display stats (message count, access count)
+
+*   **Memory Card Feature**
+    *   **Manual Creation:** ✅ AI auto-generation implemented - `memory.slice.ts:49-169`
+        *   User can create via "New" button
+        *   Auto-generates from the last 5 messages
+        *   Auto-determines title, summary, keywords, category
+        *   Auto-assigns importance score, emotion tags, context tags
+        *   Includes fallback for AI generation failure
+    *   **Fully Automatic Creation:** ✅ Newly implemented - `auto-memory-manager.ts`
+        *   Auto-detects important messages during conversation
+        *   Evaluates based on keywords, emotion, depth, and temporal importance
+        *   Executes creation if score exceeds threshold of 0.7
+        *   Runs after each AI message via `chat.slice.ts:260-272`
+    *   **AI Generation Service:** `memory-card-generator.ts`
+        *   Structured analysis in JSON format
+        *   Auto-calculation of emotion weight, repetition, emphasis
+        *   Similarity detection and duplicate checking via Levenshtein distance
+    *   **Display/Edit:** ✅ Implemented - `MemoryCard.tsx`
+    *   **Filter/Search:** ✅ Implemented
+
+**Inspiration Feature Status**
+
+*   **Reply Suggestions**
+    *   **Prompt Reference:** ✅ References from chat settings
+    *   **Implementation:** `inspiration-service.ts:14-67`
+    *   **Custom Prompt Support:** ✅ Via `customPrompt` parameter
+    *   **Placeholder:** `{{conversation}}` is replaced with conversation context
+    *   **Default Categories:** Hardcoded in `inspiration-service.ts:30-35`
+        *   Empathetic/Accepting
+        *   Inquisitive/Analytical (Trainer-style)
+        *   Provocative/Deviant
+        *   Needy/Dependent (Yandere/Younger Boyfriend-style)
+    *   **Enhanced Parsing:** Flexible parsing with multiple methods (`inspiration-service.ts:188-261`)
+        *   Exact `[Category]` matching
+        *   Numbered list parsing (1., 2., 3.)
+        *   Bulleted list parsing (-, •)
+        *   Final fallback via paragraph splitting
+    *   **Output Format Improved:** Directives added for `{{user}}` perspective, bullet points, and no explanations.
+
+*   **Text Enhancement**
+    *   **Prompt Reference:** ✅ References from chat settings
+    *   **Implementation:** `inspiration-service.ts:75-112`
+    *   **Custom Prompt Support:** ✅ Via `enhancePrompt` parameter
+    *   **Placeholders:** `{{conversation}}`, `{{user}}`, `{{text}}` are replaced
+    *   **Required Placeholder:** Either `{{user}}` or `{{text}}` for the input text
+
+**Tracker System Status**
+*   **Auto-update:** ✅ Working correctly
+*   **UI Display:** ✅ Working correctly
+*   **Real-time Reflection:** ✅ Working correctly
+
+---
+📚 **Additional Resources**
+
+**Key Files**
+
+*   🔥 **Core (Most Important)**
+    *   `src/types/core/message.types.ts`    # Unified Message Type
+    *   `src/store/index.ts`                 # Zustand Integrated Store
+    *   `src/services/api-manager.ts`        # Unified API Manager
+    *   `src/components/chat/ChatInterface.tsx`
+    *   `src/components/chat/MessageBubble.tsx`
+
+*   ⚡ **Important (Key Features)**
+    *   `src/services/tracker/tracker-manager.ts`
+    *   `src/services/memory/memory-layer-manager.ts`
+    *   `src/store/slices/chat.slice.ts`
+    *   `src/components/tracker/TrackerDisplay.tsx`
+    *   `src/contexts/EffectSettingsContext.tsx`
+
+*   🛠️ **Config & Utilities**
+    *   `src/types/index.ts`
+    *   `src/lib/utils.ts`
+    *   `next.config.js`
+    *   `tailwind.config.js`
+
+**Development Commands**
+
+```bash
+# Development
+npm run dev                    # Start dev server
+npm run build                  # Build for production
+npm run start                  # Start production server
+npx tsc --noEmit               # Type check only
+
+# Debugging
+npm run dev -- --port 3001   # Start on a specific port
+npm run build -- --debug     # Create a debug build
+
+# Cleanup
+rm -rf .next node_modules     # Full reset
+npm install                   # Reinstall dependencies
+```
+
+---
+🎯 **Summary**
+
+This AI Chat V3 project is designed with a strong emphasis on type safety, maintainability, and extensibility.
+
+**Development Guidelines**
+
+1.  Always use the `UnifiedMessage` type (the old `Message` type is deleted).
+2.  Make API calls through the service layer.
+3.  Manage state using the Zustand slice pattern.
+4.  Run TypeScript type checks regularly.
+
+**Guidelines for Extension**
+
+1.  Implement new features following the existing architecture.
+2.  Create type definitions before implementation.
+3.  Build with small, testable components.
+
+---
+## 🆕 Latest Updates
+
+### Major Update: August 21, 2025
+
+#### 🔧 System Fixes
+- **JSON Parse Error Fix:** Resolved console errors by handling corrupted data in localStorage.
+- **Side Panel Position Fix:** Fixed display issues with the right side panel on mobile.
+- **`useMemo` Import Added:** Fixed type error in `ChatInterface`.
+
+#### 🎵 Audio System Improvements
+- **Auto-Playback Feature:** Implemented automatic audio playback for AI messages.
+- **Duplicate Playback Prevention:** Completely resolved issues with repeated or overlapping audio.
+- **VoiceVox/ElevenLabs Support:** Enabled auto-playback for both providers.
+
+#### 📊 Tracker System Enhancements
+- **New/Old Format Compatibility:** Supports unified character setting format.
+- **Display Issue Resolved:** Fixed issue where the tracker panel was only half-visible.
+- **Initialization Improved:** Enhanced stability when switching characters.
+
+#### 🧠 Memory Card Feature Restoration
+- **Auto-Update Function:** Re-enabled automatic memory card generation linked to trackers.
+- **Importance Scoring:** Auto-creates memories based on conversation importance.
+
+#### ⚙️ Settings System Improvements
+- **Custom Prompt Fix:** Resolved issue where deleted custom prompts would reappear.
+- **Settings Persistence:** Implemented more secure saving and loading of settings.
+- **Reset Function:** Added a feature to reset system prompts to default.
+
+#### 🎨 UI/UX Enhancements
+- **"Continue" Button:** Restored the "Continue" button to the chat menu.
+- **Mobile Responsiveness:** Improved responsive layout for mobile devices.
+- **Error Handling:** Implemented more user-friendly notifications for errors.
+
+#### 📝 Developer Experience
+- **Type Safety:** Full compliance with TypeScript strict mode.
+- **Debug Information:** More detailed operational logs in the console.
+- **Code Quality:** Automatic formatting with ESLint/Prettier.
+
+#### 🎤 Voice Call Feature (January 21, 2025)
+- **WebSocket Voice Server:** Real-time voice call system with Node.js + TypeScript.
+- **Audio Processing Pipeline:** Integration of Whisper API + VoiceVox/ElevenLabs.
+- **VAD (Voice Activity Detection):** Natural conversation experience with auto start/end detection.
+- **Low-Latency Optimization:** Streaming responses, progressive synthesis, and audio caching.
+- **System Integration:** Full integration with Zustand store, character system, and chat history.
+
+### Voice Call Feature Status (January 21, 2025)
+
+#### 🏗️ Voice Call System Architecture
+
+**Server-side Implementation**
+- **WebSocket Voice Server:** `音声通話/voice-server.js` - Runs on port 8082
+- **Audio Processing Pipeline:** Speech Recognition → AI Response → Speech Synthesis → Streaming
+- **VAD Implementation:** Auto-detection of speech segments via simple audio level analysis
+- **Error Handling:** Mock functionality allows testing even without an OpenAI API key
+
+**Client-side Implementation**
+- **Voice Call Interface:** `音声通話/voice-test-component.ts` - Phased testing features
+- **WebSocket Communication:** Real-time, bi-directional audio data streaming
+- **Audio Visualizer:** Real-time audio level display
+- **Mic Control:** Record, stop, and mute functions
+
+#### 📁 Voice Call File Structure
 
 ```
 音声通話/
-├── voice-server.js              # メイン音声サーバー（Node.js）
-├── voice-test-component.ts      # テスト用Reactコンポーネント
-├── 音声通話.txt                 # 実装仕様書・統合ガイド
-└── 音声通話デバッグガイドライン.md  # トラブルシューティングガイド
+├── voice-server.js              # Main voice server (Node.js)
+├── voice-test-component.ts      # Test React component
+├── 音声通話.txt                 # Implementation specs & integration guide
+└── 音声通話デバッグガイドライン.md  # Troubleshooting guide
 ```
 
-#### 🔧 実装済み機能
+#### 🔧 Implemented Features
 
-**音声処理**
-- ✅ WebSocket接続・セッション管理
-- ✅ リアルタイム音声データ送受信
-- ✅ 音声レベル検出・発話区間判定
-- ✅ 音声認識（Whisper API / モック）
-- ✅ AI応答生成（GPT-3.5-turbo / モック）
-- ✅ 音声合成（VoiceVox / ElevenLabs）
-- ✅ 音声ストリーミング・キャッシング
+**Audio Processing**
+- ✅ WebSocket connection and session management
+- ✅ Real-time audio data send/receive
+- ✅ Audio level detection and speech segment detection
+- ✅ Speech recognition (Whisper API / Mock)
+- ✅ AI response generation (GPT-3.5-turbo / Mock)
+- ✅ Speech synthesis (VoiceVox / ElevenLabs)
+- ✅ Audio streaming and caching
 
 **UI/UX**
-- ✅ 音声通話モーダルインターフェース
-- ✅ リアルタイム音声ビジュアライザー
-- ✅ 通話状態表示（接続・録音・処理中・再生中）
-- ✅ 音声制御ボタン（録音・ミュート・スピーカー）
-- ✅ 通話時間・接続状態表示
-- ✅ 発話内容の文字起こし表示
+- ✅ Voice call modal interface
+- ✅ Real-time audio visualizer
+- ✅ Call status display (Connecting, Recording, Processing, Playing)
+- ✅ Audio control buttons (Record, Mute, Speaker)
+- ✅ Call duration and connection status display
+- ✅ Transcription display of spoken content
 
-**統合機能**
-- ✅ 既存キャラクターシステムとの連携
-- ✅ チャット履歴への音声会話記録
-- ✅ Zustandストアとの状態同期
-- ✅ レスポンシブデザイン対応
+**Integration**
+- ✅ Integration with existing character system
+- ✅ Recording of voice conversations in chat history
+- ✅ State synchronization with Zustand store
+- ✅ Responsive design support
 
-#### 🚧 現在の実装状況
+#### 🚧 Current Implementation Status
 
-**動作確認済み**
-- WebSocket接続・セッション確立
-- 音声データ送信（2,855件のメッセージ送信確認済み）
-- 基本的なサーバー・クライアント通信
+**Verified**
+- WebSocket connection and session establishment
+- Audio data transmission (2,855 messages confirmed)
+- Basic server-client communication
 
-**デバッグ中**
-- 音声処理パイプラインの完全動作
-- VADによる発話区間検出の最適化
-- 音声認識・合成のエンドツーエンド処理
+**In Debugging**
+- Full operation of the audio processing pipeline
+- Optimization of VAD for speech segment detection
+- End-to-end processing for speech recognition and synthesis
 
-**次のステップ**
-- 音声処理パイプラインの動作確認・最適化
-- エラーハンドリングの強化
-- パフォーマンスチューニング
-- 本格的なUI統合
+**Next Steps**
+- Verify and optimize the audio processing pipeline
+- Enhance error handling
+- Performance tuning
+- Full UI integration
 
-#### 🛠️ 開発・テスト環境
+#### 🛠️ Development & Test Environment
 
-**必要な依存関係**
+**Required Dependencies**
 ```bash
-# サーバー側
+# Server-side
 npm install ws express axios dotenv openai uuid
 
-# 開発用
+# Development
 npm install -D @types/ws @types/express
 ```
 
-**環境変数設定**
+**Environment Variable Setup**
 ```env
 # .env.local
 OPENAI_API_KEY=your_openai_api_key
@@ -838,70 +950,70 @@ VOICEVOX_ENGINE_URL=http://127.0.0.1:50021
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ```
 
-**起動コマンド**
+**Startup Commands**
 ```bash
-# 音声サーバー起動
+# Start voice server
 node 音声通話/voice-server.js
 
-# 開発サーバー起動
+# Start development server
 npm run dev
 ```
 
-#### 🔍 デバッグ・トラブルシューティング
+#### 🔍 Debugging & Troubleshooting
 
-**現在の問題**
-- 音声データ送信は成功（2,855件確認済み）
-- サーバー側の音声処理パイプラインで処理が停止
-- VAD・音声認識・音声合成のいずれかでエラー発生
+**Current Issues**
+- Audio data transmission is successful (2,855 messages confirmed)
+- Processing stalls in the server-side audio pipeline
+- Error occurring in VAD, speech recognition, or speech synthesis
 
-**推奨デバッグ手順**
-1. `voice-server.js`で詳細ログを確認
-2. `VoiceCallTest.tsx`で段階的にテスト
-3. 各処理段階でのエラーを特定
-4. 最小構成から徐々に機能を追加
+**Recommended Debugging Steps**
+1.  Check detailed logs in `voice-server.js`
+2.  Perform phased tests with `VoiceCallTest.tsx`
+3.  Isolate the error in each processing stage
+4.  Start with a minimal configuration and add features incrementally
 
-**ヘルスチェック**
+**Health Checks**
 ```bash
-# サーバー状態確認
+# Check server status
 curl http://localhost:8082/health
 
-# VOICEVOX接続確認
+# Check VoiceVox connection
 curl http://127.0.0.1:50021/speakers
 ```
 
-#### 📊 パフォーマンス仕様
+#### 📊 Performance Specifications
 
-**音声品質**
-- サンプリングレート: 16kHz
-- チャンネル数: 1（モノラル）
-- ビット深度: 16bit
-- フレームサイズ: 20ms
+**Audio Quality**
+- Sample Rate: 16kHz
+- Channels: 1 (Mono)
+- Bit Depth: 16-bit
+- Frame Size: 20ms
 
-**レイテンシー最適化**
-- 音声圧縮無効化（perMessageDeflate: false）
-- チャンクサイズ: 2048バイト
-- バッファ遅延: 10ms
-- 段階的音声合成（句読点での早期開始）
+**Latency Optimization**
+- Audio compression disabled (`perMessageDeflate: false`)
+- Chunk Size: 2048 bytes
+- Buffer Delay: 10ms
+- Progressive speech synthesis (early start on punctuation)
 
-**キャッシング**
-- 音声データキャッシュ: 最大100件
-- 応答テキストキャッシュ
-- 音声クエリキャッシュ
+**Caching**
+- Audio data cache: Max 100 entries
+- Response text cache
+- Audio query cache
 
-#### 🎯 今後の拡張予定
+#### 🎯 Future Extensions
 
-**短期目標**
-- 音声処理パイプラインの完全動作
-- 基本的な音声通話機能の安定化
-- エラーハンドリングの強化
+**Short-term Goals**
+- Fully operational audio processing pipeline
+- Stabilization of basic voice call features
+- Enhanced error handling
 
-**中期目標**
-- WebRTC統合によるP2P通信
-- 複数言語対応
-- 感情分析統合
-- グループ通話機能
+**Mid-term Goals**
+- WebRTC integration for P2P communication
+- Multi-language support
+- Emotion analysis integration
+- Group call functionality
 
-**長期目標**
-- 商用レベルの音声品質
-- クラウド展開対応
-- モバイルアプリ統合
+**Long-term Goals**
+- Commercial-grade audio quality
+- Cloud deployment support
+- Mobile app integration
