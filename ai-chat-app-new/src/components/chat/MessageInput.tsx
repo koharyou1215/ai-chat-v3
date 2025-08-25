@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
+// import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
 export const MessageInput: React.FC = () => {
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -107,10 +108,40 @@ export const MessageInput: React.FC = () => {
   const handleFileSelect = async (file: File) => {
     if (!file) return;
 
+    console.log('🔄 File upload started:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
     setIsUploading(true);
     try {
+      let processedFile = file;
+      // 画像ファイルの場合のみ圧縮処理を実行
+      if (file.type.startsWith('image/')) {
+        console.log('🖼️ Compressing image...');
+        try {
+          // 動的インポートに変更
+          const imageCompression = (await import('browser-image-compression')).default;
+          const options = {
+            maxSizeMB: 2,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          };
+          processedFile = await imageCompression(file, options);
+          console.log('✅ Image compressed successfully:', {
+            originalSize: file.size,
+            compressedSize: processedFile.size
+          });
+        } catch (compressionError) {
+          console.error('❌ Image compression failed:', compressionError);
+          // 圧縮に失敗した場合は、元のファイルでアップロードを試みる
+          processedFile = file;
+        }
+      }
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', processedFile);
 
       const response = await fetch('/api/upload/image', {
         method: 'POST',
@@ -118,17 +149,30 @@ export const MessageInput: React.FC = () => {
       });
 
       const result = await response.json();
+      console.log('📤 Upload response:', result);
+      
       if (result.success) {
         setSelectedImage(result.url);
+        console.log('✅ Image uploaded successfully:', result.url);
+        
+        // Success notification (could be implemented as toast)
+        if (typeof window !== 'undefined') {
+          console.log('🎉 Upload success notification');
+        }
       } else {
-        console.error('Upload failed:', result.error);
-        // TODO: Show error toast
+        console.error('❌ Upload failed:', result.error);
+        
+        // Error notification 
+        alert(`アップロードに失敗しました:\n${result.error}`);
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      // TODO: Show error toast
+      console.error('💥 Upload error:', error);
+      
+      // Network error notification
+      alert('ネットワークエラーが発生しました。\nインターネット接続を確認してください。');
     } finally {
       setIsUploading(false);
+      console.log('🔄 Upload process completed');
     }
   };
 
@@ -158,7 +202,7 @@ export const MessageInput: React.FC = () => {
   }, [currentInputText]);
 
   return (
-    <div className="relative p-4 border-t border-white/10">
+    <div className="relative p-3 md:p-4 border-t border-transparent bg-slate-900/80 backdrop-blur-md z-[51]">
       <input
         ref={fileInputRef}
         type="file"
@@ -186,7 +230,7 @@ export const MessageInput: React.FC = () => {
 
       {/* 画像プレビューエリア */}
       {selectedImage && (
-        <div className="mb-3 p-3 bg-white/5 rounded-xl border border-white/10">
+        <div className="mb-3 p-3 bg-white/5 rounded-xl border border-purple-400/20">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-white/70">添付画像:</span>
             <button
@@ -204,7 +248,7 @@ export const MessageInput: React.FC = () => {
         </div>
       )}
 
-      <div className="relative flex items-end gap-2 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-3">
+      <div className="relative flex items-end gap-2 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10 p-2 md:p-3">
         {/* 左側ボタンエリア */}
         <div className="flex gap-1">
           <InputButton 
@@ -327,7 +371,7 @@ const ActionMenu = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="absolute bottom-24 right-4 bg-slate-800 border border-white/10 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2"
+      className="absolute bottom-24 right-4 bg-slate-800 border border-purple-400/20 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2"
     >
       {menuItems.map((item) => (
         <motion.button

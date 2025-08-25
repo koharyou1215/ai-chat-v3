@@ -78,7 +78,7 @@ export const ChatHeader: React.FC = () => {
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
         return (
-            <div className="flex-shrink-0 p-4 border-b border-white/10 h-[73px]">
+            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/80 backdrop-blur-md">
                  {/* Maybe a loading skeleton here */}
             </div>
         );
@@ -90,15 +90,15 @@ export const ChatHeader: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10 h-20 relative z-50">
+        <div className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 border-b border-transparent h-16 md:h-20 relative z-50 bg-slate-900/80 backdrop-blur-md">
             <div className="flex items-center gap-4">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleLeftSidebar}
                     className={cn(
-                        "p-2 rounded-full transition-colors",
-                        isLeftSidebarOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10"
+                        "p-2 rounded-full transition-colors text-white",
+                        isLeftSidebarOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white"
                     )}
                     title={isLeftSidebarOpen ? "Close sidebar" : "Open sidebar"}
                 >
@@ -109,10 +109,10 @@ export const ChatHeader: React.FC = () => {
                 {is_group_mode && activeGroupSession ? (
                     // グループチャット情報
                     <div className="flex items-center gap-2">
-                        <Users className="w-10 h-10 text-purple-400" />
+                        <Users className="w-8 h-8 md:w-10 md:h-10 text-purple-400" />
                         <div>
-                            <h1 className="text-white text-lg font-bold">{activeGroupSession.name}</h1>
-                            <p className="text-white/50 text-sm">
+                            <h1 className="text-white text-base md:text-lg font-bold">{activeGroupSession.name}</h1>
+                            <p className="text-white/50 text-xs md:text-sm">
                                 {t({ 
                                     ja: `${activeGroupSession.active_character_ids.size}人のキャラクター • ${typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
                                     en: `${activeGroupSession.active_character_ids.size} characters • ${typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
@@ -134,16 +134,16 @@ export const ChatHeader: React.FC = () => {
                     >
                         {character.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={character.avatar_url} alt={character.name} className="w-10 h-10 rounded-full object-cover"/>
+                            <img src={character.avatar_url} alt={character.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover"/>
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                                <Bot className="w-6 h-6 text-slate-400" />
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                <Bot className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
                             </div>
                         )}
                         <div>
-                            <h1 className="text-white text-lg font-bold">{character.name}</h1>
+                            <h1 className="text-white text-base md:text-lg font-bold">{character.name}</h1>
                             {session && (
-                                <p className="text-white/50 text-sm">
+                                <p className="text-white/50 text-xs md:text-sm">
                                     {t({
                                         ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
                                         en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
@@ -167,15 +167,15 @@ export const ChatHeader: React.FC = () => {
                 >
                      {persona.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={persona.avatar_url} alt={persona.name} className="w-10 h-10 rounded-full object-cover"/>
+                        <img src={persona.avatar_url} alt={persona.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover"/>
                     ) : (
-                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                            <UserCircle className="w-6 h-6 text-slate-400" />
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                            <UserCircle className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
                         </div>
                     )}
                     <div>
-                        <h2 className="text-white font-semibold">{persona.name}</h2>
-                        <p className="text-white/50 text-sm">as Persona</p>
+                        <h2 className="text-white text-sm md:text-base font-semibold">{persona.name}</h2>
+                        <p className="text-white/50 text-xs md:text-sm">as Persona</p>
                     </div>
                 </div>
                 
@@ -185,12 +185,17 @@ export const ChatHeader: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setGroupMode(!is_group_mode)}
                     className={cn(
-                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation",
-                        is_group_mode ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10 text-gray-400"
+                        "p-3 md:px-4 md:py-3 max-md:p-4 rounded-xl transition-colors touch-manipulation border flex items-center gap-2",
+                        is_group_mode 
+                            ? "bg-purple-500/20 text-purple-300 border-purple-400/50" 
+                            : "hover:bg-white/10 text-white/70 border-white/20 hover:border-purple-400/40"
                     )}
                     title={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
                 >
-                    <Users className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
+                    <Users className="w-5 h-5 md:w-5 md:h-5 max-md:w-6 max-md:h-6" />
+                    <span className="hidden md:inline text-sm font-medium">
+                        {is_group_mode ? "グループ" : "個人"}
+                    </span>
                 </motion.button>
             </div>
             
@@ -205,7 +210,7 @@ export const ChatHeader: React.FC = () => {
                             const { setShowSettingsModal } = useAppStore.getState();
                             setShowSettingsModal(true, 'ai');
                         }}
-                        className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors border border-white/10 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors border border-purple-400/30 text-sm font-medium"
                         title="モデル設定を変更"
                     >
                         <Settings className="w-4 h-4 text-blue-400" />
@@ -249,8 +254,8 @@ export const ChatHeader: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleRightPanel}
                     className={cn(
-                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation",
-                        isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/10"
+                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation text-white",
+                        isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white"
                     )}
                     title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
                 >

@@ -25,6 +25,7 @@ import ChatSidebar from './ChatSidebar';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
 import { cn } from '@/lib/utils';
 import { Character } from '@/types';
+import useVH from '@/hooks/useVH';
 
 const EmptyState = () => (
     <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
@@ -106,6 +107,7 @@ export const ChatInterface: React.FC = () => {
         groupSessions,
         createGroupSession: _createGroupSession,
     } = useAppStore();
+    useVH(); // VHフックを呼び出し
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -148,7 +150,7 @@ export const ChatInterface: React.FC = () => {
     // グループモードかつアクティブなグループセッションがない場合
     if (is_group_mode && !activeGroupSession) {
         return (
-            <div className="flex h-screen bg-slate-900 text-white">
+            <div className="flex bg-slate-900 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -179,7 +181,7 @@ export const ChatInterface: React.FC = () => {
     // 通常モードかつセッションがない場合
     if (!is_group_mode && !session) {
         return (
-            <div className="flex h-screen bg-slate-900 text-white">
+            <div className="flex bg-slate-900 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -193,16 +195,16 @@ export const ChatInterface: React.FC = () => {
     }
     
     return (
-        <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
+        <div className="flex bg-slate-900 text-white overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)', position: 'relative' }}>
             <ClientOnlyProvider fallback={null}>
                 <AnimatePresence>
                     {isLeftSidebarOpen && <ChatSidebar />}
                 </AnimatePresence>
             </ClientOnlyProvider>
             
-            <div className="flex flex-1 min-w-0">
+            <div className={cn("flex flex-1 min-w-0", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
                 {/* メインコンテンツエリア */}
-                <div className="flex-1 flex flex-col min-w-0 relative">
+                <div className="flex-1 flex flex-col min-w-0 relative h-full">
                     {/* Background Image */}
                     {character?.background_url && (
                         <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
@@ -223,16 +225,30 @@ export const ChatInterface: React.FC = () => {
                                     className="w-full h-full object-contain object-center"
                                 />
                             )}
-                            <div className="absolute inset-0 w-full h-full bg-black/40" />
+                            <div className="absolute inset-0 w-full h-full bg-black/30" />
                         </div>
                     )}
 
                     <div className="relative z-10 flex flex-col h-full">
-                        {/* Safe Area対応ヘッダー */}
-                        <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+                        {/* Safe Area対応ヘッダー (固定) */}
+                        <div 
+                            className="fixed top-0 z-40 bg-slate-900/95 backdrop-blur-md transition-all duration-300" 
+                            style={{
+                                paddingTop: 'env(safe-area-inset-top)',
+                                left: isLeftSidebarOpen ? '320px' : '0',
+                                right: '0',
+                                width: isLeftSidebarOpen ? 'calc(100vw - 320px)' : '100vw'
+                            }}
+                        >
                             <ChatHeader />
                         </div>
-                        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)'}}>
+                        <div 
+                            className="flex-1 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4" 
+                            style={{
+                                paddingTop: 'calc(env(safe-area-inset-top) + 80px)', // ヘッダー高さ分（少し余裕を持たせる）
+                                paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' // 入力欄高さ分（少し余裕を持たせる）
+                            }}
+                        >
                             <AnimatePresence mode="popLayout" initial={false}>
                                 {currentMessages.map((message, index) => (
                                     <MessageBubble
@@ -249,8 +265,16 @@ export const ChatInterface: React.FC = () => {
                             
                             <div ref={messagesEndRef} />
                         </div>
-                        {/* Safe Area対応メッセージ入力欄 */}
-                        <div className="sticky bottom-0 z-50 bg-slate-900/95 backdrop-blur-md" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+                        {/* Safe Area対応メッセージ入力欄 (固定) */}
+                        <div 
+                            className="fixed bottom-0 z-41 bg-slate-900/95 backdrop-blur-md transition-all duration-300" 
+                            style={{
+                                paddingBottom: 'env(safe-area-inset-bottom)',
+                                left: isLeftSidebarOpen ? '320px' : '0',
+                                right: '0',
+                                width: isLeftSidebarOpen ? 'calc(100vw - 320px)' : '100vw'
+                            }}
+                        >
                             <MessageInput />
                         </div>
                     </div>
@@ -265,15 +289,15 @@ export const ChatInterface: React.FC = () => {
                                 animate={{ width: 400, opacity: 1 }}
                                 exit={{ width: 0, opacity: 0 }}
                                 transition={{ duration: 0.3 }}
-                                className="bg-slate-800 border-l border-white/10 flex flex-col h-full flex-shrink-0"
+                                className="bg-slate-800 border-l border-purple-400/20 flex flex-col h-full flex-shrink-0"
                             >
-                                <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                                <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">記憶情報</h3>
                                     <button onClick={() => setRightPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <div className="flex p-2 bg-slate-900/50 border-b border-white/10">
+                                <div className="flex p-2 bg-slate-900/50 border-b border-purple-400/20">
                                     {sidePanelTabs.map(tab => (
                                         <button
                                             key={tab.key}
