@@ -24,7 +24,7 @@ import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
 import { cn } from '@/lib/utils';
-import { Character } from '@/types';
+import { Character, UnifiedChatSession } from '@/types';
 import useVH from '@/hooks/useVH';
 
 const EmptyState = () => (
@@ -108,10 +108,16 @@ export const ChatInterface: React.FC = () => {
         createGroupSession: _createGroupSession,
     } = useAppStore();
     useVH(); // VHフックを呼び出し
-    const session = getActiveSession();
+    const [session, setSession] = useState<UnifiedChatSession | null>(null);
     const character = getSelectedCharacter(); // character を取得
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'memory' | 'tracker' | 'history' | 'layers'>('memory');
+    
+    // SSR対応: useEffectでセッション取得
+    useEffect(() => {
+        const activeSession = getActiveSession();
+        setSession(activeSession);
+    }, [getActiveSession, active_group_session_id, is_group_mode]);
     
     // グループチャットセッションの取得
     const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;

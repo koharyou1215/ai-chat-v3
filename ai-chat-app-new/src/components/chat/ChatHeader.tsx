@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PanelLeft, UserCircle, Bot, Phone, Users, Brain, Settings, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store';
@@ -8,6 +8,7 @@ import { GroupChatMode as _GroupChatMode } from '@/types/core/group-chat.types';
 import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
 import { useTranslation, commonTexts } from '@/hooks/useLanguage';
+import { UnifiedChatSession } from '@/types';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -52,6 +53,7 @@ const getModelDisplayName = (modelId: string): string => {
 export const ChatHeader: React.FC = () => {
     const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
     const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
+    const [session, setSession] = useState<UnifiedChatSession | null>(null);
     const { t } = useTranslation();
     
     const { 
@@ -70,10 +72,15 @@ export const ChatHeader: React.FC = () => {
         groupSessions,
     } = useAppStore();
     
-    const session = getActiveSession();
     const character = getSelectedCharacter();
     const persona = getSelectedPersona();
     const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
+    
+    // SSR対応: useEffectでセッション取得
+    useEffect(() => {
+        const activeSession = getActiveSession();
+        setSession(activeSession);
+    }, [getActiveSession, active_group_session_id, is_group_mode]);
     
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
