@@ -143,34 +143,10 @@ export const createSettingsSlice: StateCreator<
   openRouterApiKey: undefined,
 
   systemPrompts: {
-    system: DEFAULT_SYSTEM_PROMPT,
-    jailbreak: DEFAULT_JAILBREAK_PROMPT,
-    replySuggestion: `会話履歴を分析し、自然な返信候補を4つ生成してください。
-
-**会話履歴:**
-{{conversation}}
-
-**出力形式:**
-1. [共感・理解を示す返信]
-2. [質問・興味を引く返信]
-3. [挑発・意外性のある返信]
-4. [冷静・観察的な返信]
-
-- 各返信は100-200字程度
-- {{user}}視点の発言のみ
-- 前置き説明なし
-- 相槌（そうなんですね、なるほど等）は禁止`,
-    textEnhancement: `以下のテキストを、感情や動作、内面描写を含む詳細な文章に強化してください。
-
-**対象テキスト:**
-{{user}}
-
-**要件:**
-- 元の意図を保持
-- セリフ、行動、心情をバランス良く含める
-- 五感の描写を追加
-- 200-300字程度
-- 前置き説明なしで結果のみ出力`
+    system: '',
+    jailbreak: '',
+    replySuggestion: '',
+    textEnhancement: ''
   },
   enableSystemPrompt: true,
   enableJailbreakPrompt: false,
@@ -337,28 +313,15 @@ export const createSettingsSlice: StateCreator<
   },
 
   resetSystemPrompts: () => {
-    const defaultPrompts = {
-      system: DEFAULT_SYSTEM_PROMPT,
-      jailbreak: DEFAULT_JAILBREAK_PROMPT,
-      replySuggestion: `会話履歴を分析し、自然な返信候補を4つ生成してください。
-**会話履歴:**
-{{conversation}}
-**出力形式:**
-1. [共感・理解を示す返信]
-2. [質問・興味を引く返信]
-3. [意見・提案を含む返信]
-4. [軽い会話継続返信]`,
-      textEnhancement: `以下のテキストをより自然で魅力的な文章に改善してください。
-**改善対象:**
-{{text}}
-**要求:**
-- 自然な日本語表現に修正
-- 読みやすさの向上
-- 必要に応じて絵文字や感情表現を追加
-- 元の意図を保持`
+    console.log('🧹 Resetting system prompts to empty state');
+    const emptyPrompts = {
+      system: '',
+      jailbreak: '',
+      replySuggestion: '',
+      textEnhancement: ''
     };
-    set({ systemPrompts: defaultPrompts });
-    console.log('System prompts reset to default');
+    set({ systemPrompts: emptyPrompts });
+    console.log('✅ System prompts reset to empty state');
   },
   
   setShowSettingsModal: (show, initialTab = 'effects') =>
