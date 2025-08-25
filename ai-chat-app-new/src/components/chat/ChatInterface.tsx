@@ -222,14 +222,14 @@ const ChatInterfaceContent: React.FC = () => {
                                     className="w-full h-full object-contain object-center"
                                 />
                             )}
-                            <div className="absolute inset-0 w-full h-full bg-black/30" />
+                            <div className="absolute inset-0 w-full h-full bg-black/20" />
                         </div>
                     )}
 
                     <div className="relative z-10 flex flex-col h-full">
                         {/* Safe Area対応ヘッダー (固定) */}
                         <div 
-                            className="fixed top-0 z-40 bg-slate-900/95 backdrop-blur-md transition-all duration-300" 
+                            className="fixed top-0 z-40 bg-slate-900/85 backdrop-blur-md transition-all duration-300" 
                             style={{
                                 paddingTop: 'env(safe-area-inset-top)',
                                 left: isLeftSidebarOpen ? '320px' : '0',
@@ -264,7 +264,7 @@ const ChatInterfaceContent: React.FC = () => {
                         </div>
                         {/* Safe Area対応メッセージ入力欄 (固定) */}
                         <div 
-                            className="fixed bottom-0 z-41 bg-slate-900/95 backdrop-blur-md transition-all duration-300" 
+                            className="fixed bottom-0 z-41 bg-slate-900/85 backdrop-blur-md transition-all duration-300" 
                             style={{
                                 paddingBottom: 'env(safe-area-inset-bottom)',
                                 left: isLeftSidebarOpen ? '320px' : '0',

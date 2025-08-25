@@ -259,7 +259,9 @@ export const createSettingsSlice: StateCreator<
   updateSystemPrompts: (prompts) => {
     set((state) => {
       const updatedPrompts = { ...state.systemPrompts, ...prompts };
-      console.log('Updating system prompts:', updatedPrompts);
+      console.log('🔄 Updating system prompts:', updatedPrompts);
+      // Zustandの自動永続化に任せる（強制永続化を削除）
+      console.log('✅ System prompts updated, auto-persistence will handle storage');
       return { systemPrompts: updatedPrompts };
     });
   },

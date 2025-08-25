@@ -7,10 +7,11 @@ import { Character as _Character } from '@/types';
 import { GroupChatMode, GroupChatScenario, ScenarioTemplate as _ScenarioTemplate } from '@/types/core/group-chat.types';
 import { Users, Plus, Settings as _Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
 import { ScenarioSelector } from './ScenarioSelector';
+import { CharacterReselectionModal } from './CharacterReselectionModal';
 import { cn } from '@/lib/utils';
 
 interface GroupChatInterfaceProps {
-  _onStartGroupChat: (
+  _onStartGroupChat?: (
     name: string,
     characterIds: string[],
     mode: GroupChatMode,
@@ -31,9 +32,11 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
     setGroupMode,
     createGroupSession,
     setActiveGroupSession,
-    _updateCharacter: updateCharacter,
     toggleGroupCharacter,
-    setGroupChatMode
+    setGroupChatMode,
+    showCharacterReselectionModal,
+    setShowCharacterReselectionModal,
+    updateSessionCharacters
   } = useAppStore();
   
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
@@ -133,7 +136,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   
   if (is_group_mode && activeGroupSession) {
     return (
-      <div className="p-4 bg-slate-800/50 border-b border-white/10">
+      <div className="p-4 bg-slate-800/50 border-b border-purple-400/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-purple-400" />
@@ -151,6 +154,15 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* 🆕 キャラクター再選択ボタン */}
+            <button
+              onClick={() => setShowCharacterReselectionModal(true)}
+              className="flex items-center gap-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors"
+              title="参加キャラクターを変更"
+            >
+              <Users className="w-4 h-4" />
+              キャラクター編集
+            </button>
             <button
               onClick={() => setGroupMode(false)}
               className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white/80 text-sm rounded transition-colors"
@@ -161,7 +173,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
         </div>
         
         {/* 🎭 発見しやすい応答モード変更UI */}
-        <div className="mt-4 px-4 py-3 bg-slate-800/30 rounded-lg border border-white/10">
+        <div className="mt-4 px-4 py-3 bg-slate-800/30 rounded-lg border border-purple-400/20">
           <h4 className="text-sm font-medium text-white/80 mb-3">応答モード</h4>
           <div className="grid grid-cols-2 gap-2">
             {chatModeOptions.map((option) => {
@@ -177,7 +189,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     "p-3 rounded-lg border text-left transition-all",
                     isSelected
                       ? "bg-purple-500/20 border-purple-400/50 text-purple-200"
-                      : "bg-slate-700/30 border-white/10 text-white/70 hover:bg-slate-600/40 hover:border-white/20"
+                      : "bg-slate-700/30 border-purple-400/20 text-white/70 hover:bg-slate-600/40 hover:border-purple-400/30"
                   )}
                   onClick={() => {
                     if (!isSelected) {
@@ -223,8 +235,8 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     isActive
                       ? "bg-purple-500/20 border-purple-400/50 text-purple-200 shadow-purple-500/20 shadow-lg"
                       : canJoin
-                        ? "bg-slate-700/50 border-white/20 text-white/60 hover:bg-slate-600/50 hover:border-white/30"
-                        : "bg-slate-800/50 border-white/10 text-white/30 cursor-not-allowed",
+                        ? "bg-slate-700/50 border-purple-400/30 text-white/60 hover:bg-slate-600/50 hover:border-purple-400/40"
+                        : "bg-slate-800/50 border-purple-400/20 text-white/30 cursor-not-allowed",
                     canToggle && canJoin && "hover:shadow-md"
                   )}
                   onClick={() => {
@@ -397,7 +409,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     <motion.div
                       key={session.id}
                       whileHover={{ scale: 1.02 }}
-                      className="p-3 bg-slate-800/50 border border-white/10 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors"
+                      className="p-3 bg-slate-800/50 border border-purple-400/20 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors"
                       onClick={() => setActiveGroupSession(session.id)}
                     >
                       <div className="flex items-center justify-between">
@@ -409,7 +421,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                         </div>
                         <div className="flex -space-x-2">
                           {session.characters.slice(0, 3).map(char => (
-                            <div key={char.id} className="w-8 h-8 rounded-full border-2 border-slate-900">
+                            <div key={char.id} className="w-8 h-8 rounded-full border-2 border-purple-400/30">
                               {char.avatar_url ? (
                                 <img 
                                   src={char.avatar_url} 
@@ -422,7 +434,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                             </div>
                           ))}
                           {session.characters.length > 3 && (
-                            <div className="w-8 h-8 rounded-full bg-slate-600 border-2 border-slate-900 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-slate-600 border-2 border-purple-400/30 flex items-center justify-center">
                               <span className="text-xs text-white">+{session.characters.length - 3}</span>
                             </div>
                           )}
@@ -454,7 +466,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
               type="text"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-white/20 rounded-lg text-white focus:border-purple-400 focus:outline-none"
+              className="w-full px-4 py-2 bg-slate-800 border border-purple-400/30 rounded-lg text-white focus:border-purple-400 focus:outline-none"
               placeholder="グループチャット名を入力"
             />
           </div>
@@ -510,7 +522,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     "p-3 rounded-lg border cursor-pointer transition-all",
                     selectedCharacterIds.includes(character.id)
                       ? "bg-purple-500/20 border-purple-400 text-purple-300"
-                      : "bg-slate-800/50 border-white/10 text-white/80 hover:bg-slate-700/50"
+                      : "bg-slate-800/50 border-purple-400/20 text-white/80 hover:bg-slate-700/50"
                   )}
                   onClick={() => toggleCharacterSelection(character.id)}
                 >
@@ -590,7 +602,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                         "p-4 rounded-lg border cursor-pointer transition-all",
                         chatMode === option.mode
                           ? "bg-purple-500/20 border-purple-400 text-purple-300"
-                          : "bg-slate-800/50 border-white/10 text-white/80 hover:bg-slate-700/50"
+                          : "bg-slate-800/50 border-purple-400/20 text-white/80 hover:bg-slate-700/50"
                       )}
                       onClick={() => setChatMode(option.mode)}
                     >
@@ -656,6 +668,13 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
           </div>
         </div>
       )}
+      
+      {/* 🆕 Character Reselection Modal */}
+      <CharacterReselectionModal
+        session={activeGroupSession}
+        isOpen={showCharacterReselectionModal}
+        onClose={() => setShowCharacterReselectionModal(false)}
+      />
     </div>
   );
 };
