@@ -6,6 +6,7 @@ import { X, TestTube2 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { AvatarUploadWidget } from '@/components/ui/AvatarUploadWidget';
 
 // ... (Assuming detailed VoiceSettings type is in the store)
 
@@ -41,8 +42,12 @@ export const VoiceSettingsModal: React.FC = () => {
     showVoiceSettingsModal, 
     setShowVoiceSettingsModal, 
     voice,
-    updateVoiceSettings 
+    updateVoiceSettings,
+    getSelectedPersona,
+    updatePersona
   } = useAppStore();
+
+  const persona = getSelectedPersona();
 
   const [isPlaying, setIsPlaying] = useState(false);
   
@@ -64,9 +69,14 @@ export const VoiceSettingsModal: React.FC = () => {
         
         let requestBody;
         if (voice.provider === 'VoiceVox') {
+            console.log('🔊 VoiceVox test request:', {
+                text,
+                speaker: voice.voicevox.speakerId,
+                settings: voice.voicevox
+            });
             requestBody = {
                 text,
-                speakerId: voice.voicevox.speakerId,
+                speaker: voice.voicevox.speakerId, // 修正: speakerId → speaker
                 settings: voice.voicevox,
             };
         } else { // ElevenLabs
@@ -83,19 +93,31 @@ export const VoiceSettingsModal: React.FC = () => {
           body: JSON.stringify(requestBody),
         });
 
+        console.log('🔊 API Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
         const data = await response.json();
+        console.log('🔊 Response data:', data);
 
         if (data.success && data.audioData) {
-          console.log('音声合成成功。再生を開始します。');
+          console.log('✅ 音声合成成功。再生を開始します。');
           const audio = new Audio(data.audioData);
           audio.play();
-          audio.onended = () => setIsPlaying(false);
-          audio.onerror = () => {
-            console.error("音声の再生に失敗しました。");
+          audio.onended = () => {
+            console.log('🎵 音声再生完了');
             setIsPlaying(false);
-          }
+          };
+          audio.onerror = (e) => {
+            console.error('❌ 音声の再生に失敗しました:', e);
+            alert('音声の再生に失敗しました。');
+            setIsPlaying(false);
+          };
         } else {
-          console.error('音声合成リクエスト失敗:', data.error || 'APIから音声データが返されませんでした。');
+          console.error('❌ 音声合成リクエスト失敗:', data.error || 'APIから音声データが返されませんでした。');
+          alert(`音声合成に失敗しました:\n${data.error || 'APIから音声データが返されませんでした。'}`);
           setIsPlaying(false);
         }
       }
@@ -119,10 +141,26 @@ export const VoiceSettingsModal: React.FC = () => {
           >
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <TestTube2 className="w-6 h-6" />
-                音声設定
-              </h2>
+              <div className="flex items-center gap-4">
+                {persona && (
+                  <AvatarUploadWidget
+                    currentAvatar={persona.avatar_url}
+                    onAvatarChange={(url) => updatePersona({ ...persona, avatar_url: url })}
+                    size="small"
+                    name={persona.name}
+                    showUrlInput={false}
+                  />
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <TestTube2 className="w-6 h-6" />
+                    音声設定
+                  </h2>
+                  {persona && (
+                    <p className="text-sm text-white/60">{persona.name}の音声設定</p>
+                  )}
+                </div>
+              </div>
               <button
                 onClick={() => setShowVoiceSettingsModal(false)}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"

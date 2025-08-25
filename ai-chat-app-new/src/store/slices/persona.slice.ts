@@ -8,6 +8,7 @@ export interface PersonaSlice {
     showPersonaGallery: boolean;
     isPersonasLoaded: boolean;
     addPersona: (persona: Persona) => void;
+    updatePersona: (persona: Persona) => void;
     activatePersona: (personaId: UUID) => void;
     getActivePersona: () => Persona | null;
     getSelectedPersona: () => Persona | null; // 追加
@@ -24,6 +25,16 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
         set(state => ({
             personas: new Map(state.personas).set(persona.id, persona)
         }));
+    },
+    updatePersona: (persona) => {
+        set(state => {
+            const newPersonas = new Map(state.personas);
+            newPersonas.set(persona.id, {
+                ...persona,
+                updated_at: new Date().toISOString(),
+            });
+            return { personas: newPersonas };
+        });
     },
     activatePersona: (personaId) => {
         set({ activePersonaId: personaId });

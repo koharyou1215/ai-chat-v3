@@ -11,6 +11,10 @@ export interface Persona extends BaseEntity {
   dislikes: string[];
   other_settings: string;
   avatar_url?: string;
+  personality?: string;
+  speaking_style?: string;
+  background?: string;
+  color_theme?: string;
   is_active?: boolean;
   is_default?: boolean;
 }

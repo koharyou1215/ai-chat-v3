@@ -7,9 +7,9 @@ import { UnifiedMessage, MemoryCard } from '@/types';
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;
   private messageBuffer: UnifiedMessage[] = [];
-  private readonly BUFFER_SIZE = 6;  // バッファサイズを減らして頻繁な生成を防ぐ
-  private readonly IMPORTANCE_THRESHOLD = 0.8; // 閾値を上げてより重要な内容のみ生成
-  private readonly TIME_THRESHOLD = 10 * 60 * 1000; // 10分に延長
+  private readonly BUFFER_SIZE = 4;  // より頻繁な生成のために縮小
+  private readonly IMPORTANCE_THRESHOLD = 0.2; // より低い閾値で頻繁に生成
+  private readonly TIME_THRESHOLD = 2 * 60 * 1000; // 2分に短縮
   private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
 
   /**
@@ -28,9 +28,9 @@ export class AutoMemoryManager {
       this.messageBuffer.shift();
     }
 
-    // 連続生成防止のチェック
+    // 連続生成防止のチェック（短縮）
     const now = Date.now();
-    if (now - this.lastMemoryCreated < 60000) { // 1分以内は生成しない
+    if (now - this.lastMemoryCreated < 3000) { // 3秒以内は生成しない
       return;
     }
     
@@ -85,13 +85,28 @@ export class AutoMemoryManager {
     // 5. 時間的な重要性（長時間の会話）
     const timeImportance = this.calculateTimeImportance(messageHistory);
 
-    // 総合スコア計算
+    // メッセージ数による基本スコア追加
+    const messageCountBonus = Math.min(0.3, messageHistory.length * 0.05);
+    
+    // 総合スコア計算（より寛容に）
     const totalScore = 
       (hasImportantKeywords ? 0.3 : 0) +
-      emotionalWeight * 0.25 +
-      conversationDepth * 0.2 +
-      userEmphasis * 0.15 +
-      timeImportance * 0.1;
+      emotionalWeight * 0.3 +
+      conversationDepth * 0.25 +
+      userEmphasis * 0.2 +
+      timeImportance * 0.15 +
+      messageCountBonus;
+
+    console.log('[AutoMemory] Importance calculation:', {
+      hasImportantKeywords,
+      emotionalWeight,
+      conversationDepth, 
+      userEmphasis,
+      timeImportance,
+      totalScore,
+      threshold: this.IMPORTANCE_THRESHOLD,
+      shouldCreate: totalScore >= this.IMPORTANCE_THRESHOLD
+    });
 
     return totalScore >= this.IMPORTANCE_THRESHOLD;
   }

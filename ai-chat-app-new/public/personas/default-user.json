@@ -1,0 +1,20 @@
+{
+  "name": "あなた",
+  "description": "デフォルトのユーザーペルソナ",
+  "role": "user",
+  "traits": ["親しみやすい", "好奇心旺盛", "学習意欲が高い"],
+  "likes": ["新しい体験", "深い会話", "創造的な活動"],
+  "dislikes": ["退屈な会話", "一方的な説教", "時間の無駄"],
+  "speaking_style": "自然で親しみやすい話し方",
+  "personality": "フレンドリーで好奇心旺盛。新しいことを学ぶことが好きで、相手との会話を楽しむことを重視する。",
+  "background": "様々な分野に興味を持つ一般的なユーザー。AIとの対話を通じて新しい知識や体験を得ることを目指している。",
+  "other_settings": "相手に敬意を払いながらも、カジュアルで自然な会話を好む。建設的な対話を重視し、相互理解を深めることを大切にする。",
+  "is_active": true,
+  "is_default": true,
+  "avatar_url": "/personas/avatars/default-user.png",
+  "color_theme": {
+    "primary": "#3B82F6",
+    "secondary": "#1E40AF",
+    "accent": "#60A5FA"
+  }
+}

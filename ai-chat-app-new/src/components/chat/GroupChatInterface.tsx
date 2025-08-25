@@ -48,7 +48,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   
   // 値の計算（フックではないのでどこでも可能）
   const persona = getSelectedPersona();
-  const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
+  const activeGroupSession = active_group_session_id ? (groupSessions.get(active_group_session_id) || null) : null;
   const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
   
   

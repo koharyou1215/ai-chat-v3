@@ -272,9 +272,9 @@ const StyledText: React.FC<{
   const getStyleClass = () => {
     switch (style) {
       case 'quote':
-        return 'text-yellow-300 font-bold px-1 bg-yellow-500/20 rounded';
+        return 'text-yellow-300 font-bold';
       case 'special-quote':
-        return 'text-cyan-300 font-bold text-lg px-1 animate-pulse bg-cyan-500/20 rounded';
+        return 'text-cyan-300 font-bold text-lg animate-pulse';
       case 'annotation':
         return 'text-gray-400 text-sm italic';
       case 'ellipsis':

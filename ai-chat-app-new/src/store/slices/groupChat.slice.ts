@@ -11,6 +11,9 @@ export interface GroupChatSlice {
   is_group_mode: boolean;
   group_generating: boolean;
   
+  // Character reselection state
+  showCharacterReselectionModal: boolean;
+  
   createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string, scenario?: GroupChatScenario) => Promise<UUID>;
   sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
   setGroupMode: (isGroupMode: boolean) => void;
@@ -19,6 +22,11 @@ export interface GroupChatSlice {
   getActiveGroupSession: () => GroupChatSession | null;
   toggleGroupCharacter: (sessionId: UUID, characterId: string) => void;
   setGroupChatMode: (sessionId: UUID, mode: GroupChatMode) => void;
+  
+  // 🆕 Character reselection functionality
+  setShowCharacterReselectionModal: (show: boolean) => void;
+  updateSessionCharacters: (sessionId: UUID, newCharacters: Character[]) => void;
+  addSystemMessage: (sessionId: UUID, content: string) => void;
   
   // ヘルパー関数
   generateCharacterResponse: (groupSession: GroupChatSession, character: Character, userMessage: string, previousResponses: UnifiedMessage[]) => Promise<UnifiedMessage>;
@@ -29,6 +37,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
   active_group_session_id: null,
   is_group_mode: false,
   group_generating: false,
+  showCharacterReselectionModal: false,
   
   createGroupSession: async (characters, persona, mode = 'sequential', groupName, scenario) => {
     const groupSessionId = `group-${Date.now()}`;
@@ -112,17 +121,30 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
   },
 
   sendGroupMessage: async (content, imageUrl) => {
+    console.log('[GroupChat] Sending group message:', { content: content.substring(0, 50) + '...', hasImage: !!imageUrl });
+    
     const activeGroupSessionId = get().active_group_session_id;
-    if (!activeGroupSessionId) return;
+    if (!activeGroupSessionId) {
+      console.error('[GroupChat] No active group session ID');
+      return;
+    }
 
     if (get().group_generating) return;
     set({ group_generating: true });
 
     const groupSession = get().groupSessions.get(activeGroupSessionId);
     if (!groupSession) {
+      console.error('[GroupChat] Group session not found:', activeGroupSessionId);
       set({ group_generating: false });
       return;
     }
+    
+    console.log('[GroupChat] Found group session:', {
+      id: groupSession.id,
+      characterCount: groupSession.characters.length,
+      activeCharacterCount: groupSession.active_character_ids.size,
+      chatMode: groupSession.chat_mode
+    });
 
     try {
       // ユーザーメッセージを追加
@@ -158,6 +180,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       const activeCharacters = Array.from(groupSession.active_character_ids)
         .map(id => groupSession.characters.find(c => c.id === id))
         .filter((char): char is Character => char !== undefined);
+
+      console.log('[GroupChat] Active characters for response:', activeCharacters.map(c => ({ id: c.id, name: c.name })));
 
       const responses: UnifiedMessage[] = [];
 
@@ -216,6 +240,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       }
 
       // 応答をセッションに追加
+      console.log('[GroupChat] Generated responses:', responses.length, responses.map(r => ({ character: r.character_name, preview: r.content.substring(0, 50) + '...' })));
+      
       groupSession.messages.push(...responses);
       groupSession.message_count += responses.length + 1; // ユーザーメッセージも含む
       groupSession.last_message_at = new Date().toISOString();
@@ -392,6 +418,146 @@ ${character.scenario ? `シナリオ: ${character.scenario}` : ''}
         ...session,
         chat_mode: mode,
         simultaneous_responses: mode === 'simultaneous',
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
+      };
+    });
+  },
+
+  // 🆕 Character reselection functionality
+  setShowCharacterReselectionModal: (show) => {
+    set({ showCharacterReselectionModal: show });
+  },
+
+  updateSessionCharacters: (sessionId, newCharacters) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      const previousCharacterIds = session.character_ids;
+      const newCharacterIds = newCharacters.map(c => c.id);
+      
+      // Find added and removed characters
+      const addedIds = newCharacterIds.filter(id => !previousCharacterIds.includes(id));
+      const removedIds = previousCharacterIds.filter(id => !newCharacterIds.includes(id));
+      
+      // Initialize tracker managers for new characters
+      const trackerManagers = get().trackerManagers;
+      newCharacters.forEach(character => {
+        if (!trackerManagers.has(character.id)) {
+          const trackerManager = new TrackerManager();
+          trackerManager.initializeTrackerSet(character.id, character.trackers);
+          trackerManagers.set(character.id, trackerManager);
+        }
+      });
+
+      const updatedSession = {
+        ...session,
+        character_ids: newCharacterIds,
+        characters: newCharacters,
+        active_character_ids: new Set(newCharacterIds), // All new characters start as active
+        updated_at: new Date().toISOString()
+      };
+
+      // Create system message about character changes if there are any changes
+      if (addedIds.length > 0 || removedIds.length > 0) {
+        const changeMessages: string[] = [];
+        
+        if (addedIds.length > 0) {
+          const addedNames = newCharacters
+            .filter(c => addedIds.includes(c.id))
+            .map(c => c.name);
+          changeMessages.push(`${addedNames.join('、')}が参加しました`);
+        }
+        
+        if (removedIds.length > 0) {
+          const removedNames = session.characters
+            .filter(c => removedIds.includes(c.id))
+            .map(c => c.name);
+          changeMessages.push(`${removedNames.join('、')}が退出しました`);
+        }
+
+        // Add system message
+        const systemMessage: UnifiedMessage = {
+          id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 1,
+          session_id: sessionId,
+          role: 'assistant',
+          content: `📝 ${changeMessages.join('、')}`,
+          memory: {
+            importance: { score: 0.3, factors: { emotional_weight: 0.2, repetition_count: 0, user_emphasis: 0, ai_judgment: 0.3 } },
+            is_pinned: false,
+            is_bookmarked: false,
+            keywords: ['システム', 'メンバー変更'],
+            summary: 'グループメンバー変更通知'
+          },
+          expression: {
+            emotion: { primary: 'neutral', intensity: 0.5, emoji: '📝' },
+            style: { font_weight: 'normal', text_color: '#ffffff' },
+            effects: []
+          },
+          edit_history: [],
+          regeneration_count: 0,
+          is_deleted: false,
+          metadata: { 
+            is_system_message: true,
+            change_type: 'character_roster_update',
+            added_characters: addedIds,
+            removed_characters: removedIds
+          }
+        };
+
+        updatedSession.messages = [...updatedSession.messages, systemMessage];
+        updatedSession.message_count += 1;
+      }
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession),
+        trackerManagers: new Map(trackerManagers)
+      };
+    });
+  },
+
+  addSystemMessage: (sessionId, content) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      const systemMessage: UnifiedMessage = {
+        id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        session_id: sessionId,
+        role: 'assistant',
+        content,
+        memory: {
+          importance: { score: 0.2, factors: { emotional_weight: 0.1, repetition_count: 0, user_emphasis: 0, ai_judgment: 0.2 } },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: ['システム'],
+          summary: 'システムメッセージ'
+        },
+        expression: {
+          emotion: { primary: 'neutral', intensity: 0.3, emoji: '🤖' },
+          style: { font_weight: 'normal', text_color: '#ffffff' },
+          effects: []
+        },
+        edit_history: [],
+        regeneration_count: 0,
+        is_deleted: false,
+        metadata: { is_system_message: true }
+      };
+
+      const updatedSession = {
+        ...session,
+        messages: [...session.messages, systemMessage],
+        message_count: session.message_count + 1,
         updated_at: new Date().toISOString()
       };
 

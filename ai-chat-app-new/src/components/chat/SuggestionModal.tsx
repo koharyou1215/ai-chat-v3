@@ -48,21 +48,11 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
     // TODO: Add toast notification
   };
 
-  const getApproachLabel = (index: number) => {
-    const approaches = [
-      '優しく寄り添う',
-      '冷静に分析する',
-      '少しからかう',
-      '興味を示す'
-    ];
-    return approaches[index] || `候補 ${index + 1}`;
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-white/10">
+          <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-purple-400/20">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-white">
                 <Lightbulb className="w-5 h-5" />
@@ -85,14 +75,14 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
                       'p-4 rounded-lg cursor-pointer transition-all border',
                       selectedIndex === index 
                         ? 'border-purple-400 bg-purple-500/10' 
-                        : 'border-slate-700 hover:border-slate-600'
+                        : 'border-purple-400/30 hover:border-purple-400/50'
                     )}
                     onClick={() => editingIndex !== index && setSelectedIndex(index)}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-purple-300">
-                          {getApproachLabel(index)}
+                          提案 {index + 1}
                         </span>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleCopy(suggestion)}>
@@ -124,7 +114,7 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
               )}
             </div>
 
-            <div className="flex justify-end gap-2 p-4 border-t border-white/10">
+            <div className="flex justify-end gap-2 p-4 border-t border-purple-400/20">
               <Button variant="ghost" onClick={onClose}>キャンセル</Button>
               <Button
                 onClick={() => selectedIndex !== null && handleSelect(selectedIndex)}

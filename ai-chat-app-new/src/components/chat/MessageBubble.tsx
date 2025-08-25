@@ -389,7 +389,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   };
 
   // 感情に基づくアニメーション効果（安全な実装）
-  const getEmotionAnimation = (): object => {
+  const getEmotionAnimation = (): Record<string, any> => {
     const emotion = message.expression?.emotion;
     if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
 
@@ -442,7 +442,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           className="flex-shrink-0"
         >
           <div className="flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center ring-2 ring-opacity-60"
+              style={{
+                background: isGroupChat && characterColor 
+                  ? (() => {
+                      const color = characterColor.replace('#', '');
+                      const r = parseInt(color.slice(0, 2), 16);
+                      const g = parseInt(color.slice(2, 4), 16);
+                      const b = parseInt(color.slice(4, 6), 16);
+                      return `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.9) 0%, rgba(${Math.min(r + 40, 255)}, ${Math.min(g + 30, 255)}, ${Math.min(b + 50, 255)}, 0.9) 100%)`;
+                    })()
+                  : 'linear-gradient(135deg, rgba(168, 85, 247, 0.9) 0%, rgba(236, 72, 153, 0.9) 100%)',
+                boxShadow: `0 0 0 2px ${isGroupChat && characterColor ? characterColor + '60' : 'rgba(168, 85, 247, 0.6)'}`
+              }}
+            >
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
@@ -486,7 +500,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           animate={{ scale: 1 }}
           className="flex-shrink-0"
         >
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+          <div 
+            className="w-10 h-10 rounded-full flex items-center justify-center ring-2 ring-blue-400 ring-opacity-60"
+            style={{
+              background: isGroupChat 
+                ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.9) 0%, rgba(6, 182, 212, 0.9) 100%)'
+                : 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(6, 182, 212, 0.9) 100%)',
+            }}
+          >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img 
@@ -514,19 +535,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         )}
         {/* メッセージバブル */}
         <motion.div
-          layout
           className={cn(
             'relative px-4 py-3 rounded-2xl border',
-            settings.bubbleBlur ? 'backdrop-blur-sm' : ''
+            settings.bubbleBlur ? 'backdrop-blur-md' : '', // smからmdへ変更
+            isGroupChat && !isUser && 'ring-1 ring-opacity-30',
           )}
           style={{
             background: isUser 
-              ? `linear-gradient(135deg, rgba(37, 99, 235, ${settings.bubbleOpacity / 100}) 0%, rgba(6, 182, 212, ${settings.bubbleOpacity / 100}) 100%)`
-              : `linear-gradient(135deg, rgba(168, 85, 247, ${settings.bubbleOpacity / 100}) 0%, rgba(236, 72, 153, ${settings.bubbleOpacity / 100}) 100%)`,
-            borderColor: isUser ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)',
-            boxShadow: `0 0 30px ${isUser ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}`
+              ? `linear-gradient(135deg, rgba(37, 99, 235, ${(100 - settings.bubbleOpacity) / 100}) 0%, rgba(6, 182, 212, ${(100 - settings.bubbleOpacity) / 100}) 100%)` // 透明度を修正
+              : isGroupChat && characterColor && characterColor !== '#8b5cf6'
+                ? (() => {
+                    const color = characterColor.replace('#', '');
+                    const r = parseInt(color.slice(0, 2), 16);
+                    const g = parseInt(color.slice(2, 4), 16);
+                    const b = parseInt(color.slice(4, 6), 16);
+                    const opacity = (100 - settings.bubbleOpacity) / 100; // 透明度を修正: bubbleOpacityが高いほど透明に
+                    return `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, ${opacity}) 0%, rgba(${Math.min(r + 30, 255)}, ${Math.min(g + 20, 255)}, ${Math.min(b + 40, 255)}, ${opacity}) 100%)`;
+                  })()
+                : `linear-gradient(135deg, rgba(168, 85, 247, ${(100 - settings.bubbleOpacity) / 100}) 0%, rgba(236, 72, 153, ${(100 - settings.bubbleOpacity) / 100}) 100%)`, // 透明度を修正
+            borderColor: isUser 
+              ? 'rgba(255, 255, 255, 0.2)' 
+              : isGroupChat && characterColor 
+                ? `${characterColor}40` // 透明度を少し上げる
+                : 'rgba(255, 255, 255, 0.2)',
+            boxShadow: isUser 
+              ? '0 0 30px rgba(59, 130, 246, 0.1)' // 影を少し弱める
+              : isGroupChat && characterColor
+                ? `0 0 30px ${characterColor}20` // 影を少し弱める
+                : '0 0 30px rgba(168, 85, 247, 0.1)' // 影を少し弱める
           }}
-          animate={!isUser && settings.emotionBasedStyling ? getEmotionAnimation() : {}}
+          animate={
+            !isUser && 
+            settings.emotionBasedStyling && 
+            !settings.typewriterEffect && 
+            !settings.particleEffects 
+              ? getEmotionAnimation() 
+              : {}
+          }
         >
           {/* 重要度インジケーター */}
           {message.memory.importance.score > 0.8 && (
@@ -561,7 +606,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                   <textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="w-full bg-black/20 text-white/90 border border-white/20 rounded p-2 min-h-[100px] resize-none focus:outline-none focus:border-white/40"
+                    className="w-full bg-black/20 text-white/90 border border-purple-400/30 rounded p-2 min-h-[100px] resize-none focus:outline-none focus:border-purple-400/60"
                     placeholder="メッセージを編集..."
                   />
                   <div className="flex gap-2 justify-end">
@@ -581,7 +626,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                   
                   {/* 編集オプション選択 */}
                   {showEditOptions && (
-                    <div className="mt-2 p-3 bg-black/30 rounded border border-white/20">
+                    <div className="mt-2 p-3 bg-black/30 rounded border border-purple-400/30">
                       <p className="text-sm text-white/70 mb-2">編集後の動作を選択:</p>
                       <div className="flex gap-2">
                         <button
@@ -623,7 +668,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                       typingSpeed={isLatest ? 30 : 0}
                     />
                   ) : (
-                    <div className="text-white/90 whitespace-pre-wrap">
+                    <div className="text-white/90 whitespace-pre-wrap select-none">
                       {message.content}
                     </div>
                   )}
@@ -703,7 +748,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               exit={{ opacity: 0, y: -10 }}
               className={cn(
                 'absolute left-1/2 -translate-x-1/2 z-50',
-                'bg-slate-800/95 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg',
+                'bg-slate-800/95 backdrop-blur-sm rounded-lg border border-purple-400/20 shadow-lg',
                 'p-1 flex gap-1 justify-center',
                 'max-w-[calc(100vw-2rem)] overflow-hidden',
                 menuPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'

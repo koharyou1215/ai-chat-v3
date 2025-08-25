@@ -6,16 +6,20 @@ import { X, Search } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { Persona } from '@/types';
 import { PersonaCard } from './PersonaCard';
+import { PersonaDetailModal } from './PersonaDetailModal';
 import { Input } from '@/components/ui/input';
 
 export const PersonaGalleryModal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPersonaForEdit, setSelectedPersonaForEdit] = useState<Persona | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const {
     showPersonaGallery,
     setShowPersonaGallery,
     personas,
     activatePersona,
     activePersonaId,
+    updatePersona,
   } = useAppStore();
 
   const personasArray = useMemo(() => Array.from(personas.values()), [personas]);
@@ -32,6 +36,32 @@ export const PersonaGalleryModal: React.FC = () => {
   const handleSelectPersona = (persona: Persona) => {
     activatePersona(persona.id);
     setShowPersonaGallery(false);
+  };
+
+  const handleEditPersona = (persona: Persona) => {
+    setSelectedPersonaForEdit(persona);
+    setShowDetailModal(true);
+  };
+
+  const handleSavePersona = async (updatedPersona: Persona) => {
+    try {
+      // Update persona in store
+      updatePersona(updatedPersona);
+      
+      // Save to file system if needed (this would require an API endpoint)
+      console.log('📝 Persona updated:', updatedPersona);
+      
+      setShowDetailModal(false);
+      setSelectedPersonaForEdit(null);
+    } catch (error) {
+      console.error('❌ Failed to save persona:', error);
+      throw error;
+    }
+  };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedPersonaForEdit(null);
   };
 
   if (!showPersonaGallery) {
@@ -82,9 +112,7 @@ export const PersonaGalleryModal: React.FC = () => {
                   key={persona.id}
                   persona={persona}
                   onSelect={handleSelectPersona}
-                  onEdit={() => {
-                    /* Not implemented */
-                  }}
+                  onEdit={handleEditPersona}
                   isSelected={persona.id === activePersonaId}
                 />
               ))}
@@ -97,6 +125,14 @@ export const PersonaGalleryModal: React.FC = () => {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Persona Detail Modal */}
+      <PersonaDetailModal
+        persona={selectedPersonaForEdit}
+        isOpen={showDetailModal}
+        onClose={handleCloseDetailModal}
+        onSave={handleSavePersona}
+      />
     </AnimatePresence>
   );
 };

@@ -6,6 +6,10 @@ import { apiManager } from '@/services/api-manager';
 import { apiRequestQueue } from '@/services/api-request-queue';
 import { APIConfig, Character, Persona } from '@/types';
 
+interface WindowWithInspirationStats extends Window {
+  inspirationCacheStats: () => void;
+}
+
 export class InspirationService {
   // 軽量キャッシュシステム（パフォーマンス最適化）
   private suggestionCache = new Map<string, { 
@@ -30,7 +34,7 @@ export class InspirationService {
     character: Character,
     user: Persona,
     customPrompt?: string,
-    suggestionCount: number = 4,
+    suggestionCount: number = 3, // 提案数を3に固定
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<InspirationSuggestion[]> {
     // 🚀 キャッシュチェック（パフォーマンス最適化）
@@ -52,21 +56,20 @@ export class InspirationService {
       // プレースホルダーを実際の会話コンテキストで置換
       prompt = customPrompt.replace(/{{conversation}}/g, context);
     } else {
-      // デフォルトのアプローチをユーザー指定のものに書き換える
-      approaches = [
-        '優しく寄り添う',
-        '冷静に分析する',
-        '少しからかう',
-        '興味を示す',
-      ].slice(0, suggestionCount);
-      prompt = this.buildDefaultSuggestionPrompt(context, approaches, character, user);
+      approaches = []; // アプローチのリストは空にする
+      prompt = this.buildDefaultSuggestionPrompt(context, character, user);
     }
 
     try {
       // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
       const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('✨ Inspiration request started via queue');
-        return apiManager.generateMessage(prompt, '', [], apiConfig);
+        // 💡 インスピレーション機能はより長い応答が必要なため、max_tokensを増やす
+        const inspirationApiConfig = { 
+          ...apiConfig, 
+          max_tokens: 8192 
+        };
+        return apiManager.generateMessage(prompt, '', [], inspirationApiConfig);
       });
       const suggestions = this.parseSuggestions(responseContent, approaches);
       
@@ -78,17 +81,17 @@ export class InspirationService {
           content: s,
           context,
           confidence: 0.7,
-          source: 'pattern'
+          source: 'pattern' as const
         }));
       }
 
-      return suggestions.map((content, index) => ({
+      const result = suggestions.map((content, index) => ({
         id: `suggestion_${Date.now()}_${index}`,
         type: this.getApproachType(approaches[index] || 'continuation'),
         content,
         context,
         confidence: 0.8,
-        source: 'pattern'
+        source: 'pattern' as const
       }));
       
       // 🚀 結果をキャッシュに保存
@@ -199,7 +202,7 @@ ${inputText}
         content,
         context: this.buildConversationContext(recentMessages),
         confidence: 0.7,
-        source: 'pattern'
+        source: 'pattern' as const
       });
     }
 
@@ -237,12 +240,11 @@ ${inputText}
    */
   private buildDefaultSuggestionPrompt(
     context: string, 
-    approaches: string[],
     character: Character,
     user: Persona
   ): string {
     return `あなたはユーザー「${user.name}」として、キャラクター「${character.name}」と会話しています。
-以下の状況設定と会話の流れを深く理解し、ユーザー「${user.name}」として次に行う返信として、最も自然で魅力的なものを4つの異なる方向性で提案してください。
+以下の状況設定と会話の流れを深く理解し、ユーザー「${user.name}」として次に行う返信として、最も自然で魅力的なものを互いに全く異なる方向性で3つ提案してください。
 
 ### 対話相手のキャラクター情報
 - 名前: ${character.name}
@@ -255,14 +257,13 @@ ${user.description}
 ### 最近の会話
 ${context}
 
-### 生成する提案の方向性
-${approaches.map(approach => `[${approach}]`).join('\n')}
-
 ### 非常に重要な指示
 - **最優先事項**: 生成する文章は、必ずユーザー「${user.name}」視点の発言です。
+- 3つの提案は、それぞれが全く異なるアプローチ（例：感情的な反応、論理的な質問、意外な行動提案など）になるようにしてください。
+- 各提案は、150文字以内で、できるだけ表現豊かに記述してください。
+- 箇条書き（\`1.\` \`2.\` \`3.\` の形式）で、提案の文章だけを記述してください。
 - キャラクター「${character.name}」のセリフは絶対に生成しないでください。
 - あなたのプロフィールを考慮した、適切な口調や態度で返信してください。
-- 各カテゴリの後に、そのスタイルに合った自然な返信文のみを記述してください。
 - 前置きや説明は一切不要です。`;
   }
 
@@ -566,7 +567,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }, 10 * 60 * 1000); // 10分ごと
   
   // デベロッパー用統計関数
-  (window as Record<string, unknown>).inspirationCacheStats = () => {
+  (window as WindowWithInspirationStats).inspirationCacheStats = () => {
     const stats = inspirationService.getCacheStats();
     console.log('📊 Inspiration Cache Stats:', stats);
     return stats;

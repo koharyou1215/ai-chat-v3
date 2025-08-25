@@ -332,8 +332,16 @@ export class TrackerManager {
   analyzeMessageForTrackerUpdates(message: UnifiedMessage, characterId: string): TrackerUpdate[] {
     const trackerSet = this.trackerSets.get(characterId);
     if (!trackerSet) {
+      console.log('[TrackerManager] No tracker set found for character:', characterId);
       return [];
     }
+    
+    console.log('[TrackerManager] Analyzing message for tracker updates:', {
+      characterId,
+      trackerCount: trackerSet.trackers.size,
+      messageContent: message.content.substring(0, 50) + '...',
+      messageRole: message.role
+    });
 
     const updates: TrackerUpdate[] = [];
     const content = message.content.toLowerCase();
@@ -385,6 +393,13 @@ export class TrackerManager {
       }
 
       if (shouldUpdate && newValue !== oldValue) {
+        console.log('[TrackerManager] Updating tracker:', {
+          trackerName,
+          oldValue,
+          newValue,
+          reason
+        });
+        
         // 実際に更新実行
         this.updateTracker(characterId, trackerName, newValue, `自動更新: ${reason}`);
         
@@ -399,6 +414,12 @@ export class TrackerManager {
         });
       }
     }
+
+    console.log('[TrackerManager] Analysis complete:', {
+      characterId,
+      updatesFound: updates.length,
+      updates: updates.map(u => ({ tracker: u.tracker_name, oldValue: u.old_value, newValue: u.new_value }))
+    });
 
     return updates;
   }
@@ -447,7 +468,7 @@ export class TrackerManager {
       // ユーザーのメッセージによる変化
       for (const keyword of positiveKeywords) {
         if (content.includes(keyword)) {
-          change += 2;
+          change += 3; // より大きな変化で反応しやすく
           reason = `ポジティブな発言: ${keyword}`;
           break;
         }
@@ -455,7 +476,7 @@ export class TrackerManager {
 
       for (const keyword of negativeKeywords) {
         if (content.includes(keyword)) {
-          change -= 3;
+          change -= 4; // より大きな変化で反応しやすく
           reason = `ネガティブな発言: ${keyword}`;
           break;
         }
@@ -463,8 +484,14 @@ export class TrackerManager {
 
       // 質問形式は微増
       if (content.includes('？') || content.includes('?')) {
-        change += 1;
+        change += 2;
         reason = '質問による関心表示';
+      }
+      
+      // 日常的な会話でも小さな変化を追加
+      if (content.length > 10 && change === 0) {
+        change += 1;
+        reason = '一般的な会話参加';
       }
     } else {
       // AIの応答による微調整（通常は変化なし）

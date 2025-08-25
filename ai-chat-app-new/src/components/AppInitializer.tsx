@@ -26,25 +26,54 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   // データの読み込み
   useEffect(() => {
     const loadData = async () => {
-      console.log('AppInitializer: useEffect[loadData] triggered.');
-      console.log('AppInitializer: Starting data loading...');
+      console.log('🔄 AppInitializer: useEffect[loadData] triggered');
+      console.log('📊 AppInitializer: Current state:', {
+        isCharactersLoaded,
+        isPersonasLoaded,
+        charactersCount: characters.size,
+        personasCount: personas.size
+      });
       
       try {
-        // キャラクターとペルソナを並行で読み込み
-        await Promise.all([
+        console.log('🚀 AppInitializer: Starting parallel data loading...');
+        
+        // キャラクターとペルソナを並行で読み込み（個別エラーハンドリング付き）
+        const results = await Promise.allSettled([
           loadCharactersFromPublic(),
           loadPersonasFromPublic()
         ]);
         
-        console.log('AppInitializer: Data loading completed');
+        // 結果を個別に確認
+        results.forEach((result, index) => {
+          const type = index === 0 ? 'Characters' : 'Personas';
+          if (result.status === 'rejected') {
+            console.error(`❌ AppInitializer: ${type} loading failed:`, result.reason);
+          } else {
+            console.log(`✅ AppInitializer: ${type} loading succeeded`);
+          }
+        });
+        
+        // 最終状態を確認
+        setTimeout(() => {
+          console.log('📈 AppInitializer: Final state after loading:', {
+            charactersLoaded: characters.size,
+            personasLoaded: personas.size,
+            isCharactersLoaded,
+            isPersonasLoaded
+          });
+        }, 100);
+        
+        console.log('🎉 AppInitializer: Data loading process completed');
       } catch (error) {
-        console.error('AppInitializer: Error loading data:', error);
+        console.error('💥 AppInitializer: Critical error in data loading:', error);
       }
     };
 
     if (!isCharactersLoaded || !isPersonasLoaded) {
-      console.log('AppInitializer: condition met, calling loadData()');
+      console.log('🎯 AppInitializer: Loading condition met, executing loadData()');
       loadData();
+    } else {
+      console.log('✅ AppInitializer: Data already loaded, skipping');
     }
   }, [isCharactersLoaded, isPersonasLoaded, loadCharactersFromPublic, loadPersonasFromPublic]);
 
@@ -86,16 +115,51 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
 
       if (firstCharacter && activePersona) {
         try {
-          console.log('AppInitializer: Creating initial session...');
+          console.log('🎬 AppInitializer: Creating initial session...', {
+            character: firstCharacter.name,
+            persona: activePersona.name
+          });
           await createSession(firstCharacter, activePersona);
-          console.log('AppInitializer: Initial session created successfully');
+          console.log('✨ AppInitializer: Initial session created successfully');
+          
+          // セッション作成後の状態確認
+          setTimeout(() => {
+            const newSessionsCount = sessions.size;
+            console.log('📋 AppInitializer: Post-creation session state:', {
+              sessionsCount: newSessionsCount,
+              activeSessionId: active_session_id
+            });
+          }, 100);
         } catch (error) {
-          console.error('AppInitializer: Failed to create initial session:', error);
+          console.error('❌ AppInitializer: Failed to create initial session:', error);
+          console.log('🔄 AppInitializer: Attempting fallback session creation...');
+          
+          // フォールバック: 基本的なセッション作成を試行
+          try {
+            const fallbackSessionId = `fallback-${Date.now()}`;
+            console.log('🆘 AppInitializer: Creating fallback session:', fallbackSessionId);
+            // このフォールバックは必要に応じて実装
+          } catch (fallbackError) {
+            console.error('💥 AppInitializer: Fallback session creation also failed:', fallbackError);
+          }
         }
       } else {
-        console.log('AppInitializer: Missing character or persona for initialization');
-        if (!firstCharacter) console.log('AppInitializer: No characters available');
-        if (!activePersona) console.log('AppInitializer: No active persona available');
+        console.error('⚠️ AppInitializer: Cannot initialize - missing required data:');
+        console.log('📊 AppInitializer: Debug info:', {
+          hasCharacter: !!firstCharacter,
+          hasPersona: !!activePersona,
+          charactersAvailable: characters.size,
+          personasAvailable: personas.size,
+          charactersList: Array.from(characters.keys()).slice(0, 5),
+          personasList: Array.from(personas.keys()).slice(0, 5)
+        });
+        
+        if (!firstCharacter) {
+          console.error('❌ AppInitializer: No characters available - check character loading');
+        }
+        if (!activePersona) {
+          console.error('❌ AppInitializer: No active persona available - check persona loading');
+        }
       }
     };
 

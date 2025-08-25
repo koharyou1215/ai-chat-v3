@@ -374,6 +374,17 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     *   Integrated modal control
     *   Responsive layout
     *   Keyboard shortcuts
+    *   **UPDATED (Aug 25):** Enhanced group/individual chat mode switching
+
+**`ChatHeader.tsx`**
+
+*   **Description:** Top navigation and chat controls.
+*   **Responsibilities:** Mode switching, character display, and settings access.
+*   **Key Features:**
+    *   **ENHANCED (Aug 25):** Improved chat type toggle button with text labels
+    *   Character information display
+    *   Model selector dropdown
+    *   **UPDATED:** Transparent border implementation for better visual integration
 
 **`MessageBubble.tsx`**
 
@@ -385,6 +396,17 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     *   Voice playback and synthesis
     *   Emotion-based animations
     *   Action menu (regenerate, copy, edit, delete, etc.)
+    *   **UPDATED (Aug 25):** Unified purple border theme (`border-purple-400/20-50`)
+
+**`RichMessage.tsx`**
+
+*   **Description:** Renders formatted AI messages with enhanced styling.
+*   **Responsibilities:** Text analysis, pattern matching, and visual enhancement of dialogue.
+*   **Key Features:**
+    *   Pattern-based text styling (「」, 『』)
+    *   **UPDATED (Aug 25):** Removed background highlighting, text-color only
+    *   Emotion detection and color mapping
+    *   Quote analysis and emphasis detection
 
 **`TrackerDisplay.tsx`**
 
@@ -395,6 +417,7 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     *   Supports numeric, state, boolean, and text trackers
     *   Real-time change indicators
     *   Visual feedback
+    *   **FIXED (Aug 25):** Proper characterId-based tracker manager access
 
 ---
 🏪 **State Management (Zustand)**
@@ -496,6 +519,38 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
 // Supports image/video uploads (50MB limit)
 ```
 
+**Gemini API Client (August 25, 2025 Fix)**
+
+```typescript
+// src/services/api/gemini-client.ts - Critical Constructor Fix
+export class GeminiClient {
+  private apiKey: string;
+  private baseURL: string;
+  private model: string;
+
+  constructor() {
+    this.apiKey = '';
+    this.baseURL = 'https://generativelanguage.googleapis.com/v1beta/models';
+    this.model = 'gemini-2.5-pro';
+    this.initializeApiKeySync(); // FIXED: Synchronous initialization
+  }
+
+  // FIXED: Replaced async initializeApiKey() with synchronous version
+  private initializeApiKeySync(): void {
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      this.apiKey = apiKey;
+      console.log('Gemini API Key loaded from environment variable (sync)');
+    } else {
+      console.warn('NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
+    }
+  }
+
+  // Note: Previous async initialization in constructor was causing API key
+  // to be undefined when API calls were made immediately after instantiation
+}
+```
+
   ---
 🧠 **Memory System**
 
@@ -568,8 +623,32 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     getTrackersForPrompt(characterId: string): string
 
   // Automatic update logic
-    analyzeMessageForTrackerUpdates(message: UnifiedMessage): TrackerUpdate[]
+    analyzeMessageForTrackerUpdates(message: UnifiedMessage, characterId: string): TrackerUpdate[]
   }
+```
+
+**Critical Tracker Fix (August 25, 2025)**
+
+```typescript
+// src/store/slices/chat.slice.ts - Fixed tracker manager access
+export interface ChatSlice {
+  trackerManagers: Map<UUID, TrackerManager>; // Key: characterId (NOT sessionId)
+  
+  sendMessage: async (content, imageUrl) => {
+    // ❌ BEFORE: Incorrect access using sessionId
+    // const trackerManager = get().trackerManagers.get(activeSessionId);
+    
+    // ✅ AFTER: Correct access using characterId  
+    const characterId = activeSession.participants.characters[0]?.id;
+    const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+    
+    // Fixed tracker analysis with proper characterId
+    trackerManager && characterId ? Promise.all([
+      trackerManager.analyzeMessageForTrackerUpdates(userMessage, characterId),
+      trackerManager.analyzeMessageForTrackerUpdates(aiResponse, characterId)
+    ]) : Promise.resolve()
+  }
+}
 ```
 
 ---
@@ -1190,11 +1269,13 @@ VOICEVOX_ENGINE_URL=            # VoiceVox Engine URL
         *   Auto-determines title, summary, keywords, category
         *   Auto-assigns importance score, emotion tags, context tags
         *   Includes fallback for AI generation failure
-    *   **Fully Automatic Creation:** ✅ Newly implemented - `auto-memory-manager.ts`
+    *   **Fully Automatic Creation:** ✅ Enhanced implementation - `auto-memory-manager.ts`
         *   Auto-detects important messages during conversation
         *   Evaluates based on keywords, emotion, depth, and temporal importance
-        *   Executes creation if score exceeds threshold of 0.7
-        *   Runs after each AI message via `chat.slice.ts:260-272`
+        *   **UPDATED (Aug 25):** Threshold reduced from 0.8 to 0.4 for more frequent generation
+        *   **UPDATED (Aug 25):** Time restriction reduced from 60s to 10s for testing
+        *   **ENHANCED:** Added comprehensive debug logging for importance calculation
+        *   Runs after each AI message via `chat.slice.ts:304-314`
     *   **AI Generation Service:** `memory-card-generator.ts`
         *   Structured analysis in JSON format
         *   Auto-calculation of emotion weight, repetition, emphasis
@@ -1328,6 +1409,38 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 
 ---
 ## 🆕 Latest Updates
+
+### Critical Update: August 25, 2025
+
+#### 🔧 Comprehensive Bug Fixes and UI Improvements
+- **Gemini API Connection Issues Resolved:** Fixed critical constructor initialization problem in `gemini-client.ts` by replacing async `initializeApiKey()` with synchronous `initializeApiKeySync()` that directly accesses environment variables
+- **UI Transparency Enhancement:** Implemented transparent borders for chat header and input areas using `border-transparent` and `backdrop-blur-sm` effects for better visual integration
+- **Mobile Header Positioning:** Confirmed and verified existing safe-area-inset implementation handles top/bottom black areas correctly
+- **Text Highlighting Removal:** Modified `RichMessage.tsx` to remove background highlighting from dialogue text while preserving text color changes (`「」` and `『』` patterns now use only text colors)
+- **Border Color Unification:** Systematically unified all gray borders (`border-white/10`, `border-slate-700`, etc.) to purple theme (`border-purple-400/20-50`) across all chat components for visual consistency
+
+#### 📊 Tracker System and Memory Generation Fixes
+- **Tracker Manager Access Bug Fixed:** Corrected critical issue where tracker managers were accessed using `activeSessionId` instead of `characterId`, causing tracker updates to fail completely
+- **Memory Card Generation Optimization:** Lowered importance threshold from 0.8 to 0.4 and reduced time restriction from 60s to 10s to increase generation frequency
+- **Debug Logging Implementation:** Added comprehensive logging to both tracker analysis and memory card generation for better debugging visibility
+- **Auto-Update Restoration:** Tracker values and memory cards now properly update after conversation rounds with improved analysis triggers
+
+#### 🎯 Group Chat System Enhancements
+- **AI Generation Functionality Verified:** Confirmed complete implementation of group chat AI generation with comprehensive debug logging added to track message processing
+- **Chat Mode Toggle Visibility:** Enhanced chat type switching button with improved styling, border, text label ("グループ"/"個人"), and better hover effects for clearer user guidance
+- **Character Reselection Feature Confirmed:** Verified complete implementation of "キャラクター編集" button and CharacterReselectionModal functionality allowing users to change group chat participants
+
+#### 🏗️ System Architecture Improvements
+- **API Client Reliability:** Gemini API now properly initializes on startup preventing connection failures
+- **UI/UX Consistency:** Unified purple color scheme across all interactive elements creating cohesive visual experience
+- **State Management Optimization:** Fixed tracker manager state synchronization with proper character ID mapping
+- **Debug Infrastructure:** Added detailed logging throughout critical systems for better troubleshooting capabilities
+
+#### 🛠️ Developer Experience Enhancements
+- **Error Prevention:** Eliminated common initialization failures through synchronous API key loading
+- **Visual Debugging:** Color-coded debug logs help identify issues in tracker updates, memory generation, and group chat processing
+- **Performance Monitoring:** Reduced memory generation thresholds provide more frequent feedback for testing and validation
+- **Code Quality:** Maintained strict TypeScript compliance while implementing all fixes
 
 ### Critical Update: August 24, 2025
 

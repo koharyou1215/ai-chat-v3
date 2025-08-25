@@ -47,7 +47,7 @@ export const ReplySuggestions: React.FC<ReplySuggestionsProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="mb-4 p-4 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10"
+        className="mb-4 p-4 bg-white/5 backdrop-blur-sm rounded-2xl border border-purple-400/20"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-white/80">返信提案</h3>
@@ -82,7 +82,7 @@ export const ReplySuggestions: React.FC<ReplySuggestionsProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onSelectSuggestion(suggestion.content)}
-                  className="group relative p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-white/20 transition-all text-left"
+                  className="group relative p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-purple-400/20 hover:border-purple-400/40 transition-all text-left"
                 >
                   {/* アイコンとラベル */}
                   <div className="flex items-center gap-2 mb-2">

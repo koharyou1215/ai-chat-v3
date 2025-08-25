@@ -55,14 +55,30 @@ export class GeminiClient {
     this.apiKey = '';
     this.baseURL = 'https://generativelanguage.googleapis.com/v1beta/models';
     this.model = 'gemini-2.5-pro'; // Gemini 2.5 Proモデル名
-    this.initializeApiKey();
+    this.initializeApiKeySync();
   }
 
-  private async initializeApiKey() {
+  private initializeApiKeySync(): void {
+    // 環境変数から同期的にAPIキーを取得
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      this.apiKey = apiKey;
+      console.log('Gemini API Key loaded from environment variable (sync)');
+    } else {
+      console.warn('NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
+    }
+  }
+
+  // 明示的な初期化メソッド（必要時のみ使用）
+  async initialize(): Promise<void> {
     try {
-      this.apiKey = await this.loadApiKeyFromFile();
+      if (!this.apiKey) {
+        this.apiKey = await this.loadApiKeyFromFile();
+        console.log('Gemini API key initialized successfully (async)');
+      }
     } catch (error) {
       console.error('Failed to initialize API key:', error);
+      throw error;
     }
   }
 
@@ -115,6 +131,21 @@ export class GeminiClient {
     }
   ): Promise<string> {
     try {
+      // API key validation
+      if (!this.apiKey) {
+        console.error('Gemini API key is not set');
+        await this.initialize(); // Try to initialize if not done
+        if (!this.apiKey) {
+          throw new Error('Gemini API key is not available. Please check NEXT_PUBLIC_GEMINI_API_KEY environment variable.');
+        }
+      }
+
+      console.log('🔗 Gemini API Request:', { 
+        model: this.model, 
+        messageCount: messages.length,
+        hasApiKey: !!this.apiKey
+      });
+
       const request: GeminiRequest = {
         contents: messages,
         generationConfig: {
@@ -169,9 +200,19 @@ export class GeminiClient {
       
       if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
         console.error('Gemini candidate details:', candidate);
-        if (candidate.finishReason) {
+        
+        // Handle different finish reasons appropriately
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          console.warn('Gemini response truncated due to token limit');
+          return '申し訳ございませんが、レスポンスが長すぎて切り詰められました。より短い入力でお試しください。';
+        } else if (candidate.finishReason === 'SAFETY') {
+          throw new Error('Gemini response blocked by safety filters');
+        } else if (candidate.finishReason === 'RECITATION') {
+          throw new Error('Gemini response blocked due to recitation concerns');
+        } else if (candidate.finishReason) {
           throw new Error(`Gemini response blocked. Reason: ${candidate.finishReason}`);
         }
+        
         throw new Error('No content parts in Gemini response');
       }
 

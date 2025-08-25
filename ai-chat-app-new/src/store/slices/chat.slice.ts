@@ -185,7 +185,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     // 3. AI応答生成などの重い処理を非同期で実行
     (async () => {
       try {
-        const trackerManager = get().trackerManagers.get(activeSessionId);
+        const characterId = activeSession.participants.characters[0]?.id;
+        const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
         
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
         const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
@@ -307,9 +308,9 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               activeSession.participants.characters[0]?.id,
               get().createMemoryCard
             ),
-            trackerManager ? Promise.all([
-              trackerManager.analyzeMessageForTrackerUpdates(userMessage, activeSession.participants.characters[0]?.id),
-              trackerManager.analyzeMessageForTrackerUpdates(aiResponse, activeSession.participants.characters[0]?.id)
+            trackerManager && characterId ? Promise.all([
+              trackerManager.analyzeMessageForTrackerUpdates(userMessage, characterId),
+              trackerManager.analyzeMessageForTrackerUpdates(aiResponse, characterId)
             ]) : Promise.resolve()
           ]).then(results => {
             const memoryResult = results[0];
@@ -354,7 +355,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
-      const trackerManager = get().trackerManagers.get(activeSessionId);
+      const characterId = session.participants.characters[0]?.id;
+      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
       const systemPrompt = await promptBuilderService.buildPrompt(
         { ...session, messages: messagesForPrompt },
         lastUserMessage.content,

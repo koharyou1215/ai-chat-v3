@@ -108,12 +108,12 @@ const ChatSidebar: React.FC = () => {
       exit={{ width: 0 }}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={cn(
-        "flex flex-col bg-slate-800 border-r border-white/10 text-white overflow-hidden flex-shrink-0"
+        "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0"
       )}
       style={{ width: 320 }} // Add fixed width to prevent collapsing during animation
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+      <div className="flex items-center justify-between p-4 border-b border-purple-400/20 flex-shrink-0">
         <h2 className="text-lg font-semibold">
           Chat History
         </h2>
@@ -132,7 +132,7 @@ const ChatSidebar: React.FC = () => {
 
       {/* Current Context */}
       {(currentCharacter || currentPersona) && (
-        <div className="p-4 bg-slate-900/50 border-b border-white/10">
+        <div className="p-4 bg-slate-900/50 border-b border-purple-400/20">
           <div className="text-xs text-slate-400 mb-2">Current Context</div>
           <div className="space-y-2">
             {currentCharacter && (
@@ -178,7 +178,7 @@ const ChatSidebar: React.FC = () => {
       )}
 
       {/* Search */}
-      <div className="p-4 border-b border-white/10">
+      <div className="p-4 border-b border-purple-400/20">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -186,7 +186,7 @@ const ChatSidebar: React.FC = () => {
             placeholder="Search chats..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="w-full pl-9 pr-3 py-2 bg-slate-700 border border-purple-400/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
           />
         </div>
       </div>
@@ -272,7 +272,7 @@ const ChatSidebar: React.FC = () => {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-white/10 py-1 min-w-32"
+                          className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-purple-400/20 py-1 min-w-32"
                           onMouseLeave={() => setSelectedSessionId(null)}
                         >
                           <button
@@ -290,7 +290,7 @@ const ChatSidebar: React.FC = () => {
                             <Download size={12} />
                             Export
                           </button>
-                          <div className="border-t border-white/10 my-1" />
+                          <div className="border-t border-purple-400/20 my-1" />
                           <button
                             onClick={(e) => {
                               handleDeleteSession(session.id, e);
@@ -313,7 +313,7 @@ const ChatSidebar: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/10 flex-shrink-0">
+      <div className="p-4 border-t border-purple-400/20 flex-shrink-0">
         <div className="text-xs text-slate-400 text-center">
           {sessions.size} total conversations
         </div>

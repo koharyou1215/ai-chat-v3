@@ -50,7 +50,10 @@
       "Bash(npx eslint:*)",
       "Bash(dir /a /s C:ai-chat-v3ai-chat-app-new.next)",
       "Bash(dir:*)",
-      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)"
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)",
+      "Bash(ls:*)",
+      "Bash(pkill:*)",
+      "Bash(git revert:*)"
     ],
     "deny": [],
     "ask": [],

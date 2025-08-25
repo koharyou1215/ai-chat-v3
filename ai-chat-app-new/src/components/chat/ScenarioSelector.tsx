@@ -108,7 +108,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
             "p-3 rounded-lg border-2 transition-all",
             scenarioMode === 'template'
               ? "border-purple-500 bg-purple-500/20"
-              : "border-white/20 hover:border-white/40"
+              : "border-purple-400/30 hover:border-purple-400/50"
           )}
         >
           <FileText className="w-6 h-6 mx-auto mb-2 text-purple-400" />
@@ -121,7 +121,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
             "p-3 rounded-lg border-2 transition-all",
             scenarioMode === 'custom'
               ? "border-purple-500 bg-purple-500/20"
-              : "border-white/20 hover:border-white/40"
+              : "border-purple-400/30 hover:border-purple-400/50"
           )}
         >
           <Wand2 className="w-6 h-6 mx-auto mb-2 text-blue-400" />
@@ -134,7 +134,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
             "p-3 rounded-lg border-2 transition-all",
             scenarioMode === 'ai_generate'
               ? "border-purple-500 bg-purple-500/20"
-              : "border-white/20 hover:border-white/40"
+              : "border-purple-400/30 hover:border-purple-400/50"
           )}
         >
           <Sparkles className="w-6 h-6 mx-auto mb-2 text-green-400" />
@@ -153,7 +153,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
                   <motion.button
                     key={template.id}
                     onClick={() => handleTemplateSelect(template)}
-                    className="w-full p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all text-left group"
+                    className="w-full p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-purple-400/20 transition-all text-left group"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -193,7 +193,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
                     ? "例: カフェで偶然出会ったキャラクターたちが..."
                     : "例: ミステリアスな事件、恋愛要素、コメディタッチ（空白でもOK）"
                 }
-                className="w-full h-32 p-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 resize-none focus:outline-none focus:border-purple-500"
+                className="w-full h-32 p-3 bg-white/5 border border-purple-400/30 rounded-lg text-white placeholder-white/40 resize-none focus:outline-none focus:border-purple-500"
               />
             </div>
             
@@ -219,10 +219,10 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
       </div>
 
       {/* 🚀 改善されたスキップボタン */}
-      <div className="text-center pt-6 border-t border-white/10 space-y-3">
+      <div className="text-center pt-6 border-t border-purple-400/20 space-y-3">
         <button
           onClick={onSkip}
-          className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-white/10 hover:border-white/20"
+          className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-purple-400/20 hover:border-purple-400/30"
         >
           🏃‍♂️ シナリオなしですぐに開始
         </button>

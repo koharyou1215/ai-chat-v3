@@ -133,6 +133,7 @@ export const useAppStore = create<AppStore>()(
         groupSessions: state.groupSessions,
         active_group_session_id: state.active_group_session_id,
         is_group_mode: state.is_group_mode,
+        // Note: showCharacterReselectionModal is not persisted (UI state)
 
         // Characters and Personas
         characters: state.characters,
