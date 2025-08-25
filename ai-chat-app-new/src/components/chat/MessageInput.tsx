@@ -117,27 +117,14 @@ export const MessageInput: React.FC = () => {
     setIsUploading(true);
     try {
       let processedFile = file;
-      // 画像ファイルの場合のみ圧縮処理を実行
+      // 画像ファイルサイズ制限チェック（圧縮なしで安全な実装）
       if (file.type.startsWith('image/')) {
-        console.log('🖼️ Compressing image...');
-        try {
-          // 動的インポートに変更
-          const imageCompression = (await import('browser-image-compression')).default;
-          const options = {
-            maxSizeMB: 2,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-          };
-          processedFile = await imageCompression(file, options);
-          console.log('✅ Image compressed successfully:', {
-            originalSize: file.size,
-            compressedSize: processedFile.size
-          });
-        } catch (compressionError) {
-          console.error('❌ Image compression failed:', compressionError);
-          // 圧縮に失敗した場合は、元のファイルでアップロードを試みる
-          processedFile = file;
+        const maxSize = 5 * 1024 * 1024; // 5MB制限
+        if (file.size > maxSize) {
+          console.warn('⚠️ Image too large, uploading without compression');
+          alert('画像サイズが大きいため、アップロードに時間がかかる場合があります。');
         }
+        processedFile = file;
       }
 
       const formData = new FormData();
