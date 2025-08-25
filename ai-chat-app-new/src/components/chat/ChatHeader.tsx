@@ -8,6 +8,7 @@ import { GroupChatMode as _GroupChatMode } from '@/types/core/group-chat.types';
 import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
 import { useTranslation, commonTexts } from '@/hooks/useLanguage';
+import { ClientOnlyProvider } from '../ClientOnlyProvider';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -49,7 +50,8 @@ const getModelDisplayName = (modelId: string): string => {
     return modelId.split('/')[0] || modelId;
 };
 
-export const ChatHeader: React.FC = () => {
+// SSR安全なヘッダーコンテンツコンポーネント
+const ChatHeaderContent: React.FC = () => {
     const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
     const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
     const { t } = useTranslation();
@@ -279,5 +281,18 @@ export const ChatHeader: React.FC = () => {
                 onClose={() => setIsVoiceCallModalOpen(false)}
             />
         </div>
+    );
+};
+
+// メインのChatHeaderコンポーネント（SSR対応）
+export const ChatHeader: React.FC = () => {
+    return (
+        <ClientOnlyProvider fallback={
+            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/80 backdrop-blur-md">
+                {/* Loading placeholder */}
+            </div>
+        }>
+            <ChatHeaderContent />
+        </ClientOnlyProvider>
     );
 };

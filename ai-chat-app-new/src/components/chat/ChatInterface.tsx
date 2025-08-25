@@ -81,7 +81,8 @@ const ThinkingIndicator = () => (
     </div>
 );
 
-export const ChatInterface: React.FC = () => {
+// SSR安全なチャットインターフェースコンテンツ
+const ChatInterfaceContent: React.FC = () => {
     const { 
         getActiveSession, 
         is_generating,
@@ -161,11 +162,7 @@ export const ChatInterface: React.FC = () => {
                         <ChatHeader />
                     </div>
                     <div className="flex-1 overflow-y-auto" style={{paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)'}}>
-                        <GroupChatInterface 
-                            onStartGroupChat={(_name, _characterIds, _mode) => {
-                                // This will be handled by the GroupChatInterface component itself
-                            }}
-                        />
+                        <GroupChatInterface />
                     </div>
                 </div>
                 
@@ -369,5 +366,21 @@ export const ChatInterface: React.FC = () => {
                 </Suspense>
             </div>
         </div>
+    );
+};
+
+// メインのChatInterfaceコンポーネント（SSR対応）
+export const ChatInterface: React.FC = () => {
+    return (
+        <ClientOnlyProvider fallback={
+            <div className="flex bg-slate-900 text-white overflow-hidden items-center justify-center" 
+                 style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+                <div className="text-white/50 text-center">
+                    <div className="animate-pulse">読み込み中...</div>
+                </div>
+            </div>
+        }>
+            <ChatInterfaceContent />
+        </ClientOnlyProvider>
     );
 };

@@ -40,7 +40,7 @@ export const MessageInput: React.FC = () => {
     setShowPersonaGallery,
     setShowHistoryModal,
     setShowSettingsModal,
-    _setShowVoiceSettingsModal: setShowVoiceSettingsModal,
+    setShowVoiceSettingsModal,
     setShowSuggestionModal,
     generateSuggestions,
     enhanceText,
