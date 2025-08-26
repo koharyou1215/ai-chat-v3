@@ -4,6 +4,13 @@ import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core
 import { apiManager } from '@/services/api-manager';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { AppStore } from '..';
+import { 
+  generateGroupSessionId, 
+  generateWelcomeMessageId, 
+  generateUserMessageId, 
+  generateAIMessageId,
+  generateSystemMessageId 
+} from '@/utils/uuid';
 
 export interface GroupChatSlice {
   groupSessions: Map<UUID, GroupChatSession>;
@@ -40,7 +47,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
   showCharacterReselectionModal: false,
   
   createGroupSession: async (characters, persona, mode = 'sequential', groupName, scenario) => {
-    const groupSessionId = `group-${Date.now()}`;
+    const groupSessionId = generateGroupSessionId();
     
     // シナリオ有りの場合の初期メッセージ
     const initialContent = scenario 
@@ -63,7 +70,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       scenario, // シナリオ情報を追加
       messages: [
         {
-          id: `group-welcome-${Date.now()}`,
+          id: generateWelcomeMessageId(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -149,7 +156,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     try {
       // ユーザーメッセージを追加
       const userMessage: UnifiedMessage = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateUserMessageId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -210,7 +217,9 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         
       } else if (groupSession.chat_mode === 'random') {
         // ランダム応答 - アクティブキャラクターからランダムに1人選択
-        const randomCharacter = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+        // Use deterministic character selection to avoid hydration issues
+        const characterIndex = (get().groupSessions.get(groupSession.id)?.messages.length || 0) % activeCharacters.length;
+        const randomCharacter = activeCharacters[characterIndex];
         if (randomCharacter) { // null安全性チェック
           const response = await get().generateCharacterResponse(groupSession, randomCharacter, content, []);
           responses.push({ ...response, metadata: { ...response.metadata, response_order: 0 } });
@@ -315,7 +324,7 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
       );
 
       return {
-        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateAIMessageId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -346,7 +355,7 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
       console.error(`Failed to generate response for ${character.name}:`, error);
       
       return {
-        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateAIMessageId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -489,7 +498,7 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
 
         // Add system message
         const systemMessage: UnifiedMessage = {
-          id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: generateSystemMessageId(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -536,7 +545,7 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
       if (!session) return state;
 
       const systemMessage: UnifiedMessage = {
-        id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateSystemMessageId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,

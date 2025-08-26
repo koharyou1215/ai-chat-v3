@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Character, Persona, TrackerDefinition, TrackerConfig } from '@/types';
+import { Character } from '@/types/core/character.types';
+import { Persona } from '@/types/core/persona.types';
+import { TrackerDefinition, TrackerConfig } from '@/types/core/tracker.types';
 
 // TrackerEditor component (existing one)
 const TrackerEditor: React.FC<{

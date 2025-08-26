@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { CharacterGallery } from './CharacterGallery';
 import { useAppStore } from '@/store';
-import { Character } from '@/types';
+import { Character } from '@/types/core/character.types';
 import { generateCharacterId } from '@/utils/uuid';
 
 export const CharacterGalleryModal: React.FC = () => {

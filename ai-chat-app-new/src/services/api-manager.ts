@@ -275,8 +275,24 @@ export class APIManager {
       throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+    // Safe JSON parsing for OpenRouter response
+    let data;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter APIがJSON以外のレスポンスを返しました: ${errorText}`);
+      }
+      data = await response.json();
+    } catch (parseError) {
+      if (parseError instanceof SyntaxError) {
+        throw new Error('OpenRouter APIレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+      }
+      throw parseError;
+    }
+    
+    // Safe property access with fallback
+    return data?.choices?.[0]?.message?.content || '';
   }
 
   private async generateStreamWithOpenRouter(
@@ -432,8 +448,23 @@ export class APIManager {
         throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
       }
 
-      const data: OpenRouterModelsResponse = await response.json();
-      return data.data?.map((model: OpenRouterModel) => ({
+      // Safe JSON parsing for models response
+      let data: OpenRouterModelsResponse;
+      try {
+        const contentType = response.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+          const errorText = await response.text();
+          throw new Error(`OpenRouter models APIがJSON以外のレスポンスを返しました: ${errorText}`);
+        }
+        data = await response.json();
+      } catch (parseError) {
+        if (parseError instanceof SyntaxError) {
+          throw new Error('OpenRouter models APIレスポンスの解析に失敗しました。');
+        }
+        throw parseError;
+      }
+      
+      return data?.data?.map((model: OpenRouterModel) => ({
         id: model.id,
         name: model.name || model.id,
         description: model.description

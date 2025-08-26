@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, AlertTriangle, Check } from 'lucide-react';
 import { useAppStore } from '@/store';
-import { Character } from '@/types';
+import { Character } from '@/types/core/character.types';
 import { GroupChatSession } from '@/types/core/group-chat.types';
 import { cn } from '@/lib/utils';
 

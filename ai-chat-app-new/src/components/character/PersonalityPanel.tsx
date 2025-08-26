@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { Textarea } from '@/components/ui/textarea';
-import { Character, Persona } from '@/types';
+import { Character } from '@/types/core/character.types';
+import { Persona } from '@/types/core/persona.types';
 
 // Type guard functions
 const isCharacter = (data: Character | Persona | null): data is Character => {

@@ -24,7 +24,7 @@ import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
 import { cn } from '@/lib/utils';
-import { Character } from '@/types';
+import { Character } from '@/types/core/character.types';
 import useVH from '@/hooks/useVH';
 
 const EmptyState = () => (
@@ -285,7 +285,8 @@ const ChatInterfaceContent: React.FC = () => {
                     {/* メッセージリスト専用コンテナ */}
                     <div className="relative z-10 h-full">
                         <div 
-                            className="absolute inset-0 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 pt-20 md:pt-24 pb-32" 
+                            className="absolute inset-0 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 pb-32"
+                            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 72px)' }} 
                         >
                             <div style={{ height: 'env(safe-area-inset-top)' }} />
                             <AnimatePresence mode="popLayout" initial={false}>
@@ -308,19 +309,7 @@ const ChatInterfaceContent: React.FC = () => {
                     </div>
 
                     {/* Safe Area対応ヘッダー (固定) */}
-                    <div 
-                        className={cn(
-                            "fixed top-0 w-full z-[60] bg-slate-900/60 backdrop-blur-md transition-all duration-300 flex items-center pt-[env(safe-area-inset-top)] h-[calc(env(safe-area-inset-top)+64px)] md:h-[calc(env(safe-area-inset-top)+80px)]",
-                            "chat-header-responsive"
-                        )}
-                        style={{
-                            left: '0',
-                            right: '0',
-                        }}
-                        data-sidebar-open={isLeftSidebarOpen}
-                    >
-                        <ChatHeader />
-                    </div>
+                    <ChatHeader />
 
                     {/* メッセージ入力欄 (固定) */}
                     <div 

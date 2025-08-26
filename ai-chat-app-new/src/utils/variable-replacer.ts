@@ -69,7 +69,7 @@ export function replaceVariablesInObject<T>(obj: T, context: VariableContext): T
     }
   }
 
-  return result;
+  return result as T;
 }
 
 /**
@@ -186,8 +186,13 @@ export function replaceVariablesInMessage(text: string, context: VariableContext
 export function getVariableContext(getStore: () => Record<string, unknown>): VariableContext {
   const store = getStore();
   
+  const user = (store.getSelectedPersona as (() => Persona | null) | undefined)?.() || 
+                (store.getActivePersona as (() => Persona | null) | undefined)?.();
+  const character = (store.getActiveCharacter as (() => Character | null) | undefined)?.() || 
+                    (store.getSelectedCharacter as (() => Character | null) | undefined)?.();
+  
   return {
-    user: (store.getSelectedPersona as (() => Persona | null) | undefined)?.() || (store.getActivePersona as (() => Persona | null) | undefined)?.(),
-    character: (store.getActiveCharacter as (() => Character | null) | undefined)?.() || (store.getSelectedCharacter as (() => Character | null) | undefined)?.()
+    user: user ?? undefined,
+    character: character ?? undefined
   };
 }

@@ -111,13 +111,32 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`アップロードに失敗しました: ${response.status}`);
-      }
+      // Safe JSON parsing with comprehensive error handling
+      let result;
+      try {
+        if (!response.ok) {
+          // Try to get error text even if not JSON
+          const errorText = await response.text();
+          throw new Error(`アップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+        }
 
-      const result = await response.json();
+        // Check content type before parsing JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+          const errorText = await response.text();
+          throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
+        }
+
+        result = await response.json();
+      } catch (parseError) {
+        console.error('Avatar upload JSON parse error:', parseError);
+        if (parseError instanceof SyntaxError) {
+          throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+        }
+        throw parseError;
+      }
       
-      if (result.success && result.url) {
+      if (result && result.success && result.url) {
         setUploadState({
           isUploading: false,
           progress: 100,
@@ -131,7 +150,8 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
           setUploadState(prev => ({ ...prev, success: false }));
         }, 2000);
       } else {
-        throw new Error(result.error || 'アップロードに失敗しました');
+        const errorMessage = result?.error || 'アップロードに失敗しました（詳細不明）';
+        throw new Error(errorMessage);
       }
     } catch (error) {
       setUploadState({

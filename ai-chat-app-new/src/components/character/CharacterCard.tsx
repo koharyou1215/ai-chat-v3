@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Edit, Check } from 'lucide-react';
-import { Character } from '@/types';
+import { Character } from '@/types/core/character.types';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { replaceVariablesInCharacter, getVariableContext } from '@/utils/variable-replacer';

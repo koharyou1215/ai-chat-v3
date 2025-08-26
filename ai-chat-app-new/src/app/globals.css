@@ -151,15 +151,7 @@
 }
 
 /* レスポンシブレイアウト対応 */
-.chat-header-responsive[data-sidebar-open="true"] {
-  left: 0;
-}
-
-@media (min-width: 768px) {
-  .chat-header-responsive[data-sidebar-open="true"] {
-    left: 320px;
-  }
-}
+/* 削除: 使用されていない */
 
 /* Safari特有のレイアウト問題修正 */
 @supports (-webkit-appearance: none) {

@@ -30,7 +30,22 @@ export class APIClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData = {};
+        try {
+          // Check content type before parsing JSON
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            // If not JSON, get text for error message
+            const errorText = await response.text();
+            errorData = { message: errorText };
+          }
+        } catch {
+          // If parsing fails, use empty object as fallback
+          errorData = {};
+        }
+        
         throw new APIError(
           response.status,
           errorData.message || `HTTP error! status: ${response.status}`,
@@ -38,7 +53,27 @@ export class APIClient {
         );
       }
 
-      return await response.json();
+      // Safe JSON parsing for successful responses
+      try {
+        const contentType = response.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+          throw new APIError(
+            200,
+            'Expected JSON response but got different content type',
+            { contentType }
+          );
+        }
+        return await response.json();
+      } catch (parseError) {
+        if (parseError instanceof APIError) {
+          throw parseError;
+        }
+        throw new APIError(
+          200,
+          'Failed to parse JSON response',
+          { parseError: parseError instanceof Error ? parseError.message : 'Unknown parse error' }
+        );
+      }
     } catch (error) {
       if (error instanceof APIError) {
         throw error;

@@ -5,6 +5,18 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types/core/message.types';
+import { 
+  VoiceCallMessage, 
+  VoiceActivityStatus,
+  isTranscriptionMessage, 
+  isAIResponseMessage, 
+  isResponseMessage,
+  isErrorMessage,
+  isStatsMessage,
+  isVoiceActivityMessage,
+  OutgoingStopAudioMessage,
+  OutgoingPingMessage
+} from '@/types/websocket';
 
 interface VoiceCallInterfaceProps {
   characterId?: string;
@@ -246,7 +258,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   }, []);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = useCallback((message: { type: string; sessionId?: string; data?: any; audioUrl?: string; error?: string; status?: any; text?: any; message?: any; stats?: any; }) => {
+  const handleWebSocketMessage = useCallback((message: VoiceCallMessage) => {
     switch (message.type) {
       case 'session_start':
         console.log('✅ Voice session started:', message.sessionId);
@@ -258,15 +270,18 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         break;
 
       case 'voice_activity':
-        setVoiceActivityStatus(message.status);
+        if (isVoiceActivityMessage(message)) {
+          setVoiceActivityStatus(message.status);
+        }
         break;
 
       case 'transcription':
-        _setTranscription(message.text);
-        _setLastMessage(`You: ${message.text}`);
-        
-        // Add user message to chat history
-        if (active_session_id && message.text) {
+        if (isTranscriptionMessage(message)) {
+          _setTranscription(message.text);
+          _setLastMessage(`You: ${message.text}`);
+          
+          // Add user message to chat history
+          if (active_session_id && message.text) {
           const userMessage: Partial<UnifiedMessage> = {
             role: 'user',
             content: message.text,
@@ -278,7 +293,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             }
           };
           
-          sendMessage(userMessage as UnifiedMessage);
+            sendMessage(userMessage as UnifiedMessage);
+          }
         }
         break;
 
@@ -291,8 +307,9 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         break;
 
       case 'ai_response':
-        // Add AI response to chat history
-        if (active_session_id && message.text) {
+        if (isAIResponseMessage(message)) {
+          // Add AI response to chat history
+          if (active_session_id && message.text) {
           const aiMessage: Partial<UnifiedMessage> = {
             role: 'assistant',
             content: message.text,
@@ -304,27 +321,29 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             }
           };
           
-          sendMessage(aiMessage as UnifiedMessage);
+            sendMessage(aiMessage as UnifiedMessage);
+          }
         }
         break;
 
-      case 'tts_error':
-        console.error('TTS Error:', message.message);
-        setLastMessage(`Error: ${message.message}`);
-        break;
-
       case 'error':
-        console.error('Voice call error:', message.message);
-        setLastMessage(`Error: ${message.message}`);
+        if (isErrorMessage(message)) {
+          console.error('Voice call error:', message.error);
+          setLastMessage(`Error: ${message.error}`);
+        }
         break;
 
       case 'stats':
-        setStats(prev => ({ ...prev, ...message.stats }));
+        if (isStatsMessage(message)) {
+          setStats(prev => ({ ...prev, ...message.stats }));
+        }
         break;
         
-      case 'test_response':
-        console.log('🧪 Test response received:', message.message);
-        setLastMessage(`Test: ${message.message}`);
+      case 'response':
+        if (isResponseMessage(message)) {
+          console.log('🧪 Response received:', message.message);
+          setLastMessage(`Response: ${message.message}`);
+        }
         break;
     }
   }, [active_session_id, sendMessage]);
@@ -514,10 +533,11 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
     // 7. WebSocketに停止シグナル送信
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ 
+      const stopMessage: OutgoingStopAudioMessage = {
         type: 'stop_audio',
         timestamp: Date.now()
-      }));
+      };
+      wsRef.current.send(JSON.stringify(stopMessage));
     }
 
     // 8. 状態リセット
@@ -610,7 +630,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     const interval = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         pingTimeRef.current = Date.now();
-        wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        const pingMessage: OutgoingPingMessage = { type: 'ping' };
+        wsRef.current.send(JSON.stringify(pingMessage));
       }
     }, 5000);
 

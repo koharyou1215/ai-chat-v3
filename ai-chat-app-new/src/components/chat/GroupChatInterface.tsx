@@ -3,7 +3,7 @@
 import React, { useState, useEffect as _useEffect } from 'react';
 import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
-import { Character as _Character } from '@/types';
+import { Character as _Character } from '@/types/core/character.types';
 import { GroupChatMode, GroupChatScenario, ScenarioTemplate as _ScenarioTemplate } from '@/types/core/group-chat.types';
 import { Users, Plus, Settings as _Settings, Play, Shuffle, Zap, Brain, ArrowRight, ArrowLeft } from 'lucide-react';
 import { ScenarioSelector } from './ScenarioSelector';

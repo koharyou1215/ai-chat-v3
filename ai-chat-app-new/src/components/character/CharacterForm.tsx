@@ -9,7 +9,8 @@ import { Label as _Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Upload, X, PlusCircle, Trash2 } from 'lucide-react';
-import { Character, Persona } from '@/types';
+import { Character } from '@/types/core/character.types';
+import { Persona } from '@/types/core/persona.types';
 import { cn } from '@/lib/utils';
 import { AnimatePresence as _AnimatePresence } from 'framer-motion';
 import { ImageUploader as _ImageUploader } from '@/components/ui/image-uploader';
@@ -89,20 +90,41 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                 ok: response.ok 
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Server response error:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
+            // Safe JSON parsing with comprehensive error handling
+            let result;
+            try {
+                if (!response.ok) {
+                    // Try to get error text even if not JSON
+                    const errorText = await response.text();
+                    console.error('Server response error:', errorText);
+                    throw new Error(`ファイルアップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+                }
 
-            const result = await response.json();
+                // Check content type before parsing JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType?.includes('application/json')) {
+                    const errorText = await response.text();
+                    console.error('Non-JSON response received:', errorText);
+                    throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
+                }
+
+                result = await response.json();
+            } catch (parseError) {
+                console.error('JSON parse error during file upload:', parseError);
+                if (parseError instanceof SyntaxError) {
+                    throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+                }
+                throw parseError;
+            }
+            
             console.log('Upload result:', result);
 
-            if (result.success && result.url) {
+            if (result && result.success && result.url) {
                 setFormData(prevFormData => prevFormData ? { ...prevFormData, [field]: result.url } : null);
                 console.log('File upload successful, URL:', result.url);
             } else {
-                throw new Error(result.error || 'Failed to get URL from server');
+                const errorMessage = result?.error || 'ファイルURLの取得に失敗しました';
+                throw new Error(errorMessage);
             }
         } catch (error) {
             console.error('Upload error:', error);
@@ -661,14 +683,14 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <label className="block text-sm font-medium text-slate-300 mb-2">NSFWペルソナ</label>
                                 <Textarea
                                     placeholder="成人向けシーンでのキャラクターの特徴..."
-                                    value={isCharacter(formData) ? formData.nsfw_profile?.persona || '' : ''}
+                                    value={isCharacter(formData) ? formData.nsfw_profile?.persona_profile || '' : ''}
                                     onChange={e => {
                                         if (isCharacter(formData)) {
                                             setFormData({
                                                 ...formData, 
                                                 nsfw_profile: {
                                                     ...formData.nsfw_profile,
-                                                    persona: e.target.value
+                                                    persona_profile: e.target.value
                                                 }
                                             });
                                         }

@@ -54,8 +54,9 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   currentInputText: '',
   
   createSession: async (character, persona) => {
+    const sessionId = generateSessionId();
     const newSession: UnifiedChatSession = {
-      id: generateSessionId(),
+      id: sessionId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -70,7 +71,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
-          session_id: newSession.id,
+          session_id: sessionId,
           role: 'assistant',
           content: character.first_message || `こんにちは！${character.name}です。何かお手伝いできることはありますか？`,
           character_id: character.id,
@@ -90,7 +91,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           },
           edit_history: [],
           regeneration_count: 0,
-          metadata: {}
+          metadata: {},
+          is_deleted: false
         }
       ],
       message_count: 1,
@@ -160,7 +162,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     
     // 1. ユーザーメッセージを作成
     const userMessage: UnifiedMessage = {
-      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUserMessageId(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -274,7 +276,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         }
         
         const aiResponse: UnifiedMessage = {
-            id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: generateAIMessageId(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             version: 1,
@@ -418,7 +420,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       
       const newAiMessage: UnifiedMessage = {
         ...session.messages[lastAiMessageIndex],
-        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateAIMessageId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         content: aiResponseContent,

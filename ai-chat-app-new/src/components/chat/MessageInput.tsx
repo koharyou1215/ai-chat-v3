@@ -144,10 +144,35 @@ export const MessageInput: React.FC = () => {
         body: formData,
       });
 
-      const result = await response.json();
+      // Safe JSON parsing with proper error handling
+      let result;
+      try {
+        // Check if response has content-type header for JSON
+        const contentType = response.headers.get('content-type');
+        
+        if (!response.ok) {
+          // Try to get error text even if not JSON
+          const errorText = await response.text();
+          throw new Error(`アップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+        }
+        
+        if (!contentType?.includes('application/json')) {
+          const errorText = await response.text();
+          throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
+        }
+        
+        result = await response.json();
+      } catch (parseError) {
+        console.error('📤 Upload response parse error:', parseError);
+        if (parseError instanceof SyntaxError) {
+          throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+        }
+        throw parseError;
+      }
+      
       console.log('📤 Upload response:', result);
       
-      if (result.success) {
+      if (result && result.success) {
         setSelectedImage(result.url);
         console.log('✅ Image uploaded successfully:', result.url);
         
@@ -158,8 +183,9 @@ export const MessageInput: React.FC = () => {
       } else {
         console.error('❌ Upload failed:', result.error);
         
-        // Error notification 
-        alert(`アップロードに失敗しました:\n${result.error}`);
+        // Error notification with safe property access
+        const errorMessage = result?.error || 'アップロードに失敗しました（詳細不明）';
+        alert(`アップロードに失敗しました:\n${errorMessage}`);
       }
     } catch (error) {
       console.error('💥 Upload error:', error);

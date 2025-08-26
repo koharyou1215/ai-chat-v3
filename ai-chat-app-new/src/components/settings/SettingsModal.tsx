@@ -1263,12 +1263,32 @@ const VoicePanel: React.FC = () => {
           }),
         });
 
-        if (!response.ok) {
-          throw new Error(`VoiceVox API Error: ${response.status} ${response.statusText}`);
-        }
+        // Safe JSON parsing with proper error handling
+        let data;
+        try {
+          if (!response.ok) {
+            // Try to get error text even if not JSON
+            const errorText = await response.text();
+            throw new Error(`VoiceVox APIエラー (${response.status}): ${errorText || response.statusText}`);
+          }
 
-        const data = await response.json();
-        if (data.success && data.audioData) {
+          // Check content type before parsing JSON
+          const contentType = response.headers.get('content-type');
+          if (!contentType?.includes('application/json')) {
+            const errorText = await response.text();
+            throw new Error(`VoiceVox APIがJSON以外のレスポンスを返しました: ${errorText}`);
+          }
+
+          data = await response.json();
+        } catch (parseError) {
+          console.error('VoiceVox JSON parse error:', parseError);
+          if (parseError instanceof SyntaxError) {
+            throw new Error('VoiceVox APIレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+          }
+          throw parseError;
+        }
+        
+        if (data && data.success && data.audioData) {
           const audio = new Audio(data.audioData);
           audio.play();
           audio.onended = () => setIsPlaying(false);
@@ -1277,7 +1297,8 @@ const VoicePanel: React.FC = () => {
             setIsPlaying(false);
           };
         } else {
-          throw new Error(data.error || 'VoiceVox APIからエラーが返されました');
+          const errorMessage = data?.error || 'VoiceVox APIからエラーが返されました';
+          throw new Error(errorMessage);
         }
       } else {
         // システム音声をフォールバック

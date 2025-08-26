@@ -99,10 +99,28 @@ export const VoiceSettingsModal: React.FC = () => {
           ok: response.ok
         });
 
-        const data = await response.json();
+        // Safe JSON parsing with proper error handling
+        let data;
+        try {
+          // Check if response is JSON before parsing
+          const contentType = response.headers.get('content-type');
+          if (!contentType?.includes('application/json')) {
+            const errorText = await response.text();
+            throw new Error(`APIがJSON以外のレスポンスを返しました: ${errorText}`);
+          }
+          
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('❌ JSON parsing error:', jsonError);
+          if (jsonError instanceof SyntaxError) {
+            throw new Error('APIレスポンスの形式が無効です。サーバーエラーの可能性があります。');
+          }
+          throw jsonError;
+        }
+        
         console.log('🔊 Response data:', data);
 
-        if (data.success && data.audioData) {
+        if (data && data.success && data.audioData) {
           console.log('✅ 音声合成成功。再生を開始します。');
           const audio = new Audio(data.audioData);
           audio.play();

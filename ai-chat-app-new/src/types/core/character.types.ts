@@ -68,7 +68,7 @@ export interface Character extends BaseEntity {
 }
 
 export interface NSFWProfile {
-    persona?: string;
+    persona_profile?: string;
     libido_level?: string;
     situation?: string;
     mental_state?: string;

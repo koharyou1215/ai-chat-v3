@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { PlusCircle, Trash2, X } from 'lucide-react';
-import { Character, Persona } from '@/types';
+import { Character } from '@/types/core/character.types';
+import { Persona } from '@/types/core/persona.types';
 
 interface BasicInfoPanelProps {
   formData: Character | Persona | null;

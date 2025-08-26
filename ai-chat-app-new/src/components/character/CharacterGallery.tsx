@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Upload, ArrowDownUp, Grid, List } from 'lucide-react';
-import { Character } from '@/types';
+import { Character } from '@/types/core/character.types';
 import { CharacterCard } from './CharacterCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

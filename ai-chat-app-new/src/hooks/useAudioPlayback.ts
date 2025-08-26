@@ -62,8 +62,30 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
             }
           })
         });
-        const data = await res.json();
-        if (data.success && data.audioData) {
+        // Safe JSON parsing with error handling
+        let data;
+        try {
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`API error (${res.status}): ${errorText}`);
+          }
+          
+          const contentType = res.headers.get('content-type');
+          if (!contentType?.includes('application/json')) {
+            const errorText = await res.text();
+            throw new Error(`API returned non-JSON response: ${errorText}`);
+          }
+          
+          data = await res.json();
+        } catch (parseError) {
+          console.error('Audio API JSON parse error:', parseError);
+          if (parseError instanceof SyntaxError) {
+            throw new Error('Failed to parse API response.');
+          }
+          throw parseError;
+        }
+        
+        if (data && data.success && data.audioData) {
           const audio = new Audio(data.audioData);
           globalAudio = audio;
           audio.volume = Math.min(1.0, Math.max(0.0, voiceSettings.voicevox?.volume || 1.0));
@@ -95,8 +117,30 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
                 similarity_boost: voiceSettings.elevenlabs?.similarity || 0.75
             })
         });
-        const data = await res.json();
-        if (data.success && data.audioData) {
+        // Safe JSON parsing with error handling
+        let data;
+        try {
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`API error (${res.status}): ${errorText}`);
+          }
+          
+          const contentType = res.headers.get('content-type');
+          if (!contentType?.includes('application/json')) {
+            const errorText = await res.text();
+            throw new Error(`API returned non-JSON response: ${errorText}`);
+          }
+          
+          data = await res.json();
+        } catch (parseError) {
+          console.error('Audio API JSON parse error:', parseError);
+          if (parseError instanceof SyntaxError) {
+            throw new Error('Failed to parse API response.');
+          }
+          throw parseError;
+        }
+        
+        if (data && data.success && data.audioData) {
             const audio = new Audio(data.audioData);
             globalAudio = audio;
             audio.play().catch(e => {
