@@ -92,9 +92,9 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         setUploadState(prev => ({ ...prev, error: '画像ファイルのみサポートしています' }));
       }
     }
-  }, []);
+  }, [uploadFile]);
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     setUploadState({
       isUploading: true,
       progress: 0,
@@ -141,7 +141,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         success: false
       });
     }
-  };
+  }, [onAvatarChange]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

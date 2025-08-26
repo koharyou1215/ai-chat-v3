@@ -4,6 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types/core/message.types';
 
+interface WebSocketMessage {
+  type: string;
+  sessionId?: string;
+  data?: unknown;
+  audioUrl?: string;
+  error?: string;
+  status?: 'speaking' | 'listening' | 'processing' | 'idle';
+  text?: string;
+  message?: string;
+  stats?: Record<string, unknown>;
+  timestamp?: number;
+}
+
 interface VoiceCallModalProps {
   characterId?: string;
   isOpen: boolean;
@@ -181,7 +194,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       ws.onmessage = async (event) => {
         if (typeof event.data === 'string') {
           try {
-            const message = JSON.parse(event.data);
+            const message: WebSocketMessage = JSON.parse(event.data);
             handleWebSocketMessage(message);
           } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
@@ -213,14 +226,16 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       setConnectionStatus('error');
       setLastMessage('WebSocket creation failed - server unavailable');
     }
-  }, []);
+  }, [handleWebSocketMessage]);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = (message: { type: string; timestamp?: number; sessionId?: string; audioUrl?: string; error?: string }) => {
+  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
       case 'pong':
-        const latency = Date.now() - message.timestamp;
-        setStats(prev => ({ ...prev, latency }));
+        if (message.timestamp) {
+          const latency = Date.now() - message.timestamp;
+          setStats(prev => ({ ...prev, latency }));
+        }
         break;
 
       case 'voice_activity':
@@ -274,7 +289,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         setStats(prev => ({ ...prev, ...message.stats }));
         break;
     }
-  };
+  }, [active_session_id, sendMessage]);
 
   // Start voice call
   const startCall = async () => {

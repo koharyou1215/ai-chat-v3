@@ -75,7 +75,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     } else {
       console.log('✅ AppInitializer: Data already loaded, skipping');
     }
-  }, [isCharactersLoaded, isPersonasLoaded, loadCharactersFromPublic, loadPersonasFromPublic]);
+  }, [isCharactersLoaded, isPersonasLoaded, loadCharactersFromPublic, loadPersonasFromPublic, characters.size, personas.size]);
 
   // セッションの初期化
   useEffect(() => {

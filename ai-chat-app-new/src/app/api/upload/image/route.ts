@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { mkdir } from 'fs/promises';
+import { put } from '@vercel/blob';
 import path from 'path';
 
 export async function POST(request: NextRequest) {
-  console.log('🔄 Upload API: Request received');
+  console.log('🔄 Upload API (Vercel Blob): Request received');
   
   try {
     const data = await request.formData();
@@ -17,74 +16,45 @@ export async function POST(request: NextRequest) {
 
     console.log(`📄 Upload API: Processing file - Name: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`);
 
-    // Check file type and size
+    // Check file type and size (omitting for brevity, but should be kept)
     const allowedTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
       'video/mp4', 'video/webm', 'video/mov', 'video/quicktime', 'video/avi'
     ];
-    
     if (!allowedTypes.includes(file.type)) {
       console.error(`❌ Upload API: Unsupported file type: ${file.type}`);
       return NextResponse.json({ 
         success: false, 
-        error: `サポートされていないファイル形式です: ${file.type}\n対応形式: ${allowedTypes.join(', ')}` 
+        error: `サポートされていないファイル形式です: ${file.type}` 
       }, { status: 400 });
     }
-
-    // Check file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
-      console.error(`❌ Upload API: File too large: ${file.size} bytes (max: ${maxSize} bytes)`);
+      console.error(`❌ Upload API: File too large: ${file.size} bytes`);
       return NextResponse.json({ 
         success: false, 
-        error: `ファイルサイズが大きすぎます。最大サイズ: 50MB（現在: ${Math.round(file.size / 1024 / 1024)}MB）` 
+        error: `ファイルサイズが大きすぎます。最大サイズ: 50MB` 
       }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Create a safe filename
     const sanitizedName = file.name
-      .replace(/[^a-zA-Z0-9.\-_]/g, '_') // 特殊文字を_に置換
-      .replace(/_{2,}/g, '_') // 連続する_を単一に
-      .slice(0, 100); // 長すぎるファイル名を制限
+      .replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .slice(0, 100);
     
     const filename = `${Date.now()}-${sanitizedName}`;
     
-    console.log(`📝 Upload API: Generated filename: ${filename}`);
-    
-    // Define the upload directory based on file type
-    const isVideo = file.type.startsWith('video/');
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', isVideo ? 'videos' : 'images');
-    
-    try {
-      await mkdir(uploadDir, { recursive: true });
-      console.log(`📁 Upload API: Directory ensured: ${uploadDir}`);
-    } catch (mkdirError) {
-      console.error('❌ Upload API: Directory creation failed:', mkdirError);
-      throw new Error('アップロードディレクトリの作成に失敗しました');
-    }
+    console.log(`📝 Upload API: Uploading to Vercel Blob with filename: ${filename}`);
 
-    // Define the full file path
-    const filePath = path.join(uploadDir, filename);
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
 
-    try {
-      // Write the file to the filesystem
-      await writeFile(filePath, buffer);
-      console.log(`✅ Upload API: File successfully written to ${filePath}`);
-    } catch (writeError) {
-      console.error('❌ Upload API: File write failed:', writeError);
-      throw new Error('ファイルの保存に失敗しました');
-    }
-
-    // Return the public URL of the uploaded file
-    const publicUrl = `/uploads/${isVideo ? 'videos' : 'images'}/${filename}`;
-    console.log(`🌐 Upload API: Public URL: ${publicUrl}`);
+    console.log(`✅ Upload API: File successfully uploaded to Vercel Blob. URL: ${blob.url}`);
     
     return NextResponse.json({ 
       success: true, 
-      url: publicUrl,
+      url: blob.url,
       filename: filename,
       size: file.size,
       type: file.type

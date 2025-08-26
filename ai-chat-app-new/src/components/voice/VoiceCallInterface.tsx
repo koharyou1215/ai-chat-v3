@@ -246,7 +246,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   }, []);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = (message: { type: string; sessionId?: string; data?: unknown; audioUrl?: string; error?: string }) => {
+  const handleWebSocketMessage = useCallback((message: { type: string; sessionId?: string; data?: any; audioUrl?: string; error?: string; status?: any; text?: any; message?: any; stats?: any; }) => {
     switch (message.type) {
       case 'session_start':
         console.log('✅ Voice session started:', message.sessionId);
@@ -327,10 +327,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         setLastMessage(`Test: ${message.message}`);
         break;
     }
-  };
+  }, [active_session_id, sendMessage]);
 
   // Play audio from queue
-  const playNextAudio = async () => {
+  const playNextAudio = useCallback(async () => {
     if (audioQueueRef.current.length === 0) {
       isPlayingRef.current = false;
       return;
@@ -373,10 +373,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         isPlayingRef.current = false;
       }
     }
-  };
+  }, [isSpeakerOn]);
 
   // Start voice call
-  const startCall = async () => {
+  const startCall = useCallback(async () => {
     console.log('🟢 Starting voice call...');
     console.log('WebSocket state:', wsRef.current?.readyState);
     console.log('Is connected:', isConnected);
@@ -453,10 +453,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       console.error('Failed to start call:', error);
       alert('マイクへのアクセスが必要です。ブラウザの設定を確認してください。');
     }
-  };
+  }, [isMuted]);
 
   // End voice call
-  const endCall = () => {
+  const endCall = useCallback(() => {
     console.log('🔴 Ending voice call - stopping all audio playback');
     console.log('🔍 endCall called from:', new Error().stack);
     
@@ -534,7 +534,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     }
     
     console.log('✅ Voice call ended - all audio stopped');
-  };
+  }, [onEnd]);
 
   // Update audio visualizer
   const updateAudioVisualizer = () => {
@@ -588,7 +588,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         wsRef.current.close();
       }
     };
-  }, []); // No dependencies to prevent re-runs
+  }, [isActive, initializeWebSocket]); // No dependencies to prevent re-runs
 
   // Separate effect for isActive changes
   useEffect(() => {
@@ -601,7 +601,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       console.log('🔴 Ending call due to isActive=false');
       endCall();
     }
-  }, [isActive]);
+  }, [isActive, isConnected, initializeWebSocket, endCall]);
 
   // Periodic ping for latency measurement
   useEffect(() => {

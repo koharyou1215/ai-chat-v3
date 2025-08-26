@@ -119,6 +119,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    height: 100%;
+    height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
+  }
   body {
     @apply bg-background text-foreground;
     /* 日本語フォント対応 */

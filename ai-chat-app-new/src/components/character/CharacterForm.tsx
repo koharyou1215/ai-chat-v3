@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion as _motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -134,6 +134,11 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
         aspectRatio?: 'aspect-square' | 'aspect-video';
     }> = ({ label, field, url, onFileUpload, onUrlChange, onClear, className, aspectRatio = 'aspect-square' }) => {
         const [isDragging, setIsDragging] = useState(false);
+        const [hasError, setHasError] = useState(false);
+
+        useEffect(() => {
+            setHasError(false);
+        }, [url]);
 
         const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
             e.preventDefault();
