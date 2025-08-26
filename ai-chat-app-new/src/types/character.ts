@@ -5,12 +5,12 @@ import { Character as UnifiedCharacter } from './core/character.types';
 import { TrackerDefinition, TrackerCategory, TrackerType } from './core/tracker.types';
 
 // 下位互換性のため従来型を維持（段階的移行用）
-export type TrackerType = 'state' | 'numeric' | 'boolean';
+export type LegacyTrackerType = 'state' | 'numeric' | 'boolean';
 
 export interface Tracker {
   name: string;
   display_name: string;
-  type: TrackerType;
+  type: LegacyTrackerType;
   // state型用
   initial_state?: string;
   possible_states?: string[];
@@ -92,7 +92,6 @@ export const CharacterConverter = {
       created_at: now,
       updated_at: now,
       version: 1,
-      metadata: {},
       
       // 基本情報
       name: char.name,

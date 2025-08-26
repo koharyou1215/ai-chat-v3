@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
-import { ErrorBoundary } from "@/components/utils/ErrorBoundary";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { EmergencyReset } from "@/components/utils/EmergencyReset";
 
 // 日本語フォント対応
