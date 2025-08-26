@@ -6,6 +6,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types/core/message.types';
 
+interface WebSocketMessage {
+  type: string;
+  sessionId?: string;
+  data?: unknown;
+  audioUrl?: string;
+  error?: string;
+  status?: 'speaking' | 'listening' | 'processing' | 'idle';
+  text?: string;
+  message?: string;
+  stats?: Record<string, unknown>;
+  timestamp?: number;
+}
+
 interface VoiceCallInterfaceProps {
   characterId?: string;
   isActive?: boolean;
@@ -212,7 +225,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         console.log('Error properties:', Object.keys(error));
         console.log('Error details:', {
           type: error.type,
-          target: error.target?.readyState,
+          target: error.target && 'readyState' in error.target ? (error.target as WebSocket).readyState : 'N/A',
           url: voiceServerUrl,
           timestamp: new Date().toISOString()
         });
@@ -246,7 +259,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   }, []);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = useCallback((message: { type: string; sessionId?: string; data?: any; audioUrl?: string; error?: string; status?: any; text?: any; message?: any; stats?: any; }) => {
+  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
       case 'session_start':
         console.log('✅ Voice session started:', message.sessionId);
