@@ -389,7 +389,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   };
 
   // 感情に基づくアニメーション効果（安全な実装）
-  const getEmotionAnimation = (): Record<string, any> => {
+  const getEmotionAnimation = (): Record<string, unknown> => {
     const emotion = message.expression?.emotion;
     if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
 
