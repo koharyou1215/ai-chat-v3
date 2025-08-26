@@ -23,6 +23,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@react-three/drei": "^10.7.2",
     "@react-three/fiber": "^9.3.0",
+    "@vercel/blob": "^1.1.1",
     "axios": "^1.11.0",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
