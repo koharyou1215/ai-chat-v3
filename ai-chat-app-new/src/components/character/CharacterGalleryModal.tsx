@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { CharacterGallery } from './CharacterGallery';
 import { useAppStore } from '@/store';
 import { Character } from '@/types';
+import { generateCharacterId } from '@/utils/uuid';
 
 export const CharacterGalleryModal: React.FC = () => {
   const { 
@@ -32,7 +33,7 @@ export const CharacterGalleryModal: React.FC = () => {
       // Generate unique ID if not present or if it already exists
       let characterId = characterData.id as string;
       if (!characterId || characters.has(characterId)) {
-        characterId = `character_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        characterId = generateCharacterId();
         console.log('Generated new unique ID for character:', characterId);
       }
       

@@ -5,8 +5,9 @@ import { VectorStore } from './vector-store';
 import { MemoryLayerManager } from './memory-layer-manager';
 import { DynamicSummarizer } from './dynamic-summarizer';
 import { TrackerManager } from '../tracker/tracker-manager'; // Import TrackerManager
-import { UnifiedMessage, SearchResult, ConversationContext, Character, MemoryCard } from '@/types';
+import { UnifiedMessage, SearchResult, ConversationContext, Character, MemoryCard, Persona } from '@/types';
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants/prompts';
+import { replaceVariables, replaceVariablesInCharacter } from '@/utils/variable-replacer';
 
 /**
  * 統合会話管理システム
@@ -229,7 +230,7 @@ export class ConversationManager {
   async generatePrompt(
     userInput: string,
     character?: Character,
-    persona?: Record<string, unknown>,
+    persona?: Persona,
     systemSettings?: {
       systemPrompts: {
         system?: string;
@@ -240,6 +241,12 @@ export class ConversationManager {
     }
   ): Promise<string> {
     const context = await this.buildContext(userInput);
+    
+    // 変数置換コンテキストを作成
+    const variableContext = { user: persona, character };
+    
+    // キャラクター情報に変数置換を適用
+    const processedCharacter = character ? replaceVariablesInCharacter(character, variableContext) : undefined;
     
     let prompt = '';
 
@@ -264,84 +271,84 @@ export class ConversationManager {
     prompt += `<system_instructions>\n${systemPromptContent}\n</system_instructions>\n\n`;
 
     // 4. Character Information (Enhanced)
-    if (character) {
+    if (processedCharacter) {
       prompt += '<character_information>\n';
       
       // 基本情報
       prompt += `## Basic Information\n`;
-      prompt += `Name: ${character.name}\n`;
-      if (character.age) prompt += `Age: ${character.age}\n`;
-      if (character.occupation) prompt += `Occupation: ${character.occupation}\n`;
-      if (character.catchphrase) prompt += `Catchphrase: "${character.catchphrase}"\n`;
-      if (character.tags && Array.isArray(character.tags) && character.tags.length > 0) {
-        prompt += `Tags: ${character.tags.join(', ')}\n`;
+      prompt += `Name: ${processedCharacter.name}\n`;
+      if (processedCharacter.age) prompt += `Age: ${processedCharacter.age}\n`;
+      if (processedCharacter.occupation) prompt += `Occupation: ${processedCharacter.occupation}\n`;
+      if (processedCharacter.catchphrase) prompt += `Catchphrase: "${processedCharacter.catchphrase}"\n`;
+      if (processedCharacter.tags && Array.isArray(processedCharacter.tags) && processedCharacter.tags.length > 0) {
+        prompt += `Tags: ${processedCharacter.tags.join(', ')}\n`;
       }
       
       // 外見
-      if (character.appearance) {
+      if (processedCharacter.appearance) {
         prompt += `\n## Appearance\n`;
-        prompt += `${character.appearance}\n`;
+        prompt += `${processedCharacter.appearance}\n`;
       }
       
       // 性格詳細
       prompt += `\n## Personality\n`;
-      if (character.personality) prompt += `Overall: ${character.personality}\n`;
-      if (character.external_personality) prompt += `External (How others see them): ${character.external_personality}\n`;
-      if (character.internal_personality) prompt += `Internal (True feelings): ${character.internal_personality}\n`;
+      if (processedCharacter.personality) prompt += `Overall: ${processedCharacter.personality}\n`;
+      if (processedCharacter.external_personality) prompt += `External (How others see them): ${processedCharacter.external_personality}\n`;
+      if (processedCharacter.internal_personality) prompt += `Internal (True feelings): ${processedCharacter.internal_personality}\n`;
       
       // 長所・短所
-      if (character.strengths && (Array.isArray(character.strengths) ? character.strengths.length > 0 : character.strengths)) {
-        const strengths = Array.isArray(character.strengths) ? character.strengths : `${character.strengths}`.split(',').map(s => s.trim());
+      if (processedCharacter.strengths && (Array.isArray(processedCharacter.strengths) ? processedCharacter.strengths.length > 0 : processedCharacter.strengths)) {
+        const strengths = Array.isArray(processedCharacter.strengths) ? processedCharacter.strengths : `${processedCharacter.strengths}`.split(',').map(s => s.trim());
         prompt += `Strengths: ${strengths.join(', ')}\n`;
       }
-      if (character.weaknesses && (Array.isArray(character.weaknesses) ? character.weaknesses.length > 0 : character.weaknesses)) {
-        const weaknesses = Array.isArray(character.weaknesses) ? character.weaknesses : `${character.weaknesses}`.split(',').map(s => s.trim());
+      if (processedCharacter.weaknesses && (Array.isArray(processedCharacter.weaknesses) ? processedCharacter.weaknesses.length > 0 : processedCharacter.weaknesses)) {
+        const weaknesses = Array.isArray(processedCharacter.weaknesses) ? processedCharacter.weaknesses : `${processedCharacter.weaknesses}`.split(',').map(s => s.trim());
         prompt += `Weaknesses: ${weaknesses.join(', ')}\n`;
       }
       
       // 趣味・好み
-      if (character.hobbies && (Array.isArray(character.hobbies) ? character.hobbies.length > 0 : character.hobbies)) {
-        const hobbies = Array.isArray(character.hobbies) ? character.hobbies : `${character.hobbies}`.split(',').map(s => s.trim());
+      if (processedCharacter.hobbies && (Array.isArray(processedCharacter.hobbies) ? processedCharacter.hobbies.length > 0 : processedCharacter.hobbies)) {
+        const hobbies = Array.isArray(processedCharacter.hobbies) ? processedCharacter.hobbies : `${processedCharacter.hobbies}`.split(',').map(s => s.trim());
         prompt += `Hobbies: ${hobbies.join(', ')}\n`;
       }
-      if (character.likes && (Array.isArray(character.likes) ? character.likes.length > 0 : character.likes)) {
-        const likes = Array.isArray(character.likes) ? character.likes : `${character.likes}`.split(',').map(s => s.trim());
+      if (processedCharacter.likes && (Array.isArray(processedCharacter.likes) ? processedCharacter.likes.length > 0 : processedCharacter.likes)) {
+        const likes = Array.isArray(processedCharacter.likes) ? processedCharacter.likes : `${processedCharacter.likes}`.split(',').map(s => s.trim());
         prompt += `Likes: ${likes.join(', ')}\n`;
       }
-      if (character.dislikes && (Array.isArray(character.dislikes) ? character.dislikes.length > 0 : character.dislikes)) {
-        const dislikes = Array.isArray(character.dislikes) ? character.dislikes : `${character.dislikes}`.split(',').map(s => s.trim());
+      if (processedCharacter.dislikes && (Array.isArray(processedCharacter.dislikes) ? processedCharacter.dislikes.length > 0 : processedCharacter.dislikes)) {
+        const dislikes = Array.isArray(processedCharacter.dislikes) ? processedCharacter.dislikes : `${processedCharacter.dislikes}`.split(',').map(s => s.trim());
         prompt += `Dislikes: ${dislikes.join(', ')}\n`;
       }
       
       // 話し方・言語スタイル
       prompt += `\n## Communication Style\n`;
-      if (character.speaking_style) prompt += `Speaking Style: ${character.speaking_style}\n`;
-      if (character.first_person) prompt += `First Person: ${character.first_person}\n`;
-      if (character.second_person) prompt += `Second Person: ${character.second_person}\n`;
-      if (character.verbal_tics && (Array.isArray(character.verbal_tics) ? character.verbal_tics.length > 0 : character.verbal_tics)) {
-        const verbal_tics = Array.isArray(character.verbal_tics) ? character.verbal_tics : `${character.verbal_tics}`.split(',').map(s => s.trim());
+      if (processedCharacter.speaking_style) prompt += `Speaking Style: ${processedCharacter.speaking_style}\n`;
+      if (processedCharacter.first_person) prompt += `First Person: ${processedCharacter.first_person}\n`;
+      if (processedCharacter.second_person) prompt += `Second Person: ${processedCharacter.second_person}\n`;
+      if (processedCharacter.verbal_tics && (Array.isArray(processedCharacter.verbal_tics) ? processedCharacter.verbal_tics.length > 0 : processedCharacter.verbal_tics)) {
+        const verbal_tics = Array.isArray(processedCharacter.verbal_tics) ? processedCharacter.verbal_tics : `${processedCharacter.verbal_tics}`.split(',').map(s => s.trim());
         prompt += `Verbal Tics: ${verbal_tics.join(', ')}\n`;
       }
       
       // 背景・シナリオ
-      if (character.background) {
-        prompt += `\n## Background\n${character.background}\n`;
+      if (processedCharacter.background) {
+        prompt += `\n## Background\n${processedCharacter.background}\n`;
       }
-      if (character.scenario) {
-        prompt += `\n## Current Scenario\n${character.scenario}\n`;
+      if (processedCharacter.scenario) {
+        prompt += `\n## Current Scenario\n${processedCharacter.scenario}\n`;
       }
       
       // 初回メッセージ（参考として）
-      if (character.first_message) {
-        prompt += `\n## Reference First Message\n"${character.first_message}"\n`;
+      if (processedCharacter.first_message) {
+        prompt += `\n## Reference First Message\n"${processedCharacter.first_message}"\n`;
       }
       
       // NSFW設定（適切に処理）
-      if (character.nsfw_profile && character.nsfw_profile.persona) {
+      if (processedCharacter.nsfw_profile && processedCharacter.nsfw_profile.persona) {
         prompt += `\n## Special Context\n`;
-        if (character.nsfw_profile.persona) prompt += `Context Persona: ${character.nsfw_profile.persona}\n`;
-        if (character.nsfw_profile.situation) prompt += `Situation: ${character.nsfw_profile.situation}\n`;
-        if (character.nsfw_profile.mental_state) prompt += `Mental State: ${character.nsfw_profile.mental_state}\n`;
+        if (processedCharacter.nsfw_profile.persona) prompt += `Context Persona: ${processedCharacter.nsfw_profile.persona}\n`;
+        if (processedCharacter.nsfw_profile.situation) prompt += `Situation: ${processedCharacter.nsfw_profile.situation}\n`;
+        if (processedCharacter.nsfw_profile.mental_state) prompt += `Mental State: ${processedCharacter.nsfw_profile.mental_state}\n`;
       }
       
       prompt += '</character_information>\n\n';
@@ -371,12 +378,16 @@ export class ConversationManager {
       prompt += '</pinned_memory_cards>\n\n';
     }
 
-    // 6b. 関連メモリーカード（重要度順、設定上限まで）
-    const relevantMemoryCards = await this.getRelevantMemoryCards(userInput);
+    // 6b. 関連メモリーカード（スマート選択版）
+    const relevantMemoryCards = await this.getRelevantMemoryCards(userInput, processedCharacter);
     if (relevantMemoryCards.length > 0) {
       prompt += '<relevant_memory_cards>\n';
-      relevantMemoryCards.slice(0, this.config.maxRelevantMemories).forEach(card => {
+      relevantMemoryCards.forEach(card => {
         prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
+        // キーワードも含めてコンテキストを豊富に
+        if (card.keywords.length > 0) {
+          prompt += `Keywords: ${card.keywords.slice(0, 3).join(', ')}\n`;
+        }
       });
       prompt += '</relevant_memory_cards>\n\n';
     }
@@ -403,11 +414,18 @@ export class ConversationManager {
       prompt += `<session_summary>\n${this.sessionSummary}\n</session_summary>\n\n`;
     }
 
-    // 7. Tracker Information
-    if (character && this.trackerManager) {
-        const trackerInfo = this.trackerManager.getTrackersForPrompt(character.id);
-        if (trackerInfo) {
-            prompt += `${trackerInfo}\n\n`;
+    // 7. Tracker Information (Enhanced)
+    if (processedCharacter && this.trackerManager) {
+        // 詳細トラッカー情報を使用してキャラクター設定反映を強化
+        const detailedTrackerInfo = this.trackerManager.getDetailedTrackersForPrompt(processedCharacter.id);
+        if (detailedTrackerInfo) {
+            prompt += `${detailedTrackerInfo}\n\n`;
+        } else {
+            // フォールバック：基本版を使用
+            const basicTrackerInfo = this.trackerManager.getTrackersForPrompt(processedCharacter.id);
+            if (basicTrackerInfo) {
+                prompt += `${basicTrackerInfo}\n\n`;
+            }
         }
     }
     
@@ -415,18 +433,21 @@ export class ConversationManager {
     prompt += '<recent_conversation>\n';
     context.recentConversation.forEach(msg => {
       const role = msg.role === 'user' ? 'User' : 'AI';
-      prompt += `${role}: ${msg.content}\n`;
+      prompt += `${role}: ${replaceVariables(msg.content, variableContext)}\n`;
     });
     prompt += '</recent_conversation>\n\n';
 
     // 9. Character System Prompt (キャラクター固有のシステムプロンプト)
-    if (character?.system_prompt) {
-      prompt += `<character_system_prompt>\n${character.system_prompt}\n</character_system_prompt>\n\n`;
+    if (processedCharacter?.system_prompt) {
+      prompt += `<character_system_prompt>\n${processedCharacter.system_prompt}\n</character_system_prompt>\n\n`;
     }
 
     // 10. Current Input
-    prompt += `User: ${userInput}\n`;
+    prompt += `User: ${replaceVariables(userInput, variableContext)}\n`;
     prompt += `AI: `;
+
+    // 最後にプロンプト全体に変数置換を適用
+    prompt = replaceVariables(prompt, variableContext);
 
     console.log("====================\n[AI Prompt Context]\n====================", prompt);
 
@@ -767,10 +788,10 @@ export class ConversationManager {
   }
 
   /**
-   * 関連メモリーカードの取得
-   * ユーザー入力に関連する内容を自動検索
+   * 関連メモリーカードの取得（スマート版）
+   * キャラクターとの関連性とユーザー入力を総合的に考慮
    */
-  private async getRelevantMemoryCards(userInput: string): Promise<MemoryCard[]> {
+  private async getRelevantMemoryCards(userInput: string, character?: Character): Promise<MemoryCard[]> {
     try {
       const { useAppStore } = await import('@/store');
       const store = useAppStore.getState();
@@ -780,12 +801,12 @@ export class ConversationManager {
       const cards = Array.from(store.memory_cards.values())
         .filter(card => !card.is_hidden); // 非表示カードは除外
       
-      // キーワードマッチングによる関連度スコア計算
+      // スマートな関連度計算
       const relevantCards = cards.map(card => {
-        const relevanceScore = this.calculateMemoryCardRelevance(card, userInput);
+        const relevanceScore = this.calculateSmartMemoryCardRelevance(card, userInput, character);
         return { card, relevanceScore };
       })
-      .filter(item => item.relevanceScore > 0.3) // 閾値以上のもの
+      .filter(item => item.relevanceScore > 0.2) // 閾値を0.2に下げて包括性向上
       .sort((a, b) => {
         // 関連度 > 重要度 > 作成日時の順でソート
         if (Math.abs(a.relevanceScore - b.relevanceScore) > 0.1) {
@@ -796,8 +817,10 @@ export class ConversationManager {
         }
         return new Date(b.card.created_at).getTime() - new Date(a.card.created_at).getTime();
       })
-      .slice(0, 5) // 最大5件
+      .slice(0, 8) // 最大8件に増やして重要な情報の見落としを防止
       .map(item => item.card);
+      
+      console.log(`📋 Found ${relevantCards.length} relevant memory cards for: "${userInput.substring(0, 30)}..."`);
       
       return relevantCards;
     } catch (error) {
@@ -807,7 +830,7 @@ export class ConversationManager {
   }
 
   /**
-   * メモリーカードの関連度計算
+   * メモリーカードの関連度計算（基本版）
    */
   private calculateMemoryCardRelevance(card: MemoryCard, userInput: string): number {
     const input = userInput.toLowerCase();
@@ -838,5 +861,129 @@ export class ConversationManager {
     score *= (0.5 + card.importance.score * 0.5);
     
     return Math.min(score, 1.0);
+  }
+
+  /**
+   * スマートメモリーカード関連度計算
+   * キャラクターとの親和性も考慮した高度な関連度計算
+   */
+  private calculateSmartMemoryCardRelevance(card: MemoryCard, userInput: string, character?: Character): number {
+    const input = userInput.toLowerCase();
+    let score = 0;
+    
+    // 基本的な関連度スコア（重み: 0.6）
+    const basicScore = this.calculateMemoryCardRelevance(card, userInput);
+    score += basicScore * 0.6;
+    
+    // キャラクターとの親和性スコア（重み: 0.3）
+    if (character) {
+      const characterAffinityScore = this.calculateCharacterAffinity(card, character);
+      score += characterAffinityScore * 0.3;
+    }
+    
+    // カテゴリー重要度（重み: 0.1）
+    const categoryBonus = this.getCategoryImportanceBonus(card.category, userInput);
+    score += categoryBonus * 0.1;
+    
+    // 時間減衰を軽減（重要な記憶は時間が経っても価値を保持）
+    const timeFactor = this.calculateTimeFactor(card);
+    score *= timeFactor;
+    
+    // ピン留めされた記憶には大幅なボーナス
+    if (card.is_pinned) {
+      score *= 1.5;
+    }
+    
+    // ユーザーが確認済みの記憶にもボーナス
+    if (card.is_verified) {
+      score *= 1.2;
+    }
+    
+    return Math.min(score, 1.0);
+  }
+
+  /**
+   * メモリーカードとキャラクターの親和性を計算
+   */
+  private calculateCharacterAffinity(card: MemoryCard, character: Character): number {
+    let affinity = 0;
+    
+    // キャラクターの興味・好みとの一致
+    const characterKeywords = [
+      ...character.likes || [],
+      ...character.hobbies || [],
+      ...character.tags || [],
+      character.occupation,
+      ...character.strengths || []
+    ].filter(Boolean).map(item => item.toLowerCase());
+    
+    const cardKeywords = card.keywords.map(k => k.toLowerCase());
+    const matchingInterests = cardKeywords.filter(keyword => 
+      characterKeywords.some(charKeyword => 
+        charKeyword.includes(keyword) || keyword.includes(charKeyword)
+      )
+    );
+    
+    if (matchingInterests.length > 0) {
+      affinity += 0.4 * (matchingInterests.length / Math.max(cardKeywords.length, 1));
+    }
+    
+    // カテゴリーとキャラクターの関連性
+    if (card.category === 'relationship' && character.personality) {
+      affinity += 0.3; // 関係性記憶は常に重要
+    }
+    
+    if (card.category === 'preference' && (character.likes || character.dislikes)) {
+      affinity += 0.2; // 好み情報も重要
+    }
+    
+    if (card.category === 'promise' || card.category === 'important_date') {
+      affinity += 0.3; // 約束や重要日付は常に関連性高い
+    }
+    
+    return Math.min(affinity, 1.0);
+  }
+
+  /**
+   * カテゴリーの重要度ボーナスを計算
+   */
+  private getCategoryImportanceBonus(category: string, userInput: string): number {
+    const input = userInput.toLowerCase();
+    
+    // ユーザー入力の内容に応じてカテゴリーの重要度を動的調整
+    if (input.includes('約束') || input.includes('promise') && category === 'promise') {
+      return 0.8;
+    }
+    
+    if ((input.includes('好き') || input.includes('like') || input.includes('嫌い')) && category === 'preference') {
+      return 0.7;
+    }
+    
+    if ((input.includes('関係') || input.includes('友達') || input.includes('恋人')) && category === 'relationship') {
+      return 0.6;
+    }
+    
+    if ((input.includes('日付') || input.includes('日') || input.includes('時')) && category === 'important_date') {
+      return 0.5;
+    }
+    
+    return 0.3; // デフォルトボーナス
+  }
+
+  /**
+   * 時間要素を考慮した重要度
+   */
+  private calculateTimeFactor(card: MemoryCard): number {
+    const now = Date.now();
+    const cardTime = new Date(card.created_at).getTime();
+    const ageInDays = (now - cardTime) / (1000 * 60 * 60 * 24);
+    
+    // 重要度が高い記憶は時間による減衰を軽減
+    const importanceMultiplier = 0.5 + (card.importance.score * 0.5);
+    
+    // 基本的な時間減衰（30日で約0.8倍）
+    const timeFactor = Math.exp(-ageInDays / 60); // より緩やかな減衰
+    
+    return Math.max(0.3, timeFactor * importanceMultiplier);
   }
 }

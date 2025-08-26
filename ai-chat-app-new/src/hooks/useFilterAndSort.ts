@@ -39,8 +39,11 @@ export function useFilterAndSort<T, K extends keyof T>({
       });
     });
 
-    // 2. Sorting Logic
-    const [field, direction] = sortOption.split('_') as [string & K, 'asc' | 'desc'];
+    // 2. Sorting Logic - Safe destructuring
+    const parts = sortOption?.split('_') || [];
+    const [field = '', direction = 'asc'] = parts.length >= 2 
+      ? parts as [string & K, 'asc' | 'desc']
+      : ['', 'asc'] as [string & K, 'asc' | 'desc'];
     
     const sorted = [...filtered].sort((a, b) => {
       let valA, valB;

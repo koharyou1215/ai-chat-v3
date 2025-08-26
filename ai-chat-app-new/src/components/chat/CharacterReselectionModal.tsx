@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, AlertTriangle, Check } from 'lucide-react';
 import { useAppStore } from '@/store';
@@ -37,6 +37,13 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>(
     session?.character_ids || []
   );
+
+  // セッションが変更された時に選択状態を同期
+  useEffect(() => {
+    if (session) {
+      setSelectedCharacterIds(session.character_ids);
+    }
+  }, [session]);
   
   const availableCharacters = useMemo(() => 
     Array.from(characters.values()).filter(char => char.is_active),
@@ -179,9 +186,10 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
             </button>
           </div>
 
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex min-h-0">
             {/* 左側: キャラクター選択 */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
               <h3 className="text-lg font-medium text-white mb-4">
                 利用可能なキャラクター ({selectedCharacterIds.length}/5選択中)
               </h3>
@@ -240,10 +248,12 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                   );
                 })}
               </div>
+              </div>
             </div>
 
             {/* 右側: 変更プレビュー */}
-            <div className="w-80 border-l border-purple-400/30 p-6 bg-slate-900/50">
+            <div className="w-80 border-l border-purple-400/30 bg-slate-900/50 flex flex-col min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
               <h3 className="text-lg font-medium text-white mb-4">変更プレビュー</h3>
               
               {/* 追加されるキャラクター */}
@@ -338,6 +348,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                   </p>
                 </div>
               )}
+              </div>
             </div>
           </div>
 

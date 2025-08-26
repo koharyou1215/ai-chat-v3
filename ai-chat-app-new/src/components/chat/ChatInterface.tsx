@@ -28,9 +28,21 @@ import { Character } from '@/types';
 import useVH from '@/hooks/useVH';
 
 const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
+    <div 
+        className="flex flex-col items-center justify-center h-full text-center text-white/50"
+        style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            width: '100%',
+            color: 'rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgb(15, 23, 42)', // 背景色を明示的に指定
+        }}
+    >
         <Bot size={48} className="mb-4" />
-        <h2 className="text-xl font-semibold">セッションがありません</h2>
+        <h2 className="text-xl font-semibold" style={{ fontSize: '1.25rem', fontWeight: 600 }}>セッションがありません</h2>
         <p>キャラクターを選択して会話を始めましょう。</p>
     </div>
 );
@@ -108,7 +120,7 @@ const ChatInterfaceContent: React.FC = () => {
         groupSessions,
         createGroupSession: _createGroupSession,
     } = useAppStore();
-    useVH(); // VHフックを呼び出し
+    useVH(); // Safari対応版のVHフックを使用
     const session = getActiveSession();
     const character = getSelectedCharacter(); // character を取得
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -130,8 +142,8 @@ const ChatInterfaceContent: React.FC = () => {
     
     // セッションの決定（グループセッションまたは通常セッション）
     const displaySession = is_group_mode ? activeGroupSession : session;
-    const currentMessages = displaySession?.messages || [];
-    const displaySessionId = displaySession?.id || '';
+    const currentMessages = displaySession && displaySession.messages ? displaySession.messages : [];
+    const displaySessionId = displaySession && displaySession.id ? displaySession.id : '';
 
     const sidePanelTabs = useMemo(() => [
         { key: 'memory' as const, icon: Brain, label: 'メモリー', component: <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId!} /> },
@@ -141,12 +153,14 @@ const ChatInterfaceContent: React.FC = () => {
     ], [displaySessionId, currentCharacterId]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 
     useEffect(() => {
         scrollToBottom();
-    }, [session?.messages, activeGroupSession?.messages]);
+    }, [session && session.messages ? session.messages : null, activeGroupSession && activeGroupSession.messages ? activeGroupSession.messages : null]);
 
     // グループモードかつアクティブなグループセッションがない場合
     if (is_group_mode && !activeGroupSession) {
@@ -157,7 +171,14 @@ const ChatInterfaceContent: React.FC = () => {
                         {isLeftSidebarOpen && <ChatSidebar />}
                     </AnimatePresence>
                 </ClientOnlyProvider>
-                {/* 重複するヘッダーを削除 - 固定ヘッダーを使用 */}
+                
+                {/* グループチャット設定画面 */}
+                <div className="flex-1 flex flex-col">
+                    <ChatHeader />
+                    <div className="flex-1">
+                        <GroupChatInterface />
+                    </div>
+                </div>
                 
                 {/* モーダル群 */}
                 <Suspense fallback={null}>
@@ -185,18 +206,60 @@ const ChatInterfaceContent: React.FC = () => {
     }
     
     return (
-        <div className="flex bg-slate-900 text-white overflow-hidden h-screen" style={{ position: 'relative' }}>
+        <div 
+            className="flex bg-slate-900 text-white overflow-hidden h-screen" 
+            style={{ 
+                position: 'relative',
+                display: 'flex',
+                width: '100vw',
+                height: '100vh',
+                minHeight: '-webkit-fill-available',
+                backgroundColor: 'rgb(15, 23, 42)',
+                color: 'white'
+            }}
+        >
             <ClientOnlyProvider fallback={null}>
                 <AnimatePresence>
                     {isLeftSidebarOpen && <ChatSidebar />}
                 </AnimatePresence>
             </ClientOnlyProvider>
             
-            <div className={cn("flex flex-1 min-w-0", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
+            {/* モバイルでサイドバーが開いているときの背景オーバーレイ */}
+            {isLeftSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    onClick={() => useAppStore.getState().toggleLeftSidebar()}
+                />
+            )}
+            
+            <div 
+                className={cn(
+                    "flex flex-1 min-w-0",
+                    // モバイルではマージンなし、デスクトップでは320pxマージン
+                    isLeftSidebarOpen ? "ml-0 md:ml-80" : "ml-0"
+                )}
+                style={{
+                    // Safari用の明示的なスタイル
+                    display: 'flex',
+                    flexGrow: 1,
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    backgroundColor: 'rgb(15, 23, 42)' // bg-slate-900の色を直接指定
+                }}
+            >
                 {/* メインコンテンツエリア */}
-                <div className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden">
+                <div 
+                    className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden" 
+                    style={{ 
+                        width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: '100vh'
+                    }}
+                >
                     {/* Background Image */}
-                    {character?.background_url && (
+                    {character && character.background_url && (
                         <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
                             {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
                                 <video
@@ -246,11 +309,15 @@ const ChatInterfaceContent: React.FC = () => {
 
                     {/* Safe Area対応ヘッダー (固定) */}
                     <div 
-                        className="fixed top-0 w-full md:w-auto z-40 bg-slate-900/60 backdrop-blur-md transition-all duration-300 flex items-center pt-[env(safe-area-inset-top)] h-[calc(env(safe-area-inset-top)+64px)] md:h-[calc(env(safe-area-inset-top)+80px)]"
+                        className={cn(
+                            "fixed top-0 w-full z-[60] bg-slate-900/60 backdrop-blur-md transition-all duration-300 flex items-center pt-[env(safe-area-inset-top)] h-[calc(env(safe-area-inset-top)+64px)] md:h-[calc(env(safe-area-inset-top)+80px)]",
+                            "chat-header-responsive"
+                        )}
                         style={{
-                            left: isLeftSidebarOpen ? '320px' : '0',
+                            left: '0',
                             right: '0',
                         }}
+                        data-sidebar-open={isLeftSidebarOpen}
                     >
                         <ChatHeader />
                     </div>
@@ -260,11 +327,14 @@ const ChatInterfaceContent: React.FC = () => {
                         className="fixed bottom-0 w-full md:w-auto z-30 bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
                         style={{
                             paddingBottom: 'env(safe-area-inset-bottom)',
-                            left: isLeftSidebarOpen ? '320px' : '0',
+                            left: isLeftSidebarOpen ? '0' : '0',
                             right: '0',
                         }}
+                        data-sidebar-open={isLeftSidebarOpen}
                     >
-                        <MessageInput />
+                        <div className={cn("transition-all duration-300", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
+                            <MessageInput />
+                        </div>
                     </div>
                 </div>
 
@@ -360,18 +430,29 @@ const ChatInterfaceContent: React.FC = () => {
     );
 };
 
-// メインのChatInterfaceコンポーネント（SSR対応）
+// メインのChatInterfaceコンポーネント（Safari対応版）
 export const ChatInterface: React.FC = () => {
-    return (
-        <ClientOnlyProvider fallback={
+    try {
+        return (
+            <ClientOnlyProvider fallback={
+                <div className="flex bg-slate-900 text-white overflow-hidden items-center justify-center" 
+                     style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+                    <div className="text-white/50 text-center">
+                        <div className="animate-pulse">読み込み中...</div>
+                    </div>
+                </div>
+            }>
+                <ChatInterfaceContent />
+            </ClientOnlyProvider>
+        );
+    } catch (error) {
+        return (
             <div className="flex bg-slate-900 text-white overflow-hidden items-center justify-center" 
                  style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <div className="text-white/50 text-center">
-                    <div className="animate-pulse">読み込み中...</div>
+                    <div>エラーが発生しました: {String(error)}</div>
                 </div>
             </div>
-        }>
-            <ChatInterfaceContent />
-        </ClientOnlyProvider>
-    );
+        );
+    }
 };

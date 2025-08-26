@@ -134,6 +134,17 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
     }
   ];
   
+  // デバッグ情報
+  console.log('🎭 GroupChatInterface Debug:', {
+    is_group_mode,
+    hasActiveGroupSession: !!activeGroupSession,
+    activeGroupSession: activeGroupSession ? {
+      id: activeGroupSession.id,
+      name: activeGroupSession.name,
+      chat_mode: activeGroupSession.chat_mode
+    } : null
+  });
+
   if (is_group_mode && activeGroupSession) {
     return (
       <div className="p-4 bg-slate-800/50 border-b border-purple-400/20">
@@ -163,19 +174,28 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
               <Users className="w-4 h-4" />
               キャラクター編集
             </button>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setGroupMode(false)}
-              className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white/80 text-sm rounded transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm rounded-lg font-medium transition-all shadow-lg shadow-blue-500/25"
+              title="ソロチャットモードに戻る"
             >
-              通常チャットに戻る
-            </button>
+              <ArrowLeft className="w-4 h-4" />
+              個人チャットに戻る
+            </motion.button>
           </div>
         </div>
         
         {/* 🎭 発見しやすい応答モード変更UI */}
-        <div className="mt-4 px-4 py-3 bg-slate-800/30 rounded-lg border border-purple-400/20">
-          <h4 className="text-sm font-medium text-white/80 mb-3">応答モード</h4>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="mt-4 px-4 py-4 bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-xl border-2 border-purple-400/40 shadow-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+            <h4 className="text-sm font-semibold text-purple-200">チャット応答モード</h4>
+            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+          </div>
+          <p className="text-xs text-white/60 mb-3 text-center">キャラクターの応答パターンを選択してください</p>
+          <div className="grid grid-cols-2 gap-3">
             {chatModeOptions.map((option) => {
               const isSelected = activeGroupSession.chat_mode === option.mode;
               const IconComponent = option.icon;
@@ -186,10 +206,10 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                   whileHover={{ scale: isSelected ? 1 : 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
+                    "p-3 rounded-lg border text-left transition-all transform hover:scale-[1.02]",
                     isSelected
-                      ? "bg-purple-500/20 border-purple-400/50 text-purple-200"
-                      : "bg-slate-700/30 border-purple-400/20 text-white/70 hover:bg-slate-600/40 hover:border-purple-400/30"
+                      ? "bg-gradient-to-br from-purple-500/30 to-blue-500/20 border-purple-400/60 text-purple-100 shadow-lg shadow-purple-500/20"
+                      : "bg-slate-700/40 border-purple-400/30 text-white/70 hover:bg-slate-600/50 hover:border-purple-400/40 hover:shadow-md"
                   )}
                   onClick={() => {
                     if (!isSelected) {
@@ -630,13 +650,21 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </button>
             
             {currentStep === 'characters' && (
-              <button
+              <motion.button
+                whileHover={{ scale: selectedCharacterIds.length >= 2 ? 1.05 : 1 }}
+                whileTap={{ scale: selectedCharacterIds.length >= 2 ? 0.95 : 1 }}
                 onClick={() => setCurrentStep('scenario')}
                 disabled={selectedCharacterIds.length < 2}
-                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                className={cn(
+                  "flex-1 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium",
+                  selectedCharacterIds.length >= 2
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg shadow-purple-500/25"
+                    : "bg-slate-600 cursor-not-allowed text-slate-400 opacity-50"
+                )}
               >
                 シナリオ選択 <ArrowRight className="w-4 h-4" />
-              </button>
+                <span className="ml-2 text-xs">({selectedCharacterIds.length}/2+)</span>
+              </motion.button>
             )}
             
             {currentStep === 'scenario' && (
@@ -656,13 +684,21 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                 >
                   <ArrowLeft className="w-4 h-4" /> 戻る
                 </button>
-                <button
+                <motion.button
+                  whileHover={{ scale: (selectedCharacterIds.length >= 2 && persona) ? 1.05 : 1 }}
+                  whileTap={{ scale: (selectedCharacterIds.length >= 2 && persona) ? 0.95 : 1 }}
                   onClick={handleStartGroupChat}
                   disabled={selectedCharacterIds.length < 2 || !persona}
-                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                  className={cn(
+                    "flex-1 py-4 rounded-lg transition-all font-bold text-lg flex items-center justify-center gap-2",
+                    (selectedCharacterIds.length >= 2 && persona)
+                      ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-xl shadow-green-500/30 animate-pulse"
+                      : "bg-slate-600 cursor-not-allowed text-slate-400 opacity-50"
+                  )}
                 >
-                  グループチャット開始
-                </button>
+                  <Play className="w-5 h-5" />
+                  グループチャット開始！
+                </motion.button>
               </>
             )}
           </div>

@@ -12,6 +12,7 @@ import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, M
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
+import { replaceVariablesInMessage, getVariableContext } from '@/utils/variable-replacer';
 import { RichMessage } from './RichMessage';
 import { MessageEffects } from './MessageEffects';
 import { HologramMessage, ParticleText } from './AdvancedEffects';
@@ -54,6 +55,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const isUser = message.role === 'user';
   const persona = getSelectedPersona();
   const character = characters.get(message.character_id || '');
+  
+  // 変数置換コンテキストを取得
+  const variableContext = getVariableContext(useAppStore.getState);
+  
+  // メッセージ内容の変数置換
+  const processedContent = replaceVariablesInMessage(message.content, variableContext);
 
   // 🎭 グループチャット対応の改善されたキャラクター情報取得
   const { avatarUrl, displayName, initial, characterColor } = useMemo(() => {
@@ -153,16 +160,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     }
   };
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(processedContent);
   };
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(message.content);
+  const [editText, setEditText] = useState(processedContent);
   const [showEditOptions, setShowEditOptions] = useState(false);
   
   const handleEdit = () => {
     setIsEditing(true);
-    setEditText(message.content);
+    setEditText(processedContent);
   };
   
   const handleSaveEdit = async (shouldRegenerate = false) => {
@@ -227,7 +234,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditText(message.content);
+    setEditText(processedContent);
   };
   // ここまで戻る本実装
   const handleRollback = () => {
@@ -584,7 +591,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
 
           {/* 3Dホログラムメッセージ - AIメッセージのみ */}
           {!isUser && settings.hologramMessages && isLatest ? (
-            <HologramMessage text={message.content} />
+            <HologramMessage text={processedContent} />
           ) : (
             <>
               {/* 画像表示 */}
@@ -660,7 +667,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 <>
                   {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
                     <RichMessage
-                      content={message.content}
+                      content={processedContent}
                       role={message.role as 'user' | 'assistant'}
                       characterColor='#8b5cf6'
                       enableEffects={isLatest}
@@ -668,7 +675,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                     />
                   ) : (
                     <div className="text-white/90 whitespace-pre-wrap select-none">
-                      {message.content}
+                      {processedContent}
                     </div>
                   )}
                 </>
@@ -679,7 +686,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           {/* パーティクルテキストエフェクト - AIメッセージのみ */}
           {!isUser && settings.particleText && isLatest && (
             <ParticleText 
-              text={message.content} 
+              text={processedContent} 
               trigger={effectTrigger.length > 0}
             />
           )}
@@ -688,12 +695,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           {!isUser && settings.realtimeEmotion && (
             <div className="mt-2">
               <EmotionDisplay
-                message={message.content}
+                message={processedContent}
                 onEmotionDetected={(emotion) => {
                   setDetectedEmotion(emotion);
                   // エフェクトトリガーの更新
                   if (emotion.intensity > 0.7) {
-                    setEffectTrigger(message.content);
+                    setEffectTrigger(processedContent);
                   }
                 }}
               />

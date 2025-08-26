@@ -67,7 +67,6 @@ const ChatHeaderContent: React.FC = () => {
         getSelectedCharacter,
         getSelectedPersona,
         is_group_mode,
-        setGroupMode,
         active_group_session_id,
         groupSessions,
     } = useAppStore();
@@ -92,8 +91,8 @@ const ChatHeaderContent: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 border-b border-transparent h-16 md:h-20 relative z-40 bg-slate-900/60 backdrop-blur-md">
-            <div className="flex items-center gap-4">
+        <div className="flex-shrink-0 flex items-center justify-between p-2 md:p-4 border-b border-transparent h-14 md:h-20 relative z-40 bg-slate-900/60 backdrop-blur-md safe-area-left safe-area-right">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -127,7 +126,7 @@ const ChatHeaderContent: React.FC = () => {
                 ) : (
                     // 通常のキャラクター情報
                     <div 
-                        className="flex items-center gap-2 cursor-pointer relative z-10"
+                        className="flex items-center gap-1 md:gap-2 cursor-pointer relative z-10 min-w-0 flex-shrink"
                         onClick={() => {
                             console.log('Character info clicked!');
                             setShowCharacterGallery(true);
@@ -136,16 +135,16 @@ const ChatHeaderContent: React.FC = () => {
                     >
                         {character.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={character.avatar_url} alt={character.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover"/>
+                            <img src={character.avatar_url} alt={character.name} className="w-7 h-7 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0"/>
                         ) : (
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                                <Bot className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
+                            <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <Bot className="w-4 h-4 md:w-6 md:h-6 text-slate-400" />
                             </div>
                         )}
-                        <div>
-                            <h1 className="text-white text-base md:text-lg font-bold">{character.name}</h1>
+                        <div className="min-w-0">
+                            <h1 className="text-white text-sm md:text-lg font-bold truncate">{character.name}</h1>
                             {session && (
-                                <p className="text-white/50 text-xs md:text-sm">
+                                <p className="text-white/50 text-xs md:text-sm truncate">
                                     {t({
                                         ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
                                         en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
@@ -158,9 +157,9 @@ const ChatHeaderContent: React.FC = () => {
                     </div>
                 )}
                 
-                {/* Persona Info */}
+                {/* Persona Info - hidden on small screens to save space */}
                 <div 
-                    className="flex items-center gap-2 cursor-pointer relative z-10"
+                    className="hidden sm:flex items-center gap-1 md:gap-2 cursor-pointer relative z-10 min-w-0 flex-shrink"
                     onClick={() => {
                         console.log('Persona info clicked!');
                         setShowPersonaGallery(true);
@@ -169,41 +168,23 @@ const ChatHeaderContent: React.FC = () => {
                 >
                      {persona.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={persona.avatar_url} alt={persona.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover"/>
+                        <img src={persona.avatar_url} alt={persona.name} className="w-6 h-6 md:w-8 md:h-8 rounded-full object-cover flex-shrink-0"/>
                     ) : (
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                            <UserCircle className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
+                        <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                            <UserCircle className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
                         </div>
                     )}
-                    <div>
-                        <h2 className="text-white text-sm md:text-base font-semibold">{persona.name}</h2>
-                        <p className="text-white/50 text-xs md:text-sm">as Persona</p>
+                    <div className="min-w-0">
+                        <h2 className="text-white text-xs md:text-base font-semibold truncate">{persona.name}</h2>
+                        <p className="text-white/50 text-xs truncate">Persona</p>
                     </div>
                 </div>
                 
-                {/* グループモード切り替えボタン */}
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setGroupMode(!is_group_mode)}
-                    className={cn(
-                        "p-3 md:px-4 md:py-3 max-md:p-4 rounded-xl transition-colors touch-manipulation border flex items-center gap-2",
-                        is_group_mode 
-                            ? "bg-purple-500/20 text-purple-300 border-purple-400/50" 
-                            : "hover:bg-white/10 text-white/70 border-white/20 hover:border-purple-400/40"
-                    )}
-                    title={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
-                >
-                    <Users className="w-5 h-5 md:w-5 md:h-5 max-md:w-6 max-md:h-6" />
-                    <span className="hidden md:inline text-sm font-medium">
-                        {is_group_mode ? "グループ" : "個人"}
-                    </span>
-                </motion.button>
             </div>
             
-            {/* Right side - model selector, phone button and brain tracker */}
-            <div className="flex items-center gap-3">
-                {/* モデル選択ドロップダウン */}
+            {/* Right side - model selector and brain tracker (removed group mode toggle) */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+                {/* モデル選択ドロップダウン - ultra mobile optimized */}
                 <div className="relative">
                     <motion.button
                         whileHover={{ scale: 1.05 }}
@@ -212,56 +193,29 @@ const ChatHeaderContent: React.FC = () => {
                             const { setShowSettingsModal } = useAppStore.getState();
                             setShowSettingsModal(true, 'ai');
                         }}
-                        className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors border border-purple-400/30 text-sm font-medium"
-                        title="モデル設定を変更"
+                        className="flex items-center gap-0.5 px-1.5 py-1 md:px-2 md:py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-purple-400/30 text-xs font-medium"
+                        title="AI設定"
                     >
-                        <Settings className="w-4 h-4 text-blue-400" />
-                        <span className="text-white/90 hidden md:inline">
+                        <Settings className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                        <span className="text-white/90 hidden md:inline max-w-[60px] lg:max-w-[80px] truncate">
                             {getModelDisplayName(useAppStore.getState().apiConfig.model)}
                         </span>
-                        <ChevronDown className="w-3 h-3 text-white/60" />
-                    </motion.button>
-                </div>
-                {/* 音声通話ボタン - 統合版 */}
-                <div className="relative">
-                    <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setIsVoiceCallActive(!isVoiceCallActive)}
-                        className={`p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation ${
-                            isVoiceCallActive 
-                                ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" 
-                                : "bg-green-500/20 hover:bg-green-500/30 text-green-400"
-                        }`}
-                        title={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
-                    >
-                        <Phone className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
-                    </motion.button>
-                    
-                    {/* フル画面モーダル切り替え用の小さなアイコン */}
-                    <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setIsVoiceCallModalOpen(true)}
-                        className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 hover:bg-purple-600 rounded-full flex items-center justify-center"
-                        title="フル画面モードで開く"
-                    >
-                        <div className="w-2 h-2 bg-white rounded-full" />
+                        <ChevronDown className="w-2 h-2 text-white/60 flex-shrink-0" />
                     </motion.button>
                 </div>
                 
-                {/* トラッカー（記憶情報）ボタン */}
+                {/* トラッカー（記憶情報）ボタン - ultra mobile optimized */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleRightPanel}
                     className={cn(
-                        "p-3 md:p-3 max-md:p-4 rounded-full transition-colors touch-manipulation text-white",
+                        "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white flex-shrink-0",
                         isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white"
                     )}
                     title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
                 >
-                    <Brain className="w-6 h-6 md:w-6 md:h-6 max-md:w-7 max-md:h-7" />
+                    <Brain className="w-4 h-4 md:w-5 md:h-5" />
                 </motion.button>
             </div>
             

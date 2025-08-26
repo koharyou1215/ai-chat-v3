@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { MemoryCard, MemoryCategory, UUID, UnifiedMessage } from '@/types';
 import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
+import { generateMemoryId } from '@/utils/uuid';
 
 export interface MemorySlice {
   memory_cards: Map<UUID, MemoryCard>;
@@ -76,7 +77,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
       );
       
       const newMemoryCard: MemoryCard = {
-        id: `memory-${Date.now()}`,
+        id: generateMemoryId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -127,7 +128,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
       
       // フォールバック処理
       const newMemoryCard: MemoryCard = {
-        id: `memory-${Date.now()}`,
+        id: generateMemoryId(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,

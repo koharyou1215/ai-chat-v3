@@ -35,24 +35,58 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   promptBuilderService: promptBuilderService,
 });
 
-export const useAppStore = create<AppStore>()(
-  persist(
-    combinedSlices,
-    {
-      name: 'ai-chat-v3-storage',
-      storage: createJSONStorage(() => ({
+// Safari互換性のため、persist なしでも動作するようにフォールバック
+const createStore = () => {
+  try {
+    return create<AppStore>()(
+      persist(
+        combinedSlices,
+        {
+          name: 'ai-chat-v3-storage',
+          storage: createJSONStorage(() => ({
         getItem: (name: string) => {
           try {
-            // SSR環境ではlocalStorageを使用できないため、チェックを追加
-            if (typeof window === 'undefined') return null;
-            const item = localStorage.getItem(name);
-            if (!item) return null;
+            // Safari互換性チェック
+            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+            
+            // Safari でlocalStorageが無効な場合をハンドル
+            if (!window.localStorage) return null;
+            
+            const item = window.localStorage.getItem(name);
+            if (!item) {
+              console.log(`📦 No stored data found for key: ${name}`);
+              return null;
+            }
+            
             // JSONの基本的な検証
             if (!item.startsWith('{') && !item.startsWith('[')) {
               console.warn('Invalid JSON format in localStorage, clearing:', name);
               localStorage.removeItem(name);
               return null;
             }
+            
+            // 設定関連のデバッグ情報と追加検証
+            if (name === 'ai-chat-v3-storage') {
+              try {
+                const parsed = JSON.parse(item);
+                if (!parsed || typeof parsed !== 'object') {
+                  console.warn('Invalid storage data structure, clearing:', name);
+                  localStorage.removeItem(name);
+                  return null;
+                }
+                console.log('🔄 Loading persisted settings:', {
+                  hasApiConfig: !!parsed.state?.apiConfig,
+                  hasVoice: !!parsed.state?.voice,
+                  maxTokens: parsed.state?.apiConfig?.max_tokens,
+                  voiceProvider: parsed.state?.voice?.provider
+                });
+              } catch (parseErr) {
+                console.warn('Failed to parse stored settings, clearing corrupted data:', parseErr);
+                localStorage.removeItem(name);
+                return null;
+              }
+            }
+            
             return item;
           } catch (error) {
             console.error('Error reading from localStorage:', error);
@@ -61,18 +95,46 @@ export const useAppStore = create<AppStore>()(
         },
         setItem: (name: string, value: string) => {
           try {
-            // SSR環境ではlocalStorageを使用できないため、チェックを追加
-            if (typeof window === 'undefined') return;
-            // JSON形式の検証
-            JSON.parse(value);
-            localStorage.setItem(name, value);
+            // Safari互換性チェック
+            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+            if (!window.localStorage) return;
+            
+            // JSON形式の検証と保存前検証
+            try {
+              const parsed = JSON.parse(value);
+              if (!parsed || typeof parsed !== 'object') {
+                console.error('Invalid data structure, refusing to save:', name);
+                return;
+              }
+              
+              // 設定関連のデバッグ情報
+              if (name === 'ai-chat-v3-storage') {
+                console.log('💾 Saving settings to localStorage:', {
+                  hasApiConfig: !!parsed.state?.apiConfig,
+                  hasVoice: !!parsed.state?.voice,
+                  maxTokens: parsed.state?.apiConfig?.max_tokens,
+                  voiceProvider: parsed.state?.voice?.provider
+                });
+              }
+            } catch (parseErr) {
+              console.error('Invalid JSON value, refusing to save:', parseErr);
+              return;
+            }
+            
+            window.localStorage.setItem(name, value);
+            console.log(`✅ Successfully saved to localStorage: ${name}`);
           } catch (error) {
             console.error('Error writing to localStorage:', error);
           }
         },
         removeItem: (name: string) => {
-          if (typeof window === 'undefined') return;
-          localStorage.removeItem(name);
+          try {
+            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+            if (!window.localStorage) return;
+            window.localStorage.removeItem(name);
+          } catch (error) {
+            console.error('Error removing from localStorage:', error);
+          }
         }
       }), {
         replacer: (key, value) => {
@@ -150,6 +212,8 @@ export const useAppStore = create<AppStore>()(
         chat: state.chat,
         voice: state.voice,
         imageGeneration: state.imageGeneration,
+        languageSettings: state.languageSettings,
+        effectSettings: state.effectSettings,
         
         // Memory System
         memories: state.memories,
@@ -166,4 +230,12 @@ export const useAppStore = create<AppStore>()(
       }),
     }
   )
-);
+    );
+  } catch (error) {
+    console.error('Failed to create persisted store, falling back to non-persistent store:', error);
+    // persistが失敗した場合は永続化なしで作成
+    return create<AppStore>()(combinedSlices);
+  }
+};
+
+export const useAppStore = createStore();

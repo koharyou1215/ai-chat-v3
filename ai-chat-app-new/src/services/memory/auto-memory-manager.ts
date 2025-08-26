@@ -7,10 +7,11 @@ import { UnifiedMessage, MemoryCard } from '@/types';
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;
   private messageBuffer: UnifiedMessage[] = [];
-  private readonly BUFFER_SIZE = 4;  // より頻繁な生成のために縮小
-  private readonly IMPORTANCE_THRESHOLD = 0.2; // より低い閾値で頻繁に生成
-  private readonly TIME_THRESHOLD = 2 * 60 * 1000; // 2分に短縮
+  private readonly BUFFER_SIZE = 3;  // 3メッセージで積極的生成
+  private readonly IMPORTANCE_THRESHOLD = 0.15; // さらに低い閾値で頻繁に生成
+  private readonly TIME_THRESHOLD = 1 * 60 * 1000; // 1分に短縮
   private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
+  private memoryCount: number = 0; // 生成されたメモリーの数
 
   /**
    * 新しいメッセージを処理して自動メモリー作成を判定
@@ -28,9 +29,9 @@ export class AutoMemoryManager {
       this.messageBuffer.shift();
     }
 
-    // 連続生成防止のチェック（短縮）
+    // 連続生成防止のチェック（さらに短縮）
     const now = Date.now();
-    if (now - this.lastMemoryCreated < 3000) { // 3秒以内は生成しない
+    if (now - this.lastMemoryCreated < 2000) { // 2秒以内は生成しない（さらに短縮）
       return;
     }
     
@@ -44,7 +45,9 @@ export class AutoMemoryManager {
         const messageIds = relevantMessages.map(msg => msg.id);
         
         await createMemoryCardFn(messageIds, sessionId, characterId);
-        console.log('[AutoMemory] Generated memory card for important conversation');
+        this.memoryCount++;
+        console.log(`🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`);
+        console.log(`📋 Relevant messages: ${relevantMessages.map(m => m.content.substring(0, 30) + '...').join(' | ')}`);
         
         // 処理済みマーク
         this.lastProcessedMessageId = message.id;

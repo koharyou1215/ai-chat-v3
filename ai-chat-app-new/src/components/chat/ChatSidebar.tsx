@@ -12,10 +12,13 @@ import {
   Clock,
   MessageSquare,
   Download,
+  Users,
+  User,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { UnifiedChatSession } from '@/types';
+import { GroupChatSession } from '@/types/core/group-chat.types';
 
 const ChatSidebar: React.FC = () => {
   // const router = useRouter(); // 일단 주석 처리
@@ -32,36 +35,141 @@ const ChatSidebar: React.FC = () => {
     exportActiveConversation,
     getSelectedCharacter,
     getSelectedPersona,
+    // グループセッション関連
+    groupSessions,
+    active_group_session_id,
+    setActiveGroupSession,
+    is_group_mode,
+    setGroupMode,
+    // キャラクター・ペルソナ状態管理
+    setSelectedCharacterId,
+    setActivePersonaId,
+    // グループチャット作成
+    createGroupSession,
+    characters,
   } = useAppStore();
   
   const currentCharacter = getSelectedCharacter();
   const currentPersona = getSelectedPersona();
 
+  // 統合されたセッション一覧（通常セッション + グループセッション）
+  const allSessions = useMemo(() => {
+    const regularSessions = Array.from(sessions.values()).map(session => ({
+      ...session,
+      type: 'individual' as const,
+      displayName: session.session_info.title || 'Untitled Chat'
+    }));
+    
+    const groupSessionsList = Array.from(groupSessions.values()).map(groupSession => ({
+      ...groupSession,
+      type: 'group' as const,
+      displayName: groupSession.name,
+      session_info: { title: groupSession.name }, // 互換性のため
+      message_count: groupSession.message_count
+    }));
+    
+    return [...regularSessions, ...groupSessionsList];
+  }, [sessions, groupSessions]);
+
   const filteredSessions = useMemo(() => 
-    Array.from(sessions.values())
+    allSessions
     .filter(session => {
       if (!searchQuery) return true;
       const lastMessage = session.messages[session.messages.length - 1];
-      return session.session_info.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      return session.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
              lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase());
     })
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
-    [sessions, searchQuery]
+    [allSessions, searchQuery]
   );
 
-  const handleNewChat = () => {
-    if (currentCharacter && currentPersona) {
-      createSession(currentCharacter, currentPersona);
-      // router.push(`/chat/${sessionId}`);
+  const handleNewChat = async () => {
+    if (!currentCharacter || !currentPersona) {
+      alert("Please select a character and persona first.");
+      return;
+    }
+
+    if (is_group_mode) {
+      // グループモードの場合：グループチャット作成
+      console.log('🔄 Creating new group chat...');
+      
+      // アクティブなキャラクターを最低2人取得（現在のキャラクター含む）
+      const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
+      const selectedCharacters = availableCharacters.length >= 2 
+        ? availableCharacters.slice(0, 2) // 最初の2人を選択
+        : [currentCharacter]; // 不足の場合は現在のキャラクターのみ
+      
+      if (selectedCharacters.length >= 2) {
+        await createGroupSession(
+          selectedCharacters,
+          currentPersona,
+          'sequential', // デフォルトモード
+          `${selectedCharacters.map(c => c.name).join('、')}との新しいグループチャット`
+        );
+        console.log('✅ New group chat created');
+      } else {
+        alert("グループチャットには2人以上のアクティブなキャラクターが必要です。");
+      }
     } else {
-        alert("Please select a character and persona first.");
+      // 通常モードの場合：ソロチャット作成
+      console.log('🔄 Creating new individual chat...');
+      createSession(currentCharacter, currentPersona);
+      console.log('✅ New individual chat created');
     }
   };
 
   const handleSelectSession = (sessionId: string) => {
-    if (sessionId !== active_session_id) {
-      setActiveSessionId(sessionId);
-      // router.push(`/chat/${sessionId}`);
+    console.log('🔄 Switching to session:', sessionId);
+    
+    // セッションタイプを特定
+    const isGroupSession = sessionId.startsWith('group-');
+    
+    if (isGroupSession) {
+      // グループセッションの場合
+      if (sessionId !== active_group_session_id) {
+        const groupSession = groupSessions.get(sessionId);
+        if (groupSession) {
+          console.log('📱 Switching to group session:', {
+            sessionId,
+            name: groupSession.name,
+            characterCount: groupSession.characters.length,
+            persona: groupSession.persona.name
+          });
+          
+          // グループモードに切り替え
+          setGroupMode(true);
+          setActiveGroupSession(sessionId);
+          
+          // キャラクターとペルソナの状態も同期（グループの場合は最初のキャラクター）
+          if (groupSession.characters.length > 0) {
+            setSelectedCharacterId(groupSession.characters[0].id);
+          }
+          setActivePersonaId(groupSession.persona.id);
+        }
+      }
+    } else {
+      // 通常セッションの場合
+      if (sessionId !== active_session_id) {
+        const session = sessions.get(sessionId);
+        if (session) {
+          console.log('👤 Switching to individual session:', {
+            sessionId,
+            title: session.session_info.title,
+            characterId: session.participants.characters[0]?.id,
+            personaId: session.participants.user.id
+          });
+          
+          // 通常モードに切り替え
+          setGroupMode(false);
+          setActiveSessionId(sessionId);
+          
+          // キャラクターとペルソナの状態も同期
+          if (session.participants.characters.length > 0) {
+            setSelectedCharacterId(session.participants.characters[0].id);
+          }
+          setActivePersonaId(session.participants.user.id);
+        }
+      }
     }
   };
 
@@ -108,9 +216,10 @@ const ChatSidebar: React.FC = () => {
       exit={{ width: 0 }}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={cn(
-        "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0"
+        "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0",
+        "fixed md:relative top-0 left-0 z-50 h-screen"
       )}
-      style={{ width: 320 }} // Add fixed width to prevent collapsing during animation
+      style={{ width: 320, height: 'calc(var(--vh, 1vh) * 100)' }} // Add fixed width to prevent collapsing during animation
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-purple-400/20 flex-shrink-0">
@@ -200,7 +309,10 @@ const ChatSidebar: React.FC = () => {
         ) : (
           <div className="space-y-1 p-2">
             {filteredSessions.map((session) => {
-              const isActive = session.id === active_session_id;
+              const isGroupSession = session.type === 'group';
+              const isActive = isGroupSession 
+                ? (session.id === active_group_session_id && is_group_mode)
+                : (session.id === active_session_id && !is_group_mode);
               const messageCount = session.messages.length;
               
               return (
@@ -218,16 +330,26 @@ const ChatSidebar: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        {/* セッションタイプを示すアイコン */}
+                        {isGroupSession ? (
+                          <Users size={12} className="text-purple-400 flex-shrink-0" />
+                        ) : (
+                          <User size={12} className="text-blue-400 flex-shrink-0" />
+                        )}
+                        
                         <h3 className={cn(
                           "font-medium text-sm truncate",
                            isActive ? "text-purple-300" : "text-white"
                         )}>
-                          {session.session_info.title}
+                          {session.displayName}
                         </h3>
-                        {/* Pinned logic needs to be implemented in the store first */}
-                        {/* {session.is_pinned && (
-                          <Pin size={12} className="text-blue-500 flex-shrink-0" />
-                        )} */}
+                        
+                        {/* グループセッションの場合、参加者数を表示 */}
+                        {isGroupSession && 'active_character_ids' in session && (
+                          <span className="text-xs text-purple-300 bg-purple-500/20 px-1 py-0.5 rounded">
+                            {session.active_character_ids.size}人
+                          </span>
+                        )}
                       </div>
                       
                       <p className={cn(
@@ -315,7 +437,7 @@ const ChatSidebar: React.FC = () => {
       {/* Footer */}
       <div className="p-4 border-t border-purple-400/20 flex-shrink-0">
         <div className="text-xs text-slate-400 text-center">
-          {sessions.size} total conversations
+          {sessions.size} individual • {groupSessions.size} groups • {sessions.size + groupSessions.size} total
         </div>
       </div>
     </motion.div>

@@ -248,8 +248,14 @@ export const createSettingsSlice: StateCreator<
   updateChatSettings: (settings) =>
     set((state) => ({ chat: { ...state.chat, ...settings } })),
   
-  updateVoiceSettings: (settings) =>
-    set((state) => ({ voice: { ...state.voice, ...settings } })),
+  updateVoiceSettings: (settings) => {
+    console.log('🔊 Updating voice settings:', settings);
+    set((state) => {
+      const newVoiceSettings = { ...state.voice, ...settings };
+      console.log('✅ New voice settings:', newVoiceSettings);
+      return { voice: newVoiceSettings };
+    });
+  },
   
   updateImageGenerationSettings: (settings) =>
     set((state) => ({
@@ -282,8 +288,11 @@ export const createSettingsSlice: StateCreator<
   },
   
   setMaxTokens: (tokens) => {
+    console.log(`🔧 Setting max_tokens to: ${tokens}`);
     set((state) => ({ apiConfig: { ...state.apiConfig, max_tokens: tokens } }));
-    apiManager.setConfig(get().apiConfig);
+    const newConfig = get().apiConfig;
+    console.log(`✅ Updated API config:`, newConfig);
+    apiManager.setConfig(newConfig);
   },
   
   setTopP: (topP) => {

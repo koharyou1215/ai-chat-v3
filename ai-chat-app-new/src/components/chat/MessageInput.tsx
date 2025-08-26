@@ -17,7 +17,9 @@ import {
   Paperclip,
   Code as _Code,
   X,
-  Cpu
+  Cpu,
+  Phone,
+  Users
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -76,7 +78,10 @@ export const MessageInput: React.FC = () => {
     setIsEnhancing(true);
     try {
         const session = getActiveSession();
-        if (!session) return;
+        if (!session) {
+            alert('セッションが見つかりません。ページをリロードしてみてください。');
+            return;
+        }
         const recentMessages = session ? session.messages.slice(-6) : [];
         const enhancedText = await enhanceText(
           currentInputText,
@@ -87,7 +92,11 @@ export const MessageInput: React.FC = () => {
         setCurrentInputText(enhancedText);
     } catch (error) {
         console.error("Failed to enhance text:", error);
-        // TODO: Show error toast
+        // ユーザーに具体的なエラーメッセージを表示
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : '文章強化中に予期しないエラーが発生しました。しばらく時間をおいて再試行してください。';
+        alert(errorMessage);
     } finally {
         setIsEnhancing(false);
     }
@@ -209,6 +218,7 @@ export const MessageInput: React.FC = () => {
               setShowSettingsModal(true, 'ai');
             }}
             onVoiceClick={() => setShowSettingsModal(true, 'voice')}
+            onImageClick={handleImageUpload}
             onHistoryClick={() => setShowHistoryModal(true)}
             onChatSettingsClick={() => setShowSettingsModal(true, 'chat')}
           />
@@ -236,14 +246,10 @@ export const MessageInput: React.FC = () => {
       )}
 
       <div className="relative flex items-end gap-2 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10 p-2 md:p-3">
-        {/* 左側ボタンエリア */}
+        {/* 左側ボタンエリア - 画像アップロードボタンを削除してスペースを確保 */}
         <div className="flex gap-1">
-          <InputButton 
-            icon={Paperclip} 
-            onClick={handleImageUpload} 
-            tooltip="画像を添付" 
-            isLoading={isUploading}
-          />
+          <VoiceCallButton />
+          <GroupModeButton />
         </div>
 
         <textarea
@@ -281,7 +287,6 @@ export const MessageInput: React.FC = () => {
             </motion.div>
           </AnimatePresence>
           
-          <InputButton icon={Mic} onClick={() => {}} tooltip="音声入力" />
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -327,6 +332,7 @@ const ActionMenu = ({
   onPersonaClick,
   onModelClick,
   onVoiceClick,
+  onImageClick,
   onHistoryClick,
   onChatSettingsClick,
 }: { 
@@ -335,6 +341,7 @@ const ActionMenu = ({
   onPersonaClick: () => void;
   onModelClick: () => void;
   onVoiceClick: () => void;
+  onImageClick: () => void;
   onHistoryClick: () => void;
   onChatSettingsClick: () => void;
 }) => {
@@ -343,7 +350,7 @@ const ActionMenu = ({
     { icon: Shield, label: 'ペルソナ', action: onPersonaClick },
     { icon: Cpu, label: 'AI設定', action: onModelClick },
     { icon: Mic, label: '音声', action: onVoiceClick },
-    { icon: ImageIcon, label: '画像', action: () => {} }, // TODO
+    { icon: Paperclip, label: '画像添付', action: onImageClick },
     { icon: History, label: 'チャット履歴', action: onHistoryClick },
     { icon: Settings, label: 'チャット設定', action: onChatSettingsClick },
   ];
@@ -415,3 +422,32 @@ const InputButton: React.FC<{
     )}
   </div>
 );
+
+// 音声通話ボタンコンポーネント
+const VoiceCallButton: React.FC = () => {
+  const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
+  const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
+  
+  return (
+    <InputButton 
+      icon={Phone} 
+      onClick={() => setIsVoiceCallActive(!isVoiceCallActive)} 
+      tooltip={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
+      active={isVoiceCallActive}
+    />
+  );
+};
+
+// グループモードボタンコンポーネント
+const GroupModeButton: React.FC = () => {
+  const { is_group_mode, setGroupMode } = useAppStore();
+  
+  return (
+    <InputButton 
+      icon={Users} 
+      onClick={() => setGroupMode(!is_group_mode)} 
+      tooltip={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
+      active={is_group_mode}
+    />
+  );
+};

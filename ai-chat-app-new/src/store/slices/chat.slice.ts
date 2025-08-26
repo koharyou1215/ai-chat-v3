@@ -7,6 +7,12 @@ import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
 import { AppStore } from '..';
+import { 
+  generateSessionId, 
+  generateWelcomeMessageId, 
+  generateUserMessageId, 
+  generateAIMessageId 
+} from '@/utils/uuid';
 
 export interface ChatSlice {
   sessions: Map<UUID, UnifiedChatSession>;
@@ -49,7 +55,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   
   createSession: async (character, persona) => {
     const newSession: UnifiedChatSession = {
-      id: `session-${Date.now()}`,
+      id: generateSessionId(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -60,11 +66,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       },
       messages: [
         {
-          id: `welcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: generateWelcomeMessageId(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
-          session_id: `session-${Date.now()}`,
+          session_id: newSession.id,
           role: 'assistant',
           content: character.first_message || `こんにちは！${character.name}です。何かお手伝いできることはありますか？`,
           character_id: character.id,
@@ -114,13 +120,22 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       }
     };
 
-    // Create and initialize a new TrackerManager for this session
-    const trackerManager = new TrackerManager();
-    trackerManager.initializeTrackerSet(character.id, character.trackers);
+    // Create and initialize TrackerManager for this character (not session)
+    const existingTrackerManager = get().trackerManagers.get(character.id);
+    let trackerManager = existingTrackerManager;
+    
+    if (!trackerManager) {
+      // 新しいキャラクターの場合のみTrackerManagerを作成
+      trackerManager = new TrackerManager();
+      trackerManager.initializeTrackerSet(character.id, character.trackers);
+      console.log(`🎯 Created new TrackerManager for character: ${character.name} (${character.id})`);
+    } else {
+      console.log(`🎯 Reusing existing TrackerManager for character: ${character.name} (${character.id})`);
+    }
 
     set(state => ({
       sessions: new Map(state.sessions).set(newSession.id, newSession),
-      trackerManagers: new Map(state.trackerManagers).set(newSession.id, trackerManager),
+      trackerManagers: new Map(state.trackerManagers).set(character.id, trackerManager), // characterIdをキーに変更
       active_session_id: newSession.id,
     }));
 
@@ -202,18 +217,18 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         const response = await apiRequestQueue.enqueueChatRequest(async () => {
           console.log('🚀 Chat request started via queue');
           
-          // 🔍 デバッグ: プロンプト品質検証
-          if (process.env.NODE_ENV === 'development') {
-            const character = activeSession.participants.characters[0];
-            const validation = promptValidator.validatePrompt(basePrompt, character?.name || 'Character');
-            console.log('🔍 Prompt Validation:', validation);
-            
-            if (validation.recommendation === 'critical') {
-              console.error('🚨 Critical prompt issues detected:', validation.issues);
-            } else if (validation.recommendation === 'warning') {
-              console.warn('⚠️ Prompt warnings:', validation.issues);
-            }
-          }
+          // 🔍 デバッグ: プロンプト品質検証 (無効化)
+          // if (process.env.NODE_ENV === 'development') {
+          //   const character = activeSession.participants.characters[0];
+          //   const validation = promptValidator.validatePrompt(basePrompt, character?.name || 'Character');
+          //   console.log('🔍 Prompt Validation:', validation);
+          //   
+          //   if (validation.recommendation === 'critical') {
+          //     console.error('🚨 Critical prompt issues detected:', validation.issues);
+          //   } else if (validation.recommendation === 'warning') {
+          //     console.warn('⚠️ Prompt warnings:', validation.issues);
+          //   }
+          // }
           
           return fetch('/api/chat/generate', {
             method: 'POST',
@@ -317,13 +332,19 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             const trackerResult = results[1];
             
             if (memoryResult.status === 'rejected') {
-              console.error('Auto-memory processing failed:', memoryResult.reason);
-            }
-            if (trackerResult.status === 'rejected') {
-              console.error('Tracker analysis failed:', trackerResult.reason);
+              console.error('🧠 Auto-memory processing failed:', memoryResult.reason);
+            } else {
+              console.log('🧠 Auto-memory processing completed successfully');
             }
             
-            console.log('✨ Background processing completed');
+            if (trackerResult.status === 'rejected') {
+              console.error('🎯 Tracker analysis failed:', trackerResult.reason);
+            } else if (trackerResult.status === 'fulfilled' && trackerResult.value) {
+              const allUpdates = trackerResult.value.flat();
+              console.log(`🎯 Tracker analysis completed: ${allUpdates.length} total updates`);
+            }
+            
+            console.log('✨ Background processing completed for character:', characterId?.substring(0, 8) + '...');
           }).catch(error => {
             console.error('⚠️ Background processing error:', error);
           });

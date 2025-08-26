@@ -306,7 +306,7 @@ const StyledText: React.FC<{
     
     const parts = text.split(':');
     if (parts.length === 2) {
-      const [colorName, content] = parts;
+      const [colorName = '', content = ''] = parts;
       return (
         <span 
           style={{ color: colorMap[colorName] || colorName }}

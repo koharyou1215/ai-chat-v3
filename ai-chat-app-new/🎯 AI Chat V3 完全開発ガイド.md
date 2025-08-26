@@ -1,5 +1,7 @@
 # 🎯 AI Chat V3 Complete Development Guide
 
+⚠️ **CRITICAL AI REFERENCE RULES - READ FIRST** ⚠️
+
 **Development Principles**
 
 Adherence to the following rules is of the **highest priority** in this project.
@@ -57,6 +59,34 @@ Following these best practices can help prevent common errors.
 14. #Debugging_Guide
 15. #Deployment
 16. #Latest_Updates
+
+---
+
+🚨 **AI QUICK REFERENCE - ALWAYS CHECK THESE FIRST** 🚨
+
+**Critical File Paths (Never Forget)**
+```typescript
+// MUST USE Types
+import { UnifiedMessage } from '@/types/core/message.types';     // NOT Message (deleted)
+import { Character } from '@/types/core/character.types';         // Unified character type
+import { EffectSettings } from '@/store/slices/settings.slice';   // All settings
+
+// MUST USE Services  
+import { apiManager } from '@/services/api-manager';              // Unified API
+import { useAppStore } from '@/store';                            // Zustand store
+```
+
+**Recent CRITICAL Fixes (Aug 25, 2025)**
+- 🔧 **Gemini API**: Fixed constructor in `src/services/api/gemini-client.ts` 
+- 🔧 **Tracker System**: Fixed characterId access in `src/store/slices/chat.slice.ts`
+- 🔧 **Memory Generation**: Lowered threshold 0.8→0.4, time 60s→10s
+- 🔧 **UI**: Unified purple borders, transparent effects
+
+**FORBIDDEN Actions**
+- ❌ `any` type usage
+- ❌ Working on main/master branch  
+- ❌ Using old `Message` type (deleted)
+- ❌ Accessing trackers by sessionId (use characterId)
 
 ---
 📊 **Project Overview**

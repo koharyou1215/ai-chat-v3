@@ -150,6 +150,108 @@
   }
 }
 
+/* レスポンシブレイアウト対応 */
+.chat-header-responsive[data-sidebar-open="true"] {
+  left: 0;
+}
+
+@media (min-width: 768px) {
+  .chat-header-responsive[data-sidebar-open="true"] {
+    left: 320px;
+  }
+}
+
+/* Safari特有のレイアウト問題修正 */
+@supports (-webkit-appearance: none) {
+  /* Safari基本リセット */
+  * {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body, html {
+    width: 100% !important;
+    height: 100% !important;
+    overflow-x: hidden !important;
+  }
+  /* Safari でのメインコンテンツ表示修正 */
+  .flex.flex-1.min-w-0 {
+    display: -webkit-box !important;
+    display: -webkit-flex !important;
+    display: flex !important;
+    -webkit-box-flex: 1 !important;
+    -webkit-flex: 1 1 auto !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  /* h-screen の高さ問題を修正 */
+  .h-screen {
+    height: 100vh !important;
+    height: -webkit-fill-available !important;
+    min-height: 100vh !important;
+  }
+  
+  /* Safari でのFlexコンテナ修正 */
+  .flex {
+    display: -webkit-box !important;
+    display: -webkit-flex !important;
+    display: flex !important;
+  }
+  
+  .flex-1 {
+    -webkit-box-flex: 1 !important;
+    -webkit-flex: 1 1 0% !important;
+    flex: 1 1 0% !important;
+  }
+  
+  /* Safari でのメインコンテンツエリアを確実に表示 */
+  .flex-1.flex.flex-col {
+    display: -webkit-box !important;
+    display: -webkit-flex !important;
+    display: flex !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-box-direction: normal !important;
+    -webkit-flex-direction: column !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    background-color: rgb(15 23 42) !important; /* 確実に背景色を表示 */
+  }
+  
+  /* Safari モバイルでメインコンテンツを強制表示 */
+  @media (max-width: 767px) {
+    .flex.bg-slate-900.text-white.overflow-hidden {
+      display: -webkit-flex !important;
+      display: flex !important;
+      position: relative !important;
+    }
+    
+    /* サイドバーが閉じている時はメインコンテンツを全幅表示 */
+    .flex.flex-1.min-w-0 {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      margin-left: 0 !important;
+    }
+  }
+  
+  /* サイドバーの位置を調整 */
+  .fixed.md\\:relative {
+    position: fixed !important;
+    z-index: 50 !important;
+  }
+  
+  @media (min-width: 768px) {
+    .fixed.md\\:relative {
+      position: relative !important;
+    }
+  }
+}
+
 /* モバイル対応とスクロール制御 */
 @layer utilities {
   /* モバイル環境での入力フィールド最適化 */

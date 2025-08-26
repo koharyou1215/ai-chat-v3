@@ -124,6 +124,15 @@ export class InspirationService {
     enhancePrompt?: string,
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<string> {
+    // 入力テキストの長さをチェック
+    if (inputText.trim().length === 0) {
+      throw new Error('入力テキストが空です。文章を入力してから強化を実行してください。');
+    }
+    
+    if (inputText.trim().length > 2000) {
+      throw new Error('入力テキストが長すぎます。2000文字以内で入力してください。');
+    }
+
     // 🚀 キャッシュチェック（パフォーマンス最適化）
     const context = this.buildLightweightContext(recentMessages.slice(-3));
     const cacheKey = `enhance_${inputText}_${context.substring(0, 50)}_${enhancePrompt || 'default'}`;
@@ -164,10 +173,10 @@ ${inputText}
       // ⚡ テキスト拡張もキュー経由で実行
       const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('🎆 Text enhancement request started via queue');
-  // テキスト強化は中程度のトークンで十分なことが多いためデフォルトを 512 にする
-  const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
-  console.log(`🎯 Using max_tokens for text enhancement: ${effectiveMaxTokens}`);
-  return this.tryGenerateWithRetry(prompt, { ...apiConfig, max_tokens: effectiveMaxTokens });
+        // テキスト強化は中程度のトークンで十分なことが多いためデフォルトを 512 にする
+        const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
+        console.log(`🎯 Using max_tokens for text enhancement: ${effectiveMaxTokens}`);
+        return this.tryGenerateWithRetry(prompt, { ...apiConfig, max_tokens: effectiveMaxTokens });
       });
       
       const result = enhancedText || inputText;
@@ -181,7 +190,11 @@ ${inputText}
       return result;
     } catch (error) {
       console.error('Failed to enhance text:', error);
-      return this.fallbackEnhance(inputText);
+      // エラーメッセージをより具体的に
+      if (error instanceof Error) {
+        throw new Error(`文章強化に失敗しました: ${error.message}`);
+      }
+      throw new Error('文章強化中に予期しないエラーが発生しました。しばらく時間をおいて再試行してください。');
     }
   }
 
@@ -193,6 +206,7 @@ ${inputText}
     let attempt = 0;
     let currentPrompt = prompt;
     let currentMax = apiConfig?.max_tokens ?? 512;
+    let lastError: string | null = null;
 
     while (attempt < 3) {
       try {
@@ -202,25 +216,35 @@ ${inputText}
       } catch (err: unknown) {
         const isErrorLike = (v: unknown): v is { message?: unknown } => typeof v === 'object' && v !== null && 'message' in v;
         const msg = isErrorLike(err) && typeof err.message === 'string' ? err.message : String(err);
+        lastError = msg;
+        
         // detect token-limit style errors (MAX_TOKENS, MAXTALK, truncated reply, etc.)
-        if (/MAX_TOKENS|MAXTALK|token limit|exceeded|max tokens/i.test(msg) || attempt < 3) {
+        if (/MAX_TOKENS|MAXTALK|token limit|exceeded|max tokens/i.test(msg)) {
           // reduce max tokens and trim prompt context
           currentMax = Math.max(64, Math.floor(currentMax / 2));
           // trim last 1/3 of prompt to reduce token count
           const keep = Math.floor((currentPrompt.length * 2) / 3);
           currentPrompt = currentPrompt.substring(0, Math.max(keep, 200));
-          console.warn(`Retrying generation after token error (attempt ${attempt}), new max_tokens=${currentMax}`);
+          console.warn(`🔄 Retrying generation after token limit (attempt ${attempt}/${3}), reducing max_tokens to ${currentMax}`);
           // small backoff
           await new Promise(r => setTimeout(r, 200 * attempt));
           continue;
         }
 
-        throw err;
+        // For other errors, don't continue the retry loop
+        throw new Error(`生成エラー: ${msg}`);
       }
     }
 
     // last resort: try minimal prompt
-    return apiManager.generateMessage(currentPrompt.slice(0, 200), '', [], { ...apiConfig, max_tokens: 64 });
+    try {
+      console.warn('🆘 Final attempt with minimal prompt and 64 tokens');
+      return await apiManager.generateMessage(currentPrompt.slice(0, 200), '', [], { ...apiConfig, max_tokens: 64 });
+    } catch (finalErr) {
+      const isErrorLike = (v: unknown): v is { message?: unknown } => typeof v === 'object' && v !== null && 'message' in v;
+      const finalMsg = isErrorLike(finalErr) && typeof finalErr.message === 'string' ? finalErr.message : String(finalErr);
+      throw new Error(`生成に失敗しました: ${finalMsg}`);
+    }
   }
 
   /**

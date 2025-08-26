@@ -27,9 +27,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleReset = () => {
     try {
-      // ローカルストレージをクリア
-      localStorage.clear();
-      sessionStorage.clear();
+      // Safari互換のストレージクリア
+      if (typeof window !== 'undefined') {
+        try {
+          if (window.localStorage) {
+            window.localStorage.clear();
+          }
+        } catch (e) {
+          console.warn('localStorage.clear failed:', e);
+        }
+        
+        try {
+          if (window.sessionStorage) {
+            window.sessionStorage.clear();
+          }
+        } catch (e) {
+          console.warn('sessionStorage.clear failed:', e);
+        }
+      }
       
       // 状態をリセット
       this.setState({ hasError: false, error: undefined });
@@ -38,7 +53,10 @@ export class ErrorBoundary extends Component<Props, State> {
       window.location.reload();
     } catch (e) {
       console.error('Reset failed:', e);
-      window.location.reload();
+      // 最後の手段
+      if (typeof window !== 'undefined') {
+        window.location.href = window.location.href;
+      }
     }
   };
 

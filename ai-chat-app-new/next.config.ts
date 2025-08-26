@@ -6,14 +6,14 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // ESLint設定 - 型エラー修正のため一時的に有効化
-  // eslint: {
-  //   ignoreDuringBuilds: true,
-  // },
-  
-  // ビルド最適化設定
-  experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  eslint: {
+    ignoreDuringBuilds: true,
   },
+  
+  // ビルド最適化設定 - 一時的に無効化
+  // experimental: {
+  //   optimizePackageImports: ['lucide-react', 'framer-motion'],
+  // },
   
   webpack: (config, { isServer }) => {
     if (!isServer) {

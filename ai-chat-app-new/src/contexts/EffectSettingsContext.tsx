@@ -11,11 +11,8 @@ interface EffectSettingsContextType {
 
 const EffectSettingsContext = createContext<EffectSettingsContextType | undefined>(undefined);
 
-// セーフモード検出
-const safeMode = typeof window !== 'undefined' && localStorage.getItem('safe-mode') === 'true';
-
-// 最適化されたデフォルト設定 - 安定性重視
-const defaultSettings: EffectSettings = {
+// デフォルト設定関数 - サーバーサイドでも安全
+const createDefaultSettings = (safeMode = false): EffectSettings => ({
   // メッセージエフェクト - 基本的なもののみ有効
   colorfulBubbles: !safeMode,
   fontEffects: !safeMode,
@@ -44,25 +41,31 @@ const defaultSettings: EffectSettings = {
   // パフォーマンス - 保守的な設定
   effectQuality: safeMode ? 'low' : 'medium',
   animationSpeed: safeMode ? 0 : 0.5 // より控えめな速度
-};
+});
 
 interface EffectSettingsProviderProps {
   children: ReactNode;
 }
 
 export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ children }) => {
-  const [settings, setSettings] = useState<EffectSettings>(defaultSettings);
+  const [settings, setSettings] = useState<EffectSettings>(() => createDefaultSettings(false));
 
   // 設定をローカルストレージから読み込み
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
+        // セーフモード検出をクライアントサイドで実行
+        const safeMode = localStorage.getItem('safe-mode') === 'true';
+        const defaultSettings = createDefaultSettings(safeMode);
+        
         const savedSettings = localStorage.getItem('effect-settings');
         if (savedSettings && savedSettings.trim()) {
           const parsedSettings = JSON.parse(savedSettings);
           if (parsedSettings && typeof parsedSettings === 'object') {
             setSettings({ ...defaultSettings, ...parsedSettings });
           }
+        } else {
+          setSettings(defaultSettings);
         }
       } catch (error) {
         console.error('Failed to parse saved settings:', error);
@@ -72,7 +75,8 @@ export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ 
         } catch (clearError) {
           console.error('Failed to clear corrupted settings:', clearError);
         }
-        setSettings(defaultSettings);
+        const safeMode = false; // フォールバック
+        setSettings(createDefaultSettings(safeMode));
       }
     }
   }, []);
@@ -90,6 +94,10 @@ export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ 
   };
 
   const resetSettings = () => {
+    const safeMode = typeof window !== 'undefined' 
+      ? localStorage.getItem('safe-mode') === 'true' 
+      : false;
+    const defaultSettings = createDefaultSettings(safeMode);
     setSettings(defaultSettings);
     if (typeof window !== 'undefined') {
       try {

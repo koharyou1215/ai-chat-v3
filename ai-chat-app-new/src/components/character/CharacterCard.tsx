@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Edit, Check } from 'lucide-react';
 import { Character } from '@/types';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { replaceVariablesInCharacter, getVariableContext } from '@/utils/variable-replacer';
+import { useAppStore } from '@/store';
 
 interface CharacterCardProps {
   character: Character;
@@ -23,6 +25,12 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   className
 }) => {
   const [isFavorite, setIsFavorite] = useState(character.is_favorite ?? false);
+  
+  // 変数置換を適用したキャラクター情報
+  const processedCharacter = useMemo(() => {
+    const variableContext = getVariableContext(useAppStore.getState);
+    return replaceVariablesInCharacter(character, variableContext);
+  }, [character]);
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -106,11 +114,11 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             </motion.div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-white text-lg truncate" title={character.name}>
-                {character.name}
+              <h3 className="font-bold text-white text-lg truncate" title={processedCharacter.name}>
+                {processedCharacter.name}
               </h3>
-              <p className="text-sm text-purple-300/70 truncate" title={character.occupation}>
-                {character.occupation}
+              <p className="text-sm text-purple-300/70 truncate" title={processedCharacter.occupation}>
+                {processedCharacter.occupation}
               </p>
             </div>
 
@@ -134,14 +142,14 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 
           <div className="h-10 mb-3">
             <p className="text-sm text-white/80 italic line-clamp-2">
-              &ldquo;{character.catchphrase}&rdquo;
+              &ldquo;{processedCharacter.catchphrase}&rdquo;
             </p>
           </div>
 
           <div className="flex flex-wrap gap-1 mb-3 h-6 overflow-hidden">
             {(() => {
               // tagsが文字列の場合でも安全に配列に変換
-              const tagsSource = character.tags;
+              const tagsSource = processedCharacter.tags;
               const tags = Array.isArray(tagsSource) ? tagsSource : 
                           typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];
@@ -155,7 +163,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               ));
             })()}
             {(() => {
-              const tagsSource = character.tags;
+              const tagsSource = processedCharacter.tags;
               const tags = Array.isArray(tagsSource) ? tagsSource : 
                           typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];

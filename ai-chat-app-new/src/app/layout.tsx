@@ -32,9 +32,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" suppressHydrationWarning className="h-full">
-      <body className={`${inter.className} bg-slate-900 text-white h-full`} suppressHydrationWarning>
+    <html lang="ja" className="h-full">
+      <body className={`${inter.className} bg-slate-900 text-white h-full`}>
+        
         <ErrorBoundary>
+          
           <EffectSettingsProvider>
             {children}
           </EffectSettingsProvider>

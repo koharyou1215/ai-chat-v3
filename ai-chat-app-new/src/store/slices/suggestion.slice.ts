@@ -87,6 +87,16 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   
   enhanceText: async (text, messages, user, enhancePrompt) => {
     const { inspirationService, apiConfig, openRouterApiKey } = get();
+    
+    // デバッグ: 現在のAPIConfig設定を確認
+    console.log('🔧 Current API Config for text enhancement:', {
+      provider: apiConfig.provider,
+      model: apiConfig.model,
+      max_tokens: apiConfig.max_tokens,
+      temperature: apiConfig.temperature,
+      hasOpenRouterKey: !!openRouterApiKey
+    });
+    
     try {
       return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey });
     } catch (error) {

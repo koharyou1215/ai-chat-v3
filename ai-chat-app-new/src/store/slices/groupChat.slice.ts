@@ -273,31 +273,38 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         content: msg.content 
       }));
 
-    let systemPrompt = `あなたは${character.name}として、グループチャットに参加しています。
+    let systemPrompt = `【重要】あなたは『${character.name}』として発言します。他のキャラクターになってはいけません。
 
 === 基本設定 ===
+あなたの名前: ${character.name}（この名前で一貫して発言してください）
 他の参加者: ${otherCharacters}
 ユーザー: ${groupSession.persona.name}
 
-=== キャラクター詳細 ===
+=== ${character.name}の詳細 ===
 性格: ${character.personality}
 ${character.speaking_style ? `話し方: ${character.speaking_style}` : ''}
 ${character.background ? `背景: ${character.background}` : ''}
 ${character.scenario ? `シナリオ: ${character.scenario}` : ''}
+${character.first_person ? `一人称: ${character.first_person}` : ''}
+${character.second_person ? `二人称: ${character.second_person}` : ''}
 
-=== 行動指針 ===
-- グループチャットでは自然で協調的な会話を心がけてください
-- 他のキャラクターの発言も考慮して、重複を避けながら独自の視点で応答してください
-- あなたの性格と背景に基づいて、一貫したキャラクターを演じてください
-- ${character.name}らしい反応や発言を心がけてください`;
+=== 【厳重な行動指針】 ===
+1. 【必須】あなたは『${character.name}』です。他のキャラクターの名前で発言したり、他のキャラクターの話し方を真似してはいけません
+2. 【必須】一度に一人のキャラクターとして発言してください。複数のキャラクターの発言を一つのメッセージに含めてはいけません
+3. 【必須】${character.name}の性格と話し方に完全に従ってください
+4. 他のキャラクターの発言を参考にしても良いですが、${character.name}としての独自の視点で応答してください
+5. ${character.name}らしい口調、感情表現、反応を心がけてください
+6. 会話の文脈を理解し、${character.name}として適切にリアクションしてください`;
 
     // 直前の応答がある場合
     if (previousResponses.length > 0) {
-      systemPrompt += `\n\n直前の応答:\n`;
+      systemPrompt += `\n\n=== 直前の他キャラクターの発言 ===\n`;
       previousResponses.forEach(r => {
-        systemPrompt += `${r.character_name}: ${r.content}\n`;
+        if (r.character_name !== character.name) { // 自分の発言は除外
+          systemPrompt += `${r.character_name}: ${r.content}\n`;
+        }
       });
-      systemPrompt += `\nこれらも考慮して、${character.name}として応答してください。`;
+      systemPrompt += `\n【重要リマインド】これらは他のキャラクターの発言です。あなたは『${character.name}』として、独自の視点で応答してください。他のキャラクターの発言を繰り返したり、真似したりしないでください。`;
     }
 
     try {

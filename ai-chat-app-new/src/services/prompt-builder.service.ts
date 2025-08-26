@@ -2,6 +2,7 @@ import { UnifiedChatSession, UnifiedMessage, Character, Persona } from '@/types'
 import { ConversationManager } from './memory/conversation-manager';
 import { TrackerManager } from './tracker/tracker-manager';
 import { useAppStore } from '@/store';
+import { replaceVariables, replaceVariablesInCharacter, getVariableContext } from '@/utils/variable-replacer';
 
 export class PromptBuilderService {
   // ConversationManager キャッシュ
@@ -144,9 +145,15 @@ export class PromptBuilderService {
     userInput: string,
     trackerManager?: TrackerManager
   ): string {
+    // 変数置換コンテキストを作成
+    const variableContext = { user, character };
+    
+    // キャラクター情報に変数置換を適用
+    const processedCharacter = replaceVariablesInCharacter(character, variableContext);
+    
     const userName = user?.name || 'ユーザー';
     const recentContext = recentMessages.map(msg => 
-      `${msg.role === 'user' ? userName : character.name}: ${msg.content}`
+      `${msg.role === 'user' ? userName : processedCharacter.name}: ${replaceVariables(msg.content, variableContext)}`
     ).join('\n');
     
     let prompt = `AI={{char}}, User={{user}}
@@ -171,32 +178,32 @@ export class PromptBuilderService {
 
 <character_information>
 ## Basic Information
-Name: ${character.name}
-${character.age ? `Age: ${character.age}` : ''}
-${character.occupation ? `Occupation: ${character.occupation}` : ''}
-${character.catchphrase ? `Catchphrase: "${character.catchphrase}"` : ''}
+Name: ${processedCharacter.name}
+${processedCharacter.age ? `Age: ${processedCharacter.age}` : ''}
+${processedCharacter.occupation ? `Occupation: ${processedCharacter.occupation}` : ''}
+${processedCharacter.catchphrase ? `Catchphrase: "${processedCharacter.catchphrase}"` : ''}
 
 ## Personality & Traits
-${character.personality ? `Personality: ${character.personality}` : ''}
-${character.external_personality ? `External: ${character.external_personality}` : ''}
-${character.internal_personality ? `Internal: ${character.internal_personality}` : ''}
-${character.strengths && Array.isArray(character.strengths) && character.strengths.length > 0 ? `Strengths: ${character.strengths.join(', ')}` : ''}
-${character.weaknesses && Array.isArray(character.weaknesses) && character.weaknesses.length > 0 ? `Weaknesses: ${character.weaknesses.join(', ')}` : ''}
+${processedCharacter.personality ? `Personality: ${processedCharacter.personality}` : ''}
+${processedCharacter.external_personality ? `External: ${processedCharacter.external_personality}` : ''}
+${processedCharacter.internal_personality ? `Internal: ${processedCharacter.internal_personality}` : ''}
+${processedCharacter.strengths && Array.isArray(processedCharacter.strengths) && processedCharacter.strengths.length > 0 ? `Strengths: ${processedCharacter.strengths.join(', ')}` : ''}
+${processedCharacter.weaknesses && Array.isArray(processedCharacter.weaknesses) && processedCharacter.weaknesses.length > 0 ? `Weaknesses: ${processedCharacter.weaknesses.join(', ')}` : ''}
 
 ## Preferences & Style
-${character.likes && character.likes.length > 0 ? `Likes: ${character.likes.join(', ')}` : ''}
-${character.dislikes && character.dislikes.length > 0 ? `Dislikes: ${character.dislikes.join(', ')}` : ''}
-${character.hobbies && character.hobbies.length > 0 ? `Hobbies: ${character.hobbies.join(', ')}` : ''}
+${processedCharacter.likes && processedCharacter.likes.length > 0 ? `Likes: ${processedCharacter.likes.join(', ')}` : ''}
+${processedCharacter.dislikes && processedCharacter.dislikes.length > 0 ? `Dislikes: ${processedCharacter.dislikes.join(', ')}` : ''}
+${processedCharacter.hobbies && processedCharacter.hobbies.length > 0 ? `Hobbies: ${processedCharacter.hobbies.join(', ')}` : ''}
 
 ## Communication Style
-${character.speaking_style ? `Speaking Style: ${character.speaking_style}` : ''}
-${character.first_person ? `First Person: ${character.first_person}` : ''}
-${character.second_person ? `Second Person: ${character.second_person}` : ''}
-${character.verbal_tics && character.verbal_tics.length > 0 ? `Verbal Tics: ${character.verbal_tics.join(', ')}` : ''}
+${processedCharacter.speaking_style ? `Speaking Style: ${processedCharacter.speaking_style}` : ''}
+${processedCharacter.first_person ? `First Person: ${processedCharacter.first_person}` : ''}
+${processedCharacter.second_person ? `Second Person: ${processedCharacter.second_person}` : ''}
+${processedCharacter.verbal_tics && processedCharacter.verbal_tics.length > 0 ? `Verbal Tics: ${processedCharacter.verbal_tics.join(', ')}` : ''}
 
 ## Context
-${character.background ? `Background: ${character.background}` : ''}
-${character.scenario ? `Current Scenario: ${character.scenario}` : ''}
+${processedCharacter.background ? `Background: ${processedCharacter.background}` : ''}
+${processedCharacter.scenario ? `Current Scenario: ${processedCharacter.scenario}` : ''}
 </character_information>`;
 
     // ペルソナ情報を追加（重要な関係性情報）
@@ -210,10 +217,15 @@ ${user.description ? `Description: ${user.description}` : ''}
 </persona_information>`;
     }
 
-    // 軽量トラッカー情報（重要な関係値のみ）
+    // 軽量トラッカー情報（キャラクター設定強化版）
     if (trackerManager) {
       try {
-        const trackerInfo = this.getEssentialTrackerInfo(trackerManager, character.id);
+        // まず詳細版を試行、失敗したら軽量版にフォールバック
+        let trackerInfo = trackerManager.getDetailedTrackersForPrompt?.(character.id);
+        if (!trackerInfo) {
+          trackerInfo = this.getEssentialTrackerInfo(trackerManager, character.id);
+        }
+        
         if (trackerInfo) {
           prompt += `
 
@@ -232,8 +244,11 @@ ${trackerInfo}
 ${recentContext}
 
 ## Current Interaction
-{{user}}: ${userInput}
+{{user}}: ${replaceVariables(userInput, variableContext)}
 {{char}}:`;
+    
+    // 最後にプロンプト全体に変数置換を適用
+    prompt = replaceVariables(prompt, variableContext);
 
     return prompt;
   }

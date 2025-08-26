@@ -9,7 +9,8 @@ export interface UISlice {
 }
 
 export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
-  isLeftSidebarOpen: true, // Initially open
+  // 安全なデフォルト値：モバイルでは閉じる
+  isLeftSidebarOpen: false, 
   isRightPanelOpen: false, // Initially closed
   toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
   toggleRightPanel: () => set((state) => ({ isRightPanelOpen: !state.isRightPanelOpen })),

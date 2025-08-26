@@ -187,17 +187,17 @@ export class PromptValidator {
 
 export const promptValidator = new PromptValidator();
 
-// デベロッパー用のテスト関数
+// デベロッパー用のテスト関数 (コンソール出力を無効化)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as Record<string, unknown>).validateCurrentPrompt = (prompt: string, characterName: string) => {
     const result = promptValidator.validatePrompt(prompt, characterName);
-    console.log(promptValidator.generateReport(result));
+    // console.log(promptValidator.generateReport(result)); // 無効化
     return result;
   };
 
   (window as Record<string, unknown>).checkResponse = (response: string, characterName: string) => {
     const result = promptValidator.checkResponseForMeta(response, characterName);
-    console.log('🔍 Response Meta Check:', result);
+    // console.log('🔍 Response Meta Check:', result); // 無効化
     return result;
   };
 }

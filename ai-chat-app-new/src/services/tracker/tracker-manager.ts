@@ -233,6 +233,60 @@ export class TrackerManager {
   }
 
   /**
+   * 詳細なトラッカー情報をプロンプト用に取得（キャラクター設定強化版）
+   */
+  getDetailedTrackersForPrompt(characterId: string): string {
+    const trackerSet = this.trackerSets.get(characterId);
+    if (!trackerSet || trackerSet.trackers.size === 0) {
+      return '';
+    }
+
+    let promptText = '<character_trackers>\n';
+    
+    for (const tracker of trackerSet.trackers.values()) {
+      const value = tracker.current_value ?? 'N/A';
+      
+      // トラッカー情報を詳細に記述
+      promptText += `## ${tracker.display_name}\n`;
+      promptText += `Current Value: ${value}`;
+      
+      // 数値型の場合は範囲情報も含める
+      if (tracker.config.type === 'numeric' && tracker.config.min_value !== undefined && tracker.config.max_value !== undefined) {
+        promptText += ` (Range: ${tracker.config.min_value}-${tracker.config.max_value})`;
+      }
+      
+      // 状態型の場合は可能な状態を含める
+      if (tracker.config.type === 'state' && tracker.config.possible_states && tracker.config.possible_states.length > 0) {
+        promptText += ` (Possible: ${tracker.config.possible_states.join(', ')})`;
+      }
+      
+      promptText += '\n';
+      
+      // 説明があれば含める
+      if (tracker.description) {
+        promptText += `Description: ${tracker.description}\n`;
+      }
+      
+      // 最近の変更履歴があれば含める（最新3件）
+      const recentUpdates = trackerSet.history
+        .filter(update => update.tracker_name === tracker.name)
+        .slice(-3);
+      
+      if (recentUpdates.length > 0) {
+        promptText += `Recent Changes:\n`;
+        recentUpdates.forEach(update => {
+          promptText += `- ${update.old_value} → ${update.new_value} (${update.reason || 'No reason'})\n`;
+        });
+      }
+      
+      promptText += '\n';
+    }
+    
+    promptText += '</character_trackers>';
+    return promptText;
+  }
+
+  /**
    * トラッカーセットを取得
    */
   getTrackerSet(characterId: string): TrackerSet | undefined {
@@ -336,8 +390,8 @@ export class TrackerManager {
       return [];
     }
     
-    console.log('[TrackerManager] Analyzing message for tracker updates:', {
-      characterId,
+    console.log(`🎯 [TrackerManager] Analyzing message for tracker updates:`, {
+      characterId: characterId.substring(0, 8) + '...',
       trackerCount: trackerSet.trackers.size,
       messageContent: message.content.substring(0, 50) + '...',
       messageRole: message.role
@@ -346,6 +400,9 @@ export class TrackerManager {
     const updates: TrackerUpdate[] = [];
     const content = message.content.toLowerCase();
     const isUserMessage = message.role === 'user';
+    
+    // より積極的な更新のためのフラグ
+    let hasAnyUpdate = false;
 
     for (const [trackerName, tracker] of trackerSet.trackers) {
       const oldValue = tracker.current_value;
@@ -393,8 +450,7 @@ export class TrackerManager {
       }
 
       if (shouldUpdate && newValue !== oldValue) {
-        console.log('[TrackerManager] Updating tracker:', {
-          trackerName,
+        console.log(`🎯 [TrackerManager] Updating tracker '${trackerName}':`, {
           oldValue,
           newValue,
           reason
@@ -402,6 +458,7 @@ export class TrackerManager {
         
         // 実際に更新実行
         this.updateTracker(characterId, trackerName, newValue, `自動更新: ${reason}`);
+        hasAnyUpdate = true;
         
         updates.push({
           character_id: characterId,
@@ -415,11 +472,18 @@ export class TrackerManager {
       }
     }
 
-    console.log('[TrackerManager] Analysis complete:', {
-      characterId,
-      updatesFound: updates.length,
-      updates: updates.map(u => ({ tracker: u.tracker_name, oldValue: u.old_value, newValue: u.new_value }))
-    });
+    if (hasAnyUpdate) {
+      console.log(`✅ [TrackerManager] Analysis complete - ${updates.length} tracker(s) updated:`, {
+        characterId: characterId.substring(0, 8) + '...',
+        updates: updates.map(u => `${u.tracker_name}: ${u.old_value}→${u.new_value}`)
+      });
+    } else {
+      console.log(`📊 [TrackerManager] Analysis complete - No tracker updates needed`, {
+        characterId: characterId.substring(0, 8) + '...',
+        analyzedTrackers: trackerSet.trackers.size,
+        messageContent: message.content.substring(0, 30) + '...'
+      });
+    }
 
     return updates;
   }
