@@ -64,10 +64,12 @@ export class InspirationService {
       // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
       const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('✨ Inspiration request started via queue');
-        // 💡 インスピレーション機能はより長い応答が必要なため、max_tokensを増やす
+        // 💡 インスピレーション機能はより長い応答が必要なため、適切なmax_tokensを設定
+        const effectiveMaxTokens = Math.max((apiConfig?.max_tokens || 2048), 1024);
+        console.log(`💡 Using max_tokens: ${effectiveMaxTokens} for reply suggestions`);
         const inspirationApiConfig = { 
           ...apiConfig, 
-          max_tokens: 8192 
+          max_tokens: effectiveMaxTokens 
         };
         return apiManager.generateMessage(prompt, '', [], inspirationApiConfig);
       });
@@ -161,7 +163,10 @@ ${inputText}
       // ⚡ テキスト拡張もキュー経由で実行
       const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('🎆 Text enhancement request started via queue');
-        return apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: 1024 });
+        // ユーザーのMAXトークン設定を使用（最低512トークンを保証）
+        const effectiveMaxTokens = Math.max((apiConfig?.max_tokens || 2048), 512);
+        console.log(`🎯 Using max_tokens: ${effectiveMaxTokens} for text enhancement`);
+        return apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: effectiveMaxTokens });
       });
       
       const result = enhancedText || inputText;

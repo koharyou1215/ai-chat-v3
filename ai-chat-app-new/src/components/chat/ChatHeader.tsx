@@ -80,7 +80,7 @@ const ChatHeaderContent: React.FC = () => {
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
         return (
-            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/70 backdrop-blur-md">
+            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/50 backdrop-blur-md">
                  {/* Maybe a loading skeleton here */}
             </div>
         );
@@ -92,7 +92,7 @@ const ChatHeaderContent: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 border-b border-transparent h-16 md:h-20 relative z-50 bg-slate-900/80 backdrop-blur-md">
+        <div className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 border-b border-transparent h-16 md:h-20 relative z-40 bg-slate-900/60 backdrop-blur-md">
             <div className="flex items-center gap-4">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -288,7 +288,7 @@ const ChatHeaderContent: React.FC = () => {
 export const ChatHeader: React.FC = () => {
     return (
         <ClientOnlyProvider fallback={
-            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/70 backdrop-blur-md">
+            <div className="flex-shrink-0 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/50 backdrop-blur-md">
                 {/* Loading placeholder */}
             </div>
         }>

@@ -189,7 +189,7 @@ export const MessageInput: React.FC = () => {
   }, [currentInputText]);
 
   return (
-    <div className="relative p-3 md:p-4 border-t border-transparent bg-slate-900/70 backdrop-blur-md z-[51]">
+    <div className="relative p-3 md:p-4 border-t border-transparent bg-slate-900/50 backdrop-blur-md z-[41]">
       <input
         ref={fileInputRef}
         type="file"

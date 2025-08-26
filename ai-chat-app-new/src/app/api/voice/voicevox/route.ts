@@ -10,15 +10,28 @@ export async function POST(request: NextRequest) {
     
     // VoiceVoxエンジンが起動しているかチェック
     try {
+      console.log(`🔊 VoiceVox health check to: ${voicevoxUrl}/version`);
       const healthCheck = await fetch(`${voicevoxUrl}/version`, { 
         method: 'GET',
-        signal: AbortSignal.timeout(3000) // 3秒でタイムアウト
+        signal: AbortSignal.timeout(5000) // 5秒でタイムアウト
       });
       if (!healthCheck.ok) {
-        throw new Error(`VoiceVoxエンジンが応答しません (${healthCheck.status})`);
+        const errorText = await healthCheck.text().catch(() => 'No response text');
+        console.error('VoiceVox health check failed:', {
+          status: healthCheck.status,
+          statusText: healthCheck.statusText,
+          errorText
+        });
+        throw new Error(`VoiceVoxエンジンが応答しません (${healthCheck.status}: ${healthCheck.statusText}). ${errorText ? 'Response: ' + errorText : ''}`);
       }
+      const versionInfo = await healthCheck.json().catch(() => null);
+      console.log('✅ VoiceVox engine is running:', versionInfo);
     } catch (healthError) {
-      throw new Error(`VoiceVoxエンジンに接続できません: ${healthError instanceof Error ? healthError.message : 'Unknown error'}`);
+      console.error('VoiceVox connection error:', healthError);
+      if (healthError instanceof Error && healthError.name === 'AbortError') {
+        throw new Error(`VoiceVoxエンジンに接続できません: タイムアウト (5秒) - エンジンが起動していない可能性があります`);
+      }
+      throw new Error(`VoiceVoxエンジンに接続できません: ${healthError instanceof Error ? healthError.message : 'Unknown error'} - エンジンのURLを確認してください: ${voicevoxUrl}`);
     }
 
     // 1. audio_queryの作成
