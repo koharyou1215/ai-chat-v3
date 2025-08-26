@@ -154,7 +154,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   };
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
-    alert('コピーしました');
   };
 
   const [isEditing, setIsEditing] = useState(false);

@@ -185,7 +185,7 @@ const ChatInterfaceContent: React.FC = () => {
     }
     
     return (
-        <div className="flex bg-slate-900 text-white overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)', position: 'relative' }}>
+        <div className="flex bg-slate-900 text-white overflow-hidden h-screen" style={{ position: 'relative' }}>
             <ClientOnlyProvider fallback={null}>
                 <AnimatePresence>
                     {isLeftSidebarOpen && <ChatSidebar />}
@@ -194,7 +194,7 @@ const ChatInterfaceContent: React.FC = () => {
             
             <div className={cn("flex flex-1 min-w-0", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
                 {/* メインコンテンツエリア */}
-                <div className="flex-1 flex flex-col min-w-0 relative h-full">
+                <div className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden">
                     {/* Background Image */}
                     {character?.background_url && (
                         <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
@@ -219,28 +219,12 @@ const ChatInterfaceContent: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="relative z-10 flex flex-col h-full">
-                        {/* Safe Area対応ヘッダー (固定) */}
+                    {/* メッセージリスト専用コンテナ */}
+                    <div className="relative z-10 h-full">
                         <div 
-                            className="fixed top-0 z-40 bg-slate-900/60 backdrop-blur-md transition-all duration-300" 
-                            style={{
-                                paddingTop: 'env(safe-area-inset-top)',
-                                left: isLeftSidebarOpen ? '320px' : '0',
-                                right: '0',
-                                width: isLeftSidebarOpen ? 'calc(100vw - 320px)' : '100vw'
-                            }}
+                            className="absolute inset-0 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 pt-20 md:pt-24 pb-32" 
                         >
-                            <ChatHeader />
-                        </div>
-                        <div 
-                            className="flex-1 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 relative z-20" 
-                            style={{
-                                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 80px)', // ヘッダー高さ分
-                                paddingBottom: 'calc(max(env(safe-area-inset-bottom, 0px), 8px) + 120px)', // 入力欄高さ分 + セーフエリア
-                                paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
-                                paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)'
-                            }}
-                        >
+                            <div style={{ height: 'env(safe-area-inset-top)' }} />
                             <AnimatePresence mode="popLayout" initial={false}>
                                 {currentMessages.map((message, index) => (
                                     <MessageBubble
@@ -256,18 +240,31 @@ const ChatInterfaceContent: React.FC = () => {
                             {(is_generating || group_generating) && <ThinkingIndicator />}
                             
                             <div ref={messagesEndRef} />
+                            <div style={{ height: 'env(safe-area-inset-bottom)' }} />
                         </div>
-                        {/* Safe Area対応メッセージ入力欄 (固定) - モバイル最適化 */}
-                        <div 
-                            className="safe-area-bottom safe-area-left safe-area-right mobile-input-fix bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
-                            style={{
-                                left: isLeftSidebarOpen ? '320px' : '0',
-                                right: '0',
-                                width: isLeftSidebarOpen ? 'calc(100vw - 320px)' : '100vw'
-                            }}
-                        >
-                            <MessageInput />
-                        </div>
+                    </div>
+
+                    {/* Safe Area対応ヘッダー (固定) */}
+                    <div 
+                        className="fixed top-0 w-full md:w-auto z-40 bg-slate-900/60 backdrop-blur-md transition-all duration-300 flex items-center pt-[env(safe-area-inset-top)] h-[calc(env(safe-area-inset-top)+64px)] md:h-[calc(env(safe-area-inset-top)+80px)]"
+                        style={{
+                            left: isLeftSidebarOpen ? '320px' : '0',
+                            right: '0',
+                        }}
+                    >
+                        <ChatHeader />
+                    </div>
+
+                    {/* メッセージ入力欄 (固定) */}
+                    <div 
+                        className="fixed bottom-0 w-full md:w-auto z-30 bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
+                        style={{
+                            paddingBottom: 'env(safe-area-inset-bottom)',
+                            left: isLeftSidebarOpen ? '320px' : '0',
+                            right: '0',
+                        }}
+                    >
+                        <MessageInput />
                     </div>
                 </div>
 

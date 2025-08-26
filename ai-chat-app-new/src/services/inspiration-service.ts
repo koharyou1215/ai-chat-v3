@@ -20,7 +20,8 @@ export class InspirationService {
     result: string, 
     timestamp: number 
   }>();
-  private cacheTimeout = 5 * 60 * 1000; // 5分間キャッシュ
+  // Increased cache timeout to reduce repeated heavy inspiration calls
+  private cacheTimeout = 10 * 60 * 1000; // 10分間キャッシュ
   /**
    * 会話履歴から返信候補を生成
    * @param recentMessages 直近の会話（3ラウンド）
@@ -34,7 +35,7 @@ export class InspirationService {
     character: Character,
     user: Persona,
     customPrompt?: string,
-    suggestionCount: number = 3, // 提案数を3に固定
+  suggestionCount: number = 2, // デフォルト提案数を3 -> 2 に減らして負荷を下げる
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<InspirationSuggestion[]> {
     // 🚀 キャッシュチェック（パフォーマンス最適化）
@@ -64,14 +65,14 @@ export class InspirationService {
       // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
       const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('✨ Inspiration request started via queue');
-        // 💡 インスピレーション機能はより長い応答が必要なため、適切なmax_tokensを設定
-        const effectiveMaxTokens = Math.max((apiConfig?.max_tokens || 2048), 1024);
-        console.log(`💡 Using max_tokens: ${effectiveMaxTokens} for reply suggestions`);
-        const inspirationApiConfig = { 
-          ...apiConfig, 
-          max_tokens: effectiveMaxTokens 
+        // デフォルトは 512 トークンにして API 負荷とレイテンシを下げる
+        const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
+        console.log(`💡 Using max_tokens for reply suggestions: ${effectiveMaxTokens}`);
+        const inspirationApiConfig = {
+          ...apiConfig,
+          max_tokens: effectiveMaxTokens
         };
-        return apiManager.generateMessage(prompt, '', [], inspirationApiConfig);
+  return this.tryGenerateWithRetry(prompt, inspirationApiConfig);
       });
       const suggestions = this.parseSuggestions(responseContent, approaches);
       
@@ -163,10 +164,10 @@ ${inputText}
       // ⚡ テキスト拡張もキュー経由で実行
       const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('🎆 Text enhancement request started via queue');
-        // ユーザーのMAXトークン設定を使用（最低512トークンを保証）
-        const effectiveMaxTokens = Math.max((apiConfig?.max_tokens || 2048), 512);
-        console.log(`🎯 Using max_tokens: ${effectiveMaxTokens} for text enhancement`);
-        return apiManager.generateMessage(prompt, '', [], { ...apiConfig, max_tokens: effectiveMaxTokens });
+  // テキスト強化は中程度のトークンで十分なことが多いためデフォルトを 512 にする
+  const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
+  console.log(`🎯 Using max_tokens for text enhancement: ${effectiveMaxTokens}`);
+  return this.tryGenerateWithRetry(prompt, { ...apiConfig, max_tokens: effectiveMaxTokens });
       });
       
       const result = enhancedText || inputText;
@@ -182,6 +183,44 @@ ${inputText}
       console.error('Failed to enhance text:', error);
       return this.fallbackEnhance(inputText);
     }
+  }
+
+  /**
+   * Try generating a message, retrying with trimmed prompt or reduced tokens
+   * when max token / MAXTALK style errors occur.
+   */
+  private async tryGenerateWithRetry(prompt: string, apiConfig?: Partial<APIConfig>): Promise<string> {
+    let attempt = 0;
+    let currentPrompt = prompt;
+    let currentMax = apiConfig?.max_tokens ?? 512;
+
+    while (attempt < 3) {
+      try {
+        attempt++;
+        const resp = await apiManager.generateMessage(currentPrompt, '', [], { ...apiConfig, max_tokens: currentMax });
+        return resp;
+      } catch (err: unknown) {
+        const isErrorLike = (v: unknown): v is { message?: unknown } => typeof v === 'object' && v !== null && 'message' in v;
+        const msg = isErrorLike(err) && typeof err.message === 'string' ? err.message : String(err);
+        // detect token-limit style errors (MAX_TOKENS, MAXTALK, truncated reply, etc.)
+        if (/MAX_TOKENS|MAXTALK|token limit|exceeded|max tokens/i.test(msg) || attempt < 3) {
+          // reduce max tokens and trim prompt context
+          currentMax = Math.max(64, Math.floor(currentMax / 2));
+          // trim last 1/3 of prompt to reduce token count
+          const keep = Math.floor((currentPrompt.length * 2) / 3);
+          currentPrompt = currentPrompt.substring(0, Math.max(keep, 200));
+          console.warn(`Retrying generation after token error (attempt ${attempt}), new max_tokens=${currentMax}`);
+          // small backoff
+          await new Promise(r => setTimeout(r, 200 * attempt));
+          continue;
+        }
+
+        throw err;
+      }
+    }
+
+    // last resort: try minimal prompt
+    return apiManager.generateMessage(currentPrompt.slice(0, 200), '', [], { ...apiConfig, max_tokens: 64 });
   }
 
   /**
@@ -572,7 +611,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }, 10 * 60 * 1000); // 10分ごと
   
   // デベロッパー用統計関数
-  (window as WindowWithInspirationStats).inspirationCacheStats = () => {
+  (window as unknown as WindowWithInspirationStats).inspirationCacheStats = () => {
     const stats = inspirationService.getCacheStats();
     console.log('📊 Inspiration Cache Stats:', stats);
     return stats;

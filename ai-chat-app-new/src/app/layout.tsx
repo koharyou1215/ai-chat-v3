@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
 import { ErrorBoundary } from "@/components/utils/ErrorBoundary";
-import { EmergencyReset } from "@/components/utils/EmergencyReset";
 
 // 日本語フォント対応
 const inter = Inter({ 
@@ -38,7 +37,6 @@ export default function RootLayout({
         <ErrorBoundary>
           <EffectSettingsProvider>
             {children}
-            <EmergencyReset />
           </EffectSettingsProvider>
         </ErrorBoundary>
       </body>

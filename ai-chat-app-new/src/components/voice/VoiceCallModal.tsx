@@ -176,58 +176,6 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     avatar_url: null
   };
 
-  // WebSocket initialization
-  const initializeWebSocket = useCallback(() => {
-    const voiceServerUrl = 'ws://localhost:8082';
-    setConnectionStatus('connecting');
-    console.log('🔗 Connecting to:', voiceServerUrl);
-    
-    try {
-      const ws = new WebSocket(voiceServerUrl);
-      
-      ws.onopen = () => {
-        console.log('✅ Voice WebSocket connected successfully!');
-        setIsConnected(true);
-        setConnectionStatus('connected');
-      };
-
-      ws.onmessage = async (event) => {
-        if (typeof event.data === 'string') {
-          try {
-            const message: WebSocketMessage = JSON.parse(event.data);
-            handleWebSocketMessage(message);
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
-          }
-        }
-      };
-
-      ws.onerror = (_error) => {
-        console.log('❌ WebSocket error event occurred');
-        setConnectionStatus('error');
-        setIsConnected(false);
-        setLastMessage('Connection failed - please check server status');
-      };
-
-      ws.onclose = (event) => {
-        console.log('🔌 WebSocket disconnected:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        });
-        setConnectionStatus('disconnected');
-        setIsConnected(false);
-        setIsCallActive(false);
-      };
-
-      wsRef.current = ws;
-    } catch (error) {
-      console.error('Failed to create WebSocket:', error);
-      setConnectionStatus('error');
-      setLastMessage('WebSocket creation failed - server unavailable');
-    }
-  }, [handleWebSocketMessage]);
-
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
@@ -290,6 +238,58 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         break;
     }
   }, [active_session_id, sendMessage]);
+
+  // WebSocket initialization
+  const initializeWebSocket = useCallback(() => {
+    const voiceServerUrl = 'ws://localhost:8082';
+    setConnectionStatus('connecting');
+    console.log('🔗 Connecting to:', voiceServerUrl);
+    
+    try {
+      const ws = new WebSocket(voiceServerUrl);
+      
+      ws.onopen = () => {
+        console.log('✅ Voice WebSocket connected successfully!');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+      };
+
+      ws.onmessage = async (event) => {
+        if (typeof event.data === 'string') {
+          try {
+            const message: WebSocketMessage = JSON.parse(event.data);
+            handleWebSocketMessage(message);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        }
+      };
+
+      ws.onerror = (_error) => {
+        console.log('❌ WebSocket error event occurred');
+        setConnectionStatus('error');
+        setIsConnected(false);
+        setLastMessage('Connection failed - please check server status');
+      };
+
+      ws.onclose = (event) => {
+        console.log('🔌 WebSocket disconnected:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
+        setConnectionStatus('disconnected');
+        setIsConnected(false);
+        setIsCallActive(false);
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+      setConnectionStatus('error');
+      setLastMessage('WebSocket creation failed - server unavailable');
+    }
+  }, [handleWebSocketMessage]);
 
   // Start voice call
   const startCall = async () => {
