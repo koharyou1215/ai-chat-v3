@@ -54,7 +54,8 @@
       "Bash(ls:*)",
       "Bash(pkill:*)",
       "Bash(git revert:*)",
-      "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" timeout 180s npm run build)"
+      "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" timeout 180s npm run build)",
+      "WebFetch(domain:ai-chat-app-em01usx9v-kous-projects-ba188115.vercel.app)"
     ],
     "deny": [],
     "ask": [],
