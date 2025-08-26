@@ -1,0 +1,8 @@
+{
+  "builds": [
+    {
+      "src": "ai-chat-app-new/next.config.ts",
+      "use": "@vercel/next"
+    }
+  ]
+}
