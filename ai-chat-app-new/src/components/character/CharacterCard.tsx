@@ -140,10 +140,10 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 
           <div className="flex flex-wrap gap-1 mb-3 h-6 overflow-hidden">
             {(() => {
-              // tagsが文字列の場合は配列に変換
-              const characterTags = (character as any).tags;
-              const tags = Array.isArray(characterTags) ? characterTags : 
-                          typeof characterTags === 'string' ? characterTags.split(',').map((tag: string) => tag.trim()) : 
+              // tagsが文字列の場合でも安全に配列に変換
+              const tagsSource = character.tags;
+              const tags = Array.isArray(tagsSource) ? tagsSource : 
+                          typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];
               return tags.slice(0, 3).map((tag: string) => (
                 <span
@@ -155,9 +155,9 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               ));
             })()}
             {(() => {
-              const characterTags = (character as any).tags;
-              const tags = Array.isArray(characterTags) ? characterTags : 
-                          typeof characterTags === 'string' ? characterTags.split(',').map((tag: string) => tag.trim()) : 
+              const tagsSource = character.tags;
+              const tags = Array.isArray(tagsSource) ? tagsSource : 
+                          typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];
               return tags.length > 3 && (
                 <span className="px-2 py-0.5 text-xs text-white/40">
