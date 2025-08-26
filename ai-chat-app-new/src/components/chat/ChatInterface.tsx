@@ -235,8 +235,10 @@ const ChatInterfaceContent: React.FC = () => {
                         <div 
                             className="flex-1 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 relative z-20" 
                             style={{
-                                paddingTop: 'calc(env(safe-area-inset-top) + 80px)', // ヘッダー高さ分（少し余裕を持たせる）
-                                paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' // 入力欄高さ分（少し余裕を持たせる）
+                                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 80px)', // ヘッダー高さ分
+                                paddingBottom: 'calc(max(env(safe-area-inset-bottom, 0px), 8px) + 120px)', // 入力欄高さ分 + セーフエリア
+                                paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
+                                paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)'
                             }}
                         >
                             <AnimatePresence mode="popLayout" initial={false}>
@@ -255,11 +257,10 @@ const ChatInterfaceContent: React.FC = () => {
                             
                             <div ref={messagesEndRef} />
                         </div>
-                        {/* Safe Area対応メッセージ入力欄 (固定) */}
+                        {/* Safe Area対応メッセージ入力欄 (固定) - モバイル最適化 */}
                         <div 
-                            className="fixed bottom-0 z-[41] bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
+                            className="safe-area-bottom safe-area-left safe-area-right mobile-input-fix bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
                             style={{
-                                paddingBottom: 'env(safe-area-inset-bottom)',
                                 left: isLeftSidebarOpen ? '320px' : '0',
                                 right: '0',
                                 width: isLeftSidebarOpen ? 'calc(100vw - 320px)' : '100vw'
