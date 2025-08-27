@@ -423,7 +423,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       }
     };
 
-    return animationMap[emotion.primary] || {};
+    return animationMap[emotion.primary] || ({} as Record<string, unknown>);
   };
 
   return (
@@ -571,12 +571,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 : '0 0 30px rgba(168, 85, 247, 0.1)' // 影を少し弱める
           }}
           animate={
-            !isUser && 
+            (!isUser && 
             settings.emotionBasedStyling && 
             !settings.typewriterEffect && 
             !settings.particleEffects 
               ? getEmotionAnimation() 
-              : {}
+              : {}) as any
           }
         >
           {/* 重要度インジケーター */}

@@ -131,6 +131,8 @@ const ChatInterfaceContent: React.FC = () => {
         setShowSuggestionModal,
         suggestions,
         isGeneratingSuggestions,
+        generateSuggestions,
+        systemPrompts,
         setCurrentInputText,
         isLeftSidebarOpen, // isLeftSidebarOpen をストアから取得
         isRightPanelOpen, // isRightPanelOpen をストアから取得
@@ -424,6 +426,20 @@ const ChatInterfaceContent: React.FC = () => {
                         isLoading={isGeneratingSuggestions}
                         onSelect={(suggestion) => {
                             setCurrentInputText(suggestion);
+                        }}
+                        onRegenerate={async () => {
+                            const session = getActiveSession();
+                            if (!session) return;
+                            
+                            const recentMessages = session.messages.slice(-6);
+                            const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                ? systemPrompts.replySuggestion 
+                                : undefined;
+                            
+                            const character = session.participants.characters[0];
+                            const user = session.participants.user;
+                            
+                            await generateSuggestions(recentMessages, character, user, customPrompt, true);
                         }}
                     />
                     {showCharacterForm && editingCharacter && 'age' in editingCharacter && (

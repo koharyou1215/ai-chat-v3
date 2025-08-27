@@ -28,7 +28,8 @@ export interface SuggestionSlice {
     messages: UnifiedMessage[], 
     character: Character, 
     user: Persona, 
-    customPrompt?: string
+    customPrompt?: string,
+    forceRegenerate?: boolean
   ) => Promise<void>;
   enhanceText: (
     text: string, 
@@ -50,7 +51,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setShowSuggestionModal: (show) => set({ showSuggestionModal: show }),
   setIsGeneratingSuggestions: (isGenerating) => set({ isGeneratingSuggestions: isGenerating }),
   
-  generateSuggestions: async (messages, character, user, customPrompt) => {
+  generateSuggestions: async (messages, character, user, customPrompt, forceRegenerate = false) => {
     const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey } = get();
     if (isGeneratingSuggestions) return;
     
@@ -62,8 +63,9 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        4,
-        { ...apiConfig, openRouterApiKey }
+        3, // 2-3個に制限
+        { ...apiConfig, openRouterApiKey },
+        forceRegenerate
       );
       
       const suggestionData: SuggestionData[] = suggestions.map((suggestion) => ({

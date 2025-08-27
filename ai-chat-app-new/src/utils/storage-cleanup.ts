@@ -1,4 +1,20 @@
 // Storage cleanup utilities for managing localStorage quota
+
+// Type definitions for storage data structures
+interface SessionEntry {
+  updatedAt?: number;
+  createdAt?: number;
+}
+
+interface MemoryItem {
+  timestamp?: number;
+}
+
+interface StorageWindow extends Window {
+  clearAIChatStorage?: () => void;
+  checkAIChatStorage?: () => ReturnType<typeof StorageManager.getStorageInfo>;
+}
+
 export class StorageManager {
   private static readonly STORAGE_KEY = 'ai-chat-v3-storage';
   private static readonly MAX_SESSIONS = 10;
@@ -63,7 +79,7 @@ export class StorageManager {
         if (sessions._type === 'map' && sessions.value) {
           if (sessions.value.length > this.MAX_SESSIONS) {
             const sortedSessions = sessions.value
-              .sort((a: any, b: any) => {
+              .sort((a: [unknown, SessionEntry], b: [unknown, SessionEntry]) => {
                 const aTime = a[1]?.updatedAt || a[1]?.createdAt || 0;
                 const bTime = b[1]?.updatedAt || b[1]?.createdAt || 0;
                 return bTime - aTime;
@@ -83,7 +99,7 @@ export class StorageManager {
         if (groupSessions._type === 'map' && groupSessions.value) {
           if (groupSessions.value.length > this.MAX_SESSIONS) {
             const sortedGroupSessions = groupSessions.value
-              .sort((a: any, b: any) => {
+              .sort((a: [unknown, SessionEntry], b: [unknown, SessionEntry]) => {
                 const aTime = a[1]?.updatedAt || a[1]?.createdAt || 0;
                 const bTime = b[1]?.updatedAt || b[1]?.createdAt || 0;
                 return bTime - aTime;
@@ -101,7 +117,7 @@ export class StorageManager {
       if (data?.state?.memoryCards && Array.isArray(data.state.memoryCards)) {
         if (data.state.memoryCards.length > this.MAX_MEMORY_CARDS) {
           data.state.memoryCards = data.state.memoryCards
-            .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+            .sort((a: MemoryItem, b: MemoryItem) => (b.timestamp || 0) - (a.timestamp || 0))
             .slice(0, this.MAX_MEMORY_CARDS);
           cleaned = true;
           console.log(`🧹 Cleaned memory cards: → ${this.MAX_MEMORY_CARDS}`);
@@ -112,7 +128,7 @@ export class StorageManager {
       if (data?.state?.memories && Array.isArray(data.state.memories)) {
         if (data.state.memories.length > this.MAX_MEMORY_CARDS) {
           data.state.memories = data.state.memories
-            .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+            .sort((a: MemoryItem, b: MemoryItem) => (b.timestamp || 0) - (a.timestamp || 0))
             .slice(0, this.MAX_MEMORY_CARDS);
           cleaned = true;
           console.log(`🧹 Cleaned memories: → ${this.MAX_MEMORY_CARDS}`);
@@ -174,7 +190,9 @@ export class StorageManager {
 
 // Global cleanup function for emergency use (client-side only)
 if (typeof window !== 'undefined') {
-  (window as any).clearAIChatStorage = () => {
+  const storageWindow = window as StorageWindow;
+  
+  storageWindow.clearAIChatStorage = () => {
     if (confirm('すべてのチャット履歴と設定が削除されます。続行しますか？')) {
       StorageManager.clearAllData();
       window.location.reload();
@@ -182,7 +200,7 @@ if (typeof window !== 'undefined') {
   };
 
   // Add storage monitoring to console
-  (window as any).checkAIChatStorage = () => {
+  storageWindow.checkAIChatStorage = () => {
     console.log(StorageManager.getUsageReport());
     return StorageManager.getStorageInfo();
   };

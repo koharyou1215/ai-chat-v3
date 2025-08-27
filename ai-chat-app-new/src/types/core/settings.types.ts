@@ -96,6 +96,7 @@ export interface AISettings {
   // API Configuration
   apiConfig: APIConfig;
   openRouterApiKey?: string;
+  geminiApiKey?: string;
   
   // System Prompts
   systemPrompts: SystemPrompts;

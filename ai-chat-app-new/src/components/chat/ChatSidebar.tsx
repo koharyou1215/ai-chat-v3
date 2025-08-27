@@ -43,7 +43,7 @@ const ChatSidebar: React.FC = () => {
     setGroupMode,
     // キャラクター・ペルソナ状態管理
     setSelectedCharacterId,
-    setActivePersonaId,
+    activatePersona,
     // グループチャット作成
     createGroupSession,
     characters,
@@ -144,7 +144,7 @@ const ChatSidebar: React.FC = () => {
           if (groupSession.characters.length > 0) {
             setSelectedCharacterId(groupSession.characters[0].id);
           }
-          setActivePersonaId(groupSession.persona.id);
+          activatePersona(groupSession.persona.id);
         }
       }
     } else {
@@ -167,7 +167,7 @@ const ChatSidebar: React.FC = () => {
           if (session.participants.characters.length > 0) {
             setSelectedCharacterId(session.participants.characters[0].id);
           }
-          setActivePersonaId(session.participants.user.id);
+          activatePersona(session.participants.user.id);
         }
       }
     }

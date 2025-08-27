@@ -18,7 +18,8 @@ import { StateCreator } from 'zustand';
 export type AppStore = ChatSlice & GroupChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
   apiManager: APIManager;
   promptBuilderService: PromptBuilderService;
-}; // 追加
+  [key: string]: unknown; // Add index signature for generic operations
+};
 
 const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   ...createChatSlice(...args),

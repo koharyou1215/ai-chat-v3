@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, Copy, Edit, Check } from 'lucide-react';
+import { Lightbulb, Copy, Edit, Check, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -15,6 +15,7 @@ interface SuggestionModalProps {
   onSelect: (suggestion: string) => void;
   isLoading?: boolean;
   title?: string;
+  onRegenerate?: () => void;
 }
 
 export const SuggestionModal: React.FC<SuggestionModalProps> = ({
@@ -23,7 +24,8 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
   suggestions,
   onSelect,
   isLoading = false,
-  title = '返信候補'
+  title = '返信候補',
+  onRegenerate
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -54,9 +56,24 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
         <Dialog open={isOpen} onOpenChange={onClose}>
           <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-purple-400/20">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-white">
-                <Lightbulb className="w-5 h-5" />
-                {title}
+              <DialogTitle className="flex items-center justify-between text-white">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5" />
+                  {title}
+                </div>
+                {onRegenerate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onRegenerate}
+                    disabled={isLoading}
+                    className="text-white/60 hover:text-white disabled:opacity-50"
+                    title="新しい提案を生成"
+                  >
+                    <RotateCcw className={cn("w-4 h-4 mr-1", isLoading && "animate-spin")} />
+                    再生成
+                  </Button>
+                )}
               </DialogTitle>
             </DialogHeader>
 

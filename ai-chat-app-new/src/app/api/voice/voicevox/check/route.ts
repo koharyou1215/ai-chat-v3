@@ -44,7 +44,7 @@ export async function GET() {
     console.error('VoiceVox接続チェックエラー:', error);
     
     let errorMessage = 'VoiceVoxエンジンに接続できません';
-    let troubleshooting = [];
+    let troubleshooting: string[] = [];
     
     if (error instanceof Error) {
       errorMessage = error.message;

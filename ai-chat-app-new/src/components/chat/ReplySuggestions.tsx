@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Brain, Zap, Star } from 'lucide-react';
+import { Heart, Brain, Zap, Star, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InspirationSuggestion } from '@/types/memory';
 
@@ -10,6 +10,7 @@ interface ReplySuggestionsProps {
   isGenerating: boolean;
   onSelectSuggestion: (content: string) => void;
   onClose: () => void;
+  onRegenerate: () => void;
 }
 
 const suggestionConfig = {
@@ -39,7 +40,8 @@ export const ReplySuggestions: React.FC<ReplySuggestionsProps> = ({
   suggestions,
   isGenerating,
   onSelectSuggestion,
-  onClose
+  onClose,
+  onRegenerate
 }) => {
   return (
     <AnimatePresence>
@@ -51,12 +53,23 @@ export const ReplySuggestions: React.FC<ReplySuggestionsProps> = ({
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-white/80">返信提案</h3>
-          <button
-            onClick={onClose}
-            className="text-xs text-white/50 hover:text-white/70 transition-colors"
-          >
-            閉じる
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onRegenerate}
+              disabled={isGenerating}
+              className="flex items-center gap-1 text-xs text-white/50 hover:text-white/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="新しい提案を生成"
+            >
+              <RotateCcw className={cn("w-3 h-3", isGenerating && "animate-spin")} />
+              再生成
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs text-white/50 hover:text-white/70 transition-colors"
+            >
+              閉じる
+            </button>
+          </div>
         </div>
 
         {isGenerating ? (
