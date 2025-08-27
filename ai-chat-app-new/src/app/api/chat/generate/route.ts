@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     console.log('🔧 Applying API configuration:', apiConfig);
     
     // 環境変数から API キーを取得
-    let effectiveApiConfig = { ...apiConfig };
+    const effectiveApiConfig = { ...apiConfig };
     
     if (apiConfig.provider === 'gemini') {
       const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;

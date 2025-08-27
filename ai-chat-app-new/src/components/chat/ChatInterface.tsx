@@ -180,9 +180,13 @@ const ChatInterfaceContent: React.FC = () => {
         }
     };
 
+    // Extract complex expressions for dependency array
+    const sessionMessages = session && session.messages ? session.messages : null;
+    const groupSessionMessages = activeGroupSession && activeGroupSession.messages ? activeGroupSession.messages : null;
+
     useEffect(() => {
         scrollToBottom();
-    }, [session && session.messages ? session.messages : null, activeGroupSession && activeGroupSession.messages ? activeGroupSession.messages : null]);
+    }, [sessionMessages, groupSessionMessages]);
 
     // グループモードかつアクティブなグループセッションがない場合
     if (is_group_mode && !activeGroupSession) {

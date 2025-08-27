@@ -82,37 +82,56 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* 温かみのあるダークベース - 純黒ではなく微妙に暖色を含む */
+  --background: oklch(0.16 0.01 270);
+  --foreground: oklch(0.98 0.005 60);
+  
+  /* カード系 - 少し明るく、温かみを追加 */
+  --card: oklch(0.22 0.015 270);
+  --card-foreground: oklch(0.98 0.005 60);
+  --popover: oklch(0.24 0.015 270);
+  --popover-foreground: oklch(0.98 0.005 60);
+  
+  /* プライマリ - ソフトなラベンダーグレー */
+  --primary: oklch(0.75 0.08 280);
+  --primary-foreground: oklch(0.18 0.02 270);
+  
+  /* セカンダリ - 温かみのあるミッドトーン */
+  --secondary: oklch(0.32 0.02 270);
+  --secondary-foreground: oklch(0.95 0.01 60);
+  
+  /* ミュート - より洗練された中間色 */
+  --muted: oklch(0.28 0.02 270);
+  --muted-foreground: oklch(0.72 0.015 270);
+  
+  /* アクセント - エレガントなティールパープル */
+  --accent: oklch(0.35 0.08 320);
+  --accent-foreground: oklch(0.95 0.01 60);
+  
+  /* デストラクティブ - 温かみのあるレッド */
+  --destructive: oklch(0.65 0.18 25);
+  
+  /* ボーダーとインプット - より微妙な境界 */
+  --border: oklch(0.95 0.01 270 / 12%);
+  --input: oklch(0.95 0.01 270 / 18%);
+  --ring: oklch(0.65 0.08 280);
+  
+  /* チャート - 調和の取れたカラーパレット */
+  --chart-1: oklch(0.68 0.15 320); /* ソフトマゼンタ */
+  --chart-2: oklch(0.72 0.12 180); /* ソフトティール */
+  --chart-3: oklch(0.75 0.14 60);  /* ウォームイエロー */
+  --chart-4: oklch(0.65 0.16 280); /* ソフトパープル */
+  --chart-5: oklch(0.70 0.13 30);  /* ウォームオレンジ */
+  
+  /* サイドバー - エレガントで温かみのある配色 */
+  --sidebar: oklch(0.20 0.015 270);
+  --sidebar-foreground: oklch(0.95 0.01 60);
+  --sidebar-primary: oklch(0.65 0.12 310); /* 紺色から優雅なラベンダーパープルに変更 */
+  --sidebar-primary-foreground: oklch(0.98 0.005 60);
+  --sidebar-accent: oklch(0.32 0.05 280);
+  --sidebar-accent-foreground: oklch(0.95 0.01 60);
+  --sidebar-border: oklch(0.95 0.01 270 / 12%);
+  --sidebar-ring: oklch(0.65 0.08 280);
 }
 
 @layer base {
@@ -127,6 +146,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 温かみのある微妙なグラデーション背景 */
+    background: linear-gradient(135deg, 
+      oklch(0.16 0.01 270) 0%, 
+      oklch(0.15 0.015 285) 50%, 
+      oklch(0.17 0.008 260) 100%);
+    
     /* 日本語フォント対応 */
     font-family: var(--font-inter), 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', 'Yu Gothic Medium', 'Yu Gothic', sans-serif;
     font-feature-settings: "palt" 1; /* 日本語の文字詰め */
@@ -212,7 +237,11 @@
     width: 100% !important;
     height: 100% !important;
     position: relative !important;
-    background-color: rgb(15 23 42) !important; /* 確実に背景色を表示 */
+    /* 新しい温かみのあるグラデーション背景 */
+    background: linear-gradient(135deg, 
+      oklch(0.16 0.01 270) 0%, 
+      oklch(0.15 0.015 285) 50%, 
+      oklch(0.17 0.008 260) 100%) !important;
   }
   
   /* Safari モバイルでメインコンテンツを強制表示 */
@@ -311,5 +340,73 @@
       left: 50%;
       transform: translateX(-50%);
     }
+  }
+  
+  /* 洗練されたUIエフェクト */
+  .elegant-card {
+    background: linear-gradient(145deg, 
+      oklch(0.22 0.015 270) 0%, 
+      oklch(0.24 0.02 285) 100%);
+    border: 1px solid oklch(0.95 0.01 270 / 15%);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .elegant-card:hover {
+    background: linear-gradient(145deg, 
+      oklch(0.25 0.02 270) 0%, 
+      oklch(0.27 0.025 285) 100%);
+    border-color: oklch(0.65 0.12 310 / 30%);
+    transform: translateY(-1px);
+    box-shadow: 
+      0 10px 25px oklch(0.1 0.02 270 / 20%),
+      0 0 0 1px oklch(0.65 0.12 310 / 10%);
+  }
+  
+  .elegant-button {
+    background: linear-gradient(135deg, 
+      oklch(0.65 0.12 310) 0%, 
+      oklch(0.68 0.15 320) 100%);
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .elegant-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+      oklch(0.72 0.15 315) 0%, 
+      oklch(0.75 0.18 325) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .elegant-button:hover::before {
+    opacity: 1;
+  }
+  
+  .elegant-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+      0 8px 20px oklch(0.65 0.12 310 / 25%),
+      0 0 0 1px oklch(0.75 0.15 320 / 30%);
+  }
+  
+  .glass-effect {
+    background: oklch(0.22 0.015 270 / 80%);
+    backdrop-filter: blur(12px) saturate(120%);
+    border: 1px solid oklch(0.95 0.01 270 / 20%);
+  }
+  
+  .warm-glow {
+    box-shadow: 
+      0 0 20px oklch(0.65 0.12 310 / 15%),
+      inset 0 1px 0 oklch(0.95 0.01 270 / 10%);
   }
 }

@@ -255,7 +255,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       setConnectionStatus('error');
       setLastMessage('WebSocket creation failed - server unavailable');
     }
-  }, []);
+  }, [handleWebSocketMessage, isCallActive, playNextAudio, startCall]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((message: VoiceCallMessage) => {
@@ -472,7 +472,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       console.error('Failed to start call:', error);
       alert('マイクへのアクセスが必要です。ブラウザの設定を確認してください。');
     }
-  }, [isMuted]);
+  }, [isMuted, isConnected, updateAudioVisualizer]);
 
   // End voice call
   const endCall = useCallback(() => {
@@ -557,7 +557,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   }, [onEnd]);
 
   // Update audio visualizer
-  const updateAudioVisualizer = () => {
+  const updateAudioVisualizer = useCallback(() => {
     if (!analyserRef.current || !isCallActive) return;
 
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
@@ -577,7 +577,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     
     setAudioVisualizerData(reducedData);
     visualizerUpdateRef.current = requestAnimationFrame(updateAudioVisualizer);
-  };
+  }, [isCallActive, setAudioVisualizerData]);
 
 
   // Update call duration

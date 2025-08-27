@@ -80,7 +80,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
     }, typingSpeed / settings.animationSpeed);
 
     return () => clearInterval(timer);
-  }, [content, enableEffects, typingSpeed, settings, createHeartEffect]);
+  }, [content, enableEffects, typingSpeed, settings, createHeartEffect, displayedContent]);
 
   // コンテンツのパース（特殊フォーマットの検出）
   const parseContent = (text: string) => {
