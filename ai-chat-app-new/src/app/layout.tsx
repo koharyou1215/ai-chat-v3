@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
 import { ErrorBoundary } from "@/components/utils/ErrorBoundary";
-import "@/utils/storage-cleanup"; // Import global storage utilities
+import { StorageInitializer } from "@/components/utils/StorageInitializer";
 
 // 日本語フォント対応
 const inter = Inter({ 
@@ -37,7 +37,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-slate-900 text-white h-full`}>
         
         <ErrorBoundary>
-          
+          <StorageInitializer />
           <EffectSettingsProvider>
             {children}
           </EffectSettingsProvider>

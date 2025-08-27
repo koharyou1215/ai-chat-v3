@@ -172,16 +172,18 @@ export class StorageManager {
   }
 }
 
-// Global cleanup function for emergency use
-(window as any).clearAIChatStorage = () => {
-  if (confirm('すべてのチャット履歴と設定が削除されます。続行しますか？')) {
-    StorageManager.clearAllData();
-    window.location.reload();
-  }
-};
+// Global cleanup function for emergency use (client-side only)
+if (typeof window !== 'undefined') {
+  (window as any).clearAIChatStorage = () => {
+    if (confirm('すべてのチャット履歴と設定が削除されます。続行しますか？')) {
+      StorageManager.clearAllData();
+      window.location.reload();
+    }
+  };
 
-// Add storage monitoring to console
-(window as any).checkAIChatStorage = () => {
-  console.log(StorageManager.getUsageReport());
-  return StorageManager.getStorageInfo();
-};
+  // Add storage monitoring to console
+  (window as any).checkAIChatStorage = () => {
+    console.log(StorageManager.getUsageReport());
+    return StorageManager.getStorageInfo();
+  };
+}
