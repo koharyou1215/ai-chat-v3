@@ -532,7 +532,8 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                 <label className="block text-white/80 font-medium mb-2">
                   参加キャラクター (2-5人)
                 </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800 pr-2">
+              <div className="grid grid-cols-2 gap-3">
               {availableCharacters.map(character => (
                 <motion.div
                   key={character.id}
@@ -563,6 +564,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                   </div>
                 </motion.div>
               ))}
+              </div>
             </div>
             <div className="mt-2">
               <p className="text-white/50 text-sm">

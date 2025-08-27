@@ -164,7 +164,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-slate-800 border border-purple-400/30 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+          className="bg-slate-800 border border-purple-400/30 rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* ヘッダー */}
@@ -188,11 +188,13 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
 
           <div className="flex-1 flex min-h-0">
             {/* 左側: キャラクター選択 */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
-              <h3 className="text-lg font-medium text-white mb-4">
-                利用可能なキャラクター ({selectedCharacterIds.length}/5選択中)
-              </h3>
+            <div className="flex-1 flex flex-col">
+              <div className="p-6 pb-4 flex-shrink-0">
+                <h3 className="text-lg font-medium text-white mb-4">
+                  利用可能なキャラクター ({selectedCharacterIds.length}/5選択中)
+                </h3>
+              </div>
+              <div className="px-6 pb-6 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
               
               <div className="grid grid-cols-1 gap-3">
                 {availableCharacters.map(character => {
@@ -252,9 +254,11 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
             </div>
 
             {/* 右側: 変更プレビュー */}
-            <div className="w-80 border-l border-purple-400/30 bg-slate-900/50 flex flex-col min-h-0">
-              <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
-              <h3 className="text-lg font-medium text-white mb-4">変更プレビュー</h3>
+            <div className="w-80 border-l border-purple-400/30 bg-slate-900/50 flex flex-col">
+              <div className="p-6 pb-4 flex-shrink-0">
+                <h3 className="text-lg font-medium text-white mb-4">変更プレビュー</h3>
+              </div>
+              <div className="px-6 pb-6 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
               
               {/* 追加されるキャラクター */}
               {changePreview.added.length > 0 && (
