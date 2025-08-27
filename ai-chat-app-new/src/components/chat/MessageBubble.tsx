@@ -767,8 +767,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} compact />
               <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
               <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
-              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact />
-              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact />
+              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact disabled={isRegenerating} />
+              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing} />
               <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
             </motion.div>
           )}
@@ -807,14 +807,17 @@ const ActionButton: React.FC<{
   onClick: () => void;
   title: string;
   compact?: boolean;
-}> = ({ icon: Icon, onClick, title, compact = false }) => (
+  disabled?: boolean;
+}> = ({ icon: Icon, onClick, title, compact = false, disabled = false }) => (
   <motion.button
-    whileHover={{ scale: 1.1 }}
-    whileTap={{ scale: 0.95 }}
+    whileHover={{ scale: disabled ? 1 : 1.1 }}
+    whileTap={{ scale: disabled ? 1 : 0.95 }}
     onClick={onClick}
+    disabled={disabled}
     className={cn(
       "bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors",
-      compact ? "p-1" : "p-2"
+      compact ? "p-1" : "p-2",
+      disabled && "opacity-50 cursor-not-allowed"
     )}
     title={title}
   >

@@ -368,26 +368,51 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     set({ is_generating: true });
     try {
       const activeSessionId = get().active_session_id;
-      if (!activeSessionId) return;
+      if (!activeSessionId) {
+        console.warn("Regeneration aborted: No active session ID.");
+        return;
+      }
       
       const session = get().sessions.get(activeSessionId);
-      if (!session || session.messages.length < 2) return;
+      // C案：より堅牢なチェック
+      if (!session || session.messages.length < 2) {
+        console.warn("Regeneration aborted: Session not found or not enough messages.");
+        return;
+      }
 
-      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant');
-      if (lastAiMessageIndex === -1) return;
+      // 最後のAIメッセージとその直前のユーザーメッセージを見つける
+      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
+      if (lastAiMessageIndex <= 0) { // Should be at least the second message
+        console.warn("Regeneration aborted: No valid AI message to regenerate.");
+        return;
+      }
 
       const lastUserMessage = session.messages[lastAiMessageIndex - 1];
-      if (!lastUserMessage || lastUserMessage.role !== 'user') return;
+      if (!lastUserMessage || lastUserMessage.role !== 'user' || lastUserMessage.is_deleted) {
+        console.warn("Regeneration aborted: No valid user message found before the last AI message.");
+        return;
+      }
 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
       const characterId = session.participants.characters[0]?.id;
       const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
-      const systemPrompt = await promptBuilderService.buildPrompt(
+      
+      let systemPrompt = await promptBuilderService.buildPrompt(
         { ...session, messages: messagesForPrompt },
         lastUserMessage.content,
         trackerManager
       );
+      
+      // A案：メタ発言を抑制する指示を追加
+      const antiMetaPrompt = `
+<meta_instruction>
+**重要**: あなたはAIアシスタントではなく、キャラクターとして応答しています。
+AI、モデル、システムといったメタ的な話題に言及することは固く禁じられています。
+以前の応答とは異なる、より創造的でキャラクターらしい応答を生成してください。
+</meta_instruction>
+`;
+      systemPrompt += antiMetaPrompt;
 
       const conversationHistory = messagesForPrompt
         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
@@ -395,10 +420,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
 
       const apiConfig = get().apiConfig;
-      // C案：再生成時はtemperatureを少し上げて多様性を促す
+      // C案：temperatureをより大きく上げ、seedを追加して多様性を確保
       const regenerationApiConfig = {
         ...apiConfig,
-        temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.1),
+        temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.3), // 上昇幅を0.3に増加
+        seed: Math.floor(Math.random() * 1000000), // B案：ランダムなseedを追加
         openRouterApiKey: get().openRouterApiKey,
         geminiApiKey: get().geminiApiKey
       };
