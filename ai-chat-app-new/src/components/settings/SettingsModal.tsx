@@ -61,6 +61,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTopP,
     openRouterApiKey,
     setOpenRouterApiKey,
+    geminiApiKey,
+    setGeminiApiKey,
     setAPIModel,
     setAPIProvider,
     effectSettings,
@@ -229,6 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     enableJailbreakPrompt={enableJailbreakPrompt}
                     apiConfig={apiConfig}
                     openRouterApiKey={openRouterApiKey ?? ''}
+                    geminiApiKey={geminiApiKey ?? ''}
                     showSystemPrompt={_showSystemPrompt}
                     showJailbreakPrompt={_showJailbreakPrompt}
                     showReplySuggestionPrompt={_showReplySuggestionPrompt}
@@ -246,6 +249,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAPIModel={setAPIModel}
                     setAPIProvider={setAPIProvider}
                     setOpenRouterApiKey={setOpenRouterApiKey}
+                    setGeminiApiKey={setGeminiApiKey}
                   />
                 )}
                 {activeTab === 'language' && (
@@ -540,6 +544,7 @@ const AIPanel: React.FC<{
   enableJailbreakPrompt: boolean;
   apiConfig: APIConfig; // APIConfig型を使用
   openRouterApiKey: string; // openRouterApiKey を追加
+  geminiApiKey: string; // geminiApiKey を追加
   showSystemPrompt: boolean;
   showJailbreakPrompt: boolean;
   showReplySuggestionPrompt: boolean;
@@ -557,12 +562,14 @@ const AIPanel: React.FC<{
   setAPIModel: (model: string) => void; // setAPIModel を追加
   setAPIProvider: (provider: string) => void; // setAPIProvider を追加
   setOpenRouterApiKey: (key: string) => void; // setOpenRouterApiKey を追加
+  setGeminiApiKey: (key: string) => void; // setGeminiApiKey を追加
 }> = ({
   systemPrompts,
   enableSystemPrompt,
   enableJailbreakPrompt,
   apiConfig,
   openRouterApiKey,
+  geminiApiKey,
   showSystemPrompt,
   showJailbreakPrompt,
   showReplySuggestionPrompt,
@@ -579,10 +586,13 @@ const AIPanel: React.FC<{
   onToggleTextEnhancementPrompt,
   setAPIModel,
   setAPIProvider,
-  setOpenRouterApiKey
+  setOpenRouterApiKey,
+  setGeminiApiKey
 }) => {
   const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(openRouterApiKey || '');
+  const [localGeminiApiKey, setLocalGeminiApiKey] = useState(geminiApiKey || '');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
 
   // apiConfig がなければ何も表示しない
   if (!apiConfig) {
@@ -601,6 +611,11 @@ const AIPanel: React.FC<{
   const handleApiKeyChange = (key: string) => {
     setLocalOpenRouterApiKey(key);
     setOpenRouterApiKey(key);
+  };
+
+  const handleGeminiApiKeyChange = (key: string) => {
+    setLocalGeminiApiKey(key);
+    setGeminiApiKey(key);
   };
 
   const isGemini = apiConfig.provider === 'gemini';
@@ -663,6 +678,38 @@ const AIPanel: React.FC<{
               </p>
           )}
         </div>
+
+        {/* Gemini APIキー入力 */}
+        <AnimatePresence>
+          {isGemini && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-2 overflow-hidden"
+            >
+              <label className="block text-sm font-medium text-gray-300">Gemini APIキー</label>
+              <div className="relative">
+                <input
+                  type={showGeminiApiKey ? 'text' : 'password'}
+                  value={localGeminiApiKey}
+                  onChange={(e) => handleGeminiApiKeyChange(e.target.value)}
+                  className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  placeholder="AIza..."
+                />
+                <button
+                  onClick={() => setShowGeminiApiKey(!showGeminiApiKey)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showGeminiApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">
+                Google AI Studioで取得したAPIキーを入力してください。
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* OpenRouter APIキー入力 */}
         <AnimatePresence>

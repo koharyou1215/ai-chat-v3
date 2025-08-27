@@ -24,13 +24,21 @@ export async function POST(request: Request) {
     const effectiveApiConfig = { ...apiConfig };
     
     if (apiConfig.provider === 'gemini') {
-      const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!geminiKey) {
-        console.error('❌ NEXT_PUBLIC_GEMINI_API_KEY not found in environment');
-        throw new Error('Gemini API キーが設定されていません');
+      // フロントエンドから送られてくる API キーを最優先で使用
+      if (apiConfig.geminiApiKey) {
+        effectiveApiConfig.geminiApiKey = apiConfig.geminiApiKey;
+        console.log('✅ Gemini API key provided from client');
+      } else {
+        // フォールバック: 環境変数から読み込み
+        const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        if (geminiKey) {
+          effectiveApiConfig.geminiApiKey = geminiKey;
+          console.log('✅ Gemini API key loaded from environment (fallback)');
+        } else {
+          console.error('❌ No Gemini API key found (client or environment)');
+          throw new Error('Gemini API キーが設定されていません');
+        }
       }
-      effectiveApiConfig.geminiApiKey = geminiKey;
-      console.log('✅ Gemini API key loaded from environment');
     } else if (apiConfig.provider === 'openrouter') {
       // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
       if (!apiConfig.openRouterApiKey) {

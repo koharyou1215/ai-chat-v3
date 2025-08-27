@@ -68,6 +68,7 @@ export interface SettingsSlice extends AISettings {
   setAPIProvider: (provider: APIProvider) => void;
   setAPIModel: (model: string) => void;
   setOpenRouterApiKey: (key: string) => void;
+  setGeminiApiKey: (key: string) => void;
   setTemperature: (temp: number) => void;
   resetSystemPrompts: () => void;
   setMaxTokens: (tokens: number) => void;
@@ -147,6 +148,7 @@ export const createSettingsSlice: StateCreator<
     context_window: 20,
   },
   openRouterApiKey: undefined,
+  geminiApiKey: undefined,
 
   systemPrompts: {
     system: '',
@@ -286,6 +288,11 @@ export const createSettingsSlice: StateCreator<
   setOpenRouterApiKey: (key) => {
     set({ openRouterApiKey: key });
     apiManager.setOpenRouterApiKey(key);
+  },
+  
+  setGeminiApiKey: (key) => {
+    set({ geminiApiKey: key });
+    apiManager.setGeminiApiKey(key);
   },
   
   setTemperature: (temp) => {

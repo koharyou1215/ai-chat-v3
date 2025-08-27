@@ -326,6 +326,11 @@ export class GeminiClient {
     this.model = model.startsWith('google/') ? model.substring(7) : model;
   }
 
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
+    console.log('✅ Gemini API key set dynamically');
+  }
+
   getAvailableModels(): string[] {
     return [
       'gemini-2.5-pro',

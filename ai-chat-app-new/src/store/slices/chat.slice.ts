@@ -242,7 +242,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               textFormatting: state.effectSettings.textFormatting,
               apiConfig: {
                 ...apiConfig,
-                openRouterApiKey: get().openRouterApiKey
+                openRouterApiKey: get().openRouterApiKey,
+                geminiApiKey: get().geminiApiKey
               },
               useEnhancedPrompt: false // フラグで制御
             }),
@@ -397,7 +398,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const regenerationApiConfig = {
         ...apiConfig,
         temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.1),
-        openRouterApiKey: get().openRouterApiKey
+        openRouterApiKey: get().openRouterApiKey,
+        geminiApiKey: get().geminiApiKey
       };
 
       const response = await fetch('/api/chat/generate', {

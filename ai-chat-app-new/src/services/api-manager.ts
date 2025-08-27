@@ -18,6 +18,7 @@ interface OpenRouterModelsResponse {
 export class APIManager {
   private currentConfig: APIConfig;
   private openRouterApiKey: string | null = null;
+  private geminiApiKey: string | null = null;
 
   constructor() {
     this.currentConfig = {
@@ -34,6 +35,7 @@ export class APIManager {
     // ブラウザ環境でのみローカルストレージから読み込み
     if (typeof window !== 'undefined') {
       this.loadOpenRouterKey();
+      this.loadGeminiKey();
     }
   }
 
@@ -50,6 +52,19 @@ export class APIManager {
     }
   }
 
+  private loadGeminiKey() {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const stored = localStorage.getItem('gemini_api_key');
+      if (stored) {
+        this.geminiApiKey = this.decryptApiKey(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load Gemini API key:', error);
+    }
+  }
+
   private saveOpenRouterKey(key: string) {
     if (typeof window === 'undefined') return;
     
@@ -59,6 +74,19 @@ export class APIManager {
       this.openRouterApiKey = key;
     } catch (error) {
       console.error('Failed to save OpenRouter API key:', error);
+      throw error;
+    }
+  }
+
+  private saveGeminiKey(key: string) {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const encrypted = this.encryptApiKey(key);
+      localStorage.setItem('gemini_api_key', encrypted);
+      this.geminiApiKey = key;
+    } catch (error) {
+      console.error('Failed to save Gemini API key:', error);
       throw error;
     }
   }
@@ -97,11 +125,22 @@ export class APIManager {
     return this.openRouterApiKey;
   }
 
+  setGeminiApiKey(key: string) {
+    this.saveGeminiKey(key);
+    if (this.currentConfig.provider === 'gemini') {
+      this.currentConfig.apiKey = key;
+    }
+  }
+
+  getGeminiApiKey(): string | null {
+    return this.geminiApiKey;
+  }
+
   async generateMessage(
     systemPrompt: string,
     userMessage: string,
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
-    options?: Partial<APIConfig> & { openRouterApiKey?: string; textFormatting?: 'compact' | 'readable' | 'detailed' }
+    options?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string; textFormatting?: 'compact' | 'readable' | 'detailed' }
   ): Promise<string> {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
@@ -109,6 +148,10 @@ export class APIManager {
     // options から渡された API キーを優先して使用
     if (options?.openRouterApiKey) {
       this.openRouterApiKey = options.openRouterApiKey;
+    }
+    
+    if (options?.geminiApiKey) {
+      this.geminiApiKey = options.geminiApiKey;
     }
 
     try {
@@ -146,7 +189,7 @@ export class APIManager {
     userMessage: string,
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
     onChunk: (chunk: string) => void,
-    options?: Partial<APIConfig>
+    options?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string; textFormatting?: 'compact' | 'readable' | 'detailed' }
   ): Promise<string> {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
@@ -197,6 +240,11 @@ export class APIManager {
     const geminiModel = options.model.replace('google/', '');
     geminiClient.setModel(geminiModel);
     
+    // APIキーが設定されている場合は優先して使用
+    if (this.geminiApiKey) {
+      geminiClient.setApiKey(this.geminiApiKey);
+    }
+    
     const messages = geminiClient.formatMessagesForGemini(
       systemPrompt,
       userMessage,
@@ -230,6 +278,11 @@ export class APIManager {
     // Geminiモデル名からプレフィックスを除去
     const geminiModel = options.model.replace('google/', '');
     geminiClient.setModel(geminiModel);
+    
+    // APIキーが設定されている場合は優先して使用
+    if (this.geminiApiKey) {
+      geminiClient.setApiKey(this.geminiApiKey);
+    }
     
     const messages = geminiClient.formatMessagesForGemini(
       systemPrompt,

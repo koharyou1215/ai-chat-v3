@@ -284,6 +284,7 @@ const createStore = () => {
         // Settings - all settings for persistence
         apiConfig: state.apiConfig,
         openRouterApiKey: state.openRouterApiKey,
+        geminiApiKey: state.geminiApiKey,
         systemPrompts: state.systemPrompts,
         enableSystemPrompt: state.enableSystemPrompt,
         enableJailbreakPrompt: state.enableJailbreakPrompt,
