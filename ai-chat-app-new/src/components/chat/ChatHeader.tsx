@@ -79,7 +79,7 @@ const ChatHeaderContent: React.FC = () => {
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
         return (
-            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
+            <div className="chat-header fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
                  {/* Maybe a loading skeleton here */}
             </div>
         );
@@ -91,7 +91,7 @@ const ChatHeaderContent: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
+        <div className="chat-header fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -192,8 +192,19 @@ const ChatHeaderContent: React.FC = () => {
                 
             </div>
             
-            {/* Right side - model selector and brain tracker (removed group mode toggle) */}
+            {/* Right side - model selector, voice call button and brain tracker */}
             <div className="flex items-center gap-1 flex-shrink-0">
+                {/* 音声通話ボタン */}
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsVoiceCallModalOpen(true)}
+                    className="p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white flex-shrink-0 hover:bg-white/20"
+                    title="音声通話"
+                >
+                    <Phone className="w-5 h-5 md:w-5 md:h-5" />
+                </motion.button>
+                
                 {/* モデル選択ドロップダウン - ultra mobile optimized */}
                 <div className="relative">
                     <motion.button
@@ -252,7 +263,7 @@ const ChatHeaderContent: React.FC = () => {
 export const ChatHeader: React.FC = () => {
     return (
         <ClientOnlyProvider fallback={
-            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
+            <div className="chat-header fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
                 {/* Loading placeholder */}
             </div>
         }>

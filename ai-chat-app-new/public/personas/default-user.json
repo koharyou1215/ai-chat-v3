@@ -11,7 +11,7 @@
   "other_settings": "相手に敬意を払いながらも、カジュアルで自然な会話を好む。建設的な対話を重視し、相互理解を深めることを大切にする。",
   "is_active": true,
   "is_default": true,
-  "avatar_url": "/personas/avatars/default-user.png",
+  "avatar_url": null,
   "color_theme": {
     "primary": "#3B82F6",
     "secondary": "#1E40AF",

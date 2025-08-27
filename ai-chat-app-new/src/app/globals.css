@@ -301,6 +301,44 @@
     pointer-events: auto;
   }
   
+  /* モバイルでのビューポートハイト調整 */
+  @supports (height: 100dvh) {
+    .h-dynamic-screen {
+      height: 100dvh;
+    }
+  }
+  
+  /* キーボード表示時の調整 */
+  @media (max-width: 768px) {
+    /* メッセージリストのパディング調整 */
+    .messages-container {
+      padding-top: 100px !important; /* ヘッダーの高さ + 増した余白 */
+      padding-bottom: 120px !important; /* 入力欄の高さ + 余白 */
+    }
+    
+    /* ヘッダーを確実に固定 */
+    .chat-header {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 50 !important;
+      height: 68px !important;
+    }
+    
+    /* 入力欄をキーボードに追従 */
+    .message-input-container {
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 41 !important;
+      /* キーボードが表示されてもビューポート基準で配置 */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+    }
+  }
+  
   /* Safe Area対応 */
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0px);

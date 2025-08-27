@@ -10,5 +10,10 @@
       "source": "/(.*)",
       "destination": "/ai-chat-app-new/$1"
     }
-  ]
+  ],
+  "functions": {
+    "ai-chat-app-new/src/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  }
 }

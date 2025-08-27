@@ -293,15 +293,15 @@ const ChatInterfaceContent: React.FC = () => {
                     
                     {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
                     <div 
-                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10" 
+                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container" 
                         style={{ 
                             position: 'fixed',
                             top: 0,
                             left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
                             right: 0,
                             bottom: 0,
-                            paddingTop: '60px', 
-                            paddingBottom: '80px',
+                            paddingTop: windowWidth <= 768 ? '100px' : '90px', 
+                            paddingBottom: windowWidth <= 768 ? '120px' : '100px',
                             backgroundColor: 'transparent'
                         }}
                     >

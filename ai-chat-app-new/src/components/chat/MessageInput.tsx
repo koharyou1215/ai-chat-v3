@@ -249,7 +249,7 @@ export const MessageInput: React.FC = () => {
   }, [currentInputText]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-3 md:p-4 border-t border-purple-400/20 bg-slate-900/95 backdrop-blur-lg z-[41]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}>
+    <div className="message-input-container fixed bottom-0 left-0 right-0 p-3 md:p-4 border-t border-purple-400/20 bg-slate-900/95 backdrop-blur-lg z-[41]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}>
       <input
         ref={fileInputRef}
         type="file"

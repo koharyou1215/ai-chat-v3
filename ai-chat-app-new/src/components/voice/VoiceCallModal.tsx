@@ -177,9 +177,55 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     avatar_url: null
   };
 
+  // Audio playback queue and refs
+  const audioQueueRef = useRef<ArrayBuffer[]>([]);
+  const isPlayingRef = useRef(false);
+
+  // Play audio from queue
+  const playNextAudio = useCallback(async () => {
+    if (audioQueueRef.current.length === 0 || !isSpeakerOn) {
+      isPlayingRef.current = false;
+      return;
+    }
+
+    isPlayingRef.current = true;
+    const audioData = audioQueueRef.current.shift()!;
+
+    try {
+      // Create new AudioContext if needed
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      }
+
+      const audioBuffer = await audioContextRef.current.decodeAudioData(audioData);
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      
+      source.onended = () => {
+        playNextAudio(); // Play next audio in queue
+      };
+      
+      source.start();
+      
+    } catch (error) {
+      console.error('Audio playback error:', error);
+      isPlayingRef.current = false;
+      // Try next audio even if current one failed
+      setTimeout(() => playNextAudio(), 100);
+    }
+  }, [isSpeakerOn]);
+
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
+    console.log('📨 Received message:', message.type);
+    
     switch (message.type) {
+      case 'session_start':
+        console.log('🚀 Session started:', message.sessionId);
+        setLastMessage('セッションが開始されました');
+        break;
+
       case 'pong':
         if (message.timestamp) {
           const latency = Date.now() - message.timestamp;
@@ -193,6 +239,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
 
       case 'transcription':
         setTranscription(message.text);
+        setLastMessage('');
         
         // Add user message to chat history
         if (active_session_id && message.text) {
@@ -226,17 +273,36 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
           };
           
           sendMessage(aiMessage as UnifiedMessage);
+          setLastMessage(message.text);
         }
         break;
 
+      case 'audio_start':
+        console.log('🔊 Audio playback starting');
+        setVoiceActivityStatus('listening');
+        break;
+
+      case 'audio_end':
+        console.log('🔇 Audio playback ended');
+        setVoiceActivityStatus('idle');
+        break;
+
       case 'error':
-        console.error('Voice call error:', message.message);
-        setLastMessage(`Error: ${message.message}`);
+        console.error('❌ Voice call error:', message.message || message.error);
+        setLastMessage(`エラー: ${message.message || message.error}`);
         break;
 
       case 'stats':
         setStats(prev => ({ ...prev, ...message.stats }));
         break;
+
+      case 'test_response':
+        console.log('✅ Test response received:', message.message);
+        setLastMessage(`テスト応答: ${message.message}`);
+        break;
+
+      default:
+        console.log('Unknown message type:', message.type);
     }
   }, [active_session_id, sendMessage]);
 
@@ -256,7 +322,20 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       };
 
       ws.onmessage = async (event) => {
-        if (typeof event.data === 'string') {
+        if (event.data instanceof Blob) {
+          // Handle binary audio data
+          console.log('🎵 Received audio data:', event.data.size, 'bytes');
+          try {
+            const arrayBuffer = await event.data.arrayBuffer();
+            audioQueueRef.current.push(arrayBuffer);
+            if (!isPlayingRef.current) {
+              playNextAudio();
+            }
+          } catch (error) {
+            console.error('Failed to process audio data:', error);
+          }
+        } else if (typeof event.data === 'string') {
+          // Handle JSON messages
           try {
             const message: WebSocketMessage = JSON.parse(event.data);
             handleWebSocketMessage(message);
@@ -290,7 +369,15 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       setConnectionStatus('error');
       setLastMessage('WebSocket creation failed - server unavailable');
     }
-  }, [handleWebSocketMessage]);
+  }, [handleWebSocketMessage, playNextAudio]);
+
+  // Test connection
+  const testConnection = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'ping' }));
+      console.log('🏓 Ping sent to server');
+    }
+  };
 
   // Start voice call
   const startCall = async () => {
@@ -298,6 +385,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       alert('サーバーに接続されていません');
       return;
     }
+
+    // Test the connection first
+    testConnection();
 
     try {
       // Request microphone access
@@ -405,6 +495,10 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     setTranscription('');
     setLastMessage('');
     setAudioVisualizerData(new Uint8Array(64));
+    
+    // Clear audio queue
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
   };
 
   // Update audio visualizer
