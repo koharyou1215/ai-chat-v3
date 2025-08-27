@@ -106,85 +106,87 @@ const ChatHeaderContent: React.FC = () => {
                     <PanelLeft className="w-5 h-5" />
                 </motion.button>
                 
-                {/* Character Info または Group Info */}
-                {is_group_mode && activeGroupSession ? (
-                    // グループチャット情報
-                    <div className="flex items-center gap-1 md:gap-2">
-                        <Users className="w-6 h-6 md:w-8 md:h-8 text-purple-400 flex-shrink-0" />
-                        <div className="min-w-0">
-                            <h1 className="text-white text-sm md:text-lg font-bold truncate">{activeGroupSession.name}</h1>
-                            <p className="text-white/50 text-xs md:text-sm truncate">
-                                {t({ 
-                                    ja: `${activeGroupSession.active_character_ids.size}人 • ${typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
-                                    en: `${activeGroupSession.active_character_ids.size} chars • ${typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
-                                    zh: `${activeGroupSession.active_character_ids.size}个 • ${typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(activeGroupSession.message_count) : `${activeGroupSession.message_count} 消息`}`,
-                                    ko: `${activeGroupSession.active_character_ids.size}개 • ${typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(activeGroupSession.message_count) : `${activeGroupSession.message_count} 메시지`}`
-                                })}
-                            </p>
-                        </div>
-                    </div>
-                ) : (
-                    // 通常のキャラクター情報 + ペルソナ情報
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                        {/* キャラクター */}
-                        <div 
-                            className="flex items-center gap-1 cursor-pointer relative z-10 min-w-0 flex-shrink"
-                            onClick={() => {
-                                console.log('Character info clicked!');
-                                setShowCharacterGallery(true);
-                            }}
-                            style={{ pointerEvents: 'auto' }}
-                        >
-                            {character.avatar_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={character.avatar_url} alt={character.name} className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover flex-shrink-0"/>
-                            ) : (
-                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                    <Bot className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
-                                </div>
-                            )}
-                            <div className="min-w-0">
-                                <h1 className="text-white text-sm md:text-base font-bold truncate">{character.name}</h1>
-                                {session && (
+                {/* Group Info または Character Info */}
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                    {/* グループチャット情報（グループモード時のみ） */}
+                    {is_group_mode && activeGroupSession && (
+                        <>
+                            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                                <Users className="w-6 h-6 md:w-7 md:h-7 text-purple-400 flex-shrink-0" />
+                                <div className="min-w-0">
+                                    <h1 className="text-white text-sm md:text-base font-bold truncate">{activeGroupSession.name}</h1>
                                     <p className="text-white/50 text-xs truncate">
-                                        {t({
-                                            ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
-                                            en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
-                                            zh: typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(session.message_count) : `${session.message_count} 消息`,
-                                            ko: typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(session.message_count) : `${session.message_count} 메시지`
+                                        {t({ 
+                                            ja: `${activeGroupSession.active_character_ids.size}人 • ${typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
+                                            en: `${activeGroupSession.active_character_ids.size} chars • ${typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
+                                            zh: `${activeGroupSession.active_character_ids.size}个 • ${typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(activeGroupSession.message_count) : `${activeGroupSession.message_count} 消息`}`,
+                                            ko: `${activeGroupSession.active_character_ids.size}개 • ${typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(activeGroupSession.message_count) : `${activeGroupSession.message_count} 메시지`}`
                                         })}
                                     </p>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {/* セパレーター */}
-                        <div className="w-px h-6 bg-white/20 mx-1 flex-shrink-0" />
-                        
-                        {/* ペルソナ */}
-                        <div 
-                            className="flex items-center gap-1 cursor-pointer relative z-10 min-w-0 flex-shrink"
-                            onClick={() => {
-                                console.log('Persona info clicked!');
-                                setShowPersonaGallery(true);
-                            }}
-                            style={{ pointerEvents: 'auto' }}
-                        >
-                             {persona.avatar_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={persona.avatar_url} alt={persona.name} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover flex-shrink-0"/>
-                            ) : (
-                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                    <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-slate-400" />
                                 </div>
-                            )}
-                            <div className="min-w-0 hidden md:block">
-                                <h2 className="text-white text-xs font-medium truncate">{persona.name}</h2>
-                                <p className="text-white/50 text-xs truncate">Persona</p>
                             </div>
+                            <div className="w-px h-6 bg-white/20 mx-1 flex-shrink-0" />
+                        </>
+                    )}
+
+                    {/* キャラクター選択ボタン（常に表示） */}
+                    <div 
+                        className="flex items-center gap-1 cursor-pointer relative z-10 min-w-0 flex-shrink"
+                        onClick={() => {
+                            console.log('Character info clicked!');
+                            setShowCharacterGallery(true);
+                        }}
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                        {character.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={character.avatar_url} alt={character.name} className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover flex-shrink-0"/>
+                        ) : (
+                            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <Bot className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                            </div>
+                        )}
+                        <div className="min-w-0 hidden sm:block">
+                            <h1 className="text-white text-xs md:text-sm font-medium truncate">{character.name}</h1>
+                            {!is_group_mode && session && (
+                                <p className="text-white/50 text-xs truncate">
+                                    {t({
+                                        ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
+                                        en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
+                                        zh: typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(session.message_count) : `${session.message_count} 消息`,
+                                        ko: typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(session.message_count) : `${session.message_count} 메시지`
+                                    })}
+                                </p>
+                            )}
                         </div>
                     </div>
-                )}
+                    
+                    {/* セパレーター */}
+                    <div className="w-px h-6 bg-white/20 mx-1 flex-shrink-0" />
+                    
+                    {/* ペルソナ選択ボタン（常に表示） */}
+                    <div 
+                        className="flex items-center gap-1 cursor-pointer relative z-10 min-w-0 flex-shrink"
+                        onClick={() => {
+                            console.log('Persona info clicked!');
+                            setShowPersonaGallery(true);
+                        }}
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                         {persona.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={persona.avatar_url} alt={persona.name} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover flex-shrink-0"/>
+                        ) : (
+                            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-slate-400" />
+                            </div>
+                        )}
+                        <div className="min-w-0 hidden md:block">
+                            <h2 className="text-white text-xs font-medium truncate">{persona.name}</h2>
+                            <p className="text-white/50 text-xs truncate">Persona</p>
+                        </div>
+                    </div>
+                </div>
                 
                 {/* ペルソナ情報は上に移動 */}
                 

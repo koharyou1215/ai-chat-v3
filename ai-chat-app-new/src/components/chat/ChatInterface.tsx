@@ -278,12 +278,12 @@ const ChatInterfaceContent: React.FC = () => {
             >
                 {/* メインコンテンツエリア */}
                 <div 
-                    className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden" 
+                    className="flex-1 flex flex-col min-w-0 relative overflow-hidden" 
                     style={{ 
                         width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        minHeight: '100vh'
+                        height: '100%'
                     }}
                 >
                     {/* Background Image */}
@@ -311,12 +311,12 @@ const ChatInterfaceContent: React.FC = () => {
                     )}
 
                     {/* メッセージリスト専用コンテナ */}
-                    <div className="relative z-10 h-full">
+                    <div className="relative z-10 flex-1 flex flex-col min-h-0">
                         <div 
-                            className="h-full overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4"
+                            className="flex-1 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent"
                             style={{ 
                                 paddingTop: '70px', 
-                                paddingBottom: '100px'
+                                paddingBottom: '120px'
                             }} 
                         >
                             {currentMessages.length > 0 ? (
