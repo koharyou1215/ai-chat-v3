@@ -61,39 +61,6 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
 
   const config = sizeConfig[size];
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDragIn = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(true);
-  }, []);
-
-  const handleDragOut = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        uploadFile(file);
-      } else {
-        setUploadState(prev => ({ ...prev, error: '画像ファイルのみサポートしています' }));
-      }
-    }
-  }, [uploadFile]);
-
   const uploadFile = useCallback(async (file: File) => {
     setUploadState({
       isUploading: true,
@@ -162,6 +129,39 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
       });
     }
   }, [onAvatarChange]);
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragIn = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  }, []);
+
+  const handleDragOut = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        uploadFile(file);
+      } else {
+        setUploadState(prev => ({ ...prev, error: '画像ファイルのみサポートしています' }));
+      }
+    }
+  }, [uploadFile]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

@@ -518,7 +518,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     </div>
                                     <div className="space-y-2 mb-4">
                                         {(mode === 'character' && formData ? (formData as Character).strengths || [] : []).map((strength: string, index: number) => (
-                                            <div key={index} className="flex items-center gap-2">
+                                            <div key={`strength-${index}`} className="flex items-center gap-2">
                                                 <Input 
                                                     value={strength} 
                                                     placeholder="強みや長所を入力"
@@ -561,7 +561,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     </div>
                                     <div className="space-y-2 mb-4">
                                         {(mode === 'character' && formData ? (formData as Character).weaknesses || [] : []).map((weakness: string, index: number) => (
-                                            <div key={index} className="flex items-center gap-2">
+                                            <div key={`weakness-${index}`} className="flex items-center gap-2">
                                                 <Input 
                                                     value={weakness} 
                                                     placeholder="弱点や短所を入力"
@@ -768,7 +768,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">性的嗜好・キンク</label>
                                 {(isCharacter(formData) ? formData.nsfw_profile?.kinks || [] : []).map((kink: string, index: number) => (
-                                    <div key={index} className="flex items-center gap-2 mb-2">
+                                    <div key={`kink-${index}`} className="flex items-center gap-2 mb-2">
                                         <Input 
                                             value={kink} 
                                             onChange={e => {

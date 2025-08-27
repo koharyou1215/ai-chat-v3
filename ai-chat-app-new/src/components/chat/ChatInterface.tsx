@@ -27,6 +27,27 @@ import { cn } from '@/lib/utils';
 import { Character } from '@/types/core/character.types';
 import useVH from '@/hooks/useVH';
 
+// メッセージ入力欄ラッパーコンポーネント
+const MessageInputWrapper: React.FC = () => {
+    const { isLeftSidebarOpen } = useAppStore();
+    
+    return (
+        <div 
+            className="fixed bottom-0 w-full md:w-auto z-30 bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
+            style={{
+                paddingBottom: 'env(safe-area-inset-bottom)',
+                left: isLeftSidebarOpen ? '0' : '0',
+                right: '0',
+            }}
+            data-sidebar-open={isLeftSidebarOpen}
+        >
+            <div className={cn("transition-all duration-300", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
+                <MessageInput />
+            </div>
+        </div>
+    );
+};
+
 const EmptyState = () => (
     <div 
         className="flex flex-col items-center justify-center h-full text-center text-white/50"
@@ -95,6 +116,7 @@ const ThinkingIndicator = () => (
 
 // SSR安全なチャットインターフェースコンテンツ
 const ChatInterfaceContent: React.FC = () => {
+    // keyboard hook removed for simplicity
     const { 
         getActiveSession, 
         is_generating,
@@ -285,46 +307,43 @@ const ChatInterfaceContent: React.FC = () => {
                     {/* メッセージリスト専用コンテナ */}
                     <div className="relative z-10 h-full">
                         <div 
-                            className="absolute inset-0 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 pb-32"
-                            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 72px)' }} 
+                            className="h-full overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4"
+                            style={{ 
+                                paddingTop: '70px', 
+                                paddingBottom: '100px'
+                            }} 
                         >
-                            <div style={{ height: 'env(safe-area-inset-top)' }} />
-                            <AnimatePresence mode="popLayout" initial={false}>
-                                {currentMessages.map((message, index) => (
-                                    <MessageBubble
-                                        key={message.id}
-                                        message={message}
-                                        previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
-                                        isLatest={index === currentMessages.length - 1}
-                                        isGroupChat={is_group_mode}
-                                    />
-                                ))}
-                            </AnimatePresence>
+                            {currentMessages.length > 0 ? (
+                                <AnimatePresence mode="popLayout" initial={false}>
+                                    {currentMessages.map((message, index) => (
+                                        <MessageBubble
+                                            key={message.id}
+                                            message={message}
+                                            previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
+                                            isLatest={index === currentMessages.length - 1}
+                                            isGroupChat={is_group_mode}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
+                                    <Bot size={48} className="mb-4" />
+                                    <h2 className="text-xl font-semibold mb-2">まだメッセージがありません</h2>
+                                    <p>新しい会話を始めましょう</p>
+                                </div>
+                            )}
                             
                             {(is_generating || group_generating) && <ThinkingIndicator />}
                             
                             <div ref={messagesEndRef} />
-                            <div style={{ height: 'env(safe-area-inset-bottom)' }} />
                         </div>
                     </div>
 
                     {/* Safe Area対応ヘッダー (固定) */}
                     <ChatHeader />
 
-                    {/* メッセージ入力欄 (固定) */}
-                    <div 
-                        className="fixed bottom-0 w-full md:w-auto z-30 bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
-                        style={{
-                            paddingBottom: 'env(safe-area-inset-bottom)',
-                            left: isLeftSidebarOpen ? '0' : '0',
-                            right: '0',
-                        }}
-                        data-sidebar-open={isLeftSidebarOpen}
-                    >
-                        <div className={cn("transition-all duration-300", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
-                            <MessageInput />
-                        </div>
-                    </div>
+                    {/* メッセージ入力欄 (固定・キーボード追従) */}
+                    <MessageInputWrapper />
                 </div>
 
                 {/* 右サイドパネル */}
@@ -336,7 +355,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 animate={{ width: 400, opacity: 1 }}
                                 exit={{ width: 0, opacity: 0 }}
                                 transition={{ duration: 0.3 }}
-                                className="bg-slate-800 border-l border-purple-400/20 flex flex-col h-full flex-shrink-0"
+                                className="bg-slate-800 border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]"
                             >
                                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">記憶情報</h3>

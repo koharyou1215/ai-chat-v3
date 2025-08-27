@@ -5,6 +5,20 @@ import path from 'path';
 export async function POST(request: NextRequest) {
   console.log('🔄 Upload API (Vercel Blob): Request received');
   
+  // Check if BLOB_READ_WRITE_TOKEN is configured
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const hasValidBlobToken = process.env.BLOB_READ_WRITE_TOKEN && 
+                          process.env.BLOB_READ_WRITE_TOKEN !== 'vercel_blob_rw_placeholder_token_for_development';
+  
+  if (!isDevelopment && !hasValidBlobToken) {
+    console.error('❌ Upload API: BLOB_READ_WRITE_TOKEN environment variable is not configured for production');
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls.',
+      details: 'Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls.'
+    }, { status: 500 });
+  }
+  
   try {
     const data = await request.formData();
     const file: File | null = data.get('file') as unknown as File;
@@ -44,21 +58,42 @@ export async function POST(request: NextRequest) {
     
     const filename = `${Date.now()}-${sanitizedName}`;
     
-    console.log(`📝 Upload API: Uploading to Vercel Blob with filename: ${filename}`);
+    console.log(`📝 Upload API: Uploading with filename: ${filename}`);
 
-    const blob = await put(filename, file, {
-      access: 'public',
-    });
+    if (isDevelopment && !hasValidBlobToken) {
+      // Development mode: Use Base64 data URL
+      console.log('🔧 Upload API: Development mode - using Base64 data URL');
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const dataUrl = `data:${file.type};base64,${base64}`;
+      
+      console.log(`✅ Upload API: File converted to Base64 data URL (development mode)`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        url: dataUrl,
+        filename: filename,
+        size: file.size,
+        type: file.type,
+        development: true
+      });
+    } else {
+      // Production mode: Use Vercel Blob
+      console.log('🚀 Upload API: Production mode - using Vercel Blob');
+      const blob = await put(filename, file, {
+        access: 'public',
+      });
 
-    console.log(`✅ Upload API: File successfully uploaded to Vercel Blob. URL: ${blob.url}`);
-    
-    return NextResponse.json({ 
-      success: true, 
-      url: blob.url,
-      filename: filename,
-      size: file.size,
-      type: file.type
-    });
+      console.log(`✅ Upload API: File successfully uploaded to Vercel Blob. URL: ${blob.url}`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        url: blob.url,
+        filename: filename,
+        size: file.size,
+        type: file.type
+      });
+    }
 
   } catch (error) {
     console.error('💥 Upload API: Critical error:', error);

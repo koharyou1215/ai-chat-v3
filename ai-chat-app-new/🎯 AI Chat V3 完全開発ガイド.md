@@ -39,6 +39,19 @@ Following these best practices can help prevent common errors.
     *   **Cause:** The store action waits synchronously for a heavy asynchronous operation to complete before updating the UI state.
     *   **Solution:** Adopt a "UI First" approach. Update the UI state immediately (e.g., display the user's message) and then execute time-consuming asynchronous operations in the background.
 
+5.  **File Upload Hydration Errors and Avatar Upload Widget Issues:**
+    *   **Problem:** Hydration mismatches, `ReferenceError: Cannot access 'uploadFile' before initialization`, Vercel Blob token errors, and React key duplication errors.
+    *   **Cause:** 
+        - Function definition order issues in `AvatarUploadWidget.tsx`
+        - Missing or invalid `BLOB_READ_WRITE_TOKEN` environment variable
+        - React keys not properly set in mapped components
+    *   **Solution:** 
+        - Define `uploadFile` function before other callbacks that depend on it
+        - Add proper `BLOB_READ_WRITE_TOKEN` to environment variables for production
+        - Use development fallback (Base64 data URLs) when Vercel Blob token is not available
+        - Ensure all mapped components have unique keys (e.g., `key={strength-${index}}` instead of `key={index}`)
+        - Always check function declaration order in React components with useCallback dependencies
+
 ---
 
 📋 **Table of Contents**
