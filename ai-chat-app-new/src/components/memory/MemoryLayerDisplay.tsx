@@ -109,7 +109,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
     }
   ];
   
-  const getLayerData = (type: MemoryLayerType): MemoryLayer<any> | null => {
+  const getLayerData = (type: MemoryLayerType): MemoryLayer<unknown> | null => {
     if (!sessionLayers) return null;
     
     switch (type) {
@@ -122,7 +122,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
       case 'semantic_memory':
         return sessionLayers.semantic_memory;
       case 'permanent_memory':
-        return sessionLayers.permanent_memory as any; // PermanentMemory is different structure
+        return sessionLayers.permanent_memory as MemoryLayer<unknown>; // PermanentMemory is different structure
       default:
         return null;
     }

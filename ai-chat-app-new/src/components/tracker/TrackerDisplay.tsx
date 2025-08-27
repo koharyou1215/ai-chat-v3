@@ -503,11 +503,11 @@ const StateTracker: React.FC<{
         className="text-center py-2 px-3 rounded-lg border backdrop-blur-sm"
         style={{
           borderColor: (() => {
-            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            const foundState = possibleStates.find((s: string | { id: string; label: string; color: string }) => (typeof s === 'string' ? s : s.id) === value);
             return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) + '60' : '#6366f160';
           })(),
           backgroundColor: (() => {
-            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            const foundState = possibleStates.find((s: string | { id: string; label: string; color: string }) => (typeof s === 'string' ? s : s.id) === value);
             return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) + '20' : '#6366f120';
           })()
         }}
@@ -517,13 +517,13 @@ const StateTracker: React.FC<{
           className="text-sm font-medium" 
           style={{ 
             color: (() => {
-              const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+              const foundState = possibleStates.find((s: string | { id: string; label: string; color: string }) => (typeof s === 'string' ? s : s.id) === value);
               return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) : '#6366f1';
             })()
           }}
         >
           現在: {(() => {
-            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            const foundState = possibleStates.find((s: string | { id: string; label: string; color: string }) => (typeof s === 'string' ? s : s.id) === value);
             return foundState ? (typeof foundState === 'string' ? foundState : foundState.label) : value;
           })()}
         </span>

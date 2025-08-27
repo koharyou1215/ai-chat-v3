@@ -200,7 +200,7 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
         const instance = get().tracker_instances.get(instance_id);
         if (instance?.character_id) {
           // キャラクタースライスから保存機能を呼び出す
-          const store = get() as any; // AppStoreにアクセス
+          const store = get() as Record<string, unknown>; // AppStoreにアクセス
           if (store.characters && store.saveCharacterToFile) {
             const character = store.characters.get(instance.character_id);
             if (character) {

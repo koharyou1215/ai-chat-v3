@@ -13,7 +13,7 @@ export class StorageCleaner {
     try {
       // 現在のストレージサイズを計算
       let totalSize = 0;
-      for (let key in localStorage) {
+      for (const key in localStorage) {
         if (localStorage.hasOwnProperty(key)) {
           totalSize += localStorage[key].length + key.length;
         }
@@ -52,9 +52,9 @@ export class StorageCleaner {
               const sessions = parsed.state.sessions;
               if (sessions._type === 'map' && sessions.value) {
                 sessions.value = sessions.value
-                  .sort((a: any, b: any) => {
-                    const aTime = a[1]?.updatedAt || a[1]?.createdAt || 0;
-                    const bTime = b[1]?.updatedAt || b[1]?.createdAt || 0;
+                  .sort((a: [string, unknown], b: [string, unknown]) => {
+                    const aTime = (a[1] as { updatedAt?: number; createdAt?: number })?.updatedAt || (a[1] as { updatedAt?: number; createdAt?: number })?.createdAt || 0;
+                    const bTime = (b[1] as { updatedAt?: number; createdAt?: number })?.updatedAt || (b[1] as { updatedAt?: number; createdAt?: number })?.createdAt || 0;
                     return bTime - aTime;
                   })
                   .slice(0, 3);
@@ -66,9 +66,9 @@ export class StorageCleaner {
               const groupSessions = parsed.state.groupSessions;
               if (groupSessions._type === 'map' && groupSessions.value) {
                 groupSessions.value = groupSessions.value
-                  .sort((a: any, b: any) => {
-                    const aTime = a[1]?.updated_at || a[1]?.created_at || 0;
-                    const bTime = b[1]?.updated_at || b[1]?.created_at || 0;
+                  .sort((a: [string, unknown], b: [string, unknown]) => {
+                    const aTime = (a[1] as { updated_at?: number; created_at?: number })?.updated_at || (a[1] as { updated_at?: number; created_at?: number })?.created_at || 0;
+                    const bTime = (b[1] as { updated_at?: number; created_at?: number })?.updated_at || (b[1] as { updated_at?: number; created_at?: number })?.created_at || 0;
                     return bTime - aTime;
                   })
                   .slice(0, 2);
@@ -78,7 +78,7 @@ export class StorageCleaner {
             // メモリカードを最新30件のみに制限
             if (parsed?.state?.memoryCards && Array.isArray(parsed.state.memoryCards)) {
               parsed.state.memoryCards = parsed.state.memoryCards
-                .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+                .sort((a: { timestamp?: number }, b: { timestamp?: number }) => (b.timestamp || 0) - (a.timestamp || 0))
                 .slice(0, 30);
             }
             

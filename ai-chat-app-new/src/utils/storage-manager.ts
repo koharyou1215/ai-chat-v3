@@ -82,7 +82,7 @@ export class StorageManager {
       // 古いメモリカードを削除（最新30件のみ保持）
       if (parsed.state.memoryCards && parsed.state.memoryCards.length > 30) {
         parsed.state.memoryCards = parsed.state.memoryCards
-          .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+          .sort((a: { timestamp?: number }, b: { timestamp?: number }) => (b.timestamp || 0) - (a.timestamp || 0))
           .slice(0, 30);
         cleaned = true;
       }
@@ -104,8 +104,8 @@ export class StorageManager {
       const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
       if (parsed.state.sessions) {
         const sessions = this.parseMapData(parsed.state.sessions);
-        const filteredSessions = sessions.filter(([_, session]) => {
-          const sessionTime = session?.updatedAt || session?.createdAt || 0;
+        const filteredSessions = sessions.filter(([_, session]: [string, unknown]) => {
+          const sessionTime = (session as { updatedAt?: number; createdAt?: number })?.updatedAt || (session as { updatedAt?: number; createdAt?: number })?.createdAt || 0;
           return sessionTime > thirtyDaysAgo;
         });
         
@@ -182,7 +182,7 @@ export class StorageManager {
   }
   
   // ヘルパー関数
-  private static parseMapData(data: any): any[] {
+  private static parseMapData(data: unknown): Array<[string, unknown]> {
     if (data instanceof Map) {
       return Array.from(data.entries());
     }
@@ -192,7 +192,7 @@ export class StorageManager {
     return [];
   }
   
-  private static formatMapData(entries: any[]): any {
+  private static formatMapData(entries: Array<[string, unknown]>): { _type: string; value: Array<[string, unknown]> } {
     return { _type: 'map', value: entries };
   }
 }

@@ -143,7 +143,7 @@ export class ScenarioGenerator {
   /**
    * AIを使用してカスタムシナリオを生成
    */
-  async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string, apiConfig?: any): Promise<GeneratedScenario> {
+  async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string, apiConfig?: Record<string, unknown>): Promise<GeneratedScenario> {
     // ⚡ キャッシュキー生成
     const cacheKey = `${characters.map(c => c.id).sort().join('-')}-${persona.id}-${userRequest || 'default'}`;
     const cachedScenario = this.scenarioCache.get(cacheKey);

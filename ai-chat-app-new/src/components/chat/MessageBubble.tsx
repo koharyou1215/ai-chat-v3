@@ -404,7 +404,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     if (safeMode) return {};
 
     // 無限ループを避けて限定回数のアニメーション
-    const animationMap: { [key: string]: any } = {
+    const animationMap: { [key: string]: TargetAndTransition } = {
       happy: { 
         scale: [1, 1.01, 1], 
         transition: { duration: 2, repeat: 2, repeatType: 'reverse' as const, ease: 'easeInOut' } 

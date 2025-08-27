@@ -44,7 +44,7 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
     data: personas,
     searchTerm,
     searchKeys: ['name', 'traits'],
-    sortOption: sortOption as any, // Cast to bypass type checking for now
+    sortOption: sortOption as string, // Cast to bypass strict type checking
     sortKeys: {
       updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       created_at: (p: Persona) => p.created_at ? new Date(p.created_at).getTime() : 0,

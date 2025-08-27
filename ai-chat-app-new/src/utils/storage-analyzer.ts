@@ -27,7 +27,7 @@ export class StorageAnalyzer {
     let totalSize = 0;
     
     // 各キーのサイズを計算
-    for (let key in localStorage) {
+    for (const key in localStorage) {
       if (localStorage.hasOwnProperty(key)) {
         const value = localStorage[key];
         const size = value.length + key.length;
@@ -174,8 +174,8 @@ export class StorageAnalyzer {
         const sessions = parsed.state.sessions;
         if (sessions._type === 'map' && sessions.value) {
           console.log(`\n📂 Regular Sessions: ${sessions.value.length}`);
-          sessions.value.forEach((entry: any, index: number) => {
-            const session = entry[1];
+          sessions.value.forEach((entry: [string, unknown], index: number) => {
+            const session = entry[1] as { messages?: unknown[]; [key: string]: unknown };
             if (session?.messages) {
               const messageCount = Array.isArray(session.messages) ? session.messages.length : 0;
               const sizeMB = JSON.stringify(session.messages).length / (1024 * 1024);
@@ -190,8 +190,8 @@ export class StorageAnalyzer {
         const groupSessions = parsed.state.groupSessions;
         if (groupSessions._type === 'map' && groupSessions.value) {
           console.log(`\n👥 Group Sessions: ${groupSessions.value.length}`);
-          groupSessions.value.forEach((entry: any, index: number) => {
-            const session = entry[1];
+          groupSessions.value.forEach((entry: [string, unknown], index: number) => {
+            const session = entry[1] as { messages?: unknown[]; [key: string]: unknown };
             if (session?.messages) {
               const messageCount = Array.isArray(session.messages) ? session.messages.length : 0;
               const sizeMB = JSON.stringify(session.messages).length / (1024 * 1024);
@@ -208,6 +208,6 @@ export class StorageAnalyzer {
 
 // グローバルに公開（デバッグ用）
 if (typeof window !== 'undefined') {
-  (window as any).StorageAnalyzer = StorageAnalyzer;
+  (window as Record<string, unknown>).StorageAnalyzer = StorageAnalyzer;
   console.log('💾 Storage Analyzer loaded. Use StorageAnalyzer.printAnalysis() to analyze storage.');
 }
