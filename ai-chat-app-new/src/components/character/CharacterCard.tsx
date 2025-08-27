@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Edit, Check } from 'lucide-react';
+import { Heart, Edit, Check, Trash2 } from 'lucide-react';
 import { Character } from '@/types/core/character.types';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -14,6 +14,7 @@ interface CharacterCardProps {
   isSelected?: boolean;
   onSelect: (character: Character) => void;
   onEdit: (character: Character) => void;
+  onDelete?: (characterId: string) => void;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   isSelected = false,
   onSelect,
   onEdit,
+  onDelete,
   className
 }) => {
   const [isFavorite, setIsFavorite] = useState(character.is_favorite ?? false);
@@ -37,6 +39,13 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
     setIsFavorite(!isFavorite);
     // Here you would typically call a function to update the character's favorite status in your state management
     // For example: updateCharacter({ ...character, metadata: { ...character.metadata, is_favorite: !isFavorite } });
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete && confirm(`本当に「${character.name}」を削除しますか？この操作は取り消せません。`)) {
+      onDelete(character.id);
+    }
   };
 
   return (
@@ -208,6 +217,17 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             >
               <Edit className="w-4 h-4 text-white/70" />
             </motion.button>
+            {onDelete && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDeleteClick}
+                className="p-2 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
+                title="キャラクターを削除"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </motion.button>
+            )}
           </div>
         </div>
 

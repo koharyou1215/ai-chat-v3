@@ -11,6 +11,7 @@ export interface CharacterSlice {
     isCharactersLoaded: boolean;
     addCharacter: (character: Character) => void;
     updateCharacter: (character: Character) => void;
+    deleteCharacter: (characterId: UUID) => void; // 削除機能追加
     selectCharacter: (characterId: UUID) => void;
     setSelectedCharacterId: (characterId: UUID | null) => void; // 追加
     getSelectedCharacter: () => Character | null;
@@ -46,6 +47,22 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       const characters = new Map(state.characters);
       characters.set(character.id, character);
       return { characters, editingCharacter: character };
+    });
+  },
+  deleteCharacter: (characterId) => {
+    set(state => {
+      const characters = new Map(state.characters);
+      characters.delete(characterId);
+      
+      // 選択中のキャラクターが削除された場合はリセット
+      const newSelectedId = state.selectedCharacterId === characterId ? null : state.selectedCharacterId;
+      
+      console.log(`✅ Deleted character: ${characterId}`);
+      return { 
+        characters, 
+        selectedCharacterId: newSelectedId,
+        editingCharacter: state.editingCharacter?.id === characterId ? null : state.editingCharacter
+      };
     });
   },
   selectCharacter: (characterId) => {

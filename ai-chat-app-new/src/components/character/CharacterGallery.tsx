@@ -35,7 +35,7 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
   onImportCharacter,
   selectedCharacterId,
 }) => {
-  const { startEditingCharacter } = useAppStore();
+  const { startEditingCharacter, deleteCharacter } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -146,6 +146,7 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
                   character={character}
                   onSelect={onSelectCharacter}
                   onEdit={() => startEditingCharacter(character)}
+                  onDelete={deleteCharacter}
                   isSelected={character.id === selectedCharacterId}
                 />
               ))

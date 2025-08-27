@@ -14,6 +14,7 @@ import {
   Download,
   Users,
   User,
+  X,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,8 @@ const ChatSidebar: React.FC = () => {
   // const router = useRouter(); // 일단 주석 처리
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
   const {
     active_session_id,
@@ -209,6 +212,28 @@ const ChatSidebar: React.FC = () => {
     return content.length > 50 ? `${content.substring(0, 50)}...` : content;
   };
 
+  // モバイルでのスワイプジェスチャー処理
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    
+    if (isLeftSwipe) {
+      // 左スワイプでサイドバーを閉じる
+      useAppStore.getState().toggleLeftSidebar();
+    }
+  };
+
   return (
     <motion.div
       initial={{ width: 0 }}
@@ -219,7 +244,10 @@ const ChatSidebar: React.FC = () => {
         "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0",
         "fixed md:relative top-0 left-0 z-50 h-screen"
       )}
-      style={{ width: 320, height: 'calc(var(--vh, 1vh) * 100)' }} // Add fixed width to prevent collapsing during animation
+      style={{ width: 320, height: 'calc(var(--vh, 1vh) * 100)' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-purple-400/20 flex-shrink-0">
@@ -235,6 +263,16 @@ const ChatSidebar: React.FC = () => {
             title="New Chat"
           >
             <Plus size={16} />
+          </motion.button>
+          {/* モバイルでのみ閉じるボタンを表示 */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => useAppStore.getState().toggleLeftSidebar()}
+            className="p-2 text-white rounded-lg hover:bg-white/20 transition-colors md:hidden"
+            title="Close Sidebar"
+          >
+            <X size={16} />
           </motion.button>
         </div>
       </div>

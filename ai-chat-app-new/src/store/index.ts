@@ -14,6 +14,7 @@ import { SuggestionSlice, createSuggestionSlice } from './slices/suggestion.slic
 import { UISlice, createUISlice } from './slices/ui.slice';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { StateCreator } from 'zustand';
+import { StorageCleaner } from '@/utils/storage-cleaner';
 
 export type AppStore = ChatSlice & GroupChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
   apiManager: APIManager;
@@ -214,24 +215,25 @@ const createStore = () => {
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
               console.error('🚨 LocalStorage quota exceeded! Attempting emergency cleanup...');
               
-              // 緊急クリーンアップ: 古いデータを削除
+              // StorageCleanerを使用して効率的なクリーンアップ
               try {
-                // 他のlocalStorageキーもチェックして古いものを削除
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                  const key = localStorage.key(i);
-                  if (key && key.startsWith('ai-chat-v3-') && key !== name) {
-                    localStorage.removeItem(key);
-                    console.log(`🗑️ Removed old storage key: ${key}`);
-                  }
-                }
+                StorageCleaner.cleanupLocalStorage();
                 
                 // 再試行
                 window.localStorage.setItem(name, value);
                 console.log('✅ Emergency cleanup successful, data saved');
               } catch (retryError) {
-                console.error('❌ Emergency cleanup failed, data not saved:', retryError);
-                // アラートを表示しない（コンソールログのみ）
-                console.warn('⚠️ ストレージ容量が不足しています。設定画面からデータを削除してください。');
+                console.error('❌ Emergency cleanup failed, trying more aggressive cleanup:', retryError);
+                
+                // より激しいクリーンアップ
+                try {
+                  StorageCleaner.emergencyReset();
+                  window.localStorage.setItem(name, value);
+                  console.log('✅ Emergency reset successful, data saved');
+                } catch (finalError) {
+                  console.error('❌ All cleanup attempts failed:', finalError);
+                  console.warn('⚠️ ストレージ容量が不足しています。キャラクターを削除してください。');
+                }
               }
             } else {
               console.error('Error writing to localStorage:', error);
