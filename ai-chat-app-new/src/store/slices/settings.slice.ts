@@ -42,6 +42,9 @@ export interface EffectSettings {
   // パフォーマンス
   effectQuality: 'low' | 'medium' | 'high';
   animationSpeed: number;
+  
+  // テキスト整形
+  textFormatting: 'compact' | 'readable' | 'detailed';
 }
 
 export interface SettingsSlice extends AISettings {
@@ -121,7 +124,10 @@ export const createSettingsSlice: StateCreator<
     
     // パフォーマンス
     effectQuality: 'medium',
-    animationSpeed: 1.0
+    animationSpeed: 1.0,
+    
+    // テキスト整形
+    textFormatting: 'readable'
   },
   
   // Initial state

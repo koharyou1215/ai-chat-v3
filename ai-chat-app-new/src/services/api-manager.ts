@@ -1,5 +1,6 @@
 import { geminiClient } from './api/gemini-client';
 import { APIConfig, APIProvider } from '@/types';
+import { formatMessageContent } from '@/utils/text-formatter';
 
 export type { APIProvider };
 
@@ -100,7 +101,7 @@ export class APIManager {
     systemPrompt: string,
     userMessage: string,
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
-    options?: Partial<APIConfig> & { openRouterApiKey?: string }
+    options?: Partial<APIConfig> & { openRouterApiKey?: string; textFormatting?: 'compact' | 'readable' | 'detailed' }
   ): Promise<string> {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
@@ -116,7 +117,8 @@ export class APIManager {
           model,
           temperature,
           maxTokens: max_tokens,
-          topP: top_p
+          topP: top_p,
+          textFormatting: options?.textFormatting
         });
       } else if (provider === 'openrouter') {
         if (!this.openRouterApiKey) {
@@ -127,7 +129,8 @@ export class APIManager {
           temperature,
           max_tokens,
           top_p,
-          apiKey: this.openRouterApiKey
+          apiKey: this.openRouterApiKey,
+          textFormatting: options?.textFormatting
         });
       } else {
         throw new Error(`Unsupported API provider: ${provider}`);
@@ -154,7 +157,8 @@ export class APIManager {
           model,
           temperature,
           maxTokens: max_tokens,
-          topP: top_p
+          topP: top_p,
+          textFormatting: options?.textFormatting
         });
       } else if (provider === 'openrouter') {
         if (!this.openRouterApiKey) {
@@ -165,7 +169,8 @@ export class APIManager {
           temperature,
           max_tokens,
           top_p,
-          apiKey: this.openRouterApiKey
+          apiKey: this.openRouterApiKey,
+          textFormatting: options?.textFormatting
         });
       } else {
         throw new Error(`Unsupported API provider: ${provider}`);
@@ -185,6 +190,7 @@ export class APIManager {
       temperature?: number;
       maxTokens?: number;
       topP?: number;
+      textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
     // Geminiモデル名からプレフィックスを除去
@@ -197,11 +203,15 @@ export class APIManager {
       conversationHistory
     );
 
-    return await geminiClient.generateMessage(messages, {
+    const response = await geminiClient.generateMessage(messages, {
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       topP: options.topP
     });
+    
+    // テキストを読みやすく整形
+    const formattingPreset = options?.textFormatting || 'readable';
+    return formatMessageContent(response, formattingPreset);
   }
 
   private async generateStreamWithGemini(
@@ -214,6 +224,7 @@ export class APIManager {
       temperature?: number;
       maxTokens?: number;
       topP?: number;
+      textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
     // Geminiモデル名からプレフィックスを除去
@@ -243,6 +254,7 @@ export class APIManager {
       temperature?: number;
       maxTokens?: number;
       topP?: number;
+      textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
     // OpenRouterのメッセージ形式に変換
@@ -292,7 +304,11 @@ export class APIManager {
     }
     
     // Safe property access with fallback
-    return data?.choices?.[0]?.message?.content || '';
+    const aiResponse = data?.choices?.[0]?.message?.content || '';
+    
+    // テキストを読みやすく整形
+    const formattingPreset = options?.textFormatting || 'readable';
+    return formatMessageContent(aiResponse, formattingPreset);
   }
 
   private async generateStreamWithOpenRouter(
@@ -306,6 +322,7 @@ export class APIManager {
       temperature?: number;
       maxTokens?: number;
       topP?: number;
+      textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
     // OpenRouterのメッセージ形式に変換

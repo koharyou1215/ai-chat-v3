@@ -9,7 +9,8 @@ export async function POST(request: Request) {
       systemPrompt, 
       userMessage, 
       conversationHistory, 
-      apiConfig 
+      apiConfig,
+      textFormatting = 'readable'
     } = body;
 
     if (!userMessage) {
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
       systemPrompt,
       userMessage,
       conversationHistory,
-      effectiveApiConfig // 環境変数を含む設定を渡す
+      { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
     );
 
     return NextResponse.json({ response: aiResponseContent });

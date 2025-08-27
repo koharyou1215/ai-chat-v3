@@ -239,6 +239,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               systemPrompt: basePrompt, // 最初はベースプロンプトで開始
               userMessage: content,
               conversationHistory: activeSession.messages.slice(-5).map(msg => ({ role: msg.role, content: msg.content })), // 5メッセージに短縮で高速化
+              textFormatting: state.effectSettings.textFormatting,
               apiConfig: {
                 ...apiConfig,
                 openRouterApiKey: get().openRouterApiKey
@@ -406,6 +407,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               systemPrompt,
               userMessage: lastUserMessage.content,
               conversationHistory,
+              textFormatting: get().effectSettings.textFormatting,
               apiConfig: regenerationApiConfig
           }),
       });

@@ -88,7 +88,7 @@ export const PersonaGalleryModal: React.FC = () => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
           // Generate new ID and timestamps for imported persona
