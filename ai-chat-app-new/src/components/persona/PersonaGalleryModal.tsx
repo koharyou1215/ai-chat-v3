@@ -2,12 +2,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search } from 'lucide-react';
+import { X, Search, Upload, Plus } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { Persona } from '@/types';
 import { PersonaCard } from './PersonaCard';
 import { PersonaDetailModal } from './PersonaDetailModal';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export const PersonaGalleryModal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +21,8 @@ export const PersonaGalleryModal: React.FC = () => {
     activatePersona,
     activePersonaId,
     updatePersona,
+    addPersona,
+    startEditingPersona,
   } = useAppStore();
 
   const personasArray = useMemo(() => Array.from(personas.values()), [personas]);
@@ -64,6 +67,37 @@ export const PersonaGalleryModal: React.FC = () => {
     setSelectedPersonaForEdit(null);
   };
 
+  const handleJsonUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const json = JSON.parse(e.target?.result as string);
+          // Generate new ID and timestamps for imported persona
+          const importedPersona: Persona = {
+            ...json,
+            id: `imported-${Date.now()}`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          addPersona(importedPersona);
+          console.log('📁 Persona imported successfully:', importedPersona.name);
+        } catch (error) {
+          console.error('❌ Failed to parse JSON file:', error);
+          alert('JSONファイルの読み込みに失敗しました。ファイル形式を確認してください。');
+        }
+      };
+      reader.readAsText(file);
+    }
+    event.target.value = '';
+  };
+
+  const handleCreatePersona = () => {
+    startEditingPersona();
+    setShowPersonaGallery(false);
+  };
+
   if (!showPersonaGallery) {
     return null;
   }
@@ -86,12 +120,23 @@ export const PersonaGalleryModal: React.FC = () => {
         >
           <div className="flex items-center justify-between p-4 border-b border-slate-700">
             <h2 className="text-xl font-semibold text-white">Select a Persona</h2>
-            <button
-              onClick={() => setShowPersonaGallery(false)}
-              className="p-2 rounded-full hover:bg-slate-700"
-            >
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" className="h-9 px-3">
+                <label htmlFor="persona-json-upload" className="cursor-pointer">
+                  <Upload className="w-4 h-4" title="JSON読込" />
+                  <input id="persona-json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
+                </label>
+              </Button>
+              <Button variant="ghost" onClick={handleCreatePersona} className="h-9 px-3">
+                <Plus className="w-4 h-4" title="新規作成" />
+              </Button>
+              <button
+                onClick={() => setShowPersonaGallery(false)}
+                className="p-2 rounded-full hover:bg-slate-700"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
           </div>
           <div className="p-4 border-b border-slate-700">
             <div className="relative">
