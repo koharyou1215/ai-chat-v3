@@ -51,8 +51,25 @@ export const PersonaGalleryModal: React.FC = () => {
       // Update persona in store
       updatePersona(updatedPersona);
       
-      // Save to file system if needed (this would require an API endpoint)
-      console.log('📝 Persona updated:', updatedPersona);
+      // Save to API endpoint
+      try {
+        const response = await fetch('/api/personas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedPersona),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Persona saved successfully:', result.message);
+        } else {
+          console.warn('⚠️ Persona save API failed, but store updated');
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Persona save API error:', apiError, 'but store updated');
+      }
       
       setShowDetailModal(false);
       setSelectedPersonaForEdit(null);
@@ -82,6 +99,26 @@ export const PersonaGalleryModal: React.FC = () => {
             updated_at: new Date().toISOString(),
           };
           addPersona(importedPersona);
+          
+          // Also save to API
+          try {
+            const response = await fetch('/api/personas', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(importedPersona),
+            });
+            
+            if (response.ok) {
+              console.log('✅ Imported persona saved to API:', importedPersona.name);
+            } else {
+              console.warn('⚠️ Imported persona API save failed');
+            }
+          } catch (apiError) {
+            console.warn('⚠️ Imported persona API error:', apiError);
+          }
+          
           console.log('📁 Persona imported successfully:', importedPersona.name);
         } catch (error) {
           console.error('❌ Failed to parse JSON file:', error);

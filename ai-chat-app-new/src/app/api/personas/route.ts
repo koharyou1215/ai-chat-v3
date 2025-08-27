@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { Persona } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,5 +52,70 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Personas API: Error reading personas:', error);
     return NextResponse.json([]);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const persona: Persona = await request.json();
+    
+    if (!persona.id || !persona.name) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Persona must have id and name' 
+      }, { status: 400 });
+    }
+
+    // Development環境でのみファイル保存を試行
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const personasDir = path.join(process.cwd(), 'public', 'personas');
+        
+        // ディレクトリが存在しなければ作成
+        if (!fs.existsSync(personasDir)) {
+          fs.mkdirSync(personasDir, { recursive: true });
+        }
+        
+        const filename = `${persona.id}.json`;
+        const filePath = path.join(personasDir, filename);
+        
+        // タイムスタンプを更新
+        const updatedPersona = {
+          ...persona,
+          updated_at: new Date().toISOString()
+        };
+        
+        fs.writeFileSync(filePath, JSON.stringify(updatedPersona, null, 2));
+        
+        console.log(`✅ Persona saved to file: ${filename}`);
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Persona saved successfully',
+          persona: updatedPersona
+        });
+      } catch (fileError) {
+        console.error('❌ Failed to save persona to file:', fileError);
+        // ファイル保存に失敗してもエラーにしない（開発環境のみ）
+      }
+    }
+
+    // 本番環境またはファイル保存失敗時は成功レスポンスのみ返す
+    console.log(`📝 Persona processed: ${persona.name} (${persona.id})`);
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Persona received successfully',
+      persona: {
+        ...persona,
+        updated_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error processing persona:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to process persona',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

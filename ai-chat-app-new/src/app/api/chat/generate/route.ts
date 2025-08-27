@@ -17,10 +17,27 @@ export async function POST(request: Request) {
     }
 
     // API Managerに設定を適用
-    // apiManager.setConfig(apiConfig as Partial<APIConfig>);
-    // if (apiConfig.provider === 'openrouter' && apiConfig.openRouterApiKey) {
-    //   apiManager.setOpenRouterApiKey(apiConfig.openRouterApiKey);
-    // }
+    console.log('🔧 Applying API configuration:', apiConfig);
+    
+    // 環境変数から API キーを取得
+    let effectiveApiConfig = { ...apiConfig };
+    
+    if (apiConfig.provider === 'gemini') {
+      const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!geminiKey) {
+        console.error('❌ NEXT_PUBLIC_GEMINI_API_KEY not found in environment');
+        throw new Error('Gemini API キーが設定されていません');
+      }
+      effectiveApiConfig.geminiApiKey = geminiKey;
+      console.log('✅ Gemini API key loaded from environment');
+    } else if (apiConfig.provider === 'openrouter') {
+      // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
+      if (!apiConfig.openRouterApiKey) {
+        console.error('❌ OpenRouter API key not provided');
+        throw new Error('OpenRouter API キーが設定されていません');
+      }
+      console.log('✅ OpenRouter API key provided from client');
+    }
     
     // ログ出力（これがターミナルに表示される）
     console.log("\n--- [API Route: /api/chat/generate] ---");
@@ -37,7 +54,7 @@ export async function POST(request: Request) {
       systemPrompt,
       userMessage,
       conversationHistory,
-      apiConfig // apiConfig を直接渡す
+      effectiveApiConfig // 環境変数を含む設定を渡す
     );
 
     return NextResponse.json({ response: aiResponseContent });
