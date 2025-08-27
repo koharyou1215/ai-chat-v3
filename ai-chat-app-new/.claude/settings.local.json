@@ -81,6 +81,7 @@
       "WebFetch(domain:developer.mozilla.org)",
       "WebFetch(domain:npmjs.com)",
       "WebFetch(domain:nextjs.org)",
+      "WebFetch(domain:ai-chat-app-em01usx9v-kous-projects-ba188115.vercel.app)",
       "Bash(TYPESCRIPT_CHECK=false npm run dev)",
       "Bash(time npm run build)"
     ],

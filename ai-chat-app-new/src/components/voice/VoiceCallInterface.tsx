@@ -18,6 +18,19 @@ import {
   OutgoingPingMessage
 } from '@/types/websocket';
 
+interface WebSocketMessage {
+  type: string;
+  sessionId?: string;
+  data?: unknown;
+  audioUrl?: string;
+  error?: string;
+  status?: 'speaking' | 'listening' | 'processing' | 'idle';
+  text?: string;
+  message?: string;
+  stats?: Record<string, unknown>;
+  timestamp?: number;
+}
+
 interface VoiceCallInterfaceProps {
   characterId?: string;
   isActive?: boolean;
@@ -224,7 +237,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         console.log('Error properties:', Object.keys(error));
         console.log('Error details:', {
           type: error.type,
-          target: error.target?.readyState,
+          target: error.target && 'readyState' in error.target ? (error.target as WebSocket).readyState : 'N/A',
           url: voiceServerUrl,
           timestamp: new Date().toISOString()
         });

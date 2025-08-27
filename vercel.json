@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "src": "ai-chat-app-new/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/ai-chat-app-new/$1"
+    }
+  ]
+}
