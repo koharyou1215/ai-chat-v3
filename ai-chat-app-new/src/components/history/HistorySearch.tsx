@@ -18,6 +18,17 @@ interface HistorySearchProps {
   className?: string;
 }
 
+interface HistoryStats {
+  total_messages: number;
+  total_duration_hours: number;
+  avg_messages_per_session: number;
+}
+
+interface TopicData {
+  name: string;
+  count: number;
+}
+
 export const HistorySearch: React.FC<HistorySearchProps> = ({ 
   session_id,
   className 
@@ -97,8 +108,8 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
   };
   
   // 履歴統計取得
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
-  const [topics, setTopics] = useState<Record<string, unknown>[]>([]);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
+  const [topics, setTopics] = useState<TopicData[]>([]);
   // const [trends, setTrends] = useState<Record<string, unknown>[]>([]);
   
   useEffect(() => {
@@ -110,8 +121,8 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           getConversationTrends()
         ]);
         
-        setStats(historyStats as unknown as Record<string, unknown>);
-        setTopics(popularTopics as unknown as Record<string, unknown>[]);
+        setStats(historyStats as HistoryStats);
+        setTopics(popularTopics as TopicData[]);
         // setTrends(conversationTrends);
       } catch (error) {
         console.error('履歴データ読み込みエラー:', error);
@@ -280,10 +291,10 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
         <div className="mt-4 p-4 bg-white/5 rounded-lg border border-white/10">
           <h4 className="font-semibold text-white mb-2">検索結果</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {searchResults.map((result: Record<string, unknown>) => (
-              <div key={result.id as string} className="p-2 bg-white/5 rounded-lg">
-                <p className="text-xs text-white/50">{formatDate(result.timestamp as number)}</p>
-                <p className="text-sm text-white">{getMessagePreview(result.content as string)}</p>
+            {searchResults.map((result: UnifiedMessage) => (
+              <div key={result.id} className="p-2 bg-white/5 rounded-lg">
+                <p className="text-xs text-white/50">{formatDate(new Date(result.created_at).getTime())}</p>
+                <p className="text-sm text-white">{getMessagePreview(result.content)}</p>
               </div>
             ))}
           </div>

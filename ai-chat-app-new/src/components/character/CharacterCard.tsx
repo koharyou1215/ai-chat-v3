@@ -148,11 +148,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 
           <div className="flex flex-wrap gap-1 mb-3 h-6 overflow-hidden">
             {(() => {
-              // tagsが文字列の場合でも安全に配列に変換
-              const tagsSource = processedCharacter.tags;
-              const tags: string[] = Array.isArray(tagsSource) ? tagsSource : 
-                          (typeof tagsSource === 'string' && tagsSource) ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
-                          [];
+              // tagsは配列として型定義されているため、直接使用
+              const tags = processedCharacter.tags || [];
               return tags.slice(0, 3).map((tag: string) => (
                 <span
                   key={tag}
@@ -163,10 +160,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               ));
             })()}
             {(() => {
-              const tagsSource = processedCharacter.tags;
-              const tags: string[] = Array.isArray(tagsSource) ? tagsSource : 
-                          (typeof tagsSource === 'string' && tagsSource) ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
-                          [];
+              const tags = processedCharacter.tags || [];
               return tags.length > 3 && (
                 <span className="px-2 py-0.5 text-xs text-white/40">
                   +{tags.length - 3}

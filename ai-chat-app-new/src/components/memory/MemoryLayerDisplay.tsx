@@ -14,13 +14,20 @@ import {
   Zap,
   Info
 } from 'lucide-react';
-import { MemoryLayerType } from '@/types';
+import { MemoryLayerType, MemoryLayer } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 
 interface MemoryLayerDisplayProps {
   session_id: string;
   className?: string;
+}
+
+interface LayerStats {
+  total: number;
+  pinned: number;
+  hidden: number;
+  categories: Record<string, number>;
 }
 
 export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({ 
@@ -102,7 +109,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
     }
   ];
   
-  const getLayerData = (type: MemoryLayerType) => {
+  const getLayerData = (type: MemoryLayerType): MemoryLayer<any> | null => {
     if (!sessionLayers) return null;
     
     switch (type) {
@@ -115,13 +122,13 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
       case 'semantic_memory':
         return sessionLayers.semantic_memory;
       case 'permanent_memory':
-        return sessionLayers.permanent_memory;
+        return sessionLayers.permanent_memory as any; // PermanentMemory is different structure
       default:
         return null;
     }
   };
   
-  const getLayerStats = (_type: MemoryLayerType) => {
+  const getLayerStats = (_type: MemoryLayerType): LayerStats | null => {
     if (!sessionLayers) return null;
     return getLayerStatistics();
   };
@@ -222,7 +229,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                         <MessageSquare className="w-3 h-3" />
                         <span>{layerData?.messages?.length || 0}</span>
                         <Activity className="w-3 h-3" />
-                        <span>{stats?.total_operations || 0}</span>
+                        <span>{stats?.total || 0}</span>
                       </div>
                       
                       {/* 展開/折りたたみアイコン */}
@@ -259,7 +266,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-white/60">容量:</span>
                           <span className="text-white/80">
-                            {layerData?.messages?.length || 0} / {layerData?.max_capacity || '∞'}
+                            {layerData?.messages?.length || 0} / {layerData?.max_size || '∞'}
                           </span>
                         </div>
                         
@@ -272,7 +279,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                                 {layerData?.messages?.[layerData.messages.length - 1]?.content || '内容なし'}
                               </p>
                               <span className="text-white/50 text-xs">
-                                {new Date(layerData?.messages?.[layerData.messages.length - 1]?.timestamp || Date.now()).toLocaleTimeString('ja-JP')}
+                                {new Date(layerData?.messages?.[layerData.messages.length - 1]?.created_at || Date.now()).toLocaleTimeString('ja-JP')}
                               </span>
                             </div>
                           </div>

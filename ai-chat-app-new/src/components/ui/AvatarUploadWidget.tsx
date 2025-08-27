@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Link, User, X, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -208,10 +209,13 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         onDrop={handleDrop}
       >
         {currentAvatar ? (
-          <img
+          <Image
             src={currentAvatar}
             alt={name || "Avatar"}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            unoptimized
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}

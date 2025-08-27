@@ -35,6 +35,7 @@ export interface ChatSlice {
   // For Sidebar
   setActiveSessionId: (sessionId: UUID | null) => void;
   deleteSession: (sessionId: UUID) => void;
+  clearAllSessions: () => void;
   updateSession: (session: Partial<UnifiedChatSession> & { id: UUID }) => void;
 
   getActiveSession: () => UnifiedChatSession | null;
@@ -581,6 +582,14 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         active_session_id: newActiveSessionId
       };
     });
+  },
+  
+  clearAllSessions: () => {
+    set(() => ({
+      sessions: new Map(),
+      active_session_id: null,
+      trackerManagers: new Map()
+    }));
   },
   updateSession: (session) => {
     set(_state => {

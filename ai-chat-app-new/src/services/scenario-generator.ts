@@ -143,7 +143,7 @@ export class ScenarioGenerator {
   /**
    * AIを使用してカスタムシナリオを生成
    */
-  async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string): Promise<GeneratedScenario> {
+  async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string, apiConfig?: any): Promise<GeneratedScenario> {
     // ⚡ キャッシュキー生成
     const cacheKey = `${characters.map(c => c.id).sort().join('-')}-${persona.id}-${userRequest || 'default'}`;
     const cachedScenario = this.scenarioCache.get(cacheKey);
@@ -166,37 +166,25 @@ export class ScenarioGenerator {
       )
     ].join(',\n');
 
-    const prompt = `
-以下のキャラクターたちとユーザーのグループチャット用シナリオを生成してください。
+    const prompt = `JSON形式でグループチャットシナリオを生成してください。
 
-## ユーザー（プレイヤー）情報
-- 名前: ${persona.name}
-- 年齢: ${persona.age}
-- 職業: ${persona.occupation}
-- 性格: ${(persona.personality ?? '').substring(0, 150)}
-- 口調: ${persona.catchphrase}
+参加者: ${persona.name}(${persona.occupation})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
+リクエスト: ${userRequest || 'キャラクターの個性を活かしたシナリオ'}
 
-## キャラクター情報
-${characterDescriptions.map(char => 
-  `- ${char.name}（${char.occupation}）: ${char.personality.substring(0, 100)}`
-).join('\n')}
-
-## ユーザーリクエスト
-${userRequest || 'ユーザーとキャラクターたちの特徴を活かした魅力的なシナリオを自動生成してください'}
-
-必ずJSONのみで回答してください。他の説明は不要です。
-
+以下のJSON形式で回答（説明文は不要）:
+\`\`\`json
 {
-  "title": "具体的で魅力的なシナリオタイトル",
-  "setting": "詳細な舞台設定（場所・時代・環境）",
-  "situation": "興味深い現在の状況・きっかけとなる出来事",
-  "initial_prompt": "「○○で、△△が起きています。□□はどう反応するでしょうか？」形式の導入文",
+  "title": "シナリオのタイトル",
+  "setting": "場所や環境の説明",
+  "situation": "現在起きている出来事",
+  "initial_prompt": "グループチャットの最初の状況説明",
   "character_roles": {
 ${allParticipantRoles}
   },
-  "objectives": ["魅力的な目標1", "興味深い目標2", "やりがいのある目標3"],
-  "background_context": "詳細な背景情報・世界設定"
-}`;
+  "objectives": ["目標1", "目標2", "目標3"],
+  "background_context": "世界観や背景"
+}
+\`\`\``;
 
     try {
       console.log('AI シナリオ生成開始:', {
@@ -207,21 +195,25 @@ ${allParticipantRoles}
       // ⚡ 高速化されたシナリオ生成（タイムアウト付き）
       let response = await Promise.race([
         apiManager.generateMessage(
-          'あなたはシナリオ生成AIです。JSONのみで簡潔に生成してください。',
           prompt,
+          '',
           [],
-          { max_tokens: 1024 } // ⚡ 4096→1024で高速化
+          { 
+            ...apiConfig,
+            max_tokens: 1200,  // より長い生成のため増やす
+            temperature: 0.8   // 創造的な生成のため温度を上げる
+          }
         ),
         new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('AI生成タイムアウト')), 8000) // 8秒タイムアウト
+          setTimeout(() => reject(new Error('AI生成タイムアウト')), 15000) // 15秒タイムアウト
         )
       ]);
 
       console.log('AI レスポンス:', response);
 
-      // レスポンスが途中で切れているかチェック
-      if (!response.includes('}') || !response.trim().endsWith('}')) {
-        console.warn('レスポンスが不完全です。より短いプロンプトで再試行...');
+      // JSONが含まれていない場合は再試行
+      if (!response.includes('"title"') || !response.includes('"setting"')) {
+        console.warn('レスポンスにJSONが含まれていません。再試行...');
         
         // より簡潔なプロンプトで再試行
         const shorterPrompt = `
@@ -240,30 +232,30 @@ JSON:
   "background_context": "背景"
 }`;
 
-        response = await Promise.race([
-          apiManager.generateMessage(
-            'JSONのみで簡潔に生成。',
-            shorterPrompt,
-            [],
-            { max_tokens: 512 } // ⚡ 再試行ではさらに短縮
-          ),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('再試行タイムアウト')), 5000)
-          )
-        ]);
+        response = await apiManager.generateMessage(
+          '以下のJSONフォーマットを完成させてください。JSONのみで回答し、他の説明は一切不要です。',
+          shorterPrompt,
+          [],
+          { 
+            ...apiConfig,
+            max_tokens: 800
+          }
+        );
         
         console.log('再試行レスポンス:', response);
       }
 
       // より柔軟なJSONレスポンスの抽出
-      let jsonMatch = response.match(/\{[\s\S]*\}/);
+      // まず```jsonブロックを優先的に探す
+      let jsonMatch = null;
+      const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      if (codeBlockMatch) {
+        jsonMatch = [codeBlockMatch[1]];
+      }
       
-      // 最初の試行が失敗した場合、```json ブロックを探す
+      // ```jsonがない場合は通常のJSONを探す
       if (!jsonMatch) {
-        const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-        if (codeBlockMatch) {
-          jsonMatch = [codeBlockMatch[1]];
-        }
+        jsonMatch = response.match(/\{[\s\S]*\}/);
       }
 
       // 不完全なJSONの修復を試行
@@ -451,23 +443,53 @@ JSON:
     const participantNames = persona ? `${persona.name}と${characterNames}` : characterNames;
     const characterRoles: Record<string, string> = {};
     
+    // ランダムなシナリオテーマを選択
+    const scenarios = [
+      {
+        title: `${participantNames}の謎解き冒険`,
+        setting: '古い洋館の書斎',
+        situation: '不思議な手紙が届き、全員が同じ場所に呼び出された',
+        objectives: ['謎の送り主を突き止める', '隠された秘密を解明する', 'お互いの推理力を発揮する']
+      },
+      {
+        title: `${participantNames}のカフェ会議`,
+        setting: '街の人気カフェテラス',
+        situation: '偶然同じカフェで出会い、興味深い話題で盛り上がる',
+        objectives: ['共通の関心事を発見する', 'それぞれの専門知識を共有する', '新しい企画を立てる']
+      },
+      {
+        title: `${participantNames}の夜市探索`,
+        setting: '賑やかな夜市',
+        situation: '珍しい夜市が開催され、皆で探索することになった',
+        objectives: ['珍しい品物を見つける', '美味しい屋台料理を楽しむ', '思い出を作る']
+      },
+      {
+        title: `${participantNames}の創作会議`,
+        setting: 'クリエイティブスペース',
+        situation: '新しいプロジェクトのアイデア出しに集まった',
+        objectives: ['革新的なアイデアを生み出す', '各自の才能を活かす', 'チームワークを発揮する']
+      }
+    ];
+    
+    const selected = scenarios[Math.floor(Math.random() * scenarios.length)];
+    
     // ペルソナがある場合は含める
     if (persona) {
-      characterRoles[persona.id] = '自分らしく振る舞い、他の参加者との交流を楽しむ';
+      characterRoles[persona.id] = `${persona.occupation || '参加者'}として積極的に参加する`;
     }
     
     characters.forEach(char => {
-      characterRoles[char.id] = '自分らしく振る舞い、他の参加者との交流を楽しむ';
+      characterRoles[char.id] = `${char.occupation || 'キャラクター'}として独自の視点を提供する`;
     });
 
     return {
-      title: `${participantNames}の交流`,
-      setting: '快適な交流空間',
-      situation: '偶然出会った皆が自然に交流を始める',
-      initial_prompt: `${participantNames}が出会いました。どのような会話が始まるでしょうか？`,
+      title: selected.title,
+      setting: selected.setting,
+      situation: selected.situation,
+      initial_prompt: `${selected.setting}で、${selected.situation}。${participantNames}はどう反応するでしょうか？`,
       character_roles: characterRoles,
-      objectives: ['相互理解を深める', '楽しい時間を過ごす', '新しい発見をする'],
-      background_context: `${persona ? 'ユーザーと' : ''}キャラクター同士の自然な交流を楽しむシナリオです。`
+      objectives: selected.objectives,
+      background_context: `${persona ? 'ユーザーと' : ''}キャラクターたちが織りなす特別な物語です。`
     };
   }
 

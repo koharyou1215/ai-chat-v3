@@ -226,7 +226,7 @@ export const MemoryCardComponent: React.FC<MemoryCardProps> = ({
           <span>{memory.original_message_ids.length} メッセージ</span>
           
           {memory.user_notes && (
-            <Tag className="w-3 h-3 text-blue-400" title="ユーザーメモあり" />
+            <Tag className="w-3 h-3 text-blue-400" />
           )}
         </div>
       </div>

@@ -52,7 +52,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setIsGeneratingSuggestions: (isGenerating) => set({ isGeneratingSuggestions: isGenerating }),
   
   generateSuggestions: async (messages, character, user, customPrompt, forceRegenerate = false) => {
-    const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey } = get();
+    const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
     if (isGeneratingSuggestions) return;
     
     set({ isGeneratingSuggestions: true, suggestions: [], suggestionData: [] });
@@ -63,8 +63,8 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        3, // 2-3個に制限
-        { ...apiConfig, openRouterApiKey },
+        2, // 2個に制限
+        { ...apiConfig, openRouterApiKey, geminiApiKey },
         forceRegenerate
       );
       
@@ -88,7 +88,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   },
   
   enhanceText: async (text, messages, user, enhancePrompt) => {
-    const { inspirationService, apiConfig, openRouterApiKey } = get();
+    const { inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
     
     // デバッグ: 現在のAPIConfig設定を確認
     console.log('🔧 Current API Config for text enhancement:', {
@@ -96,11 +96,12 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
       model: apiConfig.model,
       max_tokens: apiConfig.max_tokens,
       temperature: apiConfig.temperature,
-      hasOpenRouterKey: !!openRouterApiKey
+      hasOpenRouterKey: !!openRouterApiKey,
+      hasGeminiKey: !!geminiApiKey
     });
     
     try {
-      return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey });
+      return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey, geminiApiKey });
     } catch (error) {
       console.error('Failed to enhance text:', error);
       return text;

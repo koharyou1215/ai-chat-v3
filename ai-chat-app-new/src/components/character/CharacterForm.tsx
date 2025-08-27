@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion as _motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -227,10 +228,13 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                         playsInline
                                     />
                                 ) : (
-                                    <img 
+                                    <Image 
                                         src={url} 
                                         alt="preview" 
-                                        className="w-full h-full object-cover" 
+                                        fill
+                                        className="object-cover"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        unoptimized
                                         onError={(e) => {
                                             const target = e.target as HTMLImageElement;
                                             target.style.display = 'none';

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
@@ -501,10 +502,13 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
           <div className="relative inline-block mb-6">
             <div className="w-40 h-40 rounded-full overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 border-4 border-gray-700 shadow-2xl">
               {character?.avatar_url ? (
-                <img 
+                <Image 
                   src={character.avatar_url} 
                   alt={character.name}
-                  className="w-full h-full object-cover"
+                  width={160}
+                  height={160}
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-600">

@@ -193,6 +193,26 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
         tracker_history: newHistory
       };
     });
+    
+    // トラッカー値変更後、関連キャラクターを自動保存
+    setTimeout(async () => {
+      try {
+        const instance = get().tracker_instances.get(instance_id);
+        if (instance?.character_id) {
+          // キャラクタースライスから保存機能を呼び出す
+          const store = get() as any; // AppStoreにアクセス
+          if (store.characters && store.saveCharacterToFile) {
+            const character = store.characters.get(instance.character_id);
+            if (character) {
+              console.log(`🔄 Auto-saving character ${character.name} after tracker update`);
+              await store.saveCharacterToFile(character);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Auto-save after tracker update failed:', error);
+      }
+    }, 1000); // 1秒後に実行（デバウンス効果）
   },
   
   getTrackerInstance: (id) => {

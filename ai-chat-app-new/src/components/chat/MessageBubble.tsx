@@ -7,7 +7,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
     {label && <span className="ml-3 text-white/80 text-xs bg-black/40 px-2 py-1 rounded">{label}</span>}
   </div>
 );
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, TargetAndTransition } from 'framer-motion';
 import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, MoreHorizontal } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
@@ -395,7 +395,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   };
 
   // 感情に基づくアニメーション効果（安全な実装）
-  const getEmotionAnimation = (): Record<string, unknown> => {
+  const getEmotionAnimation = (): TargetAndTransition => {
     const emotion = message.expression?.emotion;
     if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
 
@@ -404,7 +404,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     if (safeMode) return {};
 
     // 無限ループを避けて限定回数のアニメーション
-    const animationMap: { [key: string]: object } = {
+    const animationMap: { [key: string]: any } = {
       happy: { 
         scale: [1, 1.01, 1], 
         transition: { duration: 2, repeat: 2, repeatType: 'reverse' as const, ease: 'easeInOut' } 
@@ -423,7 +423,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       }
     };
 
-    return animationMap[emotion.primary] || ({} as Record<string, unknown>);
+    return animationMap[emotion.primary] || {};
   };
 
   return (
@@ -542,9 +542,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         {/* メッセージバブル */}
         <motion.div
           className={cn(
-            'relative px-4 py-3 rounded-2xl border',
-            settings.bubbleBlur ? 'backdrop-blur-md' : '', // smからmdへ変更
-            isGroupChat && !isUser && 'ring-1 ring-opacity-30',
+            'relative px-4 py-3 rounded-2xl',
+            settings.bubbleBlur ? 'backdrop-blur-md' : '',
           )}
           style={{
             background: isUser 
@@ -571,12 +570,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 : '0 0 30px rgba(168, 85, 247, 0.1)' // 影を少し弱める
           }}
           animate={
-            (!isUser && 
+            !isUser && 
             settings.emotionBasedStyling && 
             !settings.typewriterEffect && 
             !settings.particleEffects 
-              ? getEmotionAnimation() 
-              : {}) as any
+              ? getEmotionAnimation()
+              : {}
           }
         >
           {/* 重要度インジケーター */}

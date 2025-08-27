@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import NextImage from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
@@ -48,6 +49,11 @@ export const MessageInput: React.FC = () => {
     enhanceText,
     getActiveSession,
     systemPrompts,
+    // グループチャット関連
+    is_group_mode,
+    active_group_session_id,
+    groupSessions,
+    isGeneratingSuggestions,
   } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
@@ -55,20 +61,39 @@ export const MessageInput: React.FC = () => {
 
   const handleSuggestClick = async () => {
     console.log("💡 Suggest button clicked!");
-    const session = getActiveSession();
-    if (!session) return;
-
+    
     setShowSuggestionModal(true);
     
-    const recentMessages = session.messages.slice(-6);
     const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
       ? systemPrompts.replySuggestion 
       : undefined;
     
-    const character = session.participants.characters[0];
-    const user = session.participants.user;
-        
-    await generateSuggestions(recentMessages, character, user, customPrompt);
+    // グループチャットモードの場合
+    if (is_group_mode && active_group_session_id) {
+      const groupSession = groupSessions.get(active_group_session_id);
+      if (!groupSession) return;
+      
+      const recentMessages = groupSession.messages.slice(-6);
+      
+      // グループチャット用: 最初のアクティブキャラを使用
+      const activeChars = Array.from(groupSession.active_character_ids)
+        .map(id => groupSession.characters.find(c => c.id === id))
+        .filter(c => c !== undefined);
+      const character = activeChars[0] || groupSession.characters[0];
+      const user = groupSession.persona;
+      
+      await generateSuggestions(recentMessages, character, user, customPrompt);
+    } else {
+      // ソロモード
+      const session = getActiveSession();
+      if (!session) return;
+      
+      const recentMessages = session.messages.slice(-6);
+      const character = session.participants.characters[0];
+      const user = session.participants.user;
+      
+      await generateSuggestions(recentMessages, character, user, customPrompt);
+    }
   };
 
   const handleEnhanceClick = async () => {
@@ -224,7 +249,7 @@ export const MessageInput: React.FC = () => {
   }, [currentInputText]);
 
   return (
-    <div className="relative p-3 md:p-4 border-t border-transparent bg-slate-900/50 backdrop-blur-md z-[41]">
+    <div className="fixed bottom-0 left-0 right-0 p-3 md:p-4 border-t border-purple-400/20 bg-slate-900/95 backdrop-blur-lg z-[41]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}>
       <input
         ref={fileInputRef}
         type="file"
@@ -263,16 +288,22 @@ export const MessageInput: React.FC = () => {
               <X className="w-4 h-4" />
             </button>
           </div>
-          <img
-            src={selectedImage}
-            alt="Uploaded preview"
-            className="max-w-full max-h-32 rounded-lg object-contain"
-          />
+          <div className="relative" style={{ maxHeight: '8rem' }}>
+            <NextImage
+              src={selectedImage}
+              alt="Uploaded preview"
+              width={400}
+              height={128}
+              className="rounded-lg object-contain"
+              style={{ width: 'auto', height: 'auto', maxHeight: '8rem', maxWidth: '100%' }}
+              unoptimized
+            />
+          </div>
         </div>
       )}
 
       <div className="relative flex items-end gap-2 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10 p-2 md:p-3">
-        {/* 左側ボタンエリア - 画像アップロードボタンを削除してスペースを確保 */}
+        {/* 左側ボタンエリア */}
         <div className="flex gap-1">
           <VoiceCallButton />
           <GroupModeButton />
@@ -391,7 +422,7 @@ const ActionMenu = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="absolute bottom-24 right-4 bg-slate-800 border border-purple-400/20 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2"
+      className="absolute bottom-full mb-4 right-4 bg-slate-800 border border-purple-400/20 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2"
     >
       {menuItems.map((item) => (
         <motion.button

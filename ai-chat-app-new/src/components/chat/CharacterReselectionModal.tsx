@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, AlertTriangle, Check } from 'lucide-react';
 import { useAppStore } from '@/store';
@@ -216,11 +217,16 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                     >
                       <div className="flex items-center gap-3">
                         {character.avatar_url ? (
-                          <img 
-                            src={character.avatar_url} 
-                            alt={character.name}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
+                          <div className="relative w-12 h-12">
+                            <Image 
+                              src={character.avatar_url} 
+                              alt={character.name}
+                              width={48}
+                              height={48}
+                              className="rounded-full object-cover"
+                              unoptimized
+                            />
+                          </div>
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-slate-600 flex items-center justify-center">
                             <span className="text-lg font-bold">
@@ -270,11 +276,16 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                   <div className="space-y-2">
                     {changePreview.added.map(char => (
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
-                        <img 
-                          src={char.avatar_url} 
-                          alt={char.name}
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
+                        <div className="relative w-6 h-6">
+                          <Image 
+                            src={char.avatar_url || '/images/default-avatar.png'} 
+                            alt={char.name}
+                            width={24}
+                            height={24}
+                            className="rounded-full object-cover"
+                            unoptimized
+                          />
+                        </div>
                         {char.name}
                       </div>
                     ))}
@@ -292,11 +303,16 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                   <div className="space-y-2">
                     {changePreview.removed.map(char => (
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
-                        <img 
-                          src={char.avatar_url} 
-                          alt={char.name}
-                          className="w-6 h-6 rounded-full object-cover opacity-50"
-                        />
+                        <div className="relative w-6 h-6">
+                          <Image 
+                            src={char.avatar_url} 
+                            alt={char.name}
+                            width={24}
+                            height={24}
+                            className="rounded-full object-cover opacity-50"
+                            unoptimized
+                          />
+                        </div>
                         {char.name}
                       </div>
                     ))}
@@ -314,11 +330,16 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                   <div className="space-y-2">
                     {changePreview.kept.map(char => (
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
-                        <img 
-                          src={char.avatar_url} 
-                          alt={char.name}
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
+                        <div className="relative w-6 h-6">
+                          <Image 
+                            src={char.avatar_url || '/images/default-avatar.png'} 
+                            alt={char.name}
+                            width={24}
+                            height={24}
+                            className="rounded-full object-cover"
+                            unoptimized
+                          />
+                        </div>
                         {char.name}
                       </div>
                     ))}

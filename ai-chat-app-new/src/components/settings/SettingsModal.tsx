@@ -1677,6 +1677,75 @@ const DataManagementPanel: React.FC = () => {
         )}
       </div>
 
+      {/* 個別削除機能 */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">個別データ削除</h4>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              if (confirm('すべてのチャット履歴を削除しますか？')) {
+                const store = useAppStore.getState();
+                store.sessions.clear();
+                store.active_session_id = null;
+                alert('チャット履歴を削除しました');
+                window.location.reload();
+              }
+            }}
+            className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition-colors"
+          >
+            チャット履歴を削除
+          </button>
+          
+          <button
+            onClick={() => {
+              if (confirm('すべてのメモリーカードを削除しますか？')) {
+                const store = useAppStore.getState();
+                if (store.memoryCards) {
+                  store.memoryCards = [];
+                }
+                if (store.memories) {
+                  store.memories = [];
+                }
+                alert('メモリーカードを削除しました');
+                window.location.reload();
+              }
+            }}
+            className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition-colors"
+          >
+            メモリーカードを削除
+          </button>
+        </div>
+        
+        <div className="w-full">
+          <button
+            onClick={() => {
+              if (confirm('アップロードされた画像をすべて削除しますか？大幅に容量を節約できます。')) {
+                let deletedCount = 0;
+                let savedMB = 0;
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i);
+                  if (key) {
+                    const value = localStorage.getItem(key) || '';
+                    if (key.includes('image') || key.includes('upload') || value.startsWith('data:image')) {
+                      const sizeMB = new Blob([value]).size / (1024 * 1024);
+                      localStorage.removeItem(key);
+                      deletedCount++;
+                      savedMB += sizeMB;
+                    }
+                  }
+                }
+                alert(`画像${deletedCount}個を削除し、${savedMB.toFixed(2)}MBを節約しました`);
+                window.location.reload();
+              }
+            }}
+            className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors"
+          >
+            🌇 アップロード画像を削除（大幅に容量削減）
+          </button>
+        </div>
+      </div>
+
       {/* クリーンアップオプション */}
       <div className="space-y-4">
         <h4 className="text-lg font-medium text-white">データ管理</h4>

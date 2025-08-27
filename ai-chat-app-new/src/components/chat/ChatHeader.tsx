@@ -79,7 +79,7 @@ const ChatHeaderContent: React.FC = () => {
     // sessionがない場合でも、characterとpersonaがいれば部分的に表示
     if (!character || !persona) {
         return (
-            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/50 backdrop-blur-md safe-area-top">
+            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
                  {/* Maybe a loading skeleton here */}
             </div>
         );
@@ -91,7 +91,7 @@ const ChatHeaderContent: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-transparent bg-slate-900/60 backdrop-blur-md safe-area-top safe-area-left safe-area-right" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)', height: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -103,7 +103,7 @@ const ChatHeaderContent: React.FC = () => {
                     )}
                     title={isLeftSidebarOpen ? "Close sidebar" : "Open sidebar"}
                 >
-                    <PanelLeft className="w-5 h-5" />
+                    <PanelLeft className="w-6 h-6 md:w-5 md:h-5" />
                 </motion.button>
                 
                 {/* Group Info または Character Info */}
@@ -206,8 +206,8 @@ const ChatHeaderContent: React.FC = () => {
                         className="flex items-center gap-0.5 px-1.5 py-1 md:px-2 md:py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-purple-400/30 text-xs font-medium"
                         title="AI設定"
                     >
-                        <Settings className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                        <span className="text-white/90 hidden md:inline max-w-[60px] lg:max-w-[80px] truncate">
+                        <Settings className="w-4 h-4 md:w-3 md:h-3 text-blue-400 flex-shrink-0" />
+                        <span className="text-white/90 inline max-w-[80px] md:max-w-[100px] lg:max-w-[120px] truncate text-xs md:text-sm">
                             {getModelDisplayName(useAppStore.getState().apiConfig.model)}
                         </span>
                         <ChevronDown className="w-2 h-2 text-white/60 flex-shrink-0" />
@@ -225,7 +225,7 @@ const ChatHeaderContent: React.FC = () => {
                     )}
                     title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
                 >
-                    <Brain className="w-4 h-4 md:w-5 md:h-5" />
+                    <Brain className="w-5 h-5 md:w-5 md:h-5" />
                 </motion.button>
             </div>
             
@@ -252,7 +252,7 @@ const ChatHeaderContent: React.FC = () => {
 export const ChatHeader: React.FC = () => {
     return (
         <ClientOnlyProvider fallback={
-            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-transparent h-16 md:h-20 bg-slate-900/50 backdrop-blur-md safe-area-top">
+            <div className="fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
                 {/* Loading placeholder */}
             </div>
         }>

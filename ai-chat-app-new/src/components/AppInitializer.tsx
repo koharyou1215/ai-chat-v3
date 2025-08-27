@@ -2,6 +2,9 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useAppStore } from '@/store';
+import { StorageManager } from '@/utils/storage-cleanup';
+import { StorageAnalyzer } from '@/utils/storage-analyzer';
+import { StorageCleaner } from '@/utils/storage-cleaner';
 
 interface AppInitializerProps {
   children: ReactNode;
@@ -27,13 +30,29 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // ストレージ状況を詳細に分析
+        const storageInfo = StorageManager.getStorageInfo();
+        console.log('📊 Storage info:', storageInfo);
+        
+        // 詳細分析（開発環境のみ）
+        if (process.env.NODE_ENV === 'development') {
+          StorageAnalyzer.printAnalysis();
+          StorageAnalyzer.analyzeMessages();
+        }
+        
+        // 自動クリーンアップ
+        if (StorageManager.isStorageNearLimit()) {
+          console.warn('⚠️ Storage is near limit - starting cleanup');
+          StorageCleaner.cleanupLocalStorage();
+        }
+        
         // キャラクターとペルソナを並行で読み込み（個別エラーハンドリング付き）
         await Promise.allSettled([
           loadCharactersFromPublic(),
           loadPersonasFromPublic()
         ]);
       } catch (error) {
-        // Safariでのエラーハンドリング
+        console.error('❌ AppInitializer error:', error);
       }
     };
 

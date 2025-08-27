@@ -8,6 +8,7 @@ import { Character } from '@/types/core/character.types';
 import { Persona } from '@/types/core/persona.types';
 import { scenarioGenerator } from '@/services/scenario-generator';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store';
 
 interface ScenarioSelectorProps {
   characters: Character[];
@@ -22,6 +23,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
   onScenarioSelect,
   onSkip
 }) => {
+  const { apiConfig, openRouterApiKey, geminiApiKey } = useAppStore();
   const [scenarioMode, setScenarioMode] = useState<'template' | 'custom' | 'ai_generate'>('template');
   const [customRequest, setCustomRequest] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -73,7 +75,8 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
       const generatedScenario = await scenarioGenerator.generateCustomScenario(
         characters,
         persona,
-        customRequest || undefined
+        customRequest || undefined,
+        { ...apiConfig, openRouterApiKey, geminiApiKey }
       );
       
       const scenario: GroupChatScenario = {

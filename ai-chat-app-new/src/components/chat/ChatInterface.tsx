@@ -29,23 +29,7 @@ import useVH from '@/hooks/useVH';
 
 // メッセージ入力欄ラッパーコンポーネント
 const MessageInputWrapper: React.FC = () => {
-    const { isLeftSidebarOpen } = useAppStore();
-    
-    return (
-        <div 
-            className="fixed bottom-0 w-full md:w-auto z-30 bg-slate-900/50 backdrop-blur-md transition-all duration-300" 
-            style={{
-                paddingBottom: 'env(safe-area-inset-bottom)',
-                left: isLeftSidebarOpen ? '0' : '0',
-                right: '0',
-            }}
-            data-sidebar-open={isLeftSidebarOpen}
-        >
-            <div className={cn("transition-all duration-300", isLeftSidebarOpen ? "md:ml-80" : "ml-0")}>
-                <MessageInput />
-            </div>
-        </div>
-    );
+    return <MessageInput />;
 };
 
 const EmptyState = () => (
@@ -59,7 +43,7 @@ const EmptyState = () => (
             height: '100%',
             width: '100%',
             color: 'rgba(255, 255, 255, 0.5)',
-            backgroundColor: 'rgb(15, 23, 42)', // 背景色を明示的に指定
+            // 背景色を削除 - 背景画像を透けて見せる
         }}
     >
         <Bot size={48} className="mb-4" />
@@ -149,6 +133,14 @@ const ChatInterfaceContent: React.FC = () => {
     const character = getSelectedCharacter(); // character を取得
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'memory' | 'tracker' | 'history' | 'layers'>('memory');
+    const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
     
     // グループチャットセッションの取得
     const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
@@ -235,17 +227,35 @@ const ChatInterfaceContent: React.FC = () => {
     
     return (
         <div 
-            className="flex bg-slate-900 text-white overflow-hidden h-screen" 
+            className="flex bg-slate-900 text-white h-screen" 
             style={{ 
-                position: 'relative',
-                display: 'flex',
-                width: '100vw',
-                height: '100vh',
-                minHeight: '-webkit-fill-available',
-                backgroundColor: 'rgb(15, 23, 42)',
-                color: 'white'
+                height: 'calc(var(--vh, 1vh) * 100)'
             }}
         >
+            {/* 全画面背景画像 - 最背面に配置 */}
+            {character && character.background_url && (
+                <div className="fixed inset-0 w-full h-full overflow-hidden z-0">
+                    {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
+                        <video
+                            src={character.background_url}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                            src={character.background_url} 
+                            alt="background" 
+                            className="w-full h-full object-cover"
+                        />
+                    )}
+                    <div className="absolute inset-0 bg-black/30" />
+                </div>
+            )}
+
             <ClientOnlyProvider fallback={null}>
                 <AnimatePresence>
                     {isLeftSidebarOpen && <ChatSidebar />}
@@ -262,96 +272,68 @@ const ChatInterfaceContent: React.FC = () => {
             
             <div 
                 className={cn(
-                    "flex flex-1 min-w-0",
+                    "flex flex-1 min-w-0 relative z-10",
                     // モバイルではマージンなし、デスクトップでは320pxマージン
                     isLeftSidebarOpen ? "ml-0 md:ml-80" : "ml-0"
                 )}
                 style={{
-                    // Safari用の明示的なスタイル
+                    // Safari用の明示的なスタイル（背景色を削除）
                     display: 'flex',
                     flexGrow: 1,
                     width: '100%',
                     height: '100%',
                     position: 'relative',
-                    backgroundColor: 'rgb(15, 23, 42)' // bg-slate-900の色を直接指定
+                    // backgroundColor を削除 - 透明にして背景画像を透けて見せる
                 }}
             >
                 {/* メインコンテンツエリア */}
-                <div 
-                    className="flex-1 flex flex-col min-w-0 relative overflow-hidden" 
-                    style={{ 
-                        width: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%'
-                    }}
-                >
-                    {/* Background Image */}
-                    {character && character.background_url && (
-                        <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-                            {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
-                                <video
-                                    src={character.background_url}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-contain object-center"
-                                />
-                            ) : (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img 
-                                    src={character.background_url} 
-                                    alt="background" 
-                                    className="w-full h-full object-contain object-center"
-                                />
-                            )}
-                            <div className="absolute inset-0 w-full h-full bg-black/20" />
-                        </div>
-                    )}
-
-                    {/* メッセージリスト専用コンテナ */}
-                    <div className="relative z-10 flex-1 flex flex-col min-h-0">
-                        <div 
-                            className="flex-1 overflow-y-auto px-3 md:px-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent"
-                            style={{ 
-                                paddingTop: '70px', 
-                                paddingBottom: '120px'
-                            }} 
-                        >
-                            {currentMessages.length > 0 ? (
-                                <AnimatePresence mode="popLayout" initial={false}>
-                                    {currentMessages.map((message, index) => (
-                                        <MessageBubble
-                                            key={message.id}
-                                            message={message}
-                                            previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
-                                            isLatest={index === currentMessages.length - 1}
-                                            isGroupChat={is_group_mode}
-                                        />
-                                    ))}
-                                </AnimatePresence>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
-                                    <Bot size={48} className="mb-4" />
-                                    <h2 className="text-xl font-semibold mb-2">まだメッセージがありません</h2>
-                                    <p>新しい会話を始めましょう</p>
-                                </div>
-                            )}
-                            
-                            {(is_generating || group_generating) && <ThinkingIndicator />}
-                            
-                            <div ref={messagesEndRef} />
-                        </div>
+                <div className="flex-1 flex flex-col min-w-0 relative">
+                    {/* ヘッダー */}
+                    <ChatHeader />
+                    
+                    {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
+                    <div 
+                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10" 
+                        style={{ 
+                            position: 'fixed',
+                            top: 0,
+                            left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
+                            right: 0,
+                            bottom: 0,
+                            paddingTop: '60px', 
+                            paddingBottom: '80px',
+                            backgroundColor: 'transparent'
+                        }}
+                    >
+                        {currentMessages.length > 0 ? (
+                            <AnimatePresence mode="popLayout" initial={false}>
+                                {currentMessages.map((message, index) => (
+                                    <MessageBubble
+                                        key={message.id}
+                                        message={message}
+                                        previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
+                                        isLatest={index === currentMessages.length - 1}
+                                        isGroupChat={is_group_mode}
+                                    />
+                                ))}
+                            </AnimatePresence>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
+                                <Bot size={48} className="mb-4" />
+                                <h2 className="text-xl font-semibold mb-2">まだメッセージがありません</h2>
+                                <p>新しい会話を始めましょう</p>
+                            </div>
+                        )}
+                        
+                        {(is_generating || group_generating) && <ThinkingIndicator />}
+                        
+                        <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Safe Area対応ヘッダー (固定) */}
-                    <ChatHeader />
-
-                    {/* メッセージ入力欄 (固定・キーボード追従) */}
+                    {/* メッセージ入力欄 */}
                     <MessageInputWrapper />
                 </div>
-
+                
                 {/* 右サイドパネル */}
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>

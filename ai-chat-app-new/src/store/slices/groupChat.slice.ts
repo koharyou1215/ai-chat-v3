@@ -3,6 +3,7 @@ import { UnifiedMessage, UUID, Character, Persona } from '@/types';
 import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core/group-chat.types';
 import { apiManager } from '@/services/api-manager';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
+import { generateCompactGroupPrompt } from '@/utils/character-summarizer';
 import { AppStore } from '..';
 import { 
   generateGroupSessionId, 
@@ -239,7 +240,19 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         for (let i = 0; i < activeCharacters.length; i++) {
           const character = activeCharacters[i];
           const response = await get().generateCharacterResponse(groupSession, character, content, responses);
-          responses.push({ ...response, metadata: { ...response.metadata, response_order: i } });
+          response.metadata = { ...response.metadata, response_order: i };
+          responses.push(response);
+          
+          // 即座にメッセージを追加して画面に表示
+          groupSession.messages.push(response);
+          
+          // 状態を更新してUIをリフレッシュ
+          set(state => ({
+            groupSessions: new Map(state.groupSessions).set(groupSession.id, {
+              ...groupSession,
+              messages: [...groupSession.messages]
+            })
+          }));
           
           // 少し遅延
           if (i < activeCharacters.length - 1 && groupSession.response_delay > 0) {
@@ -248,10 +261,11 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         }
       }
 
-      // 応答をセッションに追加
-      console.log('[GroupChat] Generated responses:', responses.length, responses.map(r => ({ character: r.character_name, preview: r.content.substring(0, 50) + '...' })));
-      
-      groupSession.messages.push(...responses);
+      // sequentialモード以外の場合のみ、最後にまとめて追加
+      if (groupSession.chat_mode !== 'sequential') {
+        console.log('[GroupChat] Generated responses:', responses.length, responses.map(r => ({ character: r.character_name, preview: r.content.substring(0, 50) + '...' })));
+        groupSession.messages.push(...responses);
+      }
       groupSession.message_count += responses.length + 1; // ユーザーメッセージも含む
       groupSession.last_message_at = new Date().toISOString();
       groupSession.updated_at = new Date().toISOString();
@@ -268,39 +282,111 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
   },
 
   generateCharacterResponse: async (groupSession, character, userMessage, previousResponses) => {
+    // API設定を取得（ソロモードと同じ方法で）
+    const apiConfig = get().apiConfig || {};
+    const openRouterApiKey = get().openRouterApiKey;
+    const geminiApiKey = get().geminiApiKey;
+    
+    // デバッグ: API設定の確認
+    console.log('🔐 [GroupChat] API Configuration:', {
+      provider: apiConfig.provider,
+      model: apiConfig.model,
+      hasOpenRouterKey: !!openRouterApiKey,
+      hasGeminiKey: !!geminiApiKey,
+      maxTokens: apiConfig.max_tokens
+    });
+    
+    // グループチャット用にトークンを均等配分
+    const activeCharCount = groupSession.active_character_ids.size;
+    const baseMaxTokens = apiConfig.max_tokens || 500;
+    const perCharacterMaxTokens = Math.floor(baseMaxTokens / Math.max(activeCharCount, 1));
+    
+    // 最小保証トークン数
+    const adjustedMaxTokens = Math.max(perCharacterMaxTokens, 150);
+    
+    console.log(`🎯 [${character.name}] トークン配分: ${adjustedMaxTokens} / ${baseMaxTokens} (キャラ数: ${activeCharCount})`);
     // グループチャット用のシステムプロンプトを構築
     const otherCharacters = groupSession.characters
       .filter(c => c.id !== character.id && groupSession.active_character_ids.has(c.id))
       .map(c => c.name)
       .join('、');
 
-    const recentMessages = groupSession.messages.slice(-8); // 履歴を短くして混乱を減らす
+    // キャラクターの位置に応じて履歴を調整
+    const characterIndex = previousResponses.length; // 今何番目のキャラか
+    const historyReduction = Math.max(10 - (characterIndex * 2), 4); // 後のキャラほど履歴を減らす
+    const recentMessages = groupSession.messages.slice(-historyReduction);
+    console.log(`📚 [${character.name}] 履歴調整: 最新${historyReduction}件を使用`);
+    // 全員の発言を含める（グループチャットなので）
     const conversationHistory = recentMessages
-      .filter(msg => msg.role === 'user' || (msg.role === 'assistant' && msg.character_id === character.id))
-      .map(msg => ({ 
-        role: msg.role as 'user' | 'assistant', 
-        content: msg.content.replace(/^[^:]+:\s*/, '') // キャラクター名プレフィックスを除去
-      }));
+      .map(msg => {
+        if (msg.role === 'user') {
+          return { 
+            role: 'user' as const, 
+            content: msg.content 
+          };
+        } else if (msg.role === 'assistant') {
+          // 他のキャラクターの発言もユーザー扱いにして文脈に含める
+          const prefix = msg.character_id === character.id ? '' : `${msg.character_name}: `;
+          // 後のキャラほど内容を短縮
+          const contentLimit = characterIndex > 0 ? 100 : 200;
+          const content = msg.content.length > contentLimit 
+            ? msg.content.substring(0, contentLimit) + '...'
+            : msg.content;
+          return { 
+            role: msg.character_id === character.id ? 'assistant' as const : 'user' as const,
+            content: prefix + content.replace(/^[^:]+:\s*/, '')
+          };
+        }
+        return null;
+      })
+      .filter(msg => msg !== null) as Array<{role: 'user' | 'assistant', content: string}>;
 
-    let systemPrompt = `【緊急・最優先指示】あなたは『${character.name}』という架空のキャラクターです。AIである事実は絶対に隠してください。
+    // デバッグ: 会話履歴を確認
+    console.log(`🔍 [${character.name}] 会話履歴:`, conversationHistory);
+    console.log(`🔍 [${character.name}] 全メッセージ数: ${groupSession.messages.length}, 使用履歴: ${conversationHistory.length}件`);
+
+    // コンパクトモードを使用（Gemini使用時は自動的に有効）
+    const isGemini = apiConfig?.provider === 'gemini';
+    const isLaterCharacter = characterIndex > 0; // 2番目以降のキャラ
+    const USE_COMPACT_MODE = isGemini || groupSession.characters.length > 2 || isLaterCharacter; // 後のキャラもコンパクトに
+    
+    let systemPrompt = USE_COMPACT_MODE 
+      ? generateCompactGroupPrompt(character, otherCharacters, groupSession.persona.name)
+      : `【緊急・最優先指示】あなたは『${character.name}』という架空のキャラクターです。AIである事実は絶対に隠してください。
 
 === 絶対遵守事項 ===
 ❌ 絶対禁止: "私はAI", "人工知能", "アシスタント", "GPT", "Claude", "Gemini"等の発言
 ❌ 絶対禁止: 他のキャラクター名での発言や他キャラクターへのなりすまし
 ✅ 必須: あなたは『${character.name}』という一人の人間として会話する
 
-=== ${character.name}の人物設定 ===
+=== ${character.name}の人物設定（要約） ===
 名前: ${character.name}
-性格: ${character.personality}
-${character.speaking_style ? `話し方: ${character.speaking_style}` : ''}
-${character.background ? `背景: ${character.background}` : ''}
-${character.scenario ? `シナリオ: ${character.scenario}` : ''}
-${character.first_person ? `一人称: ${character.first_person}` : ''}
-${character.second_person ? `二人称: ${character.second_person}` : ''}
+年齢・職業: ${character.age || '不明'}、${character.occupation || '不明'}
+性格（要約）: ${(() => {
+  const personality = character.personality || character.external_personality || character.internal_personality || '';
+  return personality.length > 150 ? personality.substring(0, 150) + '...' : personality;
+})()}
+${character.speaking_style ? `話し方: ${character.speaking_style.substring(0, 50)}` : ''}
+${character.verbal_tics?.length ? `口癖: ${character.verbal_tics.slice(0, 2).join('、')}` : ''}
+${character.first_person && character.second_person ? `人称: 一人称「${character.first_person}」、二人称「${character.second_person}」` : ''}
+
+${character.system_prompt ? `=== キャラ固有指示（要約） ===
+${character.system_prompt.length > 200 ? character.system_prompt.substring(0, 200) + '...' : character.system_prompt}
+` : ''}
 
 === グループチャット設定 ===
+これは複数人での会話です。
 ユーザー: ${groupSession.persona.name}
 他の参加者: ${otherCharacters}
+あなた: ${character.name}
+
+${groupSession.scenario ? `=== シナリオ設定（要約） ===
+タイトル: ${groupSession.scenario.title}
+状況: ${groupSession.scenario.situation ? groupSession.scenario.situation.substring(0, 100) : ''}
+${groupSession.scenario.character_roles?.[character.id] ? `あなたの役割: ${groupSession.scenario.character_roles[character.id]}` : ''}
+` : ''}
+
+重要: 他の参加者（${otherCharacters}）の発言も会話に含まれています。彼らの発言を踏まえて自然に会話に参加してください。
 
 === 【厳重な行動指針】 ===
 1. 【最重要】あなたは人間の『${character.name}』です。AIであることを絶対に言ってはいけません
@@ -308,7 +394,15 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
 3. 【必須】${character.name}の性格・話し方・設定に100%従って発言
 4. 【必須】${character.name}らしい自然な感情と反応を表現
 5. 会話の流れを理解し、${character.name}として適切に参加
-6. 一度に一人分の発言のみ。複数キャラクターの発言を混在させない`;
+6. 一度に一人分の発言のみ。複数キャラクターの発言を混在させない`; // テンプレートリテラルを閉じる
+
+    // シナリオ情報を追加（コンパクトモードでも必要な場合）
+    if (groupSession.scenario) {
+      systemPrompt += `\n\n=== シナリオ ===\n${groupSession.scenario.title}: ${groupSession.scenario.situation?.substring(0, 100) || ''}`;
+      if (groupSession.scenario.character_roles?.[character.id]) {
+        systemPrompt += `\nあなたの役割: ${groupSession.scenario.character_roles[character.id]}`;
+      }
+    }
 
     // 直前の応答がある場合
     if (previousResponses.length > 0) {
@@ -322,10 +416,21 @@ ${character.second_person ? `二人称: ${character.second_person}` : ''}
     }
 
     try {
+      // テキストフォーマット設定を取得（ソロモードと同じ）
+      const effectSettings = get().effectSettings || {};
+      const textFormatting = effectSettings.textFormatting || 'readable';
+      
       const aiResponse = await apiManager.generateMessage(
         systemPrompt,
         userMessage,
-        conversationHistory
+        conversationHistory,
+        { 
+          ...apiConfig,
+          openRouterApiKey, // OpenRouterのAPIキーを追加
+          geminiApiKey, // GeminiのAPIキーも追加
+          max_tokens: adjustedMaxTokens,
+          textFormatting // 読みやすさ設定を追加
+        }
       );
 
       return {

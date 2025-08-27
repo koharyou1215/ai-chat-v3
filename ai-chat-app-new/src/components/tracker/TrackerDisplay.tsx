@@ -470,7 +470,7 @@ const StateTracker: React.FC<{
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {possibleStates.map((state) => {
+        {possibleStates.map((state: string | { id: string; label: string; color: string }) => {
           // 新しいフォーマットでは文字列の場合もある
           const stateObj = typeof state === 'string' ? { id: state, label: state, color: '#6366f1' } : state;
           const isSelected = stateObj.id === value;
@@ -502,28 +502,30 @@ const StateTracker: React.FC<{
       <motion.div 
         className="text-center py-2 px-3 rounded-lg border backdrop-blur-sm"
         style={{
-          borderColor: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) 
-            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color) + '60'
-            : '#6366f160',
-          backgroundColor: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
-            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color) + '20'
-            : '#6366f120'
+          borderColor: (() => {
+            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) + '60' : '#6366f160';
+          })(),
+          backgroundColor: (() => {
+            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) + '20' : '#6366f120';
+          })()
         }}
         animate={hasRecentChange ? { scale: [1, 1.02, 1] } : {}}
       >
         <span 
           className="text-sm font-medium" 
           style={{ 
-            color: possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
-              ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' ? '#6366f1' : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).color)
-              : '#6366f1'
+            color: (() => {
+              const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+              return foundState ? (typeof foundState === 'string' ? '#6366f1' : foundState.color) : '#6366f1';
+            })()
           }}
         >
-          現在: {possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value)
-            ? (typeof possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) === 'string' 
-                ? possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value) 
-                : possibleStates.find(s => (typeof s === 'string' ? s : s.id) === value).label)
-            : value}
+          現在: {(() => {
+            const foundState = possibleStates.find((s: any) => (typeof s === 'string' ? s : s.id) === value);
+            return foundState ? (typeof foundState === 'string' ? foundState : foundState.label) : value;
+          })()}
         </span>
       </motion.div>
     </div>

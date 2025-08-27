@@ -70,8 +70,8 @@ export class InspirationService {
       // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
       const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('✨ Inspiration request started via queue');
-        // デフォルトは 512 トークンにして API 負荷とレイテンシを下げる
-        const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
+        // 返信提案用に十分なトークンを確保
+        const effectiveMaxTokens = apiConfig?.max_tokens ?? 800;
         console.log(`💡 Using max_tokens for reply suggestions: ${effectiveMaxTokens}`);
         const inspirationApiConfig = {
           ...apiConfig,
@@ -191,8 +191,8 @@ ${context}
       // ⚡ テキスト拡張もキュー経由で実行
       const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
         console.log('🎆 Text enhancement request started via queue');
-        // テキスト強化は中程度のトークンで十分なことが多いためデフォルトを 512 にする
-        const effectiveMaxTokens = apiConfig?.max_tokens ?? 512;
+        // 文章強化用に十分なトークンを確保（元の文章より長くなることを想定）
+        const effectiveMaxTokens = apiConfig?.max_tokens ?? 1000;
         console.log(`🎯 Using max_tokens for text enhancement: ${effectiveMaxTokens}`);
         return this.tryGenerateWithRetry(prompt, { ...apiConfig, max_tokens: effectiveMaxTokens });
       });
@@ -238,12 +238,12 @@ ${context}
         
         // detect token-limit style errors (MAX_TOKENS, MAXTALK, truncated reply, etc.)
         if (/MAX_TOKENS|MAXTALK|token limit|exceeded|max tokens/i.test(msg)) {
-          // reduce max tokens and trim prompt context
+          // reduce max tokens and retry silently
           currentMax = Math.max(64, Math.floor(currentMax / 2));
           // trim last 1/3 of prompt to reduce token count
           const keep = Math.floor((currentPrompt.length * 2) / 3);
           currentPrompt = currentPrompt.substring(0, Math.max(keep, 200));
-          console.warn(`🔄 Retrying generation after token limit (attempt ${attempt}/${3}), reducing max_tokens to ${currentMax}`);
+          // Don't show error to user - just retry
           // small backoff
           await new Promise(r => setTimeout(r, 200 * attempt));
           continue;
@@ -330,28 +330,29 @@ ${context}
     user: Persona,
     suggestionCount: number
   ): string {
-    return `あなたはユーザー「${user.name}」として、キャラクター「${character.name}」と会話しています。
-以下の状況設定と会話の流れを深く理解し、ユーザー「${user.name}」として次に行う返信として、最も自然で魅力的なものを互いに全く異なる方向性で${suggestionCount}つ提案してください。
+    return `あなたはユーザー「${user.name}」の立場で返信案を提案するAIです。
+以下の会話で、ユーザー「${user.name}」が次に言うべき内容を${suggestionCount}つ提案してください。
 
-### 対話相手のキャラクター情報
-- 名前: ${character.name}
-- 背景設定: ${character.background}
-- 現在のシナリオ: ${character.scenario}
+### ユーザー情報
+名前: ${user.name}
+${user.age ? `年齢: ${user.age}` : ''}
+${user.occupation ? `職業: ${user.occupation}` : ''}
+${user.personality ? `性格: ${user.personality}` : ''}
+${user.catchphrase ? `口調: ${user.catchphrase}` : ''}
 
-### あなた（ユーザー）のプロフィール
-${user.description}
+### 会話相手（キャラクター）
+${character.name}（${character.age || '年齢不明'}）
 
 ### 最近の会話
 ${context}
 
-### 非常に重要な指示
-- **最優先事項**: 生成する文章は、必ずユーザー「${user.name}」視点の発言です。
-- ${suggestionCount}つの提案は、それぞれが全く異なるアプローチ（例：感情的な反応、論理的な質問、意外な行動提案など）になるようにしてください。
-- 各提案は、150文字以内で、できるだけ表現豊かに記述してください。
-- 箇条書き（\`1.\` \`2.\` ${suggestionCount > 2 ? '\`3.\` ' : ''}の形式）で、提案の文章だけを記述してください。
-- キャラクター「${character.name}」のセリフは絶対に生成しないでください。
-- あなたのプロフィールを考慮した、適切な口調や態度で返信してください。
-- 前置きや説明は一切不要です。`;
+### 絶対厳守ルール
+- **必ず${user.name}の立場から、${user.name}の性格・口調で発言**
+- **${character.name}のセリフは絶対に生成しない**
+- **女性的な口調や、キャラクター側の視点は絶対禁止**
+- ${suggestionCount}つの異なる返信案（それぞれ150-200文字）
+- 各提案は改行のみで区切る
+- 番号、記号、接続詞は不要`;
   }
 
   /**
@@ -371,78 +372,56 @@ ${context}
    * 生成された提案のパース
    */
   private parseSuggestions(content: string, approaches: string[]): string[] {
-    if (approaches.length === 0) {
-        return content.split('\n').map(s => s.trim()).filter(Boolean);
-    }
-      
+    // コンテンツをクリーンアップ
+    const cleanContent = content
+      .replace(/^[\s\S]*?(?=\n|^)/, '') // 前置きを削除
+      .replace(/\*\*/g, '') // マークダウンの強調を削除
+      .trim();
+
     const suggestions: string[] = [];
     
-    // 方法1: 正確な[カテゴリー]マッチング
-    const escapedApproaches = approaches.map(app => 
+    // アプローチが指定されている場合は[カテゴリー]形式を試す
+    if (approaches.length > 0) {
+      const escapedApproaches = approaches.map(app => 
         app.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    );
-    
-    const regex = new RegExp(`\\[(?:\\d+\\.\\s*)?(${escapedApproaches.join('|')})\\]\\s*([\\s\\S]*?)(?=\\s*\\[|$)`, 'g');
-    
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      const suggestion = match[2].trim();
-      if (suggestion.length > 0) {
-        suggestions.push(suggestion);
-      }
-    }
-
-    // 方法2: より柔軟な解析（[任意のテキスト]形式）
-    if (suggestions.length === 0) {
-      const flexibleRegex = /\[([^\]]+)\]\s*([^\[]*?)(?=\s*\[|$)/g;
-      let flexMatch;
-      while ((flexMatch = flexibleRegex.exec(content)) !== null) {
-        const suggestion = flexMatch[2].trim();
-        if (suggestion.length > 5) { // 最低5文字以上
+      );
+      const regex = new RegExp(`\\[(${escapedApproaches.join('|')})\\]\\s*([\\s\\S]*?)(?=\\s*\\[|$)`, 'g');
+      
+      let match;
+      while ((match = regex.exec(cleanContent)) !== null) {
+        const suggestion = match[2].trim();
+        if (suggestion.length > 0) {
           suggestions.push(suggestion);
         }
       }
-    }
-
-    // 方法3: 番号付きリストでの分割
-    if (suggestions.length === 0) {
-      const lines = content.split('\n');
-      const numberedSuggestions: string[] = [];
       
-      for (const line of lines) {
-        // 1. 2. 3. などの番号付き形式を検出
-        const numberedMatch = line.match(/^\s*\d+\.\s*(.+)/);
-        if (numberedMatch) {
-          numberedSuggestions.push(numberedMatch[1].trim());
-        }
-        // - や • などの箇条書き形式を検出
-        else if (line.match(/^\s*[-•]\s*(.+)/)) {
-          const bulletMatch = line.match(/^\s*[-•]\s*(.+)/);
-          if (bulletMatch) {
-            numberedSuggestions.push(bulletMatch[1].trim());
-          }
-        }
-        // 何も頭に付けない形式（空行で区切られた段落）
-        else if (line.trim().length > 10 && !line.includes('[') && !line.includes('※') && !line.includes('以下')) {
-          numberedSuggestions.push(line.trim());
-        }
-      }
-      
-      if (numberedSuggestions.length > 0) {
-        return numberedSuggestions.slice(0, approaches.length);
+      if (suggestions.length > 0) {
+        return suggestions.slice(0, approaches.length);
       }
     }
-
-    // 方法4: 最終フォールバック（段落分割）
-    if (suggestions.length === 0) {
-      const paragraphs = content.split(/\n\s*\n/)
-        .map(p => p.replace(/\[.*?\]/g, '').trim())
-        .filter(p => p.length > 10);
-      
-      return paragraphs.slice(0, approaches.length);
-    }
-
-    return suggestions.slice(0, approaches.length);
+    
+    // シンプルな改行区切りで分割（推奨フォーマット）
+    const lines = cleanContent.split('\n')
+      .map(line => {
+        // 番号や記号を削除
+        return line
+          .replace(/^\s*\d+[\.\)]\s*/, '') // 1. 2. 3) などを削除
+          .replace(/^\s*[-•·]\s*/, '') // - • · などを削除
+          .replace(/^(続き|それから|また|さらに|そして)[、。:\s]*/, '') // 接続詞を削除
+          .trim();
+      })
+      .filter(line => {
+        // 有効な提案のみを残す
+        return line.length > 10 && 
+               !line.includes('以下') && 
+               !line.includes('※') &&
+               !line.includes('：') &&
+               !line.includes('提案');
+      });
+    
+    // 期待する数の提案を返す
+    const expectedCount = approaches.length > 0 ? approaches.length : 2;
+    return lines.slice(0, expectedCount);
   }
 
   /**

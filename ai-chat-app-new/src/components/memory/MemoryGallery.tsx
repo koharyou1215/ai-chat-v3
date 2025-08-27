@@ -52,7 +52,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     // 検索フィルタ
     if (searchTerm) {
       filtered = filtered.filter(memory =>
-        memory.original_content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        memory.original_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         memory.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
         memory.keywords.some(keyword => keyword.toLowerCase().includes(searchTerm.toLowerCase())) ||
         memory.auto_tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -90,8 +90,9 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
           bValue = b.importance.score;
           break;
         case 'last_accessed':
-          aValue = new Date(a.last_accessed || a.created_at);
-          bValue = new Date(b.last_accessed || b.created_at);
+          // Since last_accessed doesn't exist in MemoryCard, use updated_at as a proxy
+          aValue = new Date(a.updated_at);
+          bValue = new Date(b.updated_at);
           break;
         default:
           aValue = new Date(a.created_at);

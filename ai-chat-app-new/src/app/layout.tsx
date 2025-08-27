@@ -25,6 +25,8 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -34,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full">
-      <body className={`${inter.className} bg-slate-900 text-white h-full`}>
+      <body className={`${inter.className} bg-slate-900 text-white h-full`} suppressHydrationWarning>
         
         <ErrorBoundary>
           <StorageInitializer />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect as _useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { Character as _Character } from '@/types/core/character.types';
@@ -165,6 +166,23 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* 🆕 新規グループチャットボタン */}
+            <button
+              onClick={() => {
+                setActiveGroupSession(null);
+                setShowSetup(true);
+                setSelectedCharacterIds([]);
+                setGroupName('新しいグループチャット');
+                setChatMode('sequential');
+                setCurrentStep('characters');
+                setSelectedScenario(null);
+              }}
+              className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+              title="新しいグループチャットを開始"
+            >
+              <Plus className="w-4 h-4" />
+              新規グループ
+            </button>
             {/* 🆕 キャラクター再選択ボタン */}
             <button
               onClick={() => setShowCharacterReselectionModal(true)}
@@ -271,11 +289,16 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                   }
                 >
                   {character.avatar_url ? (
-                    <img 
-                      src={character.avatar_url} 
-                      alt={character.name}
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
+                    <div className="relative w-5 h-5">
+                      <Image 
+                        src={character.avatar_url} 
+                        alt={character.name}
+                        width={20}
+                        height={20}
+                        className="rounded-full object-cover"
+                        unoptimized
+                      />
+                    </div>
                   ) : (
                     <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-xs">
                       {character.name[0]?.toUpperCase()}
@@ -443,10 +466,13 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                           {session.characters.slice(0, 3).map(char => (
                             <div key={char.id} className="w-8 h-8 rounded-full border-2 border-purple-400/30">
                               {char.avatar_url ? (
-                                <img 
+                                <Image 
                                   src={char.avatar_url} 
                                   alt={char.name}
-                                  className="w-full h-full rounded-full object-cover"
+                                  width={32}
+                                  height={32}
+                                  className="rounded-full object-cover"
+                                  unoptimized
                                 />
                               ) : (
                                 <div className="w-full h-full rounded-full bg-slate-600" />
@@ -549,11 +575,16 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                 >
                   <div className="flex items-center gap-3">
                     {character.avatar_url ? (
-                      <img 
-                        src={character.avatar_url} 
-                        alt={character.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                      <div className="relative w-10 h-10">
+                        <Image 
+                          src={character.avatar_url} 
+                          alt={character.name}
+                          width={40}
+                          height={40}
+                          className="rounded-full object-cover"
+                          unoptimized
+                        />
+                      </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-slate-600" />
                     )}
