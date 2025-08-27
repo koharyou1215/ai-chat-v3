@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
 import { ErrorBoundary } from "@/components/utils/ErrorBoundary";
+import "@/utils/storage-cleanup"; // Import global storage utilities
 
 // 日本語フォント対応
 const inter = Inter({ 

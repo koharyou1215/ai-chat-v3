@@ -81,7 +81,8 @@
       "WebFetch(domain:developer.mozilla.org)",
       "WebFetch(domain:npmjs.com)",
       "WebFetch(domain:nextjs.org)",
-      "Bash(TYPESCRIPT_CHECK=false npm run dev)"
+      "Bash(TYPESCRIPT_CHECK=false npm run dev)",
+      "Bash(time npm run build)"
     ],
     "deny": [],
     "ask": [],

@@ -99,6 +99,57 @@ const createStore = () => {
             if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
             if (!window.localStorage) return;
             
+            // サイズチェック - 5MB制限 (localStorage limit is typically 5-10MB)
+            const sizeInBytes = new Blob([value]).size;
+            const sizeInMB = sizeInBytes / (1024 * 1024);
+            
+            if (sizeInMB > 4) { // 4MB制限で安全マージンを確保
+              console.warn(`🚨 Storage size too large: ${sizeInMB.toFixed(2)}MB. Attempting cleanup...`);
+              
+              // 古いセッションデータをクリーンアップ
+              try {
+                const parsed = JSON.parse(value);
+                if (parsed?.state?.sessions) {
+                  const sessions = parsed.state.sessions;
+                  if (sessions instanceof Map || (sessions._type === 'map' && sessions.value)) {
+                    const sessionEntries = sessions instanceof Map ? Array.from(sessions.entries()) : sessions.value;
+                    
+                    // セッション数を制限（最新の10セッションのみ保持）
+                    if (sessionEntries.length > 10) {
+                      const sortedSessions = sessionEntries
+                        .sort((a, b) => {
+                          const aTime = a[1]?.updatedAt || a[1]?.createdAt || 0;
+                          const bTime = b[1]?.updatedAt || b[1]?.createdAt || 0;
+                          return bTime - aTime;
+                        })
+                        .slice(0, 10);
+                      
+                      if (sessions instanceof Map) {
+                        parsed.state.sessions = new Map(sortedSessions);
+                      } else {
+                        parsed.state.sessions = { _type: 'map', value: sortedSessions };
+                      }
+                    }
+                  }
+                }
+                
+                // メモリカードもクリーンアップ（最新の100件のみ保持）
+                if (parsed?.state?.memoryCards && Array.isArray(parsed.state.memoryCards)) {
+                  if (parsed.state.memoryCards.length > 100) {
+                    parsed.state.memoryCards = parsed.state.memoryCards
+                      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                      .slice(0, 100);
+                  }
+                }
+                
+                value = JSON.stringify(parsed);
+                const newSizeInMB = new Blob([value]).size / (1024 * 1024);
+                console.log(`🧹 Cleaned up storage: ${sizeInMB.toFixed(2)}MB → ${newSizeInMB.toFixed(2)}MB`);
+              } catch (cleanupError) {
+                console.error('Failed to cleanup storage data:', cleanupError);
+              }
+            }
+            
             // JSON形式の検証と保存前検証
             try {
               const parsed = JSON.parse(value);
@@ -113,7 +164,8 @@ const createStore = () => {
                   hasApiConfig: !!parsed.state?.apiConfig,
                   hasVoice: !!parsed.state?.voice,
                   maxTokens: parsed.state?.apiConfig?.max_tokens,
-                  voiceProvider: parsed.state?.voice?.provider
+                  voiceProvider: parsed.state?.voice?.provider,
+                  sizeInMB: sizeInMB.toFixed(2)
                 });
               }
             } catch (parseErr) {
@@ -122,9 +174,35 @@ const createStore = () => {
             }
             
             window.localStorage.setItem(name, value);
-            console.log(`✅ Successfully saved to localStorage: ${name}`);
+            console.log(`✅ Successfully saved to localStorage: ${name} (${sizeInMB.toFixed(2)}MB)`);
           } catch (error) {
-            console.error('Error writing to localStorage:', error);
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+              console.error('🚨 LocalStorage quota exceeded! Attempting emergency cleanup...');
+              
+              // 緊急クリーンアップ: 古いデータを削除
+              try {
+                // 他のlocalStorageキーもチェックして古いものを削除
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith('ai-chat-v3-') && key !== name) {
+                    localStorage.removeItem(key);
+                    console.log(`🗑️ Removed old storage key: ${key}`);
+                  }
+                }
+                
+                // 再試行
+                window.localStorage.setItem(name, value);
+                console.log('✅ Emergency cleanup successful, data saved');
+              } catch (retryError) {
+                console.error('❌ Emergency cleanup failed, data not saved:', retryError);
+                // ユーザーに通知
+                if (typeof window !== 'undefined' && window.alert) {
+                  window.alert('ストレージ容量が不足しています。ブラウザのキャッシュをクリアしてください。');
+                }
+              }
+            } else {
+              console.error('Error writing to localStorage:', error);
+            }
           }
         },
         removeItem: (name: string) => {
