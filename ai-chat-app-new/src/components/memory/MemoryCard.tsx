@@ -34,7 +34,7 @@ const categoryColors: Record<MemoryCategory, string> = {
   important_date: 'bg-red-500/20 text-red-400 border-red-500/30',
   emotion: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
   decision: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  question: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  knowledge: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
   other: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
 };
 
@@ -47,7 +47,7 @@ const categoryLabels: Record<MemoryCategory, string> = {
   important_date: '重要な日付',
   emotion: '感情的な内容',
   decision: '決定事項',
-  question: '質問',
+  knowledge: '知識・情報',
   other: 'その他'
 };
 

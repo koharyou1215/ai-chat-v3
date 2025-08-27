@@ -150,8 +150,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             {(() => {
               // tagsが文字列の場合でも安全に配列に変換
               const tagsSource = processedCharacter.tags;
-              const tags = Array.isArray(tagsSource) ? tagsSource : 
-                          typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
+              const tags: string[] = Array.isArray(tagsSource) ? tagsSource : 
+                          (typeof tagsSource === 'string' && tagsSource) ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];
               return tags.slice(0, 3).map((tag: string) => (
                 <span
@@ -164,8 +164,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             })()}
             {(() => {
               const tagsSource = processedCharacter.tags;
-              const tags = Array.isArray(tagsSource) ? tagsSource : 
-                          typeof tagsSource === 'string' ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
+              const tags: string[] = Array.isArray(tagsSource) ? tagsSource : 
+                          (typeof tagsSource === 'string' && tagsSource) ? tagsSource.split(',').map((tag: string) => tag.trim()) : 
                           [];
               return tags.length > 3 && (
                 <span className="px-2 py-0.5 text-xs text-white/40">
