@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, X, User } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, X, User, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types/core/message.types';
@@ -452,7 +452,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
   };
 
   // End voice call
-  const endCall = () => {
+  const endCall = useCallback(() => {
     console.log('🔴 Ending voice call');
     
     // Stop media stream
@@ -478,7 +478,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     }
 
     // Close AudioContext
-    if (audioContextRef.current) {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
@@ -499,7 +499,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     // Clear audio queue
     audioQueueRef.current = [];
     isPlayingRef.current = false;
-  };
+  }, []);
 
   // Update audio visualizer
   const updateAudioVisualizer = () => {
@@ -546,9 +546,27 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       endCall();
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [isOpen, initializeWebSocket]);
+  }, [isOpen, initializeWebSocket, endCall]);
+
+  // Close modal on ESC key press
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
 
   // Format duration
   const formatDuration = (seconds: number): string => {
@@ -575,6 +593,12 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-lg"
+      onClick={(e) => {
+        // Close modal when clicking outside
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -582,14 +606,33 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative w-full max-w-2xl p-8 mx-4 bg-gray-900/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-700"
       >
-        {/* Close Button - Fixed Position and Always Visible */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 shadow-lg"
-          title="閉じる"
-        >
-          <X size={20} />
-        </button>
+        {/* Header Buttons - Fixed Position and Always Visible */}
+        <div className="absolute top-4 right-4 z-10 flex items-center space-x-2">
+          {/* Minimize/Return Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 shadow-lg"
+            title="最小化（元の画面に戻る）"
+          >
+            <Minimize2 size={20} />
+          </button>
+          
+          {/* Close Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              endCall();
+              onClose();
+            }}
+            className="p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 shadow-lg"
+            title="通話を終了して閉じる"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
         {/* Header */}
         <div className="text-center mb-8">

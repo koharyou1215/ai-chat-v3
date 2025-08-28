@@ -29,6 +29,7 @@ export interface ChatSlice {
   deleteMessage: (message_id: UUID) => void;
   clearActiveConversation: () => void;
   exportActiveConversation: () => void;
+  rollbackSession: (message_id: UUID) => void; // 新しいアクションを追加
   setShowSettingsModal: (show: boolean) => void;
   setCurrentInputText: (text: string) => void;
   
@@ -40,6 +41,11 @@ export interface ChatSlice {
 
   getActiveSession: () => UnifiedChatSession | null;
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
+  
+  // 履歴管理
+  saveSessionToHistory: (session_id: UUID) => Promise<void>;
+  loadSessionFromHistory: (session_id: UUID) => Promise<void>;
+  pinSession: (session_id: UUID, isPinned: boolean) => void;
   
   // ヘルパー関数
   ensureTrackerManagerExists: (character: Character) => void;
@@ -478,6 +484,50 @@ AI、モデル、システムといったメタ的な話題に言及すること
     }
   },
 
+  rollbackSession: (message_id) => {
+    const activeSessionId = get().active_session_id;
+    if (!activeSessionId) return;
+
+    const session = get().sessions.get(activeSessionId);
+    if (!session) return;
+
+    const messageIndex = session.messages.findIndex(m => m.id === message_id);
+    if (messageIndex === -1) {
+      console.error('Rollback failed: message not found');
+      return;
+    }
+
+    // 1. チャット履歴を切り詰める
+    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
+    
+    const updatedSession = {
+      ...session,
+      messages: rollbackMessages,
+      message_count: rollbackMessages.length,
+      updated_at: new Date().toISOString(),
+    };
+
+    set(state => ({
+      sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+    }));
+
+    // 2. ConversationManagerのキャッシュをクリア
+    promptBuilderService.clearManagerCache(activeSessionId);
+
+    // 3. トラッカーをリセット
+    const characterId = session.participants.characters[0]?.id;
+    if (characterId) {
+      const trackerManager = get().trackerManagers.get(characterId);
+      if (trackerManager) {
+        // 全てのトラッカーを初期値にリセット
+        trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
+        console.log(`🔄 Trackers reset for character ${characterId}`);
+      }
+    }
+    
+    console.log(`⏪ Session rolled back to message ${message_id}`);
+  },
+
   deleteMessage: (message_id) => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
@@ -626,6 +676,64 @@ AI、モデル、システムといったメタ的な話題に言及すること
         return { sessions: newSessions };
       }
       return _state;
+    });
+  },
+
+  // 履歴管理: セッションを履歴として保存
+  saveSessionToHistory: async (session_id) => {
+    const session = get().sessions.get(session_id);
+    if (!session) return;
+    
+    try {
+      const response = await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(session)
+      });
+      
+      if (!response.ok) throw new Error('Failed to save history');
+      console.log(`✅ Session ${session_id} saved to history`);
+    } catch (error) {
+      console.error('Error saving session to history:', error);
+    }
+  },
+  
+  // 履歴管理: 履歴からセッションを読み込み
+  loadSessionFromHistory: async (session_id) => {
+    try {
+      const response = await fetch(`/data/history/${session_id}.json`);
+      if (!response.ok) throw new Error('History not found');
+      
+      const sessionData = await response.json();
+      
+      set(state => ({
+        sessions: new Map(state.sessions).set(session_id, sessionData),
+        active_session_id: session_id
+      }));
+      
+      console.log(`✅ Session ${session_id} loaded from history`);
+    } catch (error) {
+      console.error('Error loading session from history:', error);
+    }
+  },
+  
+  // 履歴管理: セッションのピン留め
+  pinSession: (session_id, isPinned) => {
+    set(state => {
+      const session = state.sessions.get(session_id);
+      if (!session) return state;
+      
+      const updatedSession = { ...session, isPinned };
+      const newSessions = new Map(state.sessions).set(session_id, updatedSession);
+      
+      // APIに更新を送信
+      fetch('/api/history', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: session_id, updates: { isPinned } })
+      }).catch(console.error);
+      
+      return { sessions: newSessions };
     });
   },
 

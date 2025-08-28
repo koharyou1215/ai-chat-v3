@@ -47,6 +47,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   // Lazy imports handled within functions where they're needed
   const trackerManagers = useAppStore(state => state.trackerManagers);
   const activeSessionId = useAppStore(state => state.active_session_id);
+  const rollbackSession = useAppStore(state => state.rollbackSession); // 新しいアクションを取得
+  const rollbackGroupSession = useAppStore(state => state.rollbackGroupSession); // グループ用アクションを取得
   const activeCharacterId = useAppStore(state => state.active_character_id);
   const _clearActiveConversation = useAppStore(state => state.clearActiveConversation);
   const _clearLayer = useAppStore(state => state.clearLayer);
@@ -236,44 +238,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     setIsEditing(false);
     setEditText(processedContent);
   };
-  // ここまで戻る本実装
+  // ここまで戻る本実装 (新しいロックに更新)
   const handleRollback = () => {
     if (!message.id) {
       alert('メッセージIDが取得できません');
       return;
     }
-    // チャット履歴を該当メッセージまで残す
-    const session = useAppStore.getState().sessions.get(activeSessionId || '');
-    if (!session) return;
-    const idx = session.messages.findIndex(m => m.id === message.id);
-    if (idx === -1) {
-      alert('該当メッセージが見つかりません');
-      return;
-    }
-    const rollbackMessages = session.messages.slice(0, idx + 1);
-    useAppStore.setState(state => ({
-      sessions: new Map(state.sessions).set(session.id, {
-        ...session,
-        messages: rollbackMessages,
-        message_count: rollbackMessages.length,
-        updated_at: new Date().toISOString(),
-      })
-    }));
-    // メモリレイヤーも巻き戻し
-    ['immediate_memory','working_memory','episodic_memory','semantic_memory','permanent_memory'].forEach(layer => {
-      useAppStore.getState().clearLayer(layer);
-    });
-    rollbackMessages.forEach(msg => {
-      useAppStore.getState().addMessageToLayers?.(msg);
-    });
-    // トラッカーも巻き戻し（初期化のみ、詳細な履歴復元は今後拡張可）
-    if (activeSessionId && trackerManagers.has(activeSessionId) && activeCharacterId) {
-      const manager = trackerManagers.get(activeSessionId);
-      if (manager) {
-        manager.initializeTrackerSet(activeCharacterId, []); // 初期化
+    
+    const confirmMessage = isGroupChat
+      ? 'このメッセージまでグループチャットの履歴を戻しますか？'
+      : 'このメッセージまで会話履歴を戻しますか？\n（メモリやキャラクターの関係値もこの時点の状態に近づくようにリセットされます）';
+      
+    if (confirm(confirmMessage)) {
+      if (isGroupChat) {
+        rollbackGroupSession(message.id);
+      } else {
+        rollbackSession(message.id);
       }
+      alert('このメッセージまで巻き戻しました');
     }
-    alert('このメッセージまで巻き戻しました');
   };
   /*
   // オールクリア本実装
@@ -441,7 +424,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         style={{ position: 'relative' }}
       >
       {/* アバター */}
-      {!isUser && character && (
+      {!isUser && (character || (isGroupChat && message.character_name)) && (
         <motion.div
           initial={isLatest ? { scale: 0 } : false}
           animate={{ scale: 1 }}
@@ -666,11 +649,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 <>
                   {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
                     <RichMessage
+                      key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
                       content={processedContent}
                       role={message.role as 'user' | 'assistant'}
                       characterColor='#8b5cf6'
-                      enableEffects={isLatest}
-                      typingSpeed={isLatest ? 30 : 0}
+                      enableEffects={isLatest && settings.typewriterEffect} // タイプライター効果の条件を明確化
+                      typingSpeed={isLatest && settings.typewriterEffect ? 30 : 0}
+                    />
+                  ) : isUser && (settings.colorfulBubbles || settings.fontEffects) ? (
+                    <RichMessage
+                      key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
+                      content={processedContent}
+                      role={message.role as 'user' | 'assistant'}
+                      characterColor='#3b82f6'
+                      enableEffects={false} // ユーザーメッセージはタイプライター効果無効
+                      typingSpeed={0}
                     />
                   ) : (
                     <div className="text-white/90 whitespace-pre-wrap select-none">

@@ -15,6 +15,9 @@ import {
   Users,
   User,
   X,
+  Pin,
+  Save,
+  Archive,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -36,6 +39,8 @@ const ChatSidebar: React.FC = () => {
     deleteSession,
     updateSession,
     exportActiveConversation,
+    saveSessionToHistory,
+    pinSession,
     getSelectedCharacter,
     getSelectedPersona,
     // グループセッション関連
@@ -47,6 +52,7 @@ const ChatSidebar: React.FC = () => {
     // キャラクター・ペルソナ状態管理
     setSelectedCharacterId,
     activatePersona,
+    toggleGroupCreationModal, // 追加
     // グループチャット作成
     createGroupSession,
     characters,
@@ -60,7 +66,8 @@ const ChatSidebar: React.FC = () => {
     const regularSessions = Array.from(sessions.values()).map(session => ({
       ...session,
       type: 'individual' as const,
-      displayName: session.session_info.title || 'Untitled Chat'
+      displayName: session.session_info.title || 'Untitled Chat',
+      isPinned: session.isPinned || false
     }));
     
     const groupSessionsList = Array.from(groupSessions.values()).map(groupSession => ({
@@ -87,34 +94,15 @@ const ChatSidebar: React.FC = () => {
   );
 
   const handleNewChat = async () => {
-    if (!currentCharacter || !currentPersona) {
-      alert("Please select a character and persona first.");
-      return;
-    }
-
     if (is_group_mode) {
-      // グループモードの場合：グループチャット作成
-      console.log('🔄 Creating new group chat...');
-      
-      // アクティブなキャラクターを最低2人取得（現在のキャラクター含む）
-      const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
-      const selectedCharacters = availableCharacters.length >= 2 
-        ? availableCharacters.slice(0, 2) // 最初の2人を選択
-        : [currentCharacter]; // 不足の場合は現在のキャラクターのみ
-      
-      if (selectedCharacters.length >= 2) {
-        await createGroupSession(
-          selectedCharacters,
-          currentPersona,
-          'sequential', // デフォルトモード
-          `${selectedCharacters.map(c => c.name).join('、')}との新しいグループチャット`
-        );
-        console.log('✅ New group chat created');
-      } else {
-        alert("グループチャットには2人以上のアクティブなキャラクターが必要です。");
-      }
+      // グループモードの場合：グループ作成モーダルを開く
+      toggleGroupCreationModal(true);
     } else {
       // 通常モードの場合：ソロチャット作成
+      if (!currentCharacter || !currentPersona) {
+        alert("キャラクターとペルソナを選択してください。");
+        return;
+      }
       console.log('🔄 Creating new individual chat...');
       createSession(currentCharacter, currentPersona);
       console.log('✅ New individual chat created');
@@ -129,7 +117,7 @@ const ChatSidebar: React.FC = () => {
     
     if (isGroupSession) {
       // グループセッションの場合
-      if (sessionId !== active_group_session_id) {
+      if (sessionId !== active_group_session_id || !is_group_mode) {
         const groupSession = groupSessions.get(sessionId);
         if (groupSession) {
           console.log('📱 Switching to group session:', {
@@ -139,7 +127,8 @@ const ChatSidebar: React.FC = () => {
             persona: groupSession.persona.name
           });
           
-          // グループモードに切り替え
+          // グループモードに切り替え & 排他制御
+          setActiveSessionId(null); 
           setGroupMode(true);
           setActiveGroupSession(sessionId);
           
@@ -152,7 +141,7 @@ const ChatSidebar: React.FC = () => {
       }
     } else {
       // 通常セッションの場合
-      if (sessionId !== active_session_id) {
+      if (sessionId !== active_session_id || is_group_mode) {
         const session = sessions.get(sessionId);
         if (session) {
           console.log('👤 Switching to individual session:', {
@@ -162,7 +151,8 @@ const ChatSidebar: React.FC = () => {
             personaId: session.participants.user.id
           });
           
-          // 通常モードに切り替え
+          // 通常モードに切り替え & 排他制御
+          setActiveGroupSession(null);
           setGroupMode(false);
           setActiveSessionId(sessionId);
           
@@ -203,6 +193,16 @@ const ChatSidebar: React.FC = () => {
     } else {
         alert("You can only export the active session for now.");
     }
+  };
+  
+  const handleSaveToHistory = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await saveSessionToHistory(sessionId);
+  };
+  
+  const handlePinSession = (sessionId: string, isPinned: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    pinSession(sessionId, !isPinned);
   };
 
   const getSessionPreview = (session: UnifiedChatSession) => {
@@ -269,7 +269,7 @@ const ChatSidebar: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => useAppStore.getState().toggleLeftSidebar()}
-            className="p-2 text-white rounded-lg hover:bg-white/20 transition-colors md:hidden"
+            className="p-2 text-white rounded-lg hover:bg-white/20 transition-colors"
             title="Close Sidebar"
           >
             <X size={16} />
@@ -368,6 +368,10 @@ const ChatSidebar: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        {/* ピン留めアイコン */}
+                        {session.isPinned && (
+                          <Pin size={12} className="text-yellow-400 flex-shrink-0" />
+                        )}
                         {/* セッションタイプを示すアイコン */}
                         {isGroupSession ? (
                           <Users size={12} className="text-purple-400 flex-shrink-0" />
@@ -433,8 +437,21 @@ const ChatSidebar: React.FC = () => {
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-purple-400/20 py-1 min-w-32"
-                          onMouseLeave={() => setSelectedSessionId(null)}
                         >
+                          <button
+                            onClick={(e) => handlePinSession(session.id, session.isPinned, e)}
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
+                          >
+                            <Pin size={12} />
+                            {session.isPinned ? 'Unpin' : 'Pin'}
+                          </button>
+                          <button
+                            onClick={(e) => handleSaveToHistory(session.id, e)}
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
+                          >
+                            <Save size={12} />
+                            Save to History
+                          </button>
                           <button
                             onClick={(e) => handleRenameSession(session.id, e)}
                             className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
@@ -442,7 +459,6 @@ const ChatSidebar: React.FC = () => {
                             <Edit3 size={12} />
                             Rename
                           </button>
-                          {/* Pinned, Archive features need store implementation */}
                           <button
                             onClick={(e) => handleExportSession(session.id, e)}
                             className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"

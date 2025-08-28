@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import path from 'path';
+import fs from 'fs/promises';
 
 export async function POST(request: NextRequest) {
-  console.log('🔄 Upload API (Vercel Blob): Request received');
+  console.log('🔄 Upload API: Request received');
   
   // Check if BLOB_READ_WRITE_TOKEN is configured
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -17,12 +18,16 @@ export async function POST(request: NextRequest) {
     tokenPrefix: blobToken?.substring(0, 20) + '...' || 'none'
   });
 
-  if (!hasValidBlobToken) {
-    console.error('❌ Upload API: BLOB_READ_WRITE_TOKEN not configured properly');
+  // 開発環境ではVercel Blobのトークンチェックをスキップして、ローカルファイルシステムを使用
+  if (isDevelopment && !hasValidBlobToken) {
+    console.log('⚠️ Upload API: Development mode - will use local file system fallback');
+    // Continue to the local file system approach below
+  } else if (!hasValidBlobToken) {
+    console.error('❌ Upload API: BLOB_READ_WRITE_TOKEN not configured for production');
     return NextResponse.json({ 
       success: false, 
       error: 'Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls.',
-      details: `Error: Vercel Blob token not configured. Environment: ${isDevelopment ? 'development' : 'production'}`
+      details: `Error: Vercel Blob token not configured. Environment: production`
     }, { status: 500 });
   }
   
@@ -67,10 +72,40 @@ export async function POST(request: NextRequest) {
     
     console.log(`📝 Upload API: Uploading with filename: ${filename}`);
 
-    // Always try Vercel Blob first if token is available
+    // 開発環境でトークンがない場合はローカルファイルシステムを使用
+    if (isDevelopment && !hasValidBlobToken) {
+      console.log('📁 Upload API: Using local file system fallback');
+      
+      // ローカルファイルシステムのアプローチ
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'images');
+      
+      // ディレクトリが存在しない場合は作成
+      await fs.mkdir(uploadDir, { recursive: true });
+      
+      // ファイルを保存
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const filePath = path.join(uploadDir, filename);
+      
+      await fs.writeFile(filePath, buffer);
+      
+      const url = `/uploads/images/${filename}`;
+      console.log(`✅ Upload API: File saved locally. URL: ${url}`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        url: url,
+        filename: filename,
+        size: file.size,
+        type: file.type
+      });
+    }
+
+    // 本番環境またはトークンがある場合はVercel Blobを使用
     console.log('🚀 Upload API: Using Vercel Blob');
     const blob = await put(filename, file, {
       access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     console.log(`✅ Upload API: File successfully uploaded to Vercel Blob. URL: ${blob.url}`);

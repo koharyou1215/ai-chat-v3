@@ -22,9 +22,9 @@ export class StorageCleaner {
       const sizeInMB = totalSize / (1024 * 1024);
       console.log(`📊 Current localStorage size: ${sizeInMB.toFixed(2)}MB`);
       
-      // 2MB以上の場合はクリーンアップ
-      if (sizeInMB > 2) {
-        console.log('🧹 Starting emergency cleanup...');
+      // 4.5MB以上の場合のみクリーンアップ（履歴保存のため制限を緩和）
+      if (sizeInMB > 4.5) {
+        console.log('🧹 Starting smart cleanup...');
         
         // 古いai-chat-v3関連のデータを削除
         const keysToDelete: string[] = [];
@@ -47,21 +47,27 @@ export class StorageCleaner {
           try {
             const parsed = JSON.parse(mainData);
             
-            // セッションを最新3件のみに制限
+            // セッションは30件まで保持（履歴機能のため大幅に増加）
             if (parsed?.state?.sessions) {
               const sessions = parsed.state.sessions;
               if (sessions._type === 'map' && sessions.value) {
-                sessions.value = sessions.value
+                // ピン留めされたセッションを優先的に保持
+                const pinnedSessions = sessions.value.filter((s: [string, unknown]) => (s[1] as { isPinned?: boolean })?.isPinned);
+                const unpinnedSessions = sessions.value
+                  .filter((s: [string, unknown]) => !(s[1] as { isPinned?: boolean })?.isPinned)
                   .sort((a: [string, unknown], b: [string, unknown]) => {
                     const aTime = (a[1] as { updatedAt?: number; createdAt?: number })?.updatedAt || (a[1] as { updatedAt?: number; createdAt?: number })?.createdAt || 0;
                     const bTime = (b[1] as { updatedAt?: number; createdAt?: number })?.updatedAt || (b[1] as { updatedAt?: number; createdAt?: number })?.createdAt || 0;
                     return bTime - aTime;
-                  })
-                  .slice(0, 3);
+                  });
+                
+                // ピン留め + 最新の未ピン留めで合計30件まで
+                const maxUnpinned = Math.max(30 - pinnedSessions.length, 10);
+                sessions.value = [...pinnedSessions, ...unpinnedSessions.slice(0, maxUnpinned)];
               }
             }
             
-            // グループセッションを最新2件のみに制限
+            // グループセッションを10件まで保持
             if (parsed?.state?.groupSessions) {
               const groupSessions = parsed.state.groupSessions;
               if (groupSessions._type === 'map' && groupSessions.value) {
@@ -71,15 +77,15 @@ export class StorageCleaner {
                     const bTime = (b[1] as { updated_at?: number; created_at?: number })?.updated_at || (b[1] as { updated_at?: number; created_at?: number })?.created_at || 0;
                     return bTime - aTime;
                   })
-                  .slice(0, 2);
+                  .slice(0, 10);
               }
             }
             
-            // メモリカードを最新30件のみに制限
+            // メモリカードを最新50件まで保持
             if (parsed?.state?.memoryCards && Array.isArray(parsed.state.memoryCards)) {
               parsed.state.memoryCards = parsed.state.memoryCards
                 .sort((a: { timestamp?: number }, b: { timestamp?: number }) => (b.timestamp || 0) - (a.timestamp || 0))
-                .slice(0, 30);
+                .slice(0, 50);
             }
             
             // 保存
@@ -87,7 +93,7 @@ export class StorageCleaner {
             localStorage.setItem(mainKey, compressed);
             
             const newSize = compressed.length / (1024 * 1024);
-            console.log(`✅ Cleanup complete: ${sizeInMB.toFixed(2)}MB → ${newSize.toFixed(2)}MB`);
+            console.log(`✅ Smart cleanup complete: ${sizeInMB.toFixed(2)}MB → ${newSize.toFixed(2)}MB`);
           } catch (error) {
             console.error('Failed to compress storage:', error);
           }

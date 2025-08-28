@@ -8,16 +8,36 @@ import { useAppStore } from '@/store';
 import { Character } from '@/types/core/character.types';
 import { generateCharacterId } from '@/utils/uuid';
 
-export const CharacterGalleryModal: React.FC = () => {
+export interface CharacterGalleryModalProps {
+  isGroupEditingMode?: boolean;
+  isGroupCreationMode?: boolean; // 新規作成モード
+  activeGroupMembers?: Character[];
+  onUpdateGroupMembers?: (updatedCharacters: Character[]) => void;
+  onCreateGroup?: (newMembers: Character[]) => void; // 新規作成用
+  onClose?: () => void; // onCloseをオプションにする
+}
+
+export const CharacterGalleryModal: React.FC<CharacterGalleryModalProps> = ({
+  isGroupEditingMode = false,
+  isGroupCreationMode = false, // 新規作成モード
+  activeGroupMembers,
+  onUpdateGroupMembers,
+  onCreateGroup, // 新規作成用
+  onClose,
+}) => {
   const { 
     showCharacterGallery, 
     setShowCharacterGallery, 
     characters, 
     selectCharacter,
-    addCharacter
+    addCharacter,
+    startEditingCharacter, // startEditingCharacterを追加
   } = useAppStore();
 
-  if (!showCharacterGallery) return null;
+  const isOpen = isGroupEditingMode || isGroupCreationMode || showCharacterGallery;
+  const handleClose = onClose || (() => setShowCharacterGallery(false));
+
+  if (!isOpen) return null;
 
   // Convert Map to array for CharacterGallery component
   const charactersArray = Array.from(characters.values());
@@ -25,7 +45,7 @@ export const CharacterGalleryModal: React.FC = () => {
   const handleSelectCharacter = (character: Character) => {
     console.log('Character selected:', character);
     selectCharacter(character.id);
-    setShowCharacterGallery(false);
+    handleClose();
   };
 
   const handleImportCharacter = (characterData: Record<string, unknown>) => {
@@ -60,7 +80,7 @@ export const CharacterGalleryModal: React.FC = () => {
 
   return (
     <AnimatePresence>
-      {showCharacterGallery && (
+      {isOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -69,8 +89,8 @@ export const CharacterGalleryModal: React.FC = () => {
             className="w-full max-w-5xl h-[80vh] bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex flex-col"
           >
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
-              <h2 className="text-xl font-bold">キャラクター選択</h2>
-              <button onClick={() => setShowCharacterGallery(false)} className="p-2 rounded-full hover:bg-white/10">
+              <h2 className="text-xl font-bold">{isGroupCreationMode ? "新規グループ作成" : isGroupEditingMode ? "グループメンバーを編集" : "キャラクター選択"}</h2>
+              <button onClick={handleClose} className="p-2 rounded-full hover:bg-white/10">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -79,8 +99,15 @@ export const CharacterGalleryModal: React.FC = () => {
               <CharacterGallery
                 characters={charactersArray}
                 onSelectCharacter={handleSelectCharacter}
-                onCreateCharacter={() => console.log('Create character')}
+                onCreateCharacter={() => startEditingCharacter(null)} // 新規作成にも対応
                 onImportCharacter={handleImportCharacter}
+                // グループ編集モード用のプロパティを渡す
+                isGroupEditingMode={isGroupEditingMode}
+                isGroupCreationMode={isGroupCreationMode}
+                activeGroupMembers={activeGroupMembers}
+                onUpdateGroupMembers={onUpdateGroupMembers}
+                onCreateGroup={onCreateGroup}
+                onClose={handleClose}
               />
             </motion.div>
           </div>

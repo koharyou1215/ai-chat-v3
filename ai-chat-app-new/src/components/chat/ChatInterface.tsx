@@ -11,8 +11,9 @@ import { MemoryGallery } from '../memory/MemoryGallery';
 import { TrackerDisplay } from '../tracker/TrackerDisplay';
 import { HistorySearch } from '../history/HistorySearch';
 import { MemoryLayerDisplay } from '../memory/MemoryLayerDisplay';
+import { CharacterGalleryModal, CharacterGalleryModalProps } from '../character/CharacterGalleryModal'; // lazyをやめて直接インポート
+import { ScenarioSetupModal } from './ScenarioSetupModal';
 
-const CharacterGalleryModal = lazy(() => import('../character/CharacterGalleryModal').then(module => ({ default: module.CharacterGalleryModal })));
 const PersonaGalleryModal = lazy(() => import('../persona/PersonaGalleryModal').then(module => ({ default: module.PersonaGalleryModal })));
 const SettingsModal = lazy(() => import('../settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
 const ChatHistoryModal = lazy(() => import('../history/ChatHistoryModal').then(module => ({ default: module.ChatHistoryModal })));
@@ -32,25 +33,81 @@ const MessageInputWrapper: React.FC = () => {
     return <MessageInput />;
 };
 
-const EmptyState = () => (
-    <div 
-        className="flex flex-col items-center justify-center h-full text-center text-white/50"
-        style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            width: '100%',
-            color: 'rgba(255, 255, 255, 0.5)',
-            // 背景色を削除 - 背景画像を透けて見せる
-        }}
-    >
-        <Bot size={48} className="mb-4" />
-        <h2 className="text-xl font-semibold" style={{ fontSize: '1.25rem', fontWeight: 600 }}>セッションがありません</h2>
-        <p>キャラクターを選択して会話を始めましょう。</p>
-    </div>
-);
+const EmptyState = () => {
+    const { 
+        characters, 
+        personas, 
+        createSession, 
+        getSelectedPersona,
+        toggleLeftSidebar,
+        isCharactersLoaded,
+        isPersonasLoaded,
+    } = useAppStore();
+
+    const handleQuickStart = async () => {
+        // 最初のキャラクターとアクティブなペルソナを取得
+        const firstCharacter = characters.values().next().value;
+        const activePersona = getSelectedPersona();
+
+        if (firstCharacter && activePersona) {
+            try {
+                await createSession(firstCharacter, activePersona);
+                console.log('✅ セッションを自動作成しました');
+            } catch (error) {
+                console.error('❌ セッション作成エラー:', error);
+                alert('セッションの作成に失敗しました。ページをリロードしてください。');
+            }
+        } else {
+            console.warn('⚠️ キャラクターまたはペルソナが見つかりません');
+            alert('キャラクターまたはペルソナが読み込まれていません。サイドバーから選択してください。');
+            toggleLeftSidebar();
+        }
+    };
+
+    return (
+        <div 
+            className="flex flex-col items-center justify-center h-full text-center text-white/50 space-y-6"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                width: '100%',
+                color: 'rgba(255, 255, 255, 0.5)',
+                // 背景色を削除 - 背景画像を透けて見せる
+            }}
+        >
+            <Bot size={48} className="mb-4" />
+            <h2 className="text-xl font-semibold" style={{ fontSize: '1.25rem', fontWeight: 600 }}>セッションがありません</h2>
+            <p>キャラクターを選択して会話を始めましょう。</p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                <button
+                    onClick={() => toggleLeftSidebar()}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                    <Bot size={20} />
+                    キャラクターを選択
+                </button>
+                
+                {isCharactersLoaded && isPersonasLoaded && characters.size > 0 && (
+                    <button
+                        onClick={handleQuickStart}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        ⚡
+                        クイックスタート
+                    </button>
+                )}
+            </div>
+            
+            {(!isCharactersLoaded || !isPersonasLoaded) && (
+                <p className="text-sm text-white/30 mt-4">データを読み込み中...</p>
+            )}
+        </div>
+    );
+};
 
 const ThinkingIndicator = () => (
     <div className="flex items-center justify-center p-4">
@@ -126,7 +183,14 @@ const ChatInterfaceContent: React.FC = () => {
         group_generating,
         active_group_session_id,
         groupSessions,
-        createGroupSession: _createGroupSession,
+        updateGroupMembers, // 追加
+        createGroupSession, // createGroupSession をストアから取得
+        isGroupMemberModalOpen, // 追加
+        toggleGroupMemberModal, // 追加
+        isGroupCreationModalOpen, // 新規作成用モーダル状態を取得
+        toggleGroupCreationModal, // 新規作成用アクションを取得
+        isScenarioModalOpen, // 追加
+        toggleScenarioModal, // 追加
     } = useAppStore();
     useVH(); // Safari対応版のVHフックを使用
     const session = getActiveSession();
@@ -134,6 +198,7 @@ const ChatInterfaceContent: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'memory' | 'tracker' | 'history' | 'layers'>('memory');
     const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
+    const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>([]); // 追加
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -204,7 +269,98 @@ const ChatInterfaceContent: React.FC = () => {
                 <Suspense fallback={null}>
                     <CharacterGalleryModal />
                     <PersonaGalleryModal />
+                    <SettingsModal 
+                        isOpen={showSettingsModal} 
+                        onClose={() => setShowSettingsModal(false)}
+                        initialTab={initialSettingsTab}
+                    />
+                    <ChatHistoryModal />
+                    <VoiceSettingsModal />
+                    <SuggestionModal
+                        isOpen={showSuggestionModal}
+                        onClose={() => setShowSuggestionModal(false)}
+                        suggestions={suggestions}
+                        isLoading={isGeneratingSuggestions}
+                        onSelect={(suggestion) => {
+                            setCurrentInputText(suggestion);
+                        }}
+                        onRegenerate={async () => {
+                            const session = getActiveSession();
+                            if (!session) return;
+                            
+                            const recentMessages = session.messages.slice(-6);
+                            const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                ? systemPrompts.replySuggestion 
+                                : undefined;
+                            
+                            const character = session.participants.characters[0];
+                            const user = session.participants.user;
+                            
+                            await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                        }}
+                    />
+                    {showCharacterForm && editingCharacter && 'age' in editingCharacter && (
+                        <CharacterForm
+                            isOpen={showCharacterForm}
+                            onClose={closeCharacterForm}
+                            character={editingCharacter as Character}
+                            persona={null}
+                            onSave={(data) => saveCharacter(data as Character)}
+                            mode="character"
+                        />
+                    )}
                 </Suspense>
+                <AnimatePresence>
+                    {isGroupMemberModalOpen && activeGroupSession && (
+                      <CharacterGalleryModal
+                        isGroupEditingMode={true}
+                        activeGroupMembers={activeGroupSession.characters}
+                        onUpdateGroupMembers={(newCharacters) => {
+                          if (active_group_session_id) {
+                            updateGroupMembers(active_group_session_id, newCharacters);
+                          }
+                          toggleGroupMemberModal(false);
+                        }}
+                        onClose={() => toggleGroupMemberModal(false)}
+                      />
+                    )}
+                    {isGroupCreationModalOpen && (
+                      <CharacterGalleryModal
+                        isGroupCreationMode={true}
+                        onCreateGroup={(newMembers) => {
+                          setStagingGroupMembers(newMembers);
+                          toggleGroupCreationModal(false);
+                          toggleScenarioModal(true); // シナリオモーダルを開く
+                        }}
+                        onClose={() => toggleGroupCreationModal(false)}
+                      />
+                    )}
+                    {isScenarioModalOpen && (
+                      <ScenarioSetupModal
+                        isOpen={isScenarioModalOpen}
+                        onClose={() => toggleScenarioModal(false)}
+                        onSubmit={async (scenario) => {
+                          const persona = useAppStore.getState().getSelectedPersona();
+                          if (persona && stagingGroupMembers.length >= 2) {
+                            const groupName = scenario.title !== 'スキップ' 
+                              ? scenario.title 
+                              : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
+                            
+                            await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
+                            
+                            // 状態更新がUIに反映されるのを待つために少し遅延させる
+                            setTimeout(() => {
+                              toggleScenarioModal(false);
+                              setStagingGroupMembers([]); // ステージングメンバーをクリア
+                            }, 100);
+                          } else {
+                            alert('ペルソナが選択されていないか、メンバーが2人未満です。');
+                          }
+                        }}
+                        members={stagingGroupMembers}
+                      />
+                    )}
+                </AnimatePresence>
             </div>
         );
     }
@@ -435,6 +591,57 @@ const ChatInterfaceContent: React.FC = () => {
                         />
                     )}
                 </Suspense>
+                <AnimatePresence>
+                    {isGroupMemberModalOpen && activeGroupSession && (
+                      <CharacterGalleryModal
+                        isGroupEditingMode={true}
+                        activeGroupMembers={activeGroupSession.characters}
+                        onUpdateGroupMembers={(newCharacters) => {
+                          if (active_group_session_id) {
+                            updateGroupMembers(active_group_session_id, newCharacters);
+                          }
+                          toggleGroupMemberModal(false);
+                        }}
+                        onClose={() => toggleGroupMemberModal(false)}
+                      />
+                    )}
+                    {isGroupCreationModalOpen && (
+                      <CharacterGalleryModal
+                        isGroupCreationMode={true}
+                        onCreateGroup={(newMembers) => {
+                          setStagingGroupMembers(newMembers);
+                          toggleGroupCreationModal(false);
+                          toggleScenarioModal(true); // シナリオモーダルを開く
+                        }}
+                        onClose={() => toggleGroupCreationModal(false)}
+                      />
+                    )}
+                    {isScenarioModalOpen && (
+                      <ScenarioSetupModal
+                        isOpen={isScenarioModalOpen}
+                        onClose={() => toggleScenarioModal(false)}
+                        onSubmit={async (scenario) => {
+                          const persona = useAppStore.getState().getSelectedPersona();
+                          if (persona && stagingGroupMembers.length >= 2) {
+                            const groupName = scenario.title !== 'スキップ' 
+                              ? scenario.title 
+                              : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
+                            
+                            await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
+                            
+                            // 状態更新がUIに反映されるのを待つために少し遅延させる
+                            setTimeout(() => {
+                              toggleScenarioModal(false);
+                              setStagingGroupMembers([]); // ステージングメンバーをクリア
+                            }, 100);
+                          } else {
+                            alert('ペルソナが選択されていないか、メンバーが2人未満です。');
+                          }
+                        }}
+                        members={stagingGroupMembers}
+                      />
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

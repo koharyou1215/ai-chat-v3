@@ -54,6 +54,7 @@ export const MessageInput: React.FC = () => {
     active_group_session_id,
     groupSessions,
     isGeneratingSuggestions,
+    toggleGroupMemberModal, // 追加
   } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
@@ -307,6 +308,9 @@ export const MessageInput: React.FC = () => {
         <div className="flex gap-1">
           <VoiceCallButton />
           <GroupModeButton />
+          <AnimatePresence>
+            {is_group_mode && <GroupMemberButton />}
+          </AnimatePresence>
         </div>
 
         <textarea
@@ -506,5 +510,24 @@ const GroupModeButton: React.FC = () => {
       tooltip={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
       active={is_group_mode}
     />
+  );
+};
+
+// グループメンバー編集ボタンコンポーネント
+const GroupMemberButton: React.FC = () => {
+  const { toggleGroupMemberModal } = useAppStore();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+    >
+      <InputButton 
+        icon={Users} 
+        onClick={() => toggleGroupMemberModal(true)} 
+        tooltip="メンバーを編集"
+      />
+    </motion.div>
   );
 };

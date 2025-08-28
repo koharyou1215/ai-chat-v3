@@ -23,6 +23,14 @@ interface CharacterGalleryProps {
   onCreateCharacter: () => void;
   onImportCharacter: (characterData: Record<string, unknown>) => void;
   selectedCharacterId?: string;
+  
+  // グループ編集モード用プロパティ
+  isGroupEditingMode?: boolean;
+  isGroupCreationMode?: boolean; // 新規作成モード
+  activeGroupMembers?: Character[];
+  onUpdateGroupMembers?: (updatedCharacters: Character[]) => void;
+  onCreateGroup?: (newMembers: Character[]) => void; // 新規作成用
+  onClose?: () => void;
 }
 
 type SortField = 'name' | 'tags';
@@ -34,11 +42,23 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
   onCreateCharacter,
   onImportCharacter,
   selectedCharacterId,
+  // グループ編集モード用プロパティ
+  isGroupEditingMode = false,
+  isGroupCreationMode = false, // 新規作成モード
+  activeGroupMembers = [],
+  onUpdateGroupMembers,
+  onCreateGroup, // 新規作成用
+  onClose,
 }) => {
   const { startEditingCharacter, deleteCharacter } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // グループ編集用の選択中メンバー
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(() => 
+    new Set(activeGroupMembers.map(c => c.id))
+  );
 
   const filteredAndSortedCharacters = useFilterAndSort({
     data: characters,
@@ -75,54 +95,100 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
     event.target.value = '';
   };
 
+  // グループ編集モードでのキャラクター選択ハンドラ
+  const handleMemberSelect = (character: Character) => {
+    setSelectedMemberIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(character.id)) {
+        newSet.delete(character.id);
+      } else {
+        newSet.add(character.id);
+      }
+      return newSet;
+    });
+  };
+
+  // 更新ボタンのハンドラ
+  const handleUpdateMembers = () => {
+    if (selectedMemberIds.size < 2 && isGroupEditingMode) {
+      alert('少なくとも2人のキャラクターを選択してください。');
+      return;
+    }
+    const updatedMembers = characters.filter(c => selectedMemberIds.has(c.id));
+    onUpdateGroupMembers?.(updatedMembers);
+    onClose?.();
+  };
+
+  // 新規作成ボタンのハンドラ
+  const handleCreateGroup = () => {
+    if (selectedMemberIds.size < 2) {
+      alert('グループチャットには少なくとも2人のキャラクターを選択してください。');
+      return;
+    }
+    const newMembers = characters.filter(c => selectedMemberIds.has(c.id));
+    onCreateGroup?.(newMembers);
+    onClose?.();
+  };
+
+  const isGroupMode = isGroupEditingMode || isGroupCreationMode;
+
   return (
     <div className="h-full flex flex-col">
       {/* 操作エリア */}
       <div className="flex-shrink-0 p-4 border-b border-white/10 flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="検索..."
-            className="w-full pl-9 bg-slate-800/50 border-slate-700 focus:border-purple-500 h-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="h-9 min-w-[200px] justify-start text-white bg-transparent border border-slate-700 hover:bg-slate-700">
-              <ArrowDownUp className="w-4 h-4 mr-2" />
-              <span className="truncate">
-                {sortOptions.find(o => o.value === sortOption)?.label}
-              </span>
+        {!isGroupMode ? (
+          <>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="検索..."
+                className="w-full pl-9 bg-slate-800/50 border-slate-700 focus:border-purple-500 h-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="h-9 min-w-[200px] justify-start text-white bg-transparent border border-slate-700 hover:bg-slate-700">
+                  <ArrowDownUp className="w-4 h-4 mr-2" />
+                  <span className="truncate">
+                    {sortOptions.find(o => o.value === sortOption)?.label}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {sortOptions.map(opt => (
+                  <DropdownMenuItem key={opt.value} onClick={() => setSortOption(opt.value)}>
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="h-9 px-3 bg-transparent border border-slate-700 hover:bg-slate-700 text-white" title={viewMode === 'grid' ? 'リスト表示に切替' : 'グリッド表示に切替'}>
+                {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {sortOptions.map(opt => (
-              <DropdownMenuItem key={opt.value} onClick={() => setSortOption(opt.value)}>
-                {opt.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
 
-        <Button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="h-9 px-3 bg-transparent border border-slate-700 hover:bg-slate-700 text-white" title={viewMode === 'grid' ? 'リスト表示に切替' : 'グリッド表示に切替'}>
-            {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
-        </Button>
+            <div className="h-5 w-px bg-white/10 mx-1"></div>
 
-        <div className="h-5 w-px bg-white/10 mx-1"></div>
-
-        <Button asChild variant="ghost" className="h-9 px-3">
-          <label htmlFor="json-upload" className="cursor-pointer">
-            <Upload className="w-4 h-4" />
-            <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
-          </label>
-        </Button>
-        <Button variant="ghost" onClick={onCreateCharacter} className="h-9 px-3">
-          <Plus className="w-4 h-4" />
-        </Button>
+            <Button asChild variant="ghost" className="h-9 px-3">
+              <label htmlFor="json-upload" className="cursor-pointer">
+                <Upload className="w-4 h-4" />
+                <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
+              </label>
+            </Button>
+            <Button variant="ghost" onClick={onCreateCharacter} className="h-9 px-3">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </>
+        ) : (
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">{isGroupCreationMode ? "新規グループ作成" : "グループメンバーを編集"}</h3>
+            <p className="text-sm text-slate-400">{selectedMemberIds.size}人 選択中</p>
+          </div>
+        )}
       </div>
 
       {/* ギャラリーエリア */}
@@ -144,10 +210,11 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
                 <CharacterCard
                   key={character.id}
                   character={character}
-                  onSelect={onSelectCharacter}
+                  onSelect={isGroupMode ? handleMemberSelect : onSelectCharacter}
                   onEdit={() => startEditingCharacter(character)}
                   onDelete={deleteCharacter}
-                  isSelected={character.id === selectedCharacterId}
+                  isSelected={isGroupMode ? selectedMemberIds.has(character.id) : character.id === selectedCharacterId}
+                  isMultiSelectMode={isGroupMode}
                 />
               ))
             ) : (
@@ -158,6 +225,18 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* グループモードのフッター */}
+      {isGroupMode && (
+        <div className="flex-shrink-0 p-4 border-t border-white/10 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button onClick={isGroupCreationMode ? handleCreateGroup : handleUpdateMembers}>
+            {isGroupCreationMode ? "グループを作成" : "更新"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -10,6 +10,17 @@ export class PromptBuilderService {
   private static lastProcessedCount = new Map<string, number>();
   
   /**
+   * 特定のセッションIDのキャッシュをクリア
+   */
+  public clearManagerCache(sessionId: string) {
+    if (PromptBuilderService.managerCache.has(sessionId)) {
+      PromptBuilderService.managerCache.delete(sessionId);
+      PromptBuilderService.lastProcessedCount.delete(sessionId);
+      console.log(`🧹 Cleared ConversationManager cache for session: ${sessionId}`);
+    }
+  }
+
+  /**
    * セッション単位でConversationManagerを管理
    * パフォーマンス最適化：真の増分更新とバッチ処理
    */

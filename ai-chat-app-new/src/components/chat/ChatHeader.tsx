@@ -64,6 +64,7 @@ const ChatHeaderContent: React.FC = () => {
         getActiveSession,
         setShowCharacterGallery,
         setShowPersonaGallery,
+        toggleGroupMemberModal, // 追加
         getSelectedCharacter,
         getSelectedPersona,
         is_group_mode,
@@ -111,9 +112,15 @@ const ChatHeaderContent: React.FC = () => {
                     {/* グループチャット情報（グループモード時のみ） */}
                     {is_group_mode && activeGroupSession && (
                         <>
-                            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => toggleGroupMemberModal(true)}
+                                className="flex items-center gap-1 md:gap-2 flex-shrink-0 cursor-pointer"
+                                title="グループメンバーを編集"
+                            >
                                 <Users className="w-6 h-6 md:w-7 md:h-7 text-purple-400 flex-shrink-0" />
-                                <div className="min-w-0">
+                                <div className="min-w-0 text-left">
                                     <h1 className="text-white text-sm md:text-base font-bold truncate">{activeGroupSession.name}</h1>
                                     <p className="text-white/50 text-xs truncate">
                                         {t({ 
@@ -124,7 +131,7 @@ const ChatHeaderContent: React.FC = () => {
                                         })}
                                     </p>
                                 </div>
-                            </div>
+                            </motion.button>
                             <div className="w-px h-6 bg-white/20 mx-1 flex-shrink-0" />
                         </>
                     )}

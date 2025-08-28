@@ -47,17 +47,62 @@ export interface EffectSettings {
   textFormatting: 'compact' | 'readable' | 'detailed';
 }
 
+// 外観設定の型定義
+export interface AppearanceSettings {
+  // テーマ設定
+  theme: 'dark' | 'light' | 'midnight' | 'cosmic' | 'sunset' | 'custom';
+  
+  // カラー設定
+  primaryColor: string;      // メインカラー
+  accentColor: string;       // アクセントカラー
+  backgroundColor: string;   // 背景色
+  surfaceColor: string;      // サーフェスカラー
+  textColor: string;         // テキストカラー
+  secondaryTextColor: string; // セカンダリテキストカラー
+  borderColor: string;       // ボーダーカラー
+  shadowColor: string;       // シャドウカラー
+  
+  // フォント設定
+  fontFamily: string;        // フォントファミリー
+  fontSize: 'small' | 'medium' | 'large' | 'x-large';
+  fontWeight: 'light' | 'normal' | 'medium' | 'bold';
+  lineHeight: 'compact' | 'normal' | 'relaxed';
+  
+  // レイアウト設定
+  messageSpacing: 'compact' | 'normal' | 'spacious';
+  messageBorderRadius: 'none' | 'small' | 'medium' | 'large' | 'full';
+  chatMaxWidth: 'narrow' | 'normal' | 'wide' | 'full';
+  sidebarWidth: 'narrow' | 'normal' | 'wide';
+  
+  // 背景設定
+  backgroundType: 'solid' | 'gradient' | 'image' | 'animated';
+  backgroundGradient: string; // グラデーション設定
+  backgroundImage: string;    // 背景画像URL
+  backgroundBlur: number;     // 背景ぼかし度 (0-20)
+  backgroundOpacity: number;  // 背景透明度 (0-100)
+  
+  // アニメーション設定
+  enableAnimations: boolean;
+  transitionDuration: 'fast' | 'normal' | 'slow';
+  
+  // カスタムCSS
+  customCSS: string;
+}
+
 export interface SettingsSlice extends AISettings {
   // Language and localization
   languageSettings: LanguageSettings;
   // Effect settings
   effectSettings: EffectSettings;
+  // Appearance settings
+  appearanceSettings: AppearanceSettings;
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
   // Actions
   updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
   updateEffectSettings: (settings: Partial<EffectSettings>) => void;
+  updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
@@ -129,6 +174,48 @@ export const createSettingsSlice: StateCreator<
     
     // テキスト整形
     textFormatting: 'readable'
+  },
+  
+  // Appearance settings - ダークテーマがデフォルト
+  appearanceSettings: {
+    // テーマ設定
+    theme: 'dark',
+    
+    // カラー設定（ダークテーマのデフォルトカラー）
+    primaryColor: '#8b5cf6',       // Purple
+    accentColor: '#ec4899',        // Pink
+    backgroundColor: '#0f0f23',    // Deep dark blue
+    surfaceColor: '#1e1e2e',      // Surface dark
+    textColor: '#ffffff',          // White text
+    secondaryTextColor: '#9ca3af', // Gray text
+    borderColor: '#374151',        // Border gray
+    shadowColor: '#000000',        // Black shadow
+    
+    // フォント設定
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    fontSize: 'medium',
+    fontWeight: 'normal',
+    lineHeight: 'normal',
+    
+    // レイアウト設定
+    messageSpacing: 'normal',
+    messageBorderRadius: 'medium',
+    chatMaxWidth: 'normal',
+    sidebarWidth: 'normal',
+    
+    // 背景設定
+    backgroundType: 'gradient',
+    backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    backgroundImage: '',
+    backgroundBlur: 10,
+    backgroundOpacity: 100,
+    
+    // アニメーション設定
+    enableAnimations: true,
+    transitionDuration: 'normal',
+    
+    // カスタムCSS
+    customCSS: ''
   },
   
   // Initial state
@@ -238,6 +325,11 @@ export const createSettingsSlice: StateCreator<
   updateEffectSettings: (settings) =>
     set((state) => ({
       effectSettings: { ...state.effectSettings, ...settings },
+    })),
+  
+  updateAppearanceSettings: (settings) =>
+    set((state) => ({
+      appearanceSettings: { ...state.appearanceSettings, ...settings },
     })),
   
   updateSystemPrompts: (prompts) => {

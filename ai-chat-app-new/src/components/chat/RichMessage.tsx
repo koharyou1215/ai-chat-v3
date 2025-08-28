@@ -56,12 +56,10 @@ export const RichMessage: React.FC<RichMessageProps> = ({
       return;
     }
 
-    // 初期状態で既にコンテンツが表示されている場合は、タイプライター効果をスキップ
-    if (displayedContent === content) {
-      setIsTyping(false);
-      return;
-    }
-
+    // コンテンツが変更された場合のみタイプライターを開始
+    setDisplayedContent('');
+    setIsTyping(true);
+    
     let index = 0;
     const timer = setInterval(() => {
       if (index <= content.length) {
@@ -80,7 +78,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
     }, typingSpeed / settings.animationSpeed);
 
     return () => clearInterval(timer);
-  }, [content, enableEffects, typingSpeed, settings, createHeartEffect, displayedContent]);
+  }, [content, enableEffects, typingSpeed, settings.typewriterEffect, settings.animationSpeed, settings.particleEffects, createHeartEffect]); // displayedContentを依存配列から削除
 
   // コンテンツのパース（特殊フォーマットの検出）
   const parseContent = (text: string) => {

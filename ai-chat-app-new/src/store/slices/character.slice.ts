@@ -137,8 +137,15 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       console.log('character.slice: Received character files:', characterFiles);
       const charactersMap = new Map<UUID, Character>();
       
+      // 最大20個のキャラクターのみ読み込み（メモリ節約）
+      const MAX_CHARACTERS = 20;
+      const filesToLoad = characterFiles.slice(0, MAX_CHARACTERS);
+      if (characterFiles.length > MAX_CHARACTERS) {
+        console.warn(`⚠️ Loading only first ${MAX_CHARACTERS} characters out of ${characterFiles.length} to save storage`);
+      }
+      
       // 各キャラクターファイルを読み込み
-      for (const filename of characterFiles) {
+      for (const filename of filesToLoad) {
         try {
           const charResponse = await fetch(`/characters/${encodeURIComponent(filename)}`);
           if (!charResponse.ok) {

@@ -16,6 +16,7 @@ interface CharacterCardProps {
   onEdit: (character: Character) => void;
   onDelete?: (characterId: string) => void;
   className?: string;
+  isMultiSelectMode?: boolean;
 }
 
 export const CharacterCard: React.FC<CharacterCardProps> = ({
@@ -24,7 +25,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   onSelect,
   onEdit,
   onDelete,
-  className
+  className,
+  isMultiSelectMode = false,
 }) => {
   const [isFavorite, setIsFavorite] = useState(character.is_favorite ?? false);
   
@@ -59,12 +61,21 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
       <div
         className={cn(
           'relative overflow-hidden rounded-2xl transition-all duration-300',
-          'bg-gradient-to-br from-gray-800/20 to-gray-900/20 backdrop-blur-xl border',
+          'bg-gradient-to-br from-gray-800/20 to-gray-900/20 backdrop-blur-xl border-2', // 枠線を少し太く
           isSelected
             ? 'border-purple-400 shadow-[0_0_30px_rgba(168,85,247,0.3)]'
             : 'border-white/10 hover:border-purple-400/50'
         )}
       >
+        {/* 複数選択モード用のオーバーレイ */}
+        {isMultiSelectMode && isSelected && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-purple-500/30 z-10 pointer-events-none"
+          />
+        )}
+
         {character.background_url && (
           <div className="absolute inset-0 opacity-30">
             {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
@@ -197,13 +208,13 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               className={cn(
                 'flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm',
                 isSelected
-                  ? 'bg-purple-500 text-white cursor-default'
+                  ? (isMultiSelectMode ? 'bg-green-500 text-white' : 'bg-purple-500 text-white cursor-default')
                   : 'bg-white/10 text-white/70 hover:bg-white/20'
               )}
-              disabled={isSelected}
-              title={isSelected ? '現在選択中' : 'このキャラクターとチャットを開始'}
+              disabled={!isMultiSelectMode && isSelected}
+              title={isSelected ? (isMultiSelectMode ? '選択を解除' : '現在選択中') : (isMultiSelectMode ? 'メンバーに追加' : 'このキャラクターとチャットを開始')}
             >
-              {isSelected ? '選択中' : 'チャット'}
+              {isSelected ? (isMultiSelectMode ? '選択済み' : '選択中') : (isMultiSelectMode ? '選択' : 'チャット')}
             </button>
             <motion.button
               whileHover={{ scale: 1.05 }}

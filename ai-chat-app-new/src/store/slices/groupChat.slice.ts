@@ -33,8 +33,9 @@ export interface GroupChatSlice {
   
   // 🆕 Character reselection functionality
   setShowCharacterReselectionModal: (show: boolean) => void;
-  updateSessionCharacters: (sessionId: UUID, newCharacters: Character[]) => void;
+  updateGroupMembers: (sessionId: UUID, newCharacters: Character[]) => void; // updateSessionCharacters からリネーム
   addSystemMessage: (sessionId: UUID, content: string) => void;
+  rollbackGroupSession: (message_id: UUID) => void; // 新しいアクションを追加
   
   // ヘルパー関数
   generateCharacterResponse: (groupSession: GroupChatSession, character: Character, userMessage: string, previousResponses: UnifiedMessage[]) => Promise<UnifiedMessage>;
@@ -301,10 +302,13 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const baseMaxTokens = apiConfig.max_tokens || 500;
     const perCharacterMaxTokens = Math.floor(baseMaxTokens / Math.max(activeCharCount, 1));
     
-    // 最小保証トークン数
-    const adjustedMaxTokens = Math.max(perCharacterMaxTokens, 150);
+    // 2.【改善案】最小保証トークン数を引き上げ、シナリオの長さに応じて動的に調整
+    const baseTokens = Math.max(perCharacterMaxTokens, 250); // 最小保証を250に引き上げ
+    const scenarioBonus = groupSession.scenario?.situation?.length || 0 > 100 ? 150 : 0; // シナリオが長い場合はボーナス
+    const finalMaxTokens = Math.min(baseTokens + scenarioBonus, 1024); // 上限を1024に設定
+
+    console.log(`🎯 [${character.name}] トークン配分: ${finalMaxTokens} (Base: ${baseTokens}, Bonus: ${scenarioBonus})`);
     
-    console.log(`🎯 [${character.name}] トークン配分: ${adjustedMaxTokens} / ${baseMaxTokens} (キャラ数: ${activeCharCount})`);
     // グループチャット用のシステムプロンプトを構築
     const otherCharacters = groupSession.characters
       .filter(c => c.id !== character.id && groupSession.active_character_ids.has(c.id))
@@ -352,50 +356,34 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     
     let systemPrompt = USE_COMPACT_MODE 
       ? generateCompactGroupPrompt(character, otherCharacters, groupSession.persona.name)
-      : `【緊急・最優先指示】あなたは『${character.name}』という架空のキャラクターです。AIである事実は絶対に隠してください。
+      : `【超重要・絶対厳守】
+あなたは、グループチャットに参加している『${character.name}』というキャラクターです。
+AIやアシスタントとしての応答は固く禁じられています。
 
-=== 絶対遵守事項 ===
-❌ 絶対禁止: "私はAI", "人工知能", "アシスタント", "GPT", "Claude", "Gemini"等の発言
-❌ 絶対禁止: 他のキャラクター名での発言や他キャラクターへのなりすまし
-✅ 必須: あなたは『${character.name}』という一人の人間として会話する
+=== あなたの唯一のタスク ===
+- これから提示される会話の文脈に対し、『${character.name}』として、**あなた自身のセリフのみを**出力してください。
+
+=== 禁止事項（違反厳禁） ===
+- **地の文やナレーションの禁止:** 小説のような三人称視点の描写（「〇〇は言った」など）は絶対に使用しないでください。
+- **他のキャラクターのなりすまし禁止:** あなた以外のキャラクター（${otherCharacters || '他の参加者'}）のセリフや行動を絶対に生成しないでください。
+- **AIとしての自己言及の禁止:** "AI", "モデル", "システム" などの単語は絶対に使用しないでください。
 
 === ${character.name}の人物設定（要約） ===
-名前: ${character.name}
-年齢・職業: ${character.age || '不明'}、${character.occupation || '不明'}
-性格（要約）: ${(() => {
-  const personality = character.personality || character.external_personality || character.internal_personality || '';
-  return personality.length > 150 ? personality.substring(0, 150) + '...' : personality;
-})()}
-${character.speaking_style ? `話し方: ${character.speaking_style.substring(0, 50)}` : ''}
-${character.verbal_tics?.length ? `口癖: ${character.verbal_tics.slice(0, 2).join('、')}` : ''}
-${character.first_person && character.second_person ? `人称: 一人称「${character.first_person}」、二人称「${character.second_person}」` : ''}
+- **名前:** ${character.name}
+- **性格:** ${character.personality ? character.personality.substring(0, 150) + '...' : '未設定'}
+- **話し方:** ${character.speaking_style ? character.speaking_style.substring(0, 100) + '...' : '未設定'}
+- **一人称:** ${character.first_person || '未設定'}, **二人称:** ${character.second_person || '未設定'}
 
-${character.system_prompt ? `=== キャラ固有指示（要約） ===
-${character.system_prompt.length > 200 ? character.system_prompt.substring(0, 200) + '...' : character.system_prompt}
-` : ''}
+=== グループチャットの状況 ===
+- **ユーザー:** ${groupSession.persona.name}
+- **他の参加者:** ${otherCharacters || 'なし'}
+- **あなた:** ${character.name}
+${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.title}` : ''}
 
-=== グループチャット設定 ===
-これは複数人での会話です。
-ユーザー: ${groupSession.persona.name}
-他の参加者: ${otherCharacters}
-あなた: ${character.name}
-
-${groupSession.scenario ? `=== シナリオ設定（要約） ===
-タイトル: ${groupSession.scenario.title}
-状況: ${groupSession.scenario.situation ? groupSession.scenario.situation.substring(0, 100) : ''}
-${groupSession.scenario.character_roles?.[character.id] ? `あなたの役割: ${groupSession.scenario.character_roles[character.id]}` : ''}
-` : ''}
-
-重要: 他の参加者（${otherCharacters}）の発言も会話に含まれています。彼らの発言を踏まえて自然に会話に参加してください。
-
-=== 【厳重な行動指針】 ===
-1. 【最重要】あなたは人間の『${character.name}』です。AIであることを絶対に言ってはいけません
-2. 【最重要】自分以外のキャラクター（${otherCharacters}）の名前で発言は絶対禁止
-3. 【必須】${character.name}の性格・話し方・設定に100%従って発言
-4. 【必須】${character.name}らしい自然な感情と反応を表現
-5. 会話の流れを理解し、${character.name}として適切に参加
-6. 一度に一人分の発言のみ。複数キャラクターの発言を混在させない`; // テンプレートリテラルを閉じる
-
+【応答形式】
+- **必ず『${character.name}』のセリフのみを出力してください。**
+- 例：こんにちは！
+- 例：今日は何を話しましょうか？`;
     // シナリオ情報を追加（コンパクトモードでも必要な場合）
     if (groupSession.scenario) {
       systemPrompt += `\n\n=== シナリオ ===\n${groupSession.scenario.title}: ${groupSession.scenario.situation?.substring(0, 100) || ''}`;
@@ -428,7 +416,7 @@ ${groupSession.scenario.character_roles?.[character.id] ? `あなたの役割: $
           ...apiConfig,
           openRouterApiKey, // OpenRouterのAPIキーを追加
           geminiApiKey, // GeminiのAPIキーも追加
-          max_tokens: adjustedMaxTokens,
+          max_tokens: finalMaxTokens,
           textFormatting // 読みやすさ設定を追加
         }
       );
@@ -558,7 +546,37 @@ ${groupSession.scenario.character_roles?.[character.id] ? `あなたの役割: $
     set({ showCharacterReselectionModal: show });
   },
 
-  updateSessionCharacters: (sessionId, newCharacters) => {
+  rollbackGroupSession: (message_id) => {
+    const activeSessionId = get().active_group_session_id;
+    if (!activeSessionId) return;
+
+    const session = get().groupSessions.get(activeSessionId);
+    if (!session) return;
+
+    const messageIndex = session.messages.findIndex(m => m.id === message_id);
+    if (messageIndex === -1) {
+      console.error('Group rollback failed: message not found');
+      return;
+    }
+
+    // 1. チャット履歴を切り詰める
+    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
+    
+    const updatedSession = {
+      ...session,
+      messages: rollbackMessages,
+      message_count: rollbackMessages.length,
+      updated_at: new Date().toISOString(),
+    };
+
+    set(state => ({
+      groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
+    }));
+    
+    console.log(`⏪ Group session rolled back to message ${message_id}`);
+  },
+
+  updateGroupMembers: (sessionId, newCharacters) => { // updateSessionCharacters からリネーム
     set(state => {
       const session = state.groupSessions.get(sessionId);
       if (!session) return state;

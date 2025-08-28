@@ -5,6 +5,8 @@ import { useAppStore } from '@/store';
 import { StorageManager } from '@/utils/storage-cleanup';
 import { StorageAnalyzer } from '@/utils/storage-analyzer';
 import { StorageCleaner } from '@/utils/storage-cleaner';
+import { checkStorageUsage } from '@/utils/check-storage';
+import { AppearanceProvider } from '@/components/providers/AppearanceProvider';
 
 interface AppInitializerProps {
   children: ReactNode;
@@ -33,6 +35,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         // ストレージ状況を詳細に分析
         const storageInfo = StorageManager.getStorageInfo();
         console.log('📊 Storage info:', storageInfo);
+        
+        // ストレージ使用状況をチェック
+        checkStorageUsage();
         
         // 詳細分析（開発環境のみ）
         if (process.env.NODE_ENV === 'development') {
@@ -91,16 +96,44 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       if (firstCharacter && activePersona) {
         try {
           await createSession(firstCharacter, activePersona);
+          console.log('✅ 初期セッションを作成しました');
         } catch (error) {
-          // Safariでのエラーハンドリング（console.logなし）
+          console.error('❌ 初期セッション作成エラー:', error);
+          // セッション作成が失敗した場合、少し待ってからリトライ
+          setTimeout(async () => {
+            try {
+              console.log('🔄 セッション作成をリトライします...');
+              await createSession(firstCharacter, activePersona);
+              console.log('✅ リトライでセッション作成成功');
+            } catch (retryError) {
+              console.error('❌ セッション作成リトライも失敗:', retryError);
+              // 最後の手段：ストレージをクリアして再初期化を促す
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('ai-chat-sessions');
+                localStorage.removeItem('ai-chat-active-session');
+                console.log('🧹 破損データをクリアしました。ページをリロードしてください。');
+              }
+            }
+          }, 2000);
         }
+      } else {
+        console.warn('⚠️ セッション作成に必要なデータが不足:', {
+          hasCharacter: !!firstCharacter,
+          hasPersona: !!activePersona,
+          charactersCount: characters.size,
+          personasCount: personas.size
+        });
       }
     };
 
     initializeSession();
   }, [isCharactersLoaded, isPersonasLoaded, characters, personas, sessions, getSelectedPersona, createSession, selectedCharacterId, setSelectedCharacterId, active_session_id]);
 
-  return <>{children}</>;
+  return (
+    <AppearanceProvider>
+      {children}
+    </AppearanceProvider>
+  );
 };
 
 export default AppInitializer;
