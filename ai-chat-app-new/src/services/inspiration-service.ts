@@ -157,34 +157,15 @@ export class InspirationService {
             .replace(/{{user}}/g, inputText)
             .replace(/{{text}}/g, inputText); // {{text}} もエイリアスとして対応
     } else {
-        // デフォルトの強化プロンプト（Janitor AIスタイル）
-        prompt = `あなたは熟練した文章スタイリストです。ユーザー「${user.name}」として、以下の元のテキストをより魅力的で表現豊かな文章に変換してください。
+        // デフォルトの強化プロンプト（簡潔版）
+        prompt = `${user.name}として以下の文章をより表現豊かに書き直す。
 
-### ユーザーのペルソナ
-- 名前: ${user.name}
-- 背景: ${user.description}
+文脈: ${context}
+ユーザー: ${user.name}${user.personality ? ` (${user.personality})` : ''}
 
-### 会話の流れと文脈
-${context}
+元の文章: "${inputText}"
 
-### 強化の指針
-1. **自然な表現**: 硬い表現を柔らかく、単調な文章をリズミカルに
-2. **感情の深み**: 感情や想いをより具体的で繊細な言葉で表現
-3. **視覚的描写**: 抽象的な内容を具体的なイメージで補強
-4. **関係性の反映**: 相手との距離感や親密度を適切に表現
-5. **個性の発揮**: ${user.name}らしい口調や特徴的な表現を活かす
-
-### 元のテキスト
-"${inputText}"
-
-### 強化された文章
-以下のような要素を含めて、元のテキストの意図を保ちながらより魅力的に変換してください：
-- 適切な敬語レベルと親しみやすさ
-- 感情に訴える具体的な表現
-- 相手への配慮や思いやり
-- ${user.name}の個性が感じられる言い回し
-
-強化された文章:`;
+書き直した文章:`;
     }
 
     try {
@@ -330,29 +311,15 @@ ${context}
     user: Persona,
     suggestionCount: number
   ): string {
-    return `あなたはユーザー「${user.name}」の立場で返信案を提案するAIです。
-以下の会話で、ユーザー「${user.name}」が次に言うべき内容を${suggestionCount}つ提案してください。
+    return `${user.name}として${character.name}に返信する。${suggestionCount}つの異なる返信を生成。
 
-### ユーザー情報
-名前: ${user.name}
-${user.age ? `年齢: ${user.age}` : ''}
-${user.occupation ? `職業: ${user.occupation}` : ''}
-${user.personality ? `性格: ${user.personality}` : ''}
-${user.catchphrase ? `口調: ${user.catchphrase}` : ''}
-
-### 会話相手（キャラクター）
-${character.name}（${character.age || '年齢不明'}）
-
-### 最近の会話
+会話:
 ${context}
 
-### 絶対厳守ルール
-- **必ず${user.name}の立場から、${user.name}の性格・口調で発言**
-- **${character.name}のセリフは絶対に生成しない**
-- **女性的な口調や、キャラクター側の視点は絶対禁止**
-- ${suggestionCount}つの異なる返信案（それぞれ150-200文字）
-- 各提案は改行のみで区切る
-- 番号、記号、接続詞は不要`;
+ユーザー: ${user.name}${user.personality ? ` (${user.personality})` : ''}
+相手: ${character.name}
+
+返信（${suggestionCount}行、各150-200文字）:`;
   }
 
   /**

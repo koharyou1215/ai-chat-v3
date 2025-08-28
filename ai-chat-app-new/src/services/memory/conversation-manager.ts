@@ -356,18 +356,23 @@ export class ConversationManager {
 
     // 5. Persona Information (if available)
     if (persona) {
+      console.log('🎭 [ConversationManager] Persona found:', persona.name, persona.description);
       prompt += '<persona_information>\n';
       prompt += `Name: ${persona.name}\n`;
       prompt += `Role: ${persona.role}\n`;
       prompt += `Description: ${persona.description}\n`;
       prompt += '</persona_information>\n\n';
+    } else {
+      console.warn('⚠️ [ConversationManager] No persona provided to generatePrompt');
     }
 
     // 6. Memory System Information
     
     // 6a. ピン留めメモリーカード（最優先）
     const pinnedMemoryCards = await this.getPinnedMemoryCards();
+    console.log('📌 [ConversationManager] Pinned memory cards found:', pinnedMemoryCards.length);
     if (pinnedMemoryCards.length > 0) {
+      console.log('📌 [ConversationManager] Adding pinned memory cards to prompt:', pinnedMemoryCards.map(c => c.title));
       prompt += '<pinned_memory_cards>\n';
       pinnedMemoryCards.forEach(card => {
         prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
@@ -376,11 +381,15 @@ export class ConversationManager {
         }
       });
       prompt += '</pinned_memory_cards>\n\n';
+    } else {
+      console.log('📌 [ConversationManager] No pinned memory cards found');
     }
 
     // 6b. 関連メモリーカード（スマート選択版）
     const relevantMemoryCards = await this.getRelevantMemoryCards(userInput, processedCharacter);
+    console.log('🔍 [ConversationManager] Relevant memory cards found:', relevantMemoryCards.length, 'for input:', userInput.substring(0, 30) + '...');
     if (relevantMemoryCards.length > 0) {
+      console.log('🔍 [ConversationManager] Adding relevant memory cards to prompt:', relevantMemoryCards.map(c => c.title));
       prompt += '<relevant_memory_cards>\n';
       relevantMemoryCards.forEach(card => {
         prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
@@ -390,6 +399,8 @@ export class ConversationManager {
         }
       });
       prompt += '</relevant_memory_cards>\n\n';
+    } else {
+      console.log('🔍 [ConversationManager] No relevant memory cards found for input');
     }
 
     // 6c. ピン留めメッセージ（従来機能）

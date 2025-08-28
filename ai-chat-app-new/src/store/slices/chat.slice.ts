@@ -213,7 +213,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     (async () => {
       try {
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+        const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
         
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
         const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
@@ -427,7 +427,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+      const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
       
       let systemPrompt = await promptBuilderService.buildPrompt(
         { ...session, messages: messagesForPrompt },
@@ -542,7 +542,7 @@ AI、モデル、システムといったメタ的な話題に言及すること
     // 3. トラッカーをリセット
     const characterId = session.participants.characters[0]?.id;
     if (characterId) {
-      const trackerManager = get().trackerManagers.get(characterId);
+      const trackerManager = get().trackerManagers.get(activeSessionId);
       if (trackerManager) {
         // 全てのトラッカーを初期値にリセット
         trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
@@ -646,14 +646,17 @@ AI、モデル、システムといったメタ的な話題に言及すること
       if (session) {
         // セッションのキャラクターのトラッカーマネージャーが存在しない場合は初期化
         const trackerManagers = get().trackerManagers;
-        session.participants.characters.forEach(character => {
-          if (!trackerManagers.has(character.id)) {
-            const trackerManager = new TrackerManager();
+        // 一つのセッションには一つのトラッカーマネージャー（複数キャラクター対応）
+        if (!trackerManagers.has(sessionId)) {
+          const trackerManager = new TrackerManager();
+          // 各キャラクターのトラッカーを初期化
+          session.participants.characters.forEach(character => {
             trackerManager.initializeTrackerSet(character.id, character.trackers);
-            trackerManagers.set(character.id, trackerManager);
             console.log(`Initialized tracker set for character ${character.name} (${character.id})`);
-          }
-        });
+          });
+          trackerManagers.set(sessionId, trackerManager);
+          console.log(`Tracker manager created for session ${sessionId}`);
+        }
         
         // TrackerManagersを更新
         set(_state => ({
@@ -764,11 +767,14 @@ AI、モデル、システムといったメタ的な話題に言及すること
 
   // ヘルパー関数: トラッカーマネージャーの存在を確保
   ensureTrackerManagerExists: (character) => {
+    const activeSessionId = get().active_session_id;
+    if (!activeSessionId) return;
+    
     const trackerManagers = get().trackerManagers;
-    if (!trackerManagers.has(character.id)) {
+    if (!trackerManagers.has(activeSessionId)) {
       const trackerManager = new TrackerManager();
       trackerManager.initializeTrackerSet(character.id, character.trackers);
-      trackerManagers.set(character.id, trackerManager);
+      trackerManagers.set(activeSessionId, trackerManager);
       
       set(_state => ({
         trackerManagers: new Map(trackerManagers)

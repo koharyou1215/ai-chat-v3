@@ -473,22 +473,30 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
   // src/store/index.ts
   export interface AppStore extends
     ChatSlice,
+    GroupChatSlice,
     CharacterSlice,
+    PersonaSlice,
     MemorySlice,
     SettingsSlice,
     SuggestionSlice,
-    TrackerSlice {}
+    TrackerSlice,
+    HistorySlice,
+    UISlice {}
 
 // Slice Integration
   export const useAppStore = create<AppStore>()(
     persist(
       (...args) => ({
         ...createChatSlice(...args),
+        ...createGroupChatSlice(...args),
         ...createCharacterSlice(...args),
+        ...createPersonaSlice(...args),
         ...createMemorySlice(...args),
         ...createSettingsSlice(...args),
         ...createSuggestionSlice(...args),
         ...createTrackerSlice(...args),
+        ...createHistorySlice(...args),
+        ...createUISlice(...args),
       }),
       {
         name: 'ai-chat-store',
@@ -520,6 +528,63 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     sendMessage: (content: string, imageUrl?: string) => Promise<void>;
     regenerateLastMessage: () => Promise<void>;
     deleteMessage: (message_id: UUID) => void;
+  }
+```
+
+**`GroupChatSlice`**
+
+```typescript
+  // src/store/slices/groupChat.slice.ts
+  export interface GroupChatSlice {
+    groupSessions: Map<UUID, GroupChatSession>;
+    active_group_session_id: UUID | null;
+    is_group_mode: boolean;
+    group_generating: boolean;
+    showCharacterReselectionModal: boolean;
+
+  // Actions
+    createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string, scenario?: GroupChatScenario) => Promise<UUID>;
+    sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
+    regenerateLastGroupMessage: () => Promise<void>;
+    continueLastGroupMessage: () => Promise<void>;
+    setGroupMode: (isGroupMode: boolean) => void;
+    updateGroupMembers: (sessionId: UUID, newCharacters: Character[]) => void;
+  }
+```
+
+**`UISlice`**
+
+```typescript
+  // src/store/slices/ui.slice.ts
+  export interface UISlice {
+    isLeftSidebarOpen: boolean;
+    isRightPanelOpen: boolean;
+    isGroupMemberModalOpen: boolean;
+    isGroupCreationModalOpen: boolean;
+    isScenarioModalOpen: boolean;
+
+  // Actions
+    toggleLeftSidebar: () => void;
+    toggleRightPanel: () => void;
+    setRightPanelOpen: (open: boolean) => void;
+    toggleGroupMemberModal: (open?: boolean) => void;
+    toggleGroupCreationModal: (open?: boolean) => void;
+    toggleScenarioModal: (open?: boolean) => void;
+  }
+```
+
+**`HistorySlice`**
+
+```typescript
+  // src/store/slices/history.slice.ts
+  export interface HistorySlice {
+    searchResults: UnifiedMessage[];
+    searchQuery: string;
+    isSearching: boolean;
+
+  // Actions
+    searchMessages: (query: string) => Promise<void>;
+    clearSearch: () => void;
   }
 ```
 

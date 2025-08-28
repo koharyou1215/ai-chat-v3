@@ -277,6 +277,64 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         groupSessions: new Map(state.groupSessions).set(activeGroupSessionId, groupSession)
       }));
 
+      // 🆕 グループチャット用のトラッカー・メモリー連携処理を追加（ソロチャットと同様）
+      setTimeout(() => {
+        const trackerManagers = get().trackerManagers;
+        Promise.allSettled([
+          // 各キャラクターのメモリー処理（dynamicな要求読み込み）
+          (async () => {
+            try {
+              const { autoMemoryManager } = await import('@/services/memory/auto-memory-manager');
+              return await Promise.all(responses.map(response => 
+                autoMemoryManager.processNewMessage(
+                  response,
+                  activeGroupSessionId,
+                  response.character_id,
+                  get().createMemoryCard
+                )
+              ));
+            } catch (error) {
+              console.error('Failed to load memory manager:', error);
+              return Promise.resolve();
+            }
+          })(),
+          // 各キャラクターのトラッカー更新処理
+          Promise.all(activeCharacters.map(character => {
+            const trackerManager = trackerManagers.get(character.id);
+            if (!trackerManager) return Promise.resolve();
+            
+            return Promise.all([
+              // ユーザーメッセージに対するトラッカー更新
+              trackerManager.analyzeMessageForTrackerUpdates(userMessage, character.id),
+              // 該当キャラクターのレスポンスに対するトラッカー更新
+              ...responses
+                .filter(response => response.character_id === character.id)
+                .map(response => trackerManager.analyzeMessageForTrackerUpdates(response, character.id))
+            ]);
+          }))
+        ]).then(results => {
+          const memoryResults = results[0];
+          const trackerResults = results[1];
+          
+          if (memoryResults.status === 'rejected') {
+            console.error('🧠 Group chat auto-memory processing failed:', memoryResults.reason);
+          } else {
+            console.log('🧠 Group chat auto-memory processing completed for all characters');
+          }
+          
+          if (trackerResults.status === 'rejected') {
+            console.error('🎯 Group chat tracker analysis failed:', trackerResults.reason);
+          } else if (trackerResults.status === 'fulfilled' && trackerResults.value) {
+            const allUpdates = trackerResults.value.flat().flat();
+            console.log(`🎯 Group chat tracker analysis completed: ${allUpdates.length} total updates across all characters`);
+          }
+          
+          console.log('✨ Group chat background processing completed');
+        }).catch(error => {
+          console.error('⚠️ Group chat background processing error:', error);
+        });
+      }, 0); // 次のEvent Loopで実行しUIをブロックしない
+
     } catch (error) {
       console.error('Group message generation failed:', error);
     } finally {

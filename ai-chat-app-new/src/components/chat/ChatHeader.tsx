@@ -92,7 +92,7 @@ const ChatHeaderContent: React.FC = () => {
     //   : 'Not active yet';
 
     return (
-        <div className="chat-header fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
+        <div className="chat-header fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -270,7 +270,7 @@ const ChatHeaderContent: React.FC = () => {
 export const ChatHeader: React.FC = () => {
     return (
         <ClientOnlyProvider fallback={
-            <div className="chat-header fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
+            <div className="chat-header fixed top-0 left-0 right-0 z-[60] p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
                 {/* Loading placeholder */}
             </div>
         }>

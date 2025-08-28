@@ -242,7 +242,7 @@ const ChatSidebar: React.FC = () => {
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={cn(
         "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0",
-        "fixed md:relative top-0 left-0 z-50 h-screen"
+        "fixed md:relative top-0 left-0 z-[45] h-screen"
       )}
       style={{ width: 320, height: 'calc(var(--vh, 1vh) * 100)' }}
       onTouchStart={handleTouchStart}

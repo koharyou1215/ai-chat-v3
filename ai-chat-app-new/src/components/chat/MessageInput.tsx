@@ -47,6 +47,11 @@ export const MessageInput: React.FC = () => {
     setShowSuggestionModal,
     generateSuggestions,
     enhanceText,
+    // Text enhancement modal states
+    showEnhancementModal,
+    setShowEnhancementModal,
+    enhanceTextForModal,
+    isEnhancingText,
     getActiveSession,
     systemPrompts,
     // グループチャット関連
@@ -101,30 +106,33 @@ export const MessageInput: React.FC = () => {
     console.log("✨ Enhance button clicked!");
     if (!hasMessage) return;
     
-    setIsEnhancing(true);
-    try {
-        const session = getActiveSession();
-        if (!session) {
-            alert('セッションが見つかりません。ページをリロードしてみてください。');
-            return;
-        }
-        const recentMessages = session ? session.messages.slice(-6) : [];
-        const enhancedText = await enhanceText(
-          currentInputText,
-          recentMessages,
-          session.participants.user,
-          systemPrompts.textEnhancement
-        );
-        setCurrentInputText(enhancedText);
-    } catch (error) {
-        console.error("Failed to enhance text:", error);
-        // ユーザーに具体的なエラーメッセージを表示
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : '文章強化中に予期しないエラーが発生しました。しばらく時間をおいて再試行してください。';
-        alert(errorMessage);
-    } finally {
-        setIsEnhancing(false);
+    setShowEnhancementModal(true);
+    
+    const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
+      ? systemPrompts.textEnhancement 
+      : undefined;
+    
+    // グループチャットモードの場合
+    if (is_group_mode && active_group_session_id) {
+      const groupSession = groupSessions.get(active_group_session_id);
+      if (!groupSession) return;
+      
+      const recentMessages = groupSession.messages.slice(-6);
+      const user = groupSession.persona;
+      
+      await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+    } else {
+      // ソロモード
+      const session = getActiveSession();
+      if (!session) {
+        alert('セッションが見つかりません。ページをリロードしてみてください。');
+        return;
+      }
+      
+      const recentMessages = session.messages.slice(-6);
+      const user = session.participants.user;
+      
+      await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
     }
   };
 

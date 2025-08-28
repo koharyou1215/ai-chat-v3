@@ -124,9 +124,8 @@ export class PromptBuilderService {
     // 1. 最小限のベースプロンプトを即座に構築 (50-100ms)
     const character = session.participants.characters[0];
     const user = session.participants.user;
-    const recentMessages = session.messages.slice(-3); // 最新3メッセージのみ
     
-    const basePrompt = this.buildBalancedPrompt(character, user, recentMessages, userInput, trackerManager);
+    const basePrompt = this.buildBalancedPrompt(character, user, userInput, trackerManager);
     
     // 2. 拡張プロンプト関数（バックグラウンド実行用）
     const enhancePrompt = async (): Promise<string> => {
@@ -151,8 +150,7 @@ export class PromptBuilderService {
    */
   private buildBalancedPrompt(
     character: Character,
-    user: Persona, 
-    recentMessages: UnifiedMessage[],
+    user: Persona,
     userInput: string,
     trackerManager?: TrackerManager
   ): string {
@@ -163,9 +161,6 @@ export class PromptBuilderService {
     const processedCharacter = replaceVariablesInCharacter(character, variableContext);
     
     const userName = user?.name || 'ユーザー';
-    const recentContext = recentMessages.map(msg => 
-      `${msg.role === 'user' ? userName : processedCharacter.name}: ${replaceVariables(msg.content, variableContext)}`
-    ).join('\n');
     
     let prompt = `AI={{char}}, User={{user}}
 
@@ -263,10 +258,7 @@ ${trackerInfo}
 
     prompt += `
 
-## Recent Conversation
-${recentContext}
-
-## Current Interaction
+## Current Input
 {{user}}: ${replaceVariables(userInput, variableContext)}
 {{char}}:`;
     
@@ -331,10 +323,13 @@ ${recentContext}
 
       const promptStartTime = performance.now();
       // ConversationManagerを使ってプロンプトを生成
+      const userPersona = session.participants.user;
+      console.log('👤 [PromptBuilder] User persona being passed:', userPersona ? `${userPersona.name} (${userPersona.description})` : 'null/undefined');
+      
       const prompt = await conversationManager.generatePrompt(
         userInput,
         session.participants.characters[0],
-        session.participants.user,
+        userPersona,
         systemSettings
       );
       const promptDuration = performance.now() - promptStartTime;

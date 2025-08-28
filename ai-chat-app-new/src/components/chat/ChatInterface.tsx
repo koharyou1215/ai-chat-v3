@@ -173,6 +173,12 @@ const ChatInterfaceContent: React.FC = () => {
         suggestions,
         isGeneratingSuggestions,
         generateSuggestions,
+        // Text enhancement modal
+        showEnhancementModal,
+        setShowEnhancementModal,
+        enhancedText,
+        isEnhancingText,
+        enhanceTextForModal,
         systemPrompts,
         setCurrentInputText,
         isLeftSidebarOpen, // isLeftSidebarOpen をストアから取得
@@ -285,18 +291,78 @@ const ChatInterfaceContent: React.FC = () => {
                             setCurrentInputText(suggestion);
                         }}
                         onRegenerate={async () => {
-                            const session = getActiveSession();
-                            if (!session) return;
-                            
-                            const recentMessages = session.messages.slice(-6);
-                            const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
-                                ? systemPrompts.replySuggestion 
-                                : undefined;
-                            
-                            const character = session.participants.characters[0];
-                            const user = session.participants.user;
-                            
-                            await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            // Group chat mode: use group session data
+                            if (active_group_session_id) {
+                                const groupSession = groupSessions.get(active_group_session_id);
+                                if (!groupSession) return;
+                                
+                                const recentMessages = groupSession.messages.slice(-6);
+                                const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                    ? systemPrompts.replySuggestion 
+                                    : undefined;
+                                
+                                const activeChars = Array.from(groupSession.active_character_ids)
+                                    .map(id => groupSession.characters.find(c => c.id === id))
+                                    .filter(c => c !== undefined);
+                                const character = activeChars[0] || groupSession.characters[0];
+                                const user = groupSession.persona;
+                                
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            } else {
+                                // Fallback to solo mode
+                                const session = getActiveSession();
+                                if (!session) return;
+                                
+                                const recentMessages = session.messages.slice(-6);
+                                const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                    ? systemPrompts.replySuggestion 
+                                    : undefined;
+                                
+                                const character = session.participants.characters[0];
+                                const user = session.participants.user;
+                                
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            }
+                        }}
+                    />
+                    <SuggestionModal
+                        isOpen={showEnhancementModal}
+                        onClose={() => setShowEnhancementModal(false)}
+                        suggestions={enhancedText ? [enhancedText] : []}
+                        isLoading={isEnhancingText}
+                        title="文章強化"
+                        onSelect={(enhanced) => {
+                            setCurrentInputText(enhanced);
+                            setShowEnhancementModal(false);
+                        }}
+                        onRegenerate={async () => {
+                            // Group chat mode: use group session data
+                            if (active_group_session_id) {
+                                const groupSession = groupSessions.get(active_group_session_id);
+                                if (!groupSession) return;
+                                
+                                const recentMessages = groupSession.messages.slice(-6);
+                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
+                                    ? systemPrompts.textEnhancement 
+                                    : undefined;
+                                
+                                const user = groupSession.persona;
+                                
+                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+                            } else {
+                                // Fallback to solo mode
+                                const session = getActiveSession();
+                                if (!session) return;
+                                
+                                const recentMessages = session.messages.slice(-6);
+                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
+                                    ? systemPrompts.textEnhancement 
+                                    : undefined;
+                                
+                                const user = session.participants.user;
+                                
+                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+                            }
                         }}
                     />
                     {showCharacterForm && editingCharacter && 'age' in editingCharacter && (
@@ -388,9 +454,15 @@ const ChatInterfaceContent: React.FC = () => {
                 height: 'calc(var(--vh, 1vh) * 100)'
             }}
         >
-            {/* 全画面背景画像 - 最背面に配置 */}
+            {/* 背景画像 - メインコンテンツエリアに合わせて配置 */}
             {character && character.background_url && (
-                <div className="fixed inset-0 w-full h-full overflow-hidden z-0">
+                <div 
+                    className="fixed top-0 bottom-0 overflow-hidden z-0"
+                    style={{
+                        left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
+                        right: isRightPanelOpen && windowWidth >= 768 ? '400px' : '0'
+                    }}
+                >
                     {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
                         <video
                             src={character.background_url}
@@ -425,11 +497,21 @@ const ChatInterfaceContent: React.FC = () => {
                 />
             )}
             
+            {/* モバイルで右パネルが開いているときの背景オーバーレイ */}
+            {isRightPanelOpen && windowWidth < 768 && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-50"
+                    onClick={() => setRightPanelOpen(false)}
+                />
+            )}
+            
             <div 
                 className={cn(
-                    "flex flex-1 min-w-0 relative z-10",
-                    // モバイルではマージンなし、デスクトップでは320pxマージン
-                    isLeftSidebarOpen ? "ml-0 md:ml-80" : "ml-0"
+                    "flex flex-1 min-w-0 relative z-10 transition-all duration-300",
+                    // 左サイドパネルが開いている時のマージン調整
+                    isLeftSidebarOpen ? "ml-0 md:ml-80" : "ml-0",
+                    // 右サイドパネルが開いている時のマージン調整
+                    isRightPanelOpen && windowWidth >= 768 ? "mr-[400px]" : "mr-0"
                 )}
                 style={{
                     // Safari用の明示的なスタイル（背景色を削除）
@@ -448,12 +530,12 @@ const ChatInterfaceContent: React.FC = () => {
                     
                     {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
                     <div 
-                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container" 
+                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300" 
                         style={{ 
                             position: 'fixed',
                             top: 0,
                             left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
-                            right: 0,
+                            right: windowWidth >= 768 && isRightPanelOpen ? '400px' : '0',
                             bottom: 0,
                             paddingTop: windowWidth <= 768 ? '100px' : '90px', 
                             paddingBottom: windowWidth <= 768 ? '120px' : '100px',
@@ -498,7 +580,10 @@ const ChatInterfaceContent: React.FC = () => {
                                 animate={{ width: 400, opacity: 1 }}
                                 exit={{ width: 0, opacity: 0 }}
                                 transition={{ duration: 0.3 }}
-                                className="bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]"
+                                className={cn(
+                                    "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]",
+                                    windowWidth < 768 ? "fixed right-0 top-0" : "relative"
+                                )}
                             >
                                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">記憶情報</h3>
@@ -565,18 +650,78 @@ const ChatInterfaceContent: React.FC = () => {
                             setCurrentInputText(suggestion);
                         }}
                         onRegenerate={async () => {
-                            const session = getActiveSession();
-                            if (!session) return;
-                            
-                            const recentMessages = session.messages.slice(-6);
-                            const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
-                                ? systemPrompts.replySuggestion 
-                                : undefined;
-                            
-                            const character = session.participants.characters[0];
-                            const user = session.participants.user;
-                            
-                            await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            // Group chat mode: use group session data
+                            if (active_group_session_id) {
+                                const groupSession = groupSessions.get(active_group_session_id);
+                                if (!groupSession) return;
+                                
+                                const recentMessages = groupSession.messages.slice(-6);
+                                const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                    ? systemPrompts.replySuggestion 
+                                    : undefined;
+                                
+                                const activeChars = Array.from(groupSession.active_character_ids)
+                                    .map(id => groupSession.characters.find(c => c.id === id))
+                                    .filter(c => c !== undefined);
+                                const character = activeChars[0] || groupSession.characters[0];
+                                const user = groupSession.persona;
+                                
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            } else {
+                                // Fallback to solo mode
+                                const session = getActiveSession();
+                                if (!session) return;
+                                
+                                const recentMessages = session.messages.slice(-6);
+                                const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
+                                    ? systemPrompts.replySuggestion 
+                                    : undefined;
+                                
+                                const character = session.participants.characters[0];
+                                const user = session.participants.user;
+                                
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                            }
+                        }}
+                    />
+                    <SuggestionModal
+                        isOpen={showEnhancementModal}
+                        onClose={() => setShowEnhancementModal(false)}
+                        suggestions={enhancedText ? [enhancedText] : []}
+                        isLoading={isEnhancingText}
+                        title="文章強化"
+                        onSelect={(enhanced) => {
+                            setCurrentInputText(enhanced);
+                            setShowEnhancementModal(false);
+                        }}
+                        onRegenerate={async () => {
+                            // Group chat mode: use group session data
+                            if (active_group_session_id) {
+                                const groupSession = groupSessions.get(active_group_session_id);
+                                if (!groupSession) return;
+                                
+                                const recentMessages = groupSession.messages.slice(-6);
+                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
+                                    ? systemPrompts.textEnhancement 
+                                    : undefined;
+                                
+                                const user = groupSession.persona;
+                                
+                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+                            } else {
+                                // Fallback to solo mode
+                                const session = getActiveSession();
+                                if (!session) return;
+                                
+                                const recentMessages = session.messages.slice(-6);
+                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
+                                    ? systemPrompts.textEnhancement 
+                                    : undefined;
+                                
+                                const user = session.participants.user;
+                                
+                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+                            }
                         }}
                     />
                     {showCharacterForm && editingCharacter && 'age' in editingCharacter && (
