@@ -59,13 +59,13 @@ export class GeminiClient {
   }
 
   private initializeApiKeySync(): void {
-    // 環境変数から同期的にAPIキーを取得
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    // 環境変数から同期的にAPIキーを取得（サーバーサイド優先）
+    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (apiKey) {
       this.apiKey = apiKey;
-      console.log('Gemini API Key loaded from environment variable (sync)');
+      console.log('✅ Gemini API Key loaded from environment variable (sync)');
     } else {
-      console.warn('NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
+      console.warn('❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
     }
   }
 
@@ -84,16 +84,16 @@ export class GeminiClient {
 
   private async loadApiKeyFromFile(): Promise<string> {
     try {
-      // 環境変数を最初に確認
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      // 環境変数を最初に確認（サーバーサイド優先）
+      const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       if (apiKey) {
-        console.log('Gemini API Key loaded from environment variable');
+        console.log('✅ Gemini API Key loaded from environment variable');
         return apiKey;
       }
 
       // ブラウザ環境では環境変数のみ使用
       if (typeof window !== 'undefined') {
-        throw new Error('NEXT_PUBLIC_GEMINI_API_KEY環境変数が設定されていません（ブラウザ環境）');
+        throw new Error('GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数が設定されていません（ブラウザ環境）');
       }
       
       // サーバー環境でのファイル読み込み（フォールバック）
@@ -112,7 +112,7 @@ export class GeminiClient {
           return fileApiKey;
         } catch (fileError) {
           console.error('ファイルからの読み込みも失敗:', fileError);
-          throw new Error('NEXT_PUBLIC_GEMINI_API_KEY環境変数またはgemini-api-key.txtファイルが必要です');
+          throw new Error('GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数またはgemini-api-key.txtファイルが必要です');
         }
       }
     } catch (error) {
@@ -136,7 +136,7 @@ export class GeminiClient {
         console.error('Gemini API key is not set');
         await this.initialize(); // Try to initialize if not done
         if (!this.apiKey) {
-          throw new Error('Gemini API key is not available. Please check NEXT_PUBLIC_GEMINI_API_KEY environment variable.');
+          throw new Error('Gemini API key is not available. Please check GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY environment variable.');
         }
       }
 
