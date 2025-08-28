@@ -43,6 +43,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const getSelectedPersona = useAppStore(state => state.getSelectedPersona);
   const _deleteMessage = useAppStore(state => state.deleteMessage);
   const regenerateLastMessage = useAppStore(state => state.regenerateLastMessage);
+  const is_generating = useAppStore(state => state.is_generating); // ソロチャット生成状態
+  const group_generating = useAppStore(state => state.group_generating); // グループチャット生成状態
   // Lazy imports handled within functions where they're needed
   const trackerManagers = useAppStore(state => state.trackerManagers);
   const activeSessionId = useAppStore(state => state.active_session_id);
@@ -100,62 +102,76 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   }, [isUser, persona, character, isGroupChat, message.character_name, message.character_avatar, message.character_id]);
   
   // --- アクションハンドラ群 ---
-  // 再生成本実装
+  // 再生成本実装（ソロ・グループ分離）
   const handleRegenerate = async () => {
     setIsRegenerating(true);
     try {
-      await regenerateLastMessage();
+      const state = useAppStore.getState();
+      if (state.is_group_mode && state.active_group_session_id) {
+        // グループチャット用再生成
+        await state.regenerateLastGroupMessage();
+      } else {
+        // ソロチャット用再生成
+        await regenerateLastMessage();
+      }
     } finally {
       setIsRegenerating(false);
     }
   };
-  // 続きを出力本実装
+  // 続きを出力本実装（ソロ・グループ分離）
   const handleContinue = async () => {
     setIsContinuing(true);
     try {
-      const session = useAppStore.getState().sessions.get(activeSessionId || '');
-      if (!session) return;
-      const trackerManager = trackerManagers.get(activeSessionId || '');
-      // 最後のAIメッセージを探す
-      const lastAiMsg = [...session.messages].reverse().find(m => m.role === 'assistant');
-      if (!lastAiMsg) {
-        alert('AIメッセージが見つかりません');
-        return;
-      }
-      // プロンプトを再構築し、AI応答のみ生成
-      const { promptBuilderService } = await import('@/services/prompt-builder.service');
-      const { apiManager } = await import('@/services/api-manager');
-      
-      const systemPrompt = await promptBuilderService.buildPrompt(
-        session,
-        lastAiMsg.content,
-        trackerManager
-      );
-      const aiResponseContent = await apiManager.generateMessage(
-        systemPrompt,
-        lastAiMsg.content,
-        session.messages.slice(-10).filter(msg => msg.role === 'user' || msg.role === 'assistant').map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
-      );
-      // AIメッセージを追加
-      const newMessage = {
-        ...lastAiMsg,
-        id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        content: aiResponseContent,
-        regeneration_count: (lastAiMsg.regeneration_count || 0) + 1
-      };
-      useAppStore.setState(state => {
-        const updatedSession = {
-          ...session,
-          messages: [...session.messages, newMessage],
-          message_count: session.message_count + 1,
+      const state = useAppStore.getState();
+      if (state.is_group_mode && state.active_group_session_id) {
+        // グループチャット用続きを生成
+        await state.continueLastGroupMessage();
+      } else {
+        // ソロチャット用続きを生成（既存の複雑な実装を維持）
+        const session = state.sessions.get(activeSessionId || '');
+        if (!session) return;
+        const trackerManager = trackerManagers.get(activeSessionId || '');
+        // 最後のAIメッセージを探す
+        const lastAiMsg = [...session.messages].reverse().find(m => m.role === 'assistant');
+        if (!lastAiMsg) {
+          alert('AIメッセージが見つかりません');
+          return;
+        }
+        // プロンプトを再構築し、AI応答のみ生成
+        const { promptBuilderService } = await import('@/services/prompt-builder.service');
+        const { apiManager } = await import('@/services/api-manager');
+        
+        const systemPrompt = await promptBuilderService.buildPrompt(
+          session,
+          lastAiMsg.content,
+          trackerManager
+        );
+        const aiResponseContent = await apiManager.generateMessage(
+          systemPrompt,
+          lastAiMsg.content,
+          session.messages.slice(-10).filter(msg => msg.role === 'user' || msg.role === 'assistant').map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
+        );
+        // AIメッセージを追加
+        const newMessage = {
+          ...lastAiMsg,
+          id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          content: aiResponseContent,
+          regeneration_count: (lastAiMsg.regeneration_count || 0) + 1
         };
-        return {
-          sessions: new Map(state.sessions).set(session.id, updatedSession)
-        };
-      });
+        useAppStore.setState(state => {
+          const updatedSession = {
+            ...session,
+            messages: [...session.messages, newMessage],
+            message_count: session.message_count + 1,
+            updated_at: new Date().toISOString(),
+          };
+          return {
+            sessions: new Map(state.sessions).set(session.id, updatedSession)
+          };
+        });
+      }
     } finally {
       setIsContinuing(false);
     }
@@ -759,8 +775,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} compact />
               <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
               <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
-              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact disabled={isRegenerating} />
-              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing} />
+              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact disabled={isRegenerating || is_generating || group_generating} />
+              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing || is_generating || group_generating} />
               <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
             </motion.div>
           )}

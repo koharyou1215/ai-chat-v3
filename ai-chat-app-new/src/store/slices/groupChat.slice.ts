@@ -24,6 +24,8 @@ export interface GroupChatSlice {
   
   createGroupSession: (characters: Character[], persona: Persona, mode?: GroupChatMode, groupName?: string, scenario?: GroupChatScenario) => Promise<UUID>;
   sendGroupMessage: (content: string, imageUrl?: string) => Promise<void>;
+  regenerateLastGroupMessage: () => Promise<void>; // 🆕 グループチャット再生成機能
+  continueLastGroupMessage: () => Promise<void>; // 🆕 グループチャット続きを生成機能
   setGroupMode: (isGroupMode: boolean) => void;
   setActiveGroupSessionId: (sessionId: UUID | null) => void;
   setActiveGroupSession: (sessionId: UUID | null) => void; // エイリアス
@@ -723,5 +725,161 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
       };
     });
+  },
+
+  // 🆕 グループチャット再生成機能
+  regenerateLastGroupMessage: async () => {
+    set({ group_generating: true });
+    try {
+      const state = get();
+      const activeSessionId = state.active_group_session_id;
+      if (!activeSessionId) {
+        console.warn("Group regeneration aborted: No active group session ID.");
+        return;
+      }
+      
+      const session = state.groupSessions.get(activeSessionId);
+      if (!session || session.messages.length < 2) {
+        console.warn("Group regeneration aborted: Session not found or not enough messages.");
+        return;
+      }
+
+      // 最後のAIメッセージとその直前のユーザーメッセージを見つける
+      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted && !m.metadata?.is_system_message);
+      if (lastAiMessageIndex <= 0) {
+        console.warn("Group regeneration aborted: No valid AI message to regenerate.");
+        return;
+      }
+
+      const lastUserMessage = session.messages[lastAiMessageIndex - 1];
+      if (!lastUserMessage || lastUserMessage.role !== 'user' || lastUserMessage.is_deleted) {
+        console.warn("Group regeneration aborted: No valid user message found before the last AI message.");
+        return;
+      }
+
+      const lastAiMessage = session.messages[lastAiMessageIndex];
+      const targetCharacter = session.characters.find(c => c.id === lastAiMessage.character_id);
+      
+      if (!targetCharacter) {
+        console.warn("Group regeneration aborted: Character not found for last AI message.");
+        return;
+      }
+
+      // メッセージ履歴を最後のユーザーメッセージまで切り詰める
+      const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
+
+      // 新しい応答を生成
+      const previousResponses: UnifiedMessage[] = [];
+      const regeneratedMessage = await state.generateCharacterResponse(
+        session,
+        targetCharacter,
+        lastUserMessage.content,
+        previousResponses
+      );
+
+      // 再生成カウントを増加
+      regeneratedMessage.regeneration_count = (lastAiMessage.regeneration_count || 0) + 1;
+
+      // 古いメッセージと新しいメッセージを置き換え
+      const updatedMessages = [...messagesForPrompt, regeneratedMessage];
+
+      const updatedSession = {
+        ...session,
+        messages: updatedMessages,
+        message_count: updatedMessages.length,
+        updated_at: new Date().toISOString()
+      };
+
+      set(state => ({
+        groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
+      }));
+
+      console.log('✅ Group message regenerated successfully');
+    } catch (error) {
+      console.error('❌ Group regeneration failed:', error);
+    } finally {
+      set({ group_generating: false });
+    }
+  },
+
+  // 🆕 グループチャット続きを生成機能
+  continueLastGroupMessage: async () => {
+    set({ group_generating: true });
+    try {
+      const state = get();
+      const activeSessionId = state.active_group_session_id;
+      if (!activeSessionId) {
+        console.warn("Group continue aborted: No active group session ID.");
+        return;
+      }
+      
+      const session = state.groupSessions.get(activeSessionId);
+      if (!session || session.messages.length === 0) {
+        console.warn("Group continue aborted: Session not found or no messages.");
+        return;
+      }
+
+      // 最後のAIメッセージを見つける
+      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted && !m.metadata?.is_system_message);
+      if (lastAiMessageIndex === -1) {
+        console.warn("Group continue aborted: No valid AI message to continue.");
+        return;
+      }
+
+      const lastAiMessage = session.messages[lastAiMessageIndex];
+      const targetCharacter = session.characters.find(c => c.id === lastAiMessage.character_id);
+      
+      if (!targetCharacter) {
+        console.warn("Group continue aborted: Character not found for last AI message.");
+        return;
+      }
+
+      // 続きを生成するため、最後のメッセージの内容に"続き"プロンプトを追加
+      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+
+      // 新しい続きメッセージを生成
+      const previousResponses: UnifiedMessage[] = [];
+      const continuationMessage = await state.generateCharacterResponse(
+        session,
+        targetCharacter,
+        continuePrompt,
+        previousResponses
+      );
+
+      // 元のメッセージ内容と続きを結合
+      const combinedContent = `${lastAiMessage.content}\n\n${continuationMessage.content}`;
+
+      // 元のメッセージを更新（続きを追加）
+      const updatedLastMessage = {
+        ...lastAiMessage,
+        content: combinedContent,
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...lastAiMessage.metadata,
+          has_continuation: true,
+          continuation_count: (lastAiMessage.metadata?.continuation_count || 0) + 1
+        }
+      };
+
+      // メッセージ配列を更新
+      const updatedMessages = [...session.messages];
+      updatedMessages[lastAiMessageIndex] = updatedLastMessage;
+
+      const updatedSession = {
+        ...session,
+        messages: updatedMessages,
+        updated_at: new Date().toISOString()
+      };
+
+      set(state => ({
+        groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
+      }));
+
+      console.log('✅ Group message continued successfully');
+    } catch (error) {
+      console.error('❌ Group continuation failed:', error);
+    } finally {
+      set({ group_generating: false });
+    }
   },
 });

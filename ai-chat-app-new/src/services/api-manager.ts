@@ -494,7 +494,10 @@ export class APIManager {
           { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'OpenAI最新モデル' },
           { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'コスト効率重視' },
           { id: 'google/gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', description: '高速Gemini 2.0' },
-          { id: 'x-ai/grok-beta', name: 'Grok Beta', description: 'xAI開発モデル' }
+          { id: 'x-ai/grok-beta', name: 'Grok Beta', description: 'xAI開発モデル' },
+          { id: 'qwen/qwen3-30b-a3b-thinking-2507', name: 'Qwen 3 30B Thinking', description: 'アリババの思考モデル' },
+          { id: 'x-ai/grok-code-fast-1', name: 'Grok Code Fast 1', description: 'xAI高速コードモデル' },
+          { id: 'nousresearch/hermes-4-405b', name: 'Hermes 4 405B', description: 'Nous Research超大型モデル' }
         ]
       }
     ];

@@ -219,8 +219,63 @@ export class GeminiClient {
       return candidate.content.parts[0].text;
     } catch (error) {
       console.error('Gemini message generation failed:', error);
-      throw error;
+      
+      // OpenRouter経由でGeminiを試行
+      try {
+        console.log('🔄 Attempting fallback via OpenRouter...');
+        return await this.generateViaOpenRouter(messages, options);
+      } catch (fallbackError) {
+        console.error('OpenRouter fallback also failed:', fallbackError);
+        throw error; // 元のエラーを投げる
+      }
     }
+  }
+
+  // OpenRouter経由でGeminiを呼び出す
+  private async generateViaOpenRouter(
+    messages: GeminiMessage[],
+    options?: {
+      temperature?: number;
+      maxTokens?: number;
+      topP?: number;
+      topK?: number;
+    }
+  ): Promise<string> {
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+    if (!openRouterApiKey) {
+      throw new Error('OpenRouter API key not found for fallback');
+    }
+
+    // GeminiメッセージをOpenRouter形式に変換
+    const openRouterMessages = messages.map(msg => ({
+      role: msg.role === 'model' ? 'assistant' : msg.role,
+      content: msg.parts[0].text
+    }));
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.VERCEL_URL || 'http://localhost:3000',
+        'X-Title': 'AI Chat V3'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-pro', // OpenRouter経由でGemini
+        messages: openRouterMessages,
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.maxTokens ?? 2048,
+        top_p: options?.topP ?? 0.9,
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`OpenRouter API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
   }
 
   async generateMessageStream(
