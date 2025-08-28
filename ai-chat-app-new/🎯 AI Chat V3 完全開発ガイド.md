@@ -118,11 +118,15 @@ import { useAppStore } from '@/store';                            // Zustand sto
 **Core Features**
 
 *   **AI Chat:** Support for Gemini/OpenRouter/Claude
-*   **Character System:** Custom persona functionality
+*   **Group Chat System:** Multi-character conversations with scenario support
+*   **Character System:** Custom persona functionality with character reselection
 *   **Memory Management:** 5-layer hierarchical memory system
 *   **Tracker System:** Real-time state tracking
 *   **Voice Synthesis:** VoiceVox/ElevenLabs integration
+*   **Voice Call System:** Real-time WebSocket-based voice conversations
 *   **Effects:** Real-time emotion analysis and visual effects
+*   **History Management:** Advanced search and conversation history
+*   **UI State Management:** Comprehensive UI state control
 
 ---
 🏗️ **Architecture Design**
@@ -236,14 +240,31 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
 ├── components/              # UI Components
 │   ├── chat/               # Chat-related UI
   │   │   ├── ChatInterface.tsx
+  │   │   ├── GroupChatInterface.tsx
+  │   │   ├── ChatHeader.tsx
+  │   │   ├── ChatSidebar.tsx
   │   │   ├── MessageBubble.tsx
   │   │   ├── MessageInput.tsx
   │   │   ├── RichMessage.tsx
+  │   │   ├── CharacterReselectionModal.tsx
+  │   │   ├── ScenarioSelector.tsx
+  │   │   ├── ScenarioSetupModal.tsx
+  │   │   ├── SuggestionModal.tsx
+  │   │   ├── MessageEffects.tsx
+  │   │   ├── ReplySuggestions.tsx
   │   │   └── AdvancedEffects.tsx
 │   ├── character/          # Character management UI
 │   ├── settings/           # Settings UI
 │   ├── tracker/            # Tracker UI
 │   ├── memory/             # Memory management UI
+│   ├── persona/            # Persona management UI
+│   ├── voice/              # Voice call UI
+│   │   ├── VoiceCallInterface.tsx
+│   │   ├── VoiceCallModal.tsx
+│   │   └── VoiceSettingsModal.tsx
+│   ├── history/            # Chat history UI
+│   ├── emotion/            # Emotion analysis UI
+│   ├── utils/              # Utility components
 │   └── ui/                 # Common UI components
   ├── contexts/               # React Context
   │   └── EffectSettingsContext.tsx
@@ -265,25 +286,41 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
 ├── store/                  # Zustand State Management
 │   ├── slices/             # State slices
   │   │   ├── chat.slice.ts
+  │   │   ├── groupChat.slice.ts
   │   │   ├── character.slice.ts
+  │   │   ├── persona.slice.ts
   │   │   ├── memory.slice.ts
   │   │   ├── settings.slice.ts
   │   │   ├── suggestion.slice.ts
-  │   │   └── tracker.slice.ts
+  │   │   ├── tracker.slice.ts
+  │   │   ├── history.slice.ts
+  │   │   └── ui.slice.ts
 │   └── index.ts            # Store integration
 ├── types/                  # TypeScript Type Definitions
 │   ├── core/               # Core type definitions
   │   │   ├── base.types.ts
 │   │   ├── message.types.ts (unified)
   │   │   ├── character.types.ts
+  │   │   ├── persona.types.ts
+  │   │   ├── group-chat.types.ts
   │   │   ├── memory.types.ts
   │   │   ├── session.types.ts
   │   │   ├── tracker.types.ts
+  │   │   ├── context.types.ts
+  │   │   ├── expression.types.ts
   │   │   └── settings.types.ts
 │   ├── api/                # API type definitions
   │   │   ├── requests.types.ts
   │   │   └── responses.types.ts
 │   ├── ui/                 # UI type definitions
+│   │   ├── components.types.ts
+│   │   ├── modals.types.ts
+│   │   └── index.ts
+│   ├── websocket/          # WebSocket type definitions
+│   │   ├── audio.types.ts
+│   │   ├── connection.types.ts
+│   │   ├── voice-call.types.ts
+│   │   └── index.ts
 │   └── index.ts            # Type export aggregation
 ├── lib/                    # Utilities
   │   └── utils.ts
@@ -1603,7 +1640,17 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 ---
 ## 🆕 Latest Updates
 
-### Critical Update: August 25, 2025
+### Critical Update: August 28, 2025
+
+#### 🎯 Project Guidelines Comprehensive Update
+- **Guidelines-Codebase Alignment:** Resolved all contradictions between documentation and actual implementation
+- **Store Architecture Documentation:** Added complete documentation for GroupChatSlice, HistorySlice, and UISlice
+- **Voice System Structure:** Updated voice call file structure to reflect current implementation (voice-server.js in project root)
+- **Group Chat System Documentation:** Added comprehensive documentation for group chat functionality including character reselection and scenario support
+- **UI State Management:** Documented the UISlice for managing application UI state (sidebars, modals, panels)
+- **History Management:** Documented the HistorySlice for chat history search and management functionality
+
+### Previous Update: August 25, 2025
 
 #### 🔧 Comprehensive Bug Fixes and UI Improvements
 - **Gemini API Connection Issues Resolved:** Fixed critical constructor initialization problem in `gemini-client.ts` by replacing async `initializeApiKey()` with synchronous `initializeApiKeySync()` that directly accesses environment variables
@@ -1736,11 +1783,11 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 #### 📁 Voice Call File Structure
 
 ```
-音声通話/
-├── voice-server.js              # Main voice server (Node.js)
-├── voice-test-component.ts      # Test React component
-├── 音声通話.txt                 # Implementation specs & integration guide
-└── 音声通話デバッグガイドライン.md  # Troubleshooting guide
+voice-server.js                  # Main voice server (Node.js) - in project root
+src/components/voice/
+├── VoiceCallInterface.tsx       # Voice call UI component
+├── VoiceCallModal.tsx           # Voice call modal
+└── VoiceSettingsModal.tsx       # Voice settings configuration
 ```
 
 #### 🔧 Implemented Features
