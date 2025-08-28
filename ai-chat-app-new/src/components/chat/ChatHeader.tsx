@@ -99,8 +99,8 @@ const ChatHeaderContent: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleLeftSidebar}
                     className={cn(
-                        "p-2 rounded-full transition-colors text-white",
-                        isLeftSidebarOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white"
+                        "p-2 rounded-full transition-colors text-white drop-shadow-lg drop-shadow-lg",
+                        isLeftSidebarOpen ? "bg-purple-500/30 text-purple-200" : "hover:bg-white/20 text-white drop-shadow-lg"
                     )}
                     title={isLeftSidebarOpen ? "Close sidebar" : "Open sidebar"}
                 >
@@ -121,8 +121,8 @@ const ChatHeaderContent: React.FC = () => {
                             >
                                 <Users className="w-6 h-6 md:w-7 md:h-7 text-purple-400 flex-shrink-0" />
                                 <div className="min-w-0 text-left">
-                                    <h1 className="text-white text-sm md:text-base font-bold truncate">{activeGroupSession.name}</h1>
-                                    <p className="text-white/50 text-xs truncate">
+                                    <h1 className="text-white drop-shadow-lg text-sm md:text-base font-bold truncate">{activeGroupSession.name}</h1>
+                                    <p className="text-white drop-shadow-lg/50 text-xs truncate">
                                         {t({ 
                                             ja: `${activeGroupSession.active_character_ids.size}人 • ${typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
                                             en: `${activeGroupSession.active_character_ids.size} chars • ${typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(activeGroupSession.message_count) : `${activeGroupSession.message_count} messages`}`,
@@ -154,9 +154,9 @@ const ChatHeaderContent: React.FC = () => {
                             </div>
                         )}
                         <div className="min-w-0 hidden sm:block">
-                            <h1 className="text-white text-xs md:text-sm font-medium truncate">{character.name}</h1>
+                            <h1 className="text-white drop-shadow-lg text-xs md:text-sm font-medium truncate">{character.name}</h1>
                             {!is_group_mode && session && (
-                                <p className="text-white/50 text-xs truncate">
+                                <p className="text-white drop-shadow-lg/50 text-xs truncate">
                                     {t({
                                         ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
                                         en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
@@ -189,8 +189,8 @@ const ChatHeaderContent: React.FC = () => {
                             </div>
                         )}
                         <div className="min-w-0 hidden md:block">
-                            <h2 className="text-white text-xs font-medium truncate">{persona.name}</h2>
-                            <p className="text-white/50 text-xs truncate">Persona</p>
+                            <h2 className="text-white drop-shadow-lg text-xs font-medium truncate">{persona.name}</h2>
+                            <p className="text-white drop-shadow-lg/50 text-xs truncate">Persona</p>
                         </div>
                     </div>
                 </div>
@@ -206,7 +206,7 @@ const ChatHeaderContent: React.FC = () => {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setIsVoiceCallModalOpen(true)}
-                    className="p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white flex-shrink-0 hover:bg-white/20"
+                    className="p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white drop-shadow-lg flex-shrink-0 hover:bg-white/20"
                     title="音声通話"
                 >
                     <Phone className="w-5 h-5 md:w-5 md:h-5" />
@@ -225,10 +225,10 @@ const ChatHeaderContent: React.FC = () => {
                         title="AI設定"
                     >
                         <Settings className="w-4 h-4 md:w-3 md:h-3 text-blue-400 flex-shrink-0" />
-                        <span className="text-white/90 inline max-w-[80px] md:max-w-[100px] lg:max-w-[120px] truncate text-xs md:text-sm">
+                        <span className="text-white drop-shadow-lg/90 inline max-w-[80px] md:max-w-[100px] lg:max-w-[120px] truncate text-xs md:text-sm">
                             {getModelDisplayName(useAppStore.getState().apiConfig.model)}
                         </span>
-                        <ChevronDown className="w-2 h-2 text-white/60 flex-shrink-0" />
+                        <ChevronDown className="w-2 h-2 text-white drop-shadow-lg/60 flex-shrink-0" />
                     </motion.button>
                 </div>
                 
@@ -238,8 +238,8 @@ const ChatHeaderContent: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleRightPanel}
                     className={cn(
-                        "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white flex-shrink-0",
-                        isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white"
+                        "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation text-white drop-shadow-lg flex-shrink-0",
+                        isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white drop-shadow-lg"
                     )}
                     title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
                 >

@@ -250,7 +250,7 @@ const ChatInterfaceContent: React.FC = () => {
     // グループモードかつアクティブなグループセッションがない場合
     if (is_group_mode && !activeGroupSession) {
         return (
-            <div className="flex bg-slate-900/50 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+            <div className="flex  text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -368,7 +368,7 @@ const ChatInterfaceContent: React.FC = () => {
     // 通常モードかつセッションがない場合
     if (!is_group_mode && !session) {
         return (
-            <div className="flex bg-slate-900/50 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+            <div className="flex  text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -383,7 +383,7 @@ const ChatInterfaceContent: React.FC = () => {
     
     return (
         <div 
-            className="flex bg-slate-900/50 text-white h-screen" 
+            className="flex  text-white h-screen" 
             style={{ 
                 height: 'calc(var(--vh, 1vh) * 100)'
             }}
