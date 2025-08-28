@@ -164,7 +164,10 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     const activeSession = state.sessions.get(activeSessionId);
     if (!activeSession) return;
 
-    if (state.is_generating) return;
+    if (state.is_generating) {
+      console.log('⚠️ Already generating, ignoring duplicate request');
+      return;
+    }
     set({ is_generating: true });
     
     // 1. ユーザーメッセージを作成
@@ -223,6 +226,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
         const apiConfig = get().apiConfig;
         // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
+        const requestId = `${activeSessionId}-${Date.now()}`;
         const response = await apiRequestQueue.enqueueChatRequest(async () => {
           console.log('🚀 Chat request started via queue');
           
@@ -245,7 +249,28 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             body: JSON.stringify({
               systemPrompt: basePrompt, // 最初はベースプロンプトで開始
               userMessage: content,
-              conversationHistory: activeSession.messages.slice(-5).map(msg => ({ role: msg.role, content: msg.content })), // 5メッセージに短縮で高速化
+              conversationHistory: (() => {
+                // 重複除去と履歴クリーンアップ
+                const recentMessages = activeSession.messages.slice(-10); // 多めに取得して重複除去後に5件に絞る
+                const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+                
+                for (const msg of recentMessages) {
+                  const historyEntry = { role: msg.role, content: msg.content };
+                  
+                  // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
+                  const isDuplicate = deduplicatedHistory.some(existing => 
+                    existing.role === historyEntry.role && 
+                    existing.content === historyEntry.content
+                  );
+                  
+                  if (!isDuplicate && historyEntry.content.trim()) {
+                    deduplicatedHistory.push(historyEntry);
+                  }
+                }
+                
+                // 最終的に最新5件のみ返す
+                return deduplicatedHistory.slice(-5);
+              })(),
               textFormatting: state.effectSettings.textFormatting,
               apiConfig: {
                 ...apiConfig,
@@ -255,7 +280,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               useEnhancedPrompt: false // フラグで制御
             }),
           });
-        });
+        }, requestId);
         
         // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
         enhancePrompt().then(enhancedPrompt => {

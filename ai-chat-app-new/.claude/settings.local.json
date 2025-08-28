@@ -86,7 +86,11 @@
       "Bash(time npm run build)",
       "Bash(Stop-Process -Name node -Force -ErrorAction SilentlyContinue)",
       "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" timeout 300s npm run build)",
-      "WebFetch(domain:ai-chat-app-5xvyc0df5-kous-projects-ba188115.vercel.app)"
+      "WebFetch(domain:ai-chat-app-5xvyc0df5-kous-projects-ba188115.vercel.app)",
+      "Bash(chmod:*)",
+      "Bash(icacls:*)",
+      "Bash(kill:*)",
+      "Bash(attrib:*)"
     ],
     "deny": [],
     "ask": [],

@@ -36,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full">
-      <body className={`${inter.className} bg-slate-900 text-white h-full`} suppressHydrationWarning>
+      <body className={`${inter.className} text-white h-full`} suppressHydrationWarning>
         
         <ErrorBoundary>
           <StorageInitializer />

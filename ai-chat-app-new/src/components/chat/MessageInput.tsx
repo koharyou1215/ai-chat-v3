@@ -128,12 +128,21 @@ export const MessageInput: React.FC = () => {
     }
   };
 
+  const [isSending, setIsSending] = useState(false);
+
   const handleSend = async () => {
-    if ((!hasMessage && !selectedImage) || is_generating) return;
+    if ((!hasMessage && !selectedImage) || is_generating || isSending) return;
     
-    await sendMessage(currentInputText, selectedImage || undefined);
-    setCurrentInputText('');
-    setSelectedImage(null);
+    setIsSending(true);
+    try {
+      await sendMessage(currentInputText, selectedImage || undefined);
+      setCurrentInputText('');
+      setSelectedImage(null);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleImageUpload = () => {

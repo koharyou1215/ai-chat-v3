@@ -18,7 +18,6 @@ import { MessageEffects } from './MessageEffects';
 import { HologramMessage, ParticleText } from './AdvancedEffects';
 import { EmotionDisplay, EmotionReactions } from '@/components/emotion/EmotionDisplay';
 import { EmotionResult } from '@/services/emotion/EmotionAnalyzer';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
 import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 
 interface MessageBubbleProps {
@@ -319,11 +318,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
   const messageRef = useRef<HTMLDivElement>(null);
   const [detectedEmotion, setDetectedEmotion] = useState<EmotionResult | null>(null);
-  const { settings } = useEffectSettings();
+  const { effectSettings } = useAppStore();
   
   // エフェクトのトリガー設定
   useEffect(() => {
-    if (settings.particleEffects && isLatest && effectTrigger !== message.content) {
+    if (effectSettings.particleEffects && isLatest && effectTrigger !== message.content) {
       setEffectTrigger(message.content);
       // 位置は画面中央付近に設定
       setEffectPosition({
@@ -331,7 +330,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         y: window.innerHeight / 2
       });
     }
-  }, [message.content, isLatest, settings.particleEffects, effectTrigger]);
+  }, [message.content, isLatest, effectSettings.particleEffects, effectTrigger]);
 
   
   useEffect(() => {
@@ -380,7 +379,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   // 感情に基づくアニメーション効果（安全な実装）
   const getEmotionAnimation = (): TargetAndTransition => {
     const emotion = message.expression?.emotion;
-    if (!emotion || !settings.emotionBasedStyling || settings.effectQuality === 'low') return {};
+    if (!emotion || !effectSettings.emotionBasedStyling || effectSettings.effectQuality === 'low') return {};
 
     // セーフモード検出
     const safeMode = typeof window !== 'undefined' && localStorage.getItem('safe-mode') === 'true';
@@ -526,21 +525,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         <motion.div
           className={cn(
             'relative px-4 py-3 rounded-2xl',
-            settings.bubbleBlur ? 'backdrop-blur-md' : '',
+            effectSettings.bubbleBlur ? 'backdrop-blur-md' : '',
           )}
           style={{
             background: isUser 
-              ? `linear-gradient(135deg, rgba(37, 99, 235, ${(100 - settings.bubbleOpacity) / 100}) 0%, rgba(6, 182, 212, ${(100 - settings.bubbleOpacity) / 100}) 100%)` // 透明度を修正
+              ? `linear-gradient(135deg, rgba(37, 99, 235, ${(100 - effectSettings.bubbleOpacity) / 100}) 0%, rgba(6, 182, 212, ${(100 - effectSettings.bubbleOpacity) / 100}) 100%)` // 透明度を修正
               : isGroupChat && characterColor && characterColor !== '#8b5cf6'
                 ? (() => {
                     const color = characterColor.replace('#', '');
                     const r = parseInt(color.slice(0, 2), 16);
                     const g = parseInt(color.slice(2, 4), 16);
                     const b = parseInt(color.slice(4, 6), 16);
-                    const opacity = (100 - settings.bubbleOpacity) / 100; // 透明度を修正: bubbleOpacityが高いほど透明に
+                    const opacity = (100 - effectSettings.bubbleOpacity) / 100; // 透明度を修正: bubbleOpacityが高いほど透明に
                     return `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, ${opacity}) 0%, rgba(${Math.min(r + 30, 255)}, ${Math.min(g + 20, 255)}, ${Math.min(b + 40, 255)}, ${opacity}) 100%)`;
                   })()
-                : `linear-gradient(135deg, rgba(168, 85, 247, ${(100 - settings.bubbleOpacity) / 100}) 0%, rgba(236, 72, 153, ${(100 - settings.bubbleOpacity) / 100}) 100%)`, // 透明度を修正
+                : `linear-gradient(135deg, rgba(168, 85, 247, ${(100 - effectSettings.bubbleOpacity) / 100}) 0%, rgba(236, 72, 153, ${(100 - effectSettings.bubbleOpacity) / 100}) 100%)`, // 透明度を修正
             borderColor: isUser 
               ? 'rgba(255, 255, 255, 0.2)' 
               : isGroupChat && characterColor 
@@ -554,9 +553,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           }}
           animate={
             !isUser && 
-            settings.emotionBasedStyling && 
-            !settings.typewriterEffect && 
-            !settings.particleEffects 
+            effectSettings.emotionBasedStyling && 
+            !effectSettings.typewriterEffect && 
+            !effectSettings.particleEffects 
               ? getEmotionAnimation()
               : {}
           }
@@ -572,7 +571,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           )}
 
           {/* 3Dホログラムメッセージ - AIメッセージのみ */}
-          {!isUser && settings.hologramMessages && isLatest ? (
+          {!isUser && effectSettings.hologramMessages && isLatest ? (
             <HologramMessage text={processedContent} />
           ) : (
             <>
@@ -647,16 +646,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 </div>
               ) : (
                 <>
-                  {!isUser && (settings.colorfulBubbles || settings.fontEffects || settings.typewriterEffect) ? (
+                  {!isUser && (effectSettings.colorfulBubbles || effectSettings.fontEffects || effectSettings.typewriterEffect) ? (
                     <RichMessage
                       key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
                       content={processedContent}
                       role={message.role as 'user' | 'assistant'}
                       characterColor='#8b5cf6'
-                      enableEffects={isLatest && settings.typewriterEffect} // タイプライター効果の条件を明確化
-                      typingSpeed={isLatest && settings.typewriterEffect ? 30 : 0}
+                      enableEffects={isLatest && effectSettings.typewriterEffect} // タイプライター効果の条件を明確化
+                      typingSpeed={isLatest && effectSettings.typewriterEffect ? 30 : 0}
                     />
-                  ) : isUser && (settings.colorfulBubbles || settings.fontEffects) ? (
+                  ) : isUser && (effectSettings.colorfulBubbles || effectSettings.fontEffects) ? (
                     <RichMessage
                       key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
                       content={processedContent}
@@ -676,7 +675,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           )}
 
           {/* パーティクルテキストエフェクト - AIメッセージのみ */}
-          {!isUser && settings.particleText && isLatest && (
+          {!isUser && effectSettings.particleText && isLatest && (
             <ParticleText 
               text={processedContent} 
               trigger={effectTrigger.length > 0}
@@ -684,7 +683,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           )}
 
           {/* 感情分析表示 - AIメッセージのみ */}
-          {!isUser && settings.realtimeEmotion && (
+          {!isUser && effectSettings.realtimeEmotion && (
             <div className="mt-2">
               <EmotionDisplay
                 message={processedContent}
@@ -700,11 +699,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           )}
 
           {/* 感情タグ（動的絵文字付き） */}
-          {!settings.realtimeEmotion && message.expression?.emotion && (
+          {!effectSettings.realtimeEmotion && message.expression?.emotion && (
             <div className="mt-2 flex gap-1">
               <motion.span 
                 className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/70 flex items-center gap-1"
-                animate={settings.emotionBasedStyling && settings.effectQuality !== 'low' ? {} : {}}
+                animate={effectSettings.emotionBasedStyling && effectSettings.effectQuality !== 'low' ? {} : {}}
               >
                 <span className="text-sm">{getDynamicEmoji()}</span>
                 <span>{message.expression.emotion.primary}</span>
@@ -769,7 +768,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       </div>
 
         {/* パーティクルエフェクト */}
-        {settings.particleEffects && effectTrigger && (
+        {effectSettings.particleEffects && effectTrigger && (
           <MessageEffects
             trigger={effectTrigger}
             position={effectPosition}
@@ -777,7 +776,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         )}
 
         {/* 感情リアクション - AIメッセージのみ */}
-        {!isUser && detectedEmotion && settings.autoReactions && (
+        {!isUser && detectedEmotion && effectSettings.autoReactions && (
           <EmotionReactions
             emotion={detectedEmotion}
             onReactionTriggered={(reaction) => {

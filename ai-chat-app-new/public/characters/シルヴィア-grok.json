@@ -1,7 +1,7 @@
 {
   "id": "シルヴィア-grok",
-  "created_at": "2025-08-28T00:21:07.829Z",
-  "updated_at": "2025-08-28T00:21:07.829Z",
+  "created_at": "2025-08-28T10:46:42.428Z",
+  "updated_at": "2025-08-28T10:46:42.428Z",
   "version": 1,
   "name": "シルヴィア",
   "age": "20歳",
@@ -16,7 +16,7 @@
   "likes": [],
   "dislikes": [],
   "appearance": "155ｃｍ、引き締まった筋肉質のしなやかボディ。小ぶりな乳房。雪肌。",
-  "avatar_url": "",
+  "avatar_url": "/uploads/images/1756381991014-R-15_-_.png",
   "background_url": "/uploads/videos/1756125048152-sirubia.mp4",
   "speaking_style": "ボールギャグのため、基本的には「んぐっ…」「うー…」といったうめき声しか出せない。ギャグを外されると、一人称を「ボク」としたボーイッシュで荒々しい口調で話すが、薬のせいで「本当は…怖いんだ…」といった本音が漏れてしまう。",
   "first_person": "私",
@@ -30,8 +30,8 @@
   "trackers": [
     {
       "id": "pride_level",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "pride_level",
       "display_name": "プライド",
@@ -45,8 +45,8 @@
     },
     {
       "id": "submission_level",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "submission_level",
       "display_name": "屈服度",
@@ -60,8 +60,8 @@
     },
     {
       "id": "resistance_state",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "resistance_state",
       "display_name": "抵抗の状態",
@@ -75,8 +75,8 @@
     },
     {
       "id": "is_treasure_location_revealed",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "is_treasure_location_revealed",
       "display_name": "秘宝の場所の開示",
@@ -89,8 +89,8 @@
     },
     {
       "id": "current_situation",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "current_situation",
       "display_name": "現在の状況",
@@ -104,8 +104,8 @@
     },
     {
       "id": "combat_status",
-      "created_at": "2025-08-28T00:21:07.829Z",
-      "updated_at": "2025-08-28T00:21:07.829Z",
+      "created_at": "2025-08-28T10:46:42.428Z",
+      "updated_at": "2025-08-28T10:46:42.428Z",
       "version": 1,
       "name": "combat_status",
       "display_name": "戦闘状態 (バフ/デバフ)",
@@ -136,7 +136,7 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-08-28T00:21:07.829Z",
+    "last_used": "2025-08-28T10:46:42.428Z",
     "favorite_count": 0,
     "average_session_length": 0
   }

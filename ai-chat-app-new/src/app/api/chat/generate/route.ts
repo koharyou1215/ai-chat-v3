@@ -49,15 +49,19 @@ export async function POST(request: Request) {
     }
     
     // ログ出力（これがターミナルに表示される）
-    console.log("\n--- [API Route: /api/chat/generate] ---");
-    console.log(`[Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
-    console.log("--- System Prompt ---");
+    // 本番・開発環境共通でログ出力
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const logPrefix = isDevelopment ? '[DEV]' : '[PROD]';
+    
+    console.log(`${logPrefix}\n--- [API Route: /api/chat/generate] ---`);
+    console.log(`${logPrefix}[Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
+    console.log(`${logPrefix}--- System Prompt ---`);
     console.log(systemPrompt);
-    console.log("--- Conversation History ---");
+    console.log(`${logPrefix}--- Conversation History (${conversationHistory.length} messages) ---`);
     console.log(JSON.stringify(conversationHistory, null, 2));
-    console.log("--- User Message ---");
+    console.log(`${logPrefix}--- User Message ---`);
     console.log(userMessage);
-    console.log("-----------------------------------------\n");
+    console.log(`${logPrefix}-----------------------------------------\n`);
 
     const aiResponseContent = await apiManager.generateMessage(
       systemPrompt,
@@ -65,6 +69,11 @@ export async function POST(request: Request) {
       conversationHistory,
       { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
     );
+
+    // レスポンスログ出力
+    console.log(`${logPrefix}--- AI Response ---`);
+    console.log(aiResponseContent);
+    console.log(`${logPrefix}--- End Response ---\n`);
 
     return NextResponse.json({ response: aiResponseContent });
 

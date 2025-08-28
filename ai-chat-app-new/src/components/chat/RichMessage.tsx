@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useAppStore } from '@/store';
 
 interface RichMessageProps {
   content: string;
@@ -21,7 +21,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
   enableEffects = true,
   typingSpeed = 30
 }) => {
-  const { settings } = useEffectSettings();
+  const { effectSettings } = useAppStore();
   const [displayedContent, setDisplayedContent] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number }>>([]);
@@ -29,7 +29,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
 
   // ハートエフェクトの生成 - メモリリーク防止
   const createHeartEffect = React.useCallback(() => {
-    if (!settings.particleEffects) return;
+    if (!effectSettings.particleEffects) return;
     
     const newParticle = {
       id: Date.now() + Math.random(),
@@ -46,11 +46,11 @@ export const RichMessage: React.FC<RichMessageProps> = ({
     
     // コンポーネントがアンマウントされた場合にクリーンアップ
     return () => clearTimeout(timeoutId);
-  }, [settings.particleEffects]);
+  }, [effectSettings.particleEffects]);
 
   // タイプライター効果
   useEffect(() => {
-    if (!enableEffects || !settings.typewriterEffect || typingSpeed === 0) {
+    if (!enableEffects || !effectSettings.typewriterEffect || typingSpeed === 0) {
       setDisplayedContent(content);
       setIsTyping(false);
       return;
@@ -66,7 +66,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
         setDisplayedContent(content.slice(0, index));
         
         // 特定の文字でエフェクトを発生
-        if (settings.particleEffects && (content[index] === '♥' || content[index] === '💕')) {
+        if (effectSettings.particleEffects && (content[index] === '♥' || content[index] === '💕')) {
           createHeartEffect();
         }
         
@@ -75,14 +75,14 @@ export const RichMessage: React.FC<RichMessageProps> = ({
         setIsTyping(false);
         clearInterval(timer);
       }
-    }, typingSpeed / settings.animationSpeed);
+    }, typingSpeed / effectSettings.animationSpeed);
 
     return () => clearInterval(timer);
-  }, [content, enableEffects, typingSpeed, settings.typewriterEffect, settings.animationSpeed, settings.particleEffects, createHeartEffect]); // displayedContentを依存配列から削除
+  }, [content, enableEffects, typingSpeed, effectSettings.typewriterEffect, effectSettings.animationSpeed, effectSettings.particleEffects, createHeartEffect]); // displayedContentを依存配列から削除
 
   // コンテンツのパース（特殊フォーマットの検出）
   const parseContent = (text: string) => {
-    if (!settings.fontEffects) {
+    if (!effectSettings.fontEffects) {
       return <span>{text}</span>;
     }
 
@@ -160,7 +160,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
 
   // 感情に基づく色の決定
   const getEmotionColor = (content: string) => {
-    if (!settings.emotionBasedStyling) return characterColor;
+    if (!effectSettings.emotionBasedStyling) return characterColor;
 
     const emotionMap: Record<string, string> = {
       'love': '#ff69b4',
@@ -199,26 +199,26 @@ export const RichMessage: React.FC<RichMessageProps> = ({
         ref={messageRef}
         className={cn(
           'relative px-4 py-3 rounded-2xl max-w-lg transition-all duration-300',
-          settings.colorfulBubbles ? 
+          effectSettings.colorfulBubbles ? 
             'backdrop-blur-sm' : 
             'bg-gray-800',
           role === 'assistant' ? 
-            (settings.colorfulBubbles ? 
+            (effectSettings.colorfulBubbles ? 
               'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30' :
               'bg-gray-700') :
-            (settings.colorfulBubbles ? 
+            (effectSettings.colorfulBubbles ? 
               'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/30' :
               'bg-gray-600')
         )}
         style={{
-          boxShadow: settings.colorfulBubbles ? `0 0 20px ${currentColor}20` : 'none',
+          boxShadow: effectSettings.colorfulBubbles ? `0 0 20px ${currentColor}20` : 'none',
         }}
       >
         {/* タイピングインジケーター */}
-        {isTyping && settings.typewriterEffect && (
+        {isTyping && effectSettings.typewriterEffect && (
           <motion.span
             animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1 / settings.animationSpeed, repeat: Infinity }}
+            transition={{ duration: 1 / effectSettings.animationSpeed, repeat: Infinity }}
             className="absolute -right-2 -bottom-2"
           >
             ✨
@@ -248,7 +248,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
                 opacity: 0
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2 / settings.animationSpeed, ease: 'easeOut' }}
+              transition={{ duration: 2 / effectSettings.animationSpeed, ease: 'easeOut' }}
               className="absolute top-1/2 left-1/2 pointer-events-none"
               style={{ zIndex: 100 }}
             >

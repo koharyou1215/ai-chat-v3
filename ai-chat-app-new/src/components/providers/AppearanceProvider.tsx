@@ -71,15 +71,27 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     root.style.setProperty('--sidebar-width', sidebarWidthMap[appearanceSettings.sidebarWidth]);
     
-    // 背景設定を適用
+    // 背景設定を適用 - bodyにdata属性も設定
+    const body = document.body;
+    
     if (appearanceSettings.backgroundType === 'solid') {
       root.style.setProperty('--background', appearanceSettings.backgroundColor);
+      body.setAttribute('data-background-type', 'solid');
+      body.style.setProperty('background', appearanceSettings.backgroundColor, 'important');
     } else if (appearanceSettings.backgroundType === 'gradient') {
       root.style.setProperty('--background', appearanceSettings.backgroundGradient);
+      body.setAttribute('data-background-type', 'gradient');
+      body.style.setProperty('background', appearanceSettings.backgroundGradient, 'important');
     } else if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
       root.style.setProperty('--background', `url(${appearanceSettings.backgroundImage})`);
       root.style.setProperty('--background-blur', `${appearanceSettings.backgroundBlur}px`);
       root.style.setProperty('--background-opacity', `${appearanceSettings.backgroundOpacity}%`);
+      body.setAttribute('data-background-type', 'image');
+      body.style.setProperty('background', `url(${appearanceSettings.backgroundImage})`, 'important');
+      body.style.setProperty('background-size', 'cover', 'important');
+      body.style.setProperty('background-position', 'center', 'important');
+      body.style.setProperty('background-repeat', 'no-repeat', 'important');
+      body.style.setProperty('background-attachment', 'fixed', 'important');
     }
     
     // アニメーション設定を適用

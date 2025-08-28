@@ -23,6 +23,7 @@ export class APIRequestQueue {
   private activeRequests = 0;
   private lastRequestTime = 0;
   private minDelay = 100; // 最小遅延（ms）
+  private pendingRequests = new Set<string>(); // 重複防止用
 
   /**
    * リクエストをキューに追加
@@ -55,10 +56,37 @@ export class APIRequestQueue {
   }
 
   /**
-   * チャット専用の高優先度リクエスト
+   * チャット専用の高優先度リクエスト（重複防止機能付き）
    */
-  async enqueueChatRequest<T>(request: () => Promise<T>): Promise<T> {
-    return this.enqueue('chat', request, 'high');
+  async enqueueChatRequest<T>(request: () => Promise<T>, requestId?: string): Promise<T> {
+    // 重複チェック
+    if (requestId && this.pendingRequests.has(requestId)) {
+      console.log(`🚫 Duplicate chat request ignored: ${requestId}`);
+      throw new Error('Duplicate request detected');
+    }
+    
+    if (requestId) {
+      this.pendingRequests.add(requestId);
+    }
+
+    try {
+      const result = await this.enqueue('chat', async () => {
+        try {
+          return await request();
+        } finally {
+          if (requestId) {
+            this.pendingRequests.delete(requestId);
+          }
+        }
+      }, 'high');
+      
+      return result as T;
+    } catch (error) {
+      if (requestId) {
+        this.pendingRequests.delete(requestId);
+      }
+      throw error;
+    }
   }
 
   /**

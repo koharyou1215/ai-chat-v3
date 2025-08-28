@@ -14,26 +14,41 @@ export interface LanguageSettings {
 
 // エフェクト設定の型定義を追加
 export interface EffectSettings {
-  // メッセージエフェクト
+  // メッセージエフェクト - boolean + intensity
   colorfulBubbles: boolean;
   fontEffects: boolean;
   particleEffects: boolean;
   typewriterEffect: boolean;
   
+  // エフェクト強度設定 (0-100)
+  colorfulBubblesIntensity: number;
+  fontEffectsIntensity: number;
+  particleEffectsIntensity: number;
+  typewriterIntensity: number;
+  
   // 外観設定
   bubbleOpacity: number;
   bubbleBlur: boolean;
   
-  // 3D機能
+  // 3D機能 - boolean + intensity
   hologramMessages: boolean;
   particleText: boolean;
   rippleEffects: boolean;
   backgroundParticles: boolean;
   
-  // 感情分析
+  // 3Dエフェクト強度設定 (0-100)
+  hologramIntensity: number;
+  particleTextIntensity: number;
+  rippleIntensity: number;
+  backgroundParticlesIntensity: number;
+  
+  // 感情分析 - boolean + intensity
   realtimeEmotion: boolean;
   emotionBasedStyling: boolean;
   autoReactions: boolean;
+  
+  // 感情エフェクト強度設定 (0-100)
+  emotionStylingIntensity: number;
   
   // トラッカー
   autoTrackerUpdate: boolean;
@@ -149,6 +164,12 @@ export const createSettingsSlice: StateCreator<
     particleEffects: false,
     typewriterEffect: false,
     
+    // エフェクト強度設定 (0-100) - 標準値を50に設定
+    colorfulBubblesIntensity: 50,
+    fontEffectsIntensity: 50,
+    particleEffectsIntensity: 30, // パフォーマンス考慮で控えめ
+    typewriterIntensity: 70, // タイプライター効果は少し強めに
+    
     // 外観設定
     bubbleOpacity: 85,
     bubbleBlur: true,
@@ -159,10 +180,19 @@ export const createSettingsSlice: StateCreator<
     rippleEffects: false,
     backgroundParticles: false,
     
+    // 3Dエフェクト強度設定 (0-100) - 控えめなデフォルト値
+    hologramIntensity: 40,
+    particleTextIntensity: 35,
+    rippleIntensity: 60,
+    backgroundParticlesIntensity: 25, // パフォーマンス重視で最小
+    
     // 感情分析
     realtimeEmotion: false,
     emotionBasedStyling: false,
     autoReactions: false,
+    
+    // 感情エフェクト強度設定 (0-100)
+    emotionStylingIntensity: 45, // 控えめな感情表現
     
     // トラッカー
     autoTrackerUpdate: false,

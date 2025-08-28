@@ -20,6 +20,13 @@ import { BasicInfoPanel } from './BasicInfoPanel';
 import { PersonalityPanel } from './PersonalityPanel';
 import { TrackersPanel } from './TrackersPanel';
 
+// 文字列の制御文字を正規化する関数
+const sanitizeString = (value: string): string => {
+  if (!value) return value;
+  // 制御文字（タブ、改行以外）を削除し、改行とタブは維持
+  return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+};
+
 // Type guard functions
 const isCharacter = (data: Character | Persona | null): data is Character => {
   return data !== null && 'speaking_style' in data;
@@ -727,12 +734,13 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <label className="block text-sm font-medium text-slate-300 mb-2">ハードリミット（絶対NG）</label>
                                     <Textarea
                                         placeholder="絶対に行わない行為..."
-                                        value={isCharacter(formData) ? formData.nsfw_profile?.kinks?.find(k => k.startsWith('hard:'))?.replace('hard:', '') || '' : ''}
+                                        value={isCharacter(formData) && Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks.find(k => k.startsWith('hard:'))?.replace('hard:', '') || '' : ''}
                                         onChange={e => {
                                             if (isCharacter(formData)) {
-                                                const kinks = formData.nsfw_profile?.kinks || [];
+                                                const sanitizedValue = sanitizeString(e.target.value);
+                                                const kinks = Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : [];
                                                 const updatedKinks = kinks.filter(k => !k.startsWith('hard:'));
-                                                if (e.target.value) updatedKinks.push(`hard:${e.target.value}`);
+                                                if (sanitizedValue) updatedKinks.push(`hard:${sanitizedValue}`);
                                                 setFormData({
                                                     ...formData, 
                                                     nsfw_profile: {
@@ -749,12 +757,13 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                     <label className="block text-sm font-medium text-slate-300 mb-2">ソフトリミット（条件付きNG）</label>
                                     <Textarea
                                         placeholder="条件によってはNGとなる行為..."
-                                        value={isCharacter(formData) ? formData.nsfw_profile?.kinks?.find(k => k.startsWith('soft:'))?.replace('soft:', '') || '' : ''}
+                                        value={isCharacter(formData) && Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks.find(k => k.startsWith('soft:'))?.replace('soft:', '') || '' : ''}
                                         onChange={e => {
                                             if (isCharacter(formData)) {
-                                                const kinks = formData.nsfw_profile?.kinks || [];
+                                                const sanitizedValue = sanitizeString(e.target.value);
+                                                const kinks = Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : [];
                                                 const updatedKinks = kinks.filter(k => !k.startsWith('soft:'));
-                                                if (e.target.value) updatedKinks.push(`soft:${e.target.value}`);
+                                                if (sanitizedValue) updatedKinks.push(`soft:${sanitizedValue}`);
                                                 setFormData({
                                                     ...formData, 
                                                     nsfw_profile: {
@@ -771,14 +780,15 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">性的嗜好・キンク</label>
-                                {(isCharacter(formData) ? formData.nsfw_profile?.kinks || [] : []).map((kink: string, index: number) => (
+                                {(isCharacter(formData) && Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : []).map((kink: string, index: number) => (
                                     <div key={`kink-${index}`} className="flex items-center gap-2 mb-2">
                                         <Input 
                                             value={kink} 
                                             onChange={e => {
                                                 if (isCharacter(formData)) {
-                                                    const newKinks = [...(formData.nsfw_profile?.kinks || [])];
-                                                    newKinks[index] = e.target.value;
+                                                    const sanitizedValue = sanitizeString(e.target.value);
+                                                    const newKinks = [...(Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : [])];
+                                                    newKinks[index] = sanitizedValue;
                                                     setFormData({
                                                         ...formData, 
                                                         nsfw_profile: {
@@ -794,7 +804,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                             variant="ghost" 
                                             onClick={() => {
                                                 if (isCharacter(formData)) {
-                                                    const newKinks = (formData.nsfw_profile?.kinks || []).filter((_: string, i: number) => i !== index);
+                                                    const newKinks = (Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : []).filter((_: string, i: number) => i !== index);
                                                     setFormData({
                                                         ...formData, 
                                                         nsfw_profile: {
@@ -818,7 +828,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                                 ...formData, 
                                                 nsfw_profile: {
                                                     ...formData.nsfw_profile,
-                                                    kinks: [...(formData.nsfw_profile?.kinks || []), '']
+                                                    kinks: [...(Array.isArray(formData.nsfw_profile?.kinks) ? formData.nsfw_profile.kinks : []), '']
                                                 }
                                             });
                                         }

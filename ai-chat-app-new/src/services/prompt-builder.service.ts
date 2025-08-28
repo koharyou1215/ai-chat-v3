@@ -212,6 +212,12 @@ ${processedCharacter.first_person ? `First Person: ${processedCharacter.first_pe
 ${processedCharacter.second_person ? `Second Person: ${processedCharacter.second_person}` : ''}
 ${processedCharacter.verbal_tics && processedCharacter.verbal_tics.length > 0 ? `Verbal Tics: ${processedCharacter.verbal_tics.join(', ')}` : ''}
 
+${processedCharacter.nsfw_profile ? `## NSFW Profile
+${processedCharacter.nsfw_profile.consent_level ? `Consent Level: ${processedCharacter.nsfw_profile.consent_level}` : ''}
+${processedCharacter.nsfw_profile.preferred_scenarios && processedCharacter.nsfw_profile.preferred_scenarios.length > 0 ? `Preferred Scenarios: ${processedCharacter.nsfw_profile.preferred_scenarios.join(', ')}` : ''}
+${processedCharacter.nsfw_profile.kinks && processedCharacter.nsfw_profile.kinks.length > 0 ? `Kinks/Preferences: ${processedCharacter.nsfw_profile.kinks.join(', ')}` : ''}
+${processedCharacter.nsfw_profile.limits && processedCharacter.nsfw_profile.limits.length > 0 ? `Limits: ${processedCharacter.nsfw_profile.limits.join(', ')}` : ''}` : ''}
+
 ## Context
 ${processedCharacter.background ? `Background: ${processedCharacter.background}` : ''}
 ${processedCharacter.scenario ? `Current Scenario: ${processedCharacter.scenario}` : ''}
@@ -225,6 +231,12 @@ ${processedCharacter.scenario ? `Current Scenario: ${processedCharacter.scenario
 Name: ${user.name || userName}
 ${user.role ? `Role: ${user.role}` : ''}
 ${user.description ? `Description: ${user.description}` : ''}
+${user.nsfw_persona ? `
+NSFW Persona:
+${user.nsfw_persona.consent_level ? `- Consent Level: ${user.nsfw_persona.consent_level}` : ''}
+${user.nsfw_persona.preferred_scenarios && user.nsfw_persona.preferred_scenarios.length > 0 ? `- Preferred Scenarios: ${user.nsfw_persona.preferred_scenarios.join(', ')}` : ''}
+${user.nsfw_persona.kinks && user.nsfw_persona.kinks.length > 0 ? `- Kinks/Preferences: ${user.nsfw_persona.kinks.join(', ')}` : ''}
+${user.nsfw_persona.limits && user.nsfw_persona.limits.length > 0 ? `- Limits: ${user.nsfw_persona.limits.join(', ')}` : ''}` : ''}
 </persona_information>`;
     }
 

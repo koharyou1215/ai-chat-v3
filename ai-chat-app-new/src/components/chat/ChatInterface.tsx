@@ -250,7 +250,7 @@ const ChatInterfaceContent: React.FC = () => {
     // グループモードかつアクティブなグループセッションがない場合
     if (is_group_mode && !activeGroupSession) {
         return (
-            <div className="flex bg-slate-900 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+            <div className="flex  text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -368,7 +368,7 @@ const ChatInterfaceContent: React.FC = () => {
     // 通常モードかつセッションがない場合
     if (!is_group_mode && !session) {
         return (
-            <div className="flex bg-slate-900 text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+            <div className="flex  text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <ClientOnlyProvider fallback={null}>
                     <AnimatePresence>
                         {isLeftSidebarOpen && <ChatSidebar />}
@@ -383,7 +383,7 @@ const ChatInterfaceContent: React.FC = () => {
     
     return (
         <div 
-            className="flex bg-slate-900 text-white h-screen" 
+            className="flex  text-white h-screen" 
             style={{ 
                 height: 'calc(var(--vh, 1vh) * 100)'
             }}
@@ -408,7 +408,6 @@ const ChatInterfaceContent: React.FC = () => {
                             className="w-full h-full object-cover"
                         />
                     )}
-                    <div className="absolute inset-0 bg-black/30" />
                 </div>
             )}
 
@@ -499,7 +498,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 animate={{ width: 400, opacity: 1 }}
                                 exit={{ width: 0, opacity: 0 }}
                                 transition={{ duration: 0.3 }}
-                                className="bg-slate-800 border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]"
+                                className="bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]"
                             >
                                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">記憶情報</h3>
@@ -507,7 +506,7 @@ const ChatInterfaceContent: React.FC = () => {
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <div className="flex p-2 bg-slate-900/50 border-b border-purple-400/20">
+                                <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
                                     {sidePanelTabs.map(tab => (
                                         <button
                                             key={tab.key}
@@ -652,7 +651,7 @@ export const ChatInterface: React.FC = () => {
     try {
         return (
             <ClientOnlyProvider fallback={
-                <div className="flex bg-slate-900 text-white overflow-hidden items-center justify-center" 
+                <div className="flex  text-white overflow-hidden items-center justify-center" 
                      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                     <div className="text-white/50 text-center">
                         <div className="animate-pulse">読み込み中...</div>
@@ -664,7 +663,7 @@ export const ChatInterface: React.FC = () => {
         );
     } catch (error) {
         return (
-            <div className="flex bg-slate-900 text-white overflow-hidden items-center justify-center" 
+            <div className="flex  text-white overflow-hidden items-center justify-center" 
                  style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
                 <div className="text-white/50 text-center">
                     <div>エラーが発生しました: {String(error)}</div>

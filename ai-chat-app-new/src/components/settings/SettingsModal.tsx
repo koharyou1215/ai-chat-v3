@@ -27,10 +27,48 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
 import { SystemPrompts } from '@/types/core/settings.types';
 import { EffectSettings, AppearanceSettings } from '@/store/slices/settings.slice';
 import { StorageManager } from '@/utils/storage-cleanup';
+
+// エフェクト強度調整用スライダーコンポーネント
+interface IntensitySliderProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+}
+
+const IntensitySlider: React.FC<IntensitySliderProps> = ({ 
+  label, 
+  value, 
+  onChange, 
+  min = 0, 
+  max = 100 
+}) => {
+  return (
+    <div className="flex items-center justify-between space-x-4 py-2">
+      <div className="flex-1">
+        <label className="text-sm text-white/70 mb-1 block">{label}</label>
+        <div className="flex items-center space-x-3">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            value={value}
+            onChange={(e) => onChange(parseInt(e.target.value))}
+            className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider-thumb:appearance-none slider-thumb:h-4 slider-thumb:w-4 slider-thumb:bg-blue-500 slider-thumb:rounded-full slider-thumb:cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${value}%, rgba(255,255,255,0.2) ${value}%, rgba(255,255,255,0.2) 100%)`
+            }}
+          />
+          <span className="text-white/80 text-sm min-w-[3rem] text-right">{value}%</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 
 interface SettingsModalProps {
@@ -47,7 +85,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onEffectSettingsChange
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const { settings: _contextSettings, updateSettings: updateContextSettings } = useEffectSettings();
   const {
     systemPrompts,
     enableSystemPrompt,
@@ -126,8 +163,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // Zustandストアに即座に保存（永続化される）
     updateEffectSettings(newSettings);
     
-    // 下位互換性のためEffectSettingsContextにも反映
-    updateContextSettings(newSettings);
     if (onEffectSettingsChange) {
       onEffectSettingsChange(newSettings);
     }
@@ -301,6 +336,15 @@ const EffectsPanel: React.FC<{
       checked={settings.colorfulBubbles}
       onChange={(checked) => updateSetting('colorfulBubbles', checked)}
     />
+    {settings.colorfulBubbles && (
+      <div className="ml-6 mb-4">
+        <IntensitySlider
+          label="カラフル強度"
+          value={settings.colorfulBubblesIntensity}
+          onChange={(value) => updateSetting('colorfulBubblesIntensity', value)}
+        />
+      </div>
+    )}
     
     <SettingItem
       title="フォントエフェクト"
@@ -308,6 +352,15 @@ const EffectsPanel: React.FC<{
       checked={settings.fontEffects}
       onChange={(checked) => updateSetting('fontEffects', checked)}
     />
+    {settings.fontEffects && (
+      <div className="ml-6 mb-4">
+        <IntensitySlider
+          label="フォントエフェクト強度"
+          value={settings.fontEffectsIntensity}
+          onChange={(value) => updateSetting('fontEffectsIntensity', value)}
+        />
+      </div>
+    )}
     
     <SettingItem
       title="パーティクルエフェクト"
@@ -315,6 +368,15 @@ const EffectsPanel: React.FC<{
       checked={settings.particleEffects}
       onChange={(checked) => updateSetting('particleEffects', checked)}
     />
+    {settings.particleEffects && (
+      <div className="ml-6 mb-4">
+        <IntensitySlider
+          label="パーティクル強度"
+          value={settings.particleEffectsIntensity}
+          onChange={(value) => updateSetting('particleEffectsIntensity', value)}
+        />
+      </div>
+    )}
     
     <SettingItem
       title="タイプライター効果"
@@ -322,6 +384,15 @@ const EffectsPanel: React.FC<{
       checked={settings.typewriterEffect}
       onChange={(checked) => updateSetting('typewriterEffect', checked)}
     />
+    {settings.typewriterEffect && (
+      <div className="ml-6 mb-4">
+        <IntensitySlider
+          label="タイプライター強度"
+          value={settings.typewriterIntensity}
+          onChange={(value) => updateSetting('typewriterIntensity', value)}
+        />
+      </div>
+    )}
 
     {/* 外観設定 */}
     <div className="border-t border-white/10 pt-6">

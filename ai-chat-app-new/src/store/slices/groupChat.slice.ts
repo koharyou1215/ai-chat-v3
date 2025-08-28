@@ -320,8 +320,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const historyReduction = Math.max(10 - (characterIndex * 2), 4); // 後のキャラほど履歴を減らす
     const recentMessages = groupSession.messages.slice(-historyReduction);
     console.log(`📚 [${character.name}] 履歴調整: 最新${historyReduction}件を使用`);
-    // 全員の発言を含める（グループチャットなので）
-    const conversationHistory = recentMessages
+    // 全員の発言を含める（グループチャットなので） + 重複除去
+    const tempHistory = recentMessages
       .map(msg => {
         if (msg.role === 'user') {
           return { 
@@ -344,6 +344,20 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         return null;
       })
       .filter(msg => msg !== null) as Array<{role: 'user' | 'assistant', content: string}>;
+
+    // 重複除去処理（グループチャット用）
+    const conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = [];
+    for (const msg of tempHistory) {
+      // 同一内容の重複チェック
+      const isDuplicate = conversationHistory.some(existing => 
+        existing.role === msg.role && 
+        existing.content === msg.content
+      );
+      
+      if (!isDuplicate && msg.content.trim()) {
+        conversationHistory.push(msg);
+      }
+    }
 
     // デバッグ: 会話履歴を確認
     console.log(`🔍 [${character.name}] 会話履歴:`, conversationHistory);

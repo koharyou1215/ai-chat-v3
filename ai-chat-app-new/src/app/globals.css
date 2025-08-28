@@ -157,11 +157,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* 温かみのある微妙なグラデーション背景 */
-    background: linear-gradient(135deg, 
+    /* 動的背景設定に対応 - デフォルトは温かみのあるグラデーション */
+    background: var(--background, linear-gradient(135deg, 
       oklch(0.16 0.01 270) 0%, 
       oklch(0.15 0.015 285) 50%, 
-      oklch(0.17 0.008 260) 100%);
+      oklch(0.17 0.008 260) 100%));
     
     /* 日本語フォント対応 */
     font-family: var(--font-inter), 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', 'Yu Gothic Medium', 'Yu Gothic', sans-serif;
@@ -248,11 +248,11 @@
     width: 100% !important;
     height: 100% !important;
     position: relative !important;
-    /* 新しい温かみのあるグラデーション背景 */
-    background: linear-gradient(135deg, 
+    /* 動的背景設定に対応 */
+    background: var(--background, linear-gradient(135deg, 
       oklch(0.16 0.01 270) 0%, 
       oklch(0.15 0.015 285) 50%, 
-      oklch(0.17 0.008 260) 100%) !important;
+      oklch(0.17 0.008 260) 100%)) !important;
   }
   
   /* Safari モバイルでメインコンテンツを強制表示 */
