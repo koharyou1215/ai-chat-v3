@@ -608,53 +608,53 @@ ${context}
   private detectNarrativeContinuation(lines: string[]): boolean {
     if (lines.length < 2) return false;
     
-    // ストーリー継続の特徴を検出
+    const content = lines.join('\n');
+    
+    // 1. 明確な分離マーカーがある場合は独立提案
+    const hasSeparators = content.includes('---') || content.includes('===') || content.includes('***');
+    if (hasSeparators) {
+      console.log('🔧 Explicit separators detected, treating as independent suggestions');
+      return false;
+    }
+    
+    // 2. 番号付きリストや箇条書きがある場合は独立提案
+    const hasNumberedList = lines.some(line => line.match(/^\d+[\.\)]/));
+    const hasBulletList = lines.some(line => line.match(/^[-•·]/));
+    if (hasNumberedList || hasBulletList) {
+      console.log('🔧 Numbered/bullet list detected, treating as independent suggestions');
+      return false;
+    }
+    
+    // 3. ストーリー継続の特徴を検出（より厳密）
     let narrativeScore = 0;
     const joinedText = lines.join(' ');
     
-    // グローバル指標: 全体的な連続性
-    // 1. 同一人称の一貫使用
+    // 同一人称の一貫使用（より厳しい条件）
     const firstPersonCount = (joinedText.match(/(俺|私|僕|オレ)/g) || []).length;
-    if (firstPersonCount >= 2) {
+    if (firstPersonCount >= 3) {  // 3回以上で強い継続性
       narrativeScore += 2;
-      console.log('📖 Consistent first person usage +2');
+      console.log('📖 Strong first person consistency +2');
     }
     
-    // 2. 時系列的な行動シーケンス
+    // 時系列的な行動シーケンス
     const actionSequence = joinedText.match(/(起きろ|起き|作る|寝て|寝る|眠)/g);
-    if (actionSequence && actionSequence.length >= 2) {
+    if (actionSequence && actionSequence.length >= 3) {  // 3つ以上の関連行動
       narrativeScore += 2;
-      console.log('📖 Action sequence detected +2');
+      console.log('📖 Strong action sequence +2');
     }
     
-    // 行間の関係性チェック
+    // 行間の強い関係性（接続詞）
     for (let i = 1; i < lines.length; i++) {
       const current = lines[i].trim();
-      const previous = lines[i-1].trim();
       
-      // 3. 接続詞での継続
       if (current.match(/^(でも|だから|それで|そして|また|さらに|しかし|だけど|けれど|なので|そのため)/)) {
-        narrativeScore += 1;
-      }
-      
-      // 4. 時間的継続
-      if (current.match(/^(その後|それから|次に|今度は)/)) {
-        narrativeScore += 1;
-      }
-      
-      // 5. 状況の継続（場所・時間・人物の一貫性）
-      if (previous.includes('寝') && current.includes('眠')) {
-        narrativeScore += 1;
-      }
-      
-      // 6. 直接的な人物言及の継続
-      if (previous.includes('ひまり') && current.match(/(マジで|ま、)/)) {
-        narrativeScore += 1;
+        narrativeScore += 2;  // 接続詞は強い継続指標
+        console.log('📖 Strong connector word +2');
       }
     }
     
-    // より低い閾値でストーリー継続と判定（柔軟性向上）
-    const isNarrative = narrativeScore >= 1;
+    // バランス調整: 分離マーカーを尊重しつつストーリーを検出
+    const isNarrative = narrativeScore >= 2;
     console.log(`📖 Narrative detection: score=${narrativeScore}, isNarrative=${isNarrative}`);
     
     return isNarrative;
