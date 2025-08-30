@@ -26,6 +26,7 @@ export interface ChatSlice {
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
   sendMessage: (content: string, imageUrl?: string) => Promise<void>;
   regenerateLastMessage: () => Promise<void>;
+  continueLastMessage: () => Promise<void>; // 🆕 ソロチャット続きを生成機能を追加
   deleteMessage: (message_id: UUID) => void;
   clearActiveConversation: () => void;
   exportActiveConversation: () => void;
@@ -504,6 +505,117 @@ AI、モデル、システムといったメタ的な話題に言及すること
       });
     } catch (error) {
         console.error("Regeneration failed:", error);
+    } finally {
+        set({ is_generating: false });
+    }
+  },
+
+  // 🆕 ソロチャット続きを生成機能
+  continueLastMessage: async () => {
+    set({ is_generating: true });
+    try {
+      const activeSessionId = get().active_session_id;
+      if (!activeSessionId) {
+        console.warn("Continue aborted: No active session ID.");
+        return;
+      }
+      
+      const session = get().sessions.get(activeSessionId);
+      if (!session || session.messages.length === 0) {
+        console.warn("Continue aborted: Session not found or no messages.");
+        return;
+      }
+
+      // 最後のAIメッセージを見つける
+      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
+      if (lastAiMessageIndex === -1) {
+        console.warn("Continue aborted: No valid AI message to continue.");
+        return;
+      }
+
+      const lastAiMessage = session.messages[lastAiMessageIndex];
+      const characterId = session.participants.characters[0]?.id;
+      const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
+      
+      // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
+      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+      
+      let systemPrompt = await promptBuilderService.buildPrompt(
+        session,
+        continuePrompt,
+        trackerManager
+      );
+
+      const { apiManager } = await import('@/services/api-manager');
+      
+      const conversationHistory = session.messages
+        .filter(m => !m.is_deleted)
+        .slice(-10) // 最新10件の履歴を使用
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+      const apiConfig = get().apiConfig || {};
+      const openRouterApiKey = get().openRouterApiKey;
+      const geminiApiKey = get().geminiApiKey;
+
+      const aiResponse = await apiManager.generateMessage(
+        systemPrompt,
+        continuePrompt,
+        conversationHistory,
+        { ...apiConfig, openRouterApiKey, geminiApiKey }
+      );
+
+      // 新しい続きメッセージを作成
+      const newContinuationMessage: UnifiedMessage = {
+        id: generateAIMessageId(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 1,
+        session_id: activeSessionId,
+        role: 'assistant',
+        content: aiResponse,
+        character_id: session.participants.characters[0]?.id,
+        memory: {
+          importance: { score: 0.6, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.7 } },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: [],
+        },
+        expression: {
+          emotion: { primary: 'neutral', intensity: 0.6, emoji: '💬' },
+          style: { font_weight: 'normal', text_color: '#ffffff' },
+          effects: []
+        },
+        edit_history: [],
+        regeneration_count: 0,
+        is_deleted: false,
+        metadata: { 
+          is_continuation: true,
+          continuation_of: lastAiMessage.id,
+          continuation_count: (lastAiMessage.metadata?.continuation_count || 0) + 1
+        }
+      };
+
+      // セッションにメッセージを追加
+      set(state => {
+        const currentSession = state.sessions.get(activeSessionId);
+        if (!currentSession) return state;
+
+        const updatedMessages = [...currentSession.messages, newContinuationMessage];
+        const updatedSession = {
+          ...currentSession,
+          messages: updatedMessages,
+          message_count: updatedMessages.length,
+          updated_at: new Date().toISOString(),
+        };
+        
+        return {
+          sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+        };
+      });
+
+      console.log('✅ Solo message continued successfully');
+    } catch (error) {
+        console.error("Continue failed:", error);
     } finally {
         set({ is_generating: false });
     }

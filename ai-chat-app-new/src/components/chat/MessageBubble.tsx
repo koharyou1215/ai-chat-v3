@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence, TargetAndTransition } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, MoreHorizontal } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, ChevronRight } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
@@ -127,50 +127,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         // グループチャット用続きを生成
         await state.continueLastGroupMessage();
       } else {
-        // ソロチャット用続きを生成（既存の複雑な実装を維持）
-        const session = state.sessions.get(activeSessionId || '');
-        if (!session) return;
-        const trackerManager = trackerManagers.get(activeSessionId || '');
-        // 最後のAIメッセージを探す
-        const lastAiMsg = [...session.messages].reverse().find(m => m.role === 'assistant');
-        if (!lastAiMsg) {
-          alert('AIメッセージが見つかりません');
-          return;
-        }
-        // プロンプトを再構築し、AI応答のみ生成
-        const { promptBuilderService } = await import('@/services/prompt-builder.service');
-        const { apiManager } = await import('@/services/api-manager');
-        
-        const systemPrompt = await promptBuilderService.buildPrompt(
-          session,
-          lastAiMsg.content,
-          trackerManager
-        );
-        const aiResponseContent = await apiManager.generateMessage(
-          systemPrompt,
-          lastAiMsg.content,
-          session.messages.slice(-10).filter(msg => msg.role === 'user' || msg.role === 'assistant').map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
-        );
-        // AIメッセージを追加
-        const newMessage = {
-          ...lastAiMsg,
-          id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          content: aiResponseContent,
-          regeneration_count: (lastAiMsg.regeneration_count || 0) + 1
-        };
-        useAppStore.setState(state => {
-          const updatedSession = {
-            ...session,
-            messages: [...session.messages, newMessage],
-            message_count: session.message_count + 1,
-            updated_at: new Date().toISOString(),
-          };
-          return {
-            sessions: new Map(state.sessions).set(session.id, updatedSession)
-          };
-        });
+        // ソロチャット用続きを生成
+        await state.continueLastMessage();
       }
     } finally {
       setIsContinuing(false);
@@ -776,7 +734,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
               <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
               <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact disabled={isRegenerating || is_generating || group_generating} />
-              <ActionButton icon={MoreHorizontal} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing || is_generating || group_generating} />
+              <ActionButton icon={ChevronRight} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing || is_generating || group_generating} />
               <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
             </motion.div>
           )}

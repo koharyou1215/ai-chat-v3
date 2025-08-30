@@ -892,7 +892,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         return;
       }
 
-      // 続きを生成するため、最後のメッセージの内容に"続き"プロンプトを追加
+      // 🆕 新しいアプローチ: 続きを別の新しいメッセージとして生成
       const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
 
       // 新しい続きメッセージを生成
@@ -904,24 +904,20 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         previousResponses
       );
 
-      // 元のメッセージ内容と続きを結合
-      const combinedContent = `${lastAiMessage.content}\n\n${continuationMessage.content}`;
-
-      // 元のメッセージを更新（続きを追加）
-      const updatedLastMessage = {
-        ...lastAiMessage,
-        content: combinedContent,
-        updated_at: new Date().toISOString(),
+      // 🎯 続きメッセージを新しいメッセージとして追加（元のメッセージは変更しない）
+      const newContinuationMessage = {
+        ...continuationMessage,
+        id: generateAIMessageId(), // 新しいIDを生成
         metadata: {
-          ...lastAiMessage.metadata,
-          has_continuation: true,
+          ...continuationMessage.metadata,
+          is_continuation: true,
+          continuation_of: lastAiMessage.id,
           continuation_count: (lastAiMessage.metadata?.continuation_count || 0) + 1
         }
       };
 
-      // メッセージ配列を更新
-      const updatedMessages = [...session.messages];
-      updatedMessages[lastAiMessageIndex] = updatedLastMessage;
+      // メッセージ配列に新しいメッセージを追加
+      const updatedMessages = [...session.messages, newContinuationMessage];
 
       const updatedSession = {
         ...session,
