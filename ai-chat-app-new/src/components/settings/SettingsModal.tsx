@@ -56,7 +56,7 @@ const IntensitySlider: React.FC<IntensitySliderProps> = ({
             type="range"
             min={min}
             max={max}
-            value={value}
+            value={value || 0}
             onChange={(e) => onChange(parseInt(e.target.value))}
             className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider-thumb:appearance-none slider-thumb:h-4 slider-thumb:w-4 slider-thumb:bg-blue-500 slider-thumb:rounded-full slider-thumb:cursor-pointer"
             style={{
@@ -731,7 +731,10 @@ const AIPanel: React.FC<{
               <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
             </optgroup>
             <optgroup label="Specialized (OpenRouter)">
+              <option value="qwen/qwen3-30b-a3b-thinking-2507">Qwen3 30B A3B Thinking</option>
               <option value="qwen/qwen3-30b-a3b-instruct-2507">Qwen3 30B A3B</option>
+              <option value="x-ai/grok-code-fast-1">Grok Code Fast</option>
+              <option value="nousresearch/hermes-4-405b">Hermes 4 405B</option>
               <option value="z-ai/glm-4.5">GLM-4.5</option>
               <option value="moonshotai/kimi-k2">Kimi K2</option>
             </optgroup>

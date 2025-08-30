@@ -253,12 +253,7 @@ export class ConversationManager {
     // 1. System Definitions (最優先)
     prompt += `AI={{char}}, User={{user}}\n\n`;
 
-    // 2. Jailbreak Prompt (設定で有効な場合)
-    if (systemSettings?.enableJailbreakPrompt && systemSettings.systemPrompts?.jailbreak) {
-      prompt += `<jailbreak>\n${systemSettings.systemPrompts.jailbreak}\n</jailbreak>\n\n`;
-    }
-
-    // 3. System Prompt (デフォルト + カスタム追加)
+    // 2. System Prompt (絶対厳守事項を最優先)
     let systemPromptContent = DEFAULT_SYSTEM_PROMPT;
     
     // カスタムプロンプトが有効で内容がある場合は追加

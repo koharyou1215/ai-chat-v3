@@ -137,6 +137,54 @@ export interface TrackerInstance extends BaseEntity {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * レガシー互換性のためのTracker型
+ */
+export interface Tracker extends TrackerDefinition {
+  value: unknown;
+  session_id: UUID;
+  character_id: UUID;
+}
+
+/**
+ * トラッカー付きの値型
+ */
+export interface TrackerWithValue {
+  tracker: Tracker;
+  onUpdate: (name: string, value: string | number | boolean) => void;
+  hasRecentChange?: boolean;
+  previousValue?: string | number | boolean;
+  changeIndicator?: TrackerChangeIndicator;
+}
+
+export interface TrackerChangeIndicator {
+  hasChanged: boolean;
+  changeType: 'increase' | 'decrease' | 'change' | 'none';
+  previousValue?: unknown;
+}
+
+/**
+ * レガシーサポート用の定義
+ */
+export interface LegacyTrackerDefinition {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  category: string;
+  type?: string;
+  value?: unknown;
+  step?: number;
+  min_value?: number;
+  max_value?: number;
+  initial_value?: number;
+  initial_state?: string;
+  possible_states?: Array<{ id: string; label: string; }>;
+  initial_boolean?: boolean;
+  initial_text?: string;
+  config?: TrackerDefinition['config'];
+}
+
 export interface TrackerState {
   id: UUID;
   definition_id: UUID;
@@ -151,8 +199,45 @@ export interface TrackerHistoryEntry extends BaseEntity, WithMetadata {
   reason?: string;
 }
 
-export type NumericTrackerValue = Record<string, never>;
-// export interface NumericTrackerValue {}
+/**
+ * トラッカー値型定義
+ */
+export interface TrackerValue {
+  numeric: number;
+  state: string;
+  boolean: boolean;
+  text: string;
+  composite: Record<string, unknown>;
+}
 
-export type StateTrackerValue = Record<string, never>;
-// export interface StateTrackerValue {}
+export interface TrackerUpdate {
+  tracker_id: UUID;
+  value: unknown;
+  timestamp: Timestamp;
+  changed_by: 'user' | 'ai' | 'system';
+  reason?: string;
+}
+
+export interface NumericTrackerValue {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+}
+
+export interface StateTrackerValue {
+  current_state: string;
+  possible_states: string[];
+  transitions: StateTransition[];
+}
+
+export interface BooleanTrackerValue {
+  value: boolean;
+  true_label: string;
+  false_label: string;
+}
+
+export interface TextTrackerValue {
+  value: string;
+  max_length?: number;
+}

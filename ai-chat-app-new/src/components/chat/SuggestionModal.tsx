@@ -98,9 +98,7 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-purple-300">
-                          提案 {index + 1}
-                        </span>
+                        <div className="flex-1"></div>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleCopy(suggestion)}>
                             <Copy className="w-3 h-3" />

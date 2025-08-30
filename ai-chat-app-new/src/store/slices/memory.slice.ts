@@ -53,7 +53,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
   
   createMemoryCard: async (message_ids, session_id, character_id) => {
     // セッションからメッセージを取得
-    const state = get();
+    const state = get() as any;
     const sessions = state.sessions || new Map();
     const session = sessions.get(session_id);
     
@@ -84,7 +84,9 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         metadata: {},
         session_id,
         character_id,
+        source_message_ids: message_ids,
         original_message_ids: message_ids,
+        is_verified: false,
         
         // AI生成された内容
         title: generatedContent.title || `会話の要約 ${new Date().toLocaleDateString('ja-JP')}`,
@@ -108,8 +110,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         
         // 自動タグ
         auto_tags: generatedContent.auto_tags || ['auto-generated', 'conversation-summary'],
-        emotion_tags: generatedContent.emotion_tags || [],
-        context_tags: generatedContent.context_tags || ['session-summary']
+        emotion_tags: generatedContent.emotion_tags || []
       };
       
       set(state => {
@@ -135,7 +136,9 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         metadata: {},
         session_id,
         character_id,
+        source_message_ids: message_ids,
         original_message_ids: message_ids,
+        is_verified: false,
         original_content: messages.map((m: UnifiedMessage) => `${m.role}: ${m.content}`).join('\n'),
         
         // フォールバック内容
@@ -156,8 +159,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
         
         // 自動タグ
         auto_tags: ['auto-generated', 'fallback', 'conversation-summary'],
-        emotion_tags: [],
-        context_tags: ['session-summary']
+        emotion_tags: []
       };
       
       set(state => {

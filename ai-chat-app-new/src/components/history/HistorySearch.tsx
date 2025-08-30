@@ -29,6 +29,8 @@ interface TopicData {
   count: number;
 }
 
+import type { HistoryStatistics, TopicAnalysis } from '@/store/slices/history.slice';
+
 export const HistorySearch: React.FC<HistorySearchProps> = ({ 
   session_id,
   className 
@@ -121,8 +123,20 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           getConversationTrends()
         ]);
         
-        setStats(historyStats as HistoryStats);
-        setTopics(popularTopics as TopicData[]);
+        // Convert HistoryStatistics to HistoryStats
+        const statsData: HistoryStats = {
+          total_messages: (historyStats as HistoryStatistics).total_messages,
+          total_duration_hours: (historyStats as HistoryStatistics).total_conversation_hours,
+          avg_messages_per_session: (historyStats as HistoryStatistics).average_messages_per_session
+        };
+        setStats(statsData);
+        
+        // Convert TopicAnalysis[] to TopicData[]
+        const topicsData: TopicData[] = (popularTopics as TopicAnalysis[]).map(topic => ({
+          name: topic.topic,
+          count: topic.frequency
+        }));
+        setTopics(topicsData);
         // setTrends(conversationTrends);
       } catch (error) {
         console.error('履歴データ読み込みエラー:', error);

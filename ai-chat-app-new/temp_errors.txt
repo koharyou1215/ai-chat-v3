@@ -1,0 +1,415 @@
+src/components/character/CharacterGalleryModal.tsx(102,64): error TS2345: Argument of type 'null' is not assignable to parameter of type 'Character'.
+src/components/chat/CharacterReselectionModal.tsx(123,5): error TS18046: 'updateSessionCharacters' is of type 'unknown'.
+src/components/chat/CharacterReselectionModal.tsx(305,29): error TS2322: Type 'string | undefined' is not assignable to type 'string | StaticImport'.
+  Type 'undefined' is not assignable to type 'string | StaticImport'.
+src/components/chat/ChatInterface.tsx(403,65): error TS2339: Property 'characters' does not exist on type 'never'.
+src/components/chat/ChatSidebar.tsx(401,44): error TS2345: Argument of type '{ type: "individual"; displayName: string; isPinned: boolean; participants: { user: Persona; characters: Character[]; active_character_ids: Set<string>; }; messages: UnifiedMessage[]; ... 10 more ...; metadata: SessionMetadata; } | { ...; }' is not assignable to parameter of type 'UnifiedChatSession'.
+  Type '{ type: "group"; displayName: string; session_info: { title: string; }; message_count: number; name: string; character_ids: string[]; characters: Character[]; active_character_ids: Set<string>; ... 16 more ...; metadata: Record<...>; }' is missing the following properties from type 'UnifiedChatSession': participants, memory_system, state_management, context, statistics
+src/components/chat/ScenarioSetupModal.tsx(28,11): error TS2740: Type '{ title: string; situation: string; character_roles: Record<string, string>; }' is missing the following properties from type 'GroupChatScenario': id, setting, initial_prompt, objectives, and 2 more.
+src/components/emotion/SoloEmotionalEffects.tsx(32,26): error TS2304: Cannot find name 'EmotionIntelligenceSystem'.
+src/components/emotion/SoloEmotionalEffects.tsx(251,18): error TS2304: Cannot find name 'MultiLayerEmotionResult'.
+src/components/history/HistorySearch.tsx(124,18): error TS2352: Conversion of type 'HistoryStatistics' to type 'HistoryStats' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'HistoryStatistics' is missing the following properties from type 'HistoryStats': total_duration_hours, avg_messages_per_session
+src/components/history/HistorySearch.tsx(125,19): error TS2352: Conversion of type 'TopicAnalysis[]' to type 'TopicData[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'TopicAnalysis' is missing the following properties from type 'TopicData': name, count
+src/components/memory/MemoryLayerDisplay.tsx(112,61): error TS2344: Type 'unknown' does not satisfy the constraint 'number'.
+src/components/memory/MemoryLayerDisplay.tsx(117,9): error TS2322: Type 'unknown' is not assignable to type 'MemoryLayer<unknown> | null'.
+src/components/memory/MemoryLayerDisplay.tsx(119,9): error TS2322: Type 'unknown' is not assignable to type 'MemoryLayer<unknown> | null'.
+src/components/memory/MemoryLayerDisplay.tsx(121,9): error TS2322: Type 'unknown' is not assignable to type 'MemoryLayer<unknown> | null'.
+src/components/memory/MemoryLayerDisplay.tsx(123,9): error TS2322: Type 'unknown' is not assignable to type 'MemoryLayer<unknown> | null'.
+src/components/memory/MemoryLayerDisplay.tsx(125,62): error TS2344: Type 'unknown' does not satisfy the constraint 'number'.
+src/components/memory/MemoryLayerDisplay.tsx(269,66): error TS2322: Type '{}' is not assignable to type 'ReactNode'.
+src/components/memory/MemoryLayerDisplay.tsx(329,17): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/memory/MemoryLayerDisplay.tsx(329,88): error TS2339: Property 'messages' does not exist on type '{}'.
+src/components/memory/MemoryLayerDisplay.tsx(335,70): error TS2339: Property 'messages' does not exist on type '{}'.
+src/components/persona/PersonaGallery.tsx(47,5): error TS2322: Type 'string' is not assignable to type '"name_desc" | "name_asc" | "traits_desc" | "traits_asc"'.
+src/components/persona/PersonaGallery.tsx(49,7): error TS2353: Object literal may only specify known properties, and 'updated_at' does not exist in type '{ name?: ((item: Persona) => string | number | Date) | undefined; traits?: ((item: Persona) => string | number | Date) | undefined; }'.
+src/components/persona/PersonaGalleryModal.tsx(134,5): error TS18046: 'startEditingPersona' is of type 'unknown'.
+src/components/persona/PersonaGalleryModal.tsx(163,47): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/components/persona/PersonaGalleryModal.tsx(168,43): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/components/settings/SettingsModal.tsx(261,21): error TS2322: Type 'SystemPrompts' is not assignable to type 'Record<string, string>'.
+  Index signature for type 'string' is missing in type 'SystemPrompts'.
+src/components/settings/SettingsModal.tsx(271,21): error TS2322: Type 'Dispatch<SetStateAction<SystemPrompts>>' is not assignable to type '(prompts: Record<string, string>) => void'.
+  Types of parameters 'value' and 'prompts' are incompatible.
+    Type 'Record<string, string>' is not assignable to type 'SetStateAction<SystemPrompts>'.
+      Type 'Record<string, string>' is missing the following properties from type 'SystemPrompts': system, jailbreak, replySuggestion, textEnhancement
+src/components/settings/SettingsModal.tsx(282,21): error TS2322: Type '(provider: APIProvider) => void' is not assignable to type '(provider: string) => void'.
+  Types of parameters 'provider' and 'provider' are incompatible.
+    Type 'string' is not assignable to type 'APIProvider'.
+src/components/settings/SettingsModal.tsx(613,14): error TS2304: Cannot find name 'APIConfig'.
+src/components/tracker/TrackerDisplay.tsx(62,27): error TS2554: Expected 1 arguments, but got 0.
+src/components/tracker/TrackerDisplay.tsx(283,53): error TS2339: Property '_changeIndicator' does not exist on type '{ tracker: TrackerWithValue; onUpdate: (name: string, value: string | number | boolean) => void; hasRecentChange?: boolean | undefined; changeIndicator?: TrackerChangeIndicator | undefined; previousValue?: string | ... 2 more ... | undefined; }'.
+src/components/tracker/TrackerDisplay.tsx(347,53): error TS2339: Property '_previousValue' does not exist on type '{ tracker: TrackerWithValue; onUpdate: (name: string, value: string | number | boolean) => void; hasRecentChange?: boolean | undefined; previousValue?: string | number | boolean | undefined; }'.
+src/components/tracker/TrackerDisplay.tsx(350,32): error TS2339: Property 'initial_value' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(352,28): error TS2339: Property 'min_value' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(353,28): error TS2339: Property 'max_value' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(466,34): error TS2339: Property 'possible_states' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(467,32): error TS2339: Property 'initial_state' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(542,34): error TS2339: Property 'initial_boolean' does not exist on type 'TrackerWithValue'.
+src/components/tracker/TrackerDisplay.tsx(542,74): error TS2339: Property 'initial_boolean' does not exist on type 'TrackerWithValue'.
+src/components/ui/StorageMonitor.tsx(47,9): error TS7034: Variable 'details' implicitly has type 'any' in some locations where its type cannot be determined.
+src/components/ui/StorageMonitor.tsx(65,17): error TS7005: Variable 'details' implicitly has an 'any' type.
+src/components/ui/StorageMonitor.tsx(70,17): error TS7005: Variable 'details' implicitly has an 'any' type.
+src/components/voice/VoiceCallInterface.tsx(119,3): error TS2339: Property '_characterId' does not exist on type 'VoiceCallInterfaceProps'.
+src/components/voice/VoiceCallInterface.tsx(159,29): error TS2554: Expected 1 arguments, but got 0.
+src/components/voice/VoiceCallInterface.tsx(161,31): error TS2554: Expected 1 arguments, but got 0.
+src/components/voice/VoiceCallInterface.tsx(248,9): error TS2304: Cannot find name 'setLastMessage'.
+src/components/voice/VoiceCallInterface.tsx(269,7): error TS2304: Cannot find name 'setLastMessage'.
+src/components/voice/VoiceCallInterface.tsx(271,7): error TS2448: Block-scoped variable 'handleWebSocketMessage' used before its declaration.
+src/components/voice/VoiceCallInterface.tsx(271,7): error TS2454: Variable 'handleWebSocketMessage' is used before being assigned.
+src/components/voice/VoiceCallInterface.tsx(271,45): error TS2448: Block-scoped variable 'playNextAudio' used before its declaration.
+src/components/voice/VoiceCallInterface.tsx(271,45): error TS2454: Variable 'playNextAudio' is used before being assigned.
+src/components/voice/VoiceCallInterface.tsx(271,60): error TS2448: Block-scoped variable 'startCall' used before its declaration.
+src/components/voice/VoiceCallInterface.tsx(271,60): error TS2454: Variable 'startCall' is used before being assigned.
+src/components/voice/VoiceCallInterface.tsx(309,25): error TS2345: Argument of type 'UnifiedMessage' is not assignable to parameter of type 'string'.
+src/components/voice/VoiceCallInterface.tsx(337,25): error TS2345: Argument of type 'UnifiedMessage' is not assignable to parameter of type 'string'.
+src/components/voice/VoiceCallInterface.tsx(345,11): error TS2304: Cannot find name 'setLastMessage'.
+src/components/voice/VoiceCallInterface.tsx(351,11): error TS2304: Cannot find name 'setStats'.
+src/components/voice/VoiceCallInterface.tsx(351,20): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/voice/VoiceCallInterface.tsx(358,11): error TS2304: Cannot find name 'setLastMessage'.
+src/components/voice/VoiceCallInterface.tsx(401,11): error TS18046: 'error' is of type 'unknown'.
+src/components/voice/VoiceCallInterface.tsx(488,29): error TS2448: Block-scoped variable 'updateAudioVisualizer' used before its declaration.
+src/components/voice/VoiceCallInterface.tsx(488,29): error TS2454: Variable 'updateAudioVisualizer' is used before being assigned.
+src/components/voice/VoiceCallInterface.tsx(560,5): error TS2304: Cannot find name 'setTranscription'.
+src/components/voice/VoiceCallInterface.tsx(561,5): error TS2304: Cannot find name 'setLastMessage'.
+src/components/voice/VoiceCallModal.tsx(168,31): error TS2554: Expected 1 arguments, but got 0.
+src/components/voice/VoiceCallModal.tsx(237,32): error TS2345: Argument of type '"speaking" | "listening" | "processing" | "idle" | undefined' is not assignable to parameter of type 'SetStateAction<"speaking" | "listening" | "processing" | "idle">'.
+  Type 'undefined' is not assignable to type 'SetStateAction<"speaking" | "listening" | "processing" | "idle">'.
+src/components/voice/VoiceCallModal.tsx(241,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string>'.
+src/components/voice/VoiceCallModal.tsx(257,23): error TS2345: Argument of type 'UnifiedMessage' is not assignable to parameter of type 'string'.
+src/components/voice/VoiceCallModal.tsx(275,23): error TS2345: Argument of type 'UnifiedMessage' is not assignable to parameter of type 'string'.
+src/components/voice/VoiceSettingsModal.tsx(59,11): error TS2367: This comparison appears to be unintentional because the types '"system" | "voicevox" | "elevenlabs"' and '"System"' have no overlap.
+src/components/voice/VoiceSettingsModal.tsx(68,29): error TS2367: This comparison appears to be unintentional because the types '"system" | "voicevox" | "elevenlabs"' and '"VoiceVox"' have no overlap.
+src/components/voice/VoiceSettingsModal.tsx(71,13): error TS2367: This comparison appears to be unintentional because the types '"system" | "voicevox" | "elevenlabs"' and '"VoiceVox"' have no overlap.
+src/components/voice/VoiceSettingsModal.tsx(74,41): error TS2551: Property 'speakerId' does not exist on type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'. Did you mean 'speaker'?
+src/components/voice/VoiceSettingsModal.tsx(79,41): error TS2551: Property 'speakerId' does not exist on type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'. Did you mean 'speaker'?
+src/components/voice/VoiceSettingsModal.tsx(205,72): error TS2322: Type '"System" | "VoiceVox" | "ElevenLabs"' is not assignable to type '"system" | "voicevox" | "elevenlabs" | undefined'.
+  Type '"System"' is not assignable to type '"system" | "voicevox" | "elevenlabs" | undefined'. Did you mean '"system"'?
+src/components/voice/VoiceSettingsModal.tsx(214,30): error TS2741: Property 'children' is missing in type '{ label: string; description: string; }' but required in type '{ label: string; description?: string | undefined; children: ReactNode; }'.
+src/components/voice/VoiceSettingsModal.tsx(221,68): error TS2551: Property 'speakerId' does not exist on type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'. Did you mean 'speaker'?
+src/components/voice/VoiceSettingsModal.tsx(222,59): error TS2551: Property 'speakerId' does not exist on type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'. Did you mean 'speaker'?
+src/components/voice/VoiceSettingsModal.tsx(222,138): error TS2561: Object literal may only specify known properties, but 'speakerId' does not exist in type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'. Did you mean to write 'speaker'?
+src/components/voice/VoiceSettingsModal.tsx(237,30): error TS2741: Property 'children' is missing in type '{ label: string; description: string; }' but required in type '{ label: string; description?: string | undefined; children: ReactNode; }'.
+src/components/voice/VoiceSettingsModal.tsx(238,61): error TS2339: Property 'enableInterrogativeUpspeak' does not exist on type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(238,157): error TS2353: Object literal may only specify known properties, and 'enableInterrogativeUpspeak' does not exist in type '{ speaker: number; speed: number; pitch: number; intonation: number; volume: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(250,73): error TS2551: Property 'similarityBoost' does not exist on type '{ voiceId: string; stability: number; similarity: number; }'. Did you mean 'similarity'?
+src/components/voice/VoiceSettingsModal.tsx(251,61): error TS2551: Property 'similarityBoost' does not exist on type '{ voiceId: string; stability: number; similarity: number; }'. Did you mean 'similarity'?
+src/components/voice/VoiceSettingsModal.tsx(251,150): error TS2561: Object literal may only specify known properties, but 'similarityBoost' does not exist in type '{ voiceId: string; stability: number; similarity: number; }'. Did you mean to write 'similarity'?
+src/components/voice/VoiceSettingsModal.tsx(253,70): error TS2339: Property 'style' does not exist on type '{ voiceId: string; stability: number; similarity: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(254,61): error TS2339: Property 'style' does not exist on type '{ voiceId: string; stability: number; similarity: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(254,140): error TS2353: Object literal may only specify known properties, and 'style' does not exist in type '{ voiceId: string; stability: number; similarity: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(257,30): error TS2741: Property 'children' is missing in type '{ label: string; description: string; }' but required in type '{ label: string; description?: string | undefined; children: ReactNode; }'.
+src/components/voice/VoiceSettingsModal.tsx(258,63): error TS2339: Property 'useSpeakerBoost' does not exist on type '{ voiceId: string; stability: number; similarity: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(258,152): error TS2353: Object literal may only specify known properties, and 'useSpeakerBoost' does not exist in type '{ voiceId: string; stability: number; similarity: number; }'.
+src/components/voice/VoiceSettingsModal.tsx(288,30): error TS2741: Property 'children' is missing in type '{ label: string; description: string; }' but required in type '{ label: string; description?: string | undefined; children: ReactNode; }'.
+src/components/voice/VoiceSettingsModal.tsx(292,30): error TS2741: Property 'children' is missing in type '{ label: string; description: string; }' but required in type '{ label: string; description?: string | undefined; children: ReactNode; }'.
+src/contexts/EffectSettingsContext.tsx(4,10): error TS2614: Module '"@/components/settings/SettingsModal"' has no exported member 'EffectSettings'. Did you mean to use 'import EffectSettings from "@/components/settings/SettingsModal"' instead?
+src/hooks/useFilterAndSort.ts(52,23): error TS2536: Type '"" | (string & K)' cannot be used to index type '{ [key in string & K]?: ((item: T) => string | number | Date) | undefined; }'.
+src/hooks/useFilterAndSort.ts(57,16): error TS2536: Type '"" | (string & K)' cannot be used to index type 'T'.
+src/hooks/useFilterAndSort.ts(58,16): error TS2536: Type '"" | (string & K)' cannot be used to index type 'T'.
+src/services/api-manager.ts(108,16): error TS2339: Property 'apiKey' does not exist on type 'Partial<APIConfig>'.
+src/services/api-manager.ts(109,37): error TS2339: Property 'apiKey' does not exist on type 'Partial<APIConfig>'.
+src/services/api-manager.ts(120,26): error TS2339: Property 'apiKey' does not exist on type 'APIConfig'.
+src/services/api-manager.ts(131,26): error TS2339: Property 'apiKey' does not exist on type 'APIConfig'.
+src/services/api-manager.ts(173,11): error TS2561: Object literal may only specify known properties, but 'max_tokens' does not exist in type '{ model: string; apiKey: string; temperature?: number | undefined; maxTokens?: number | undefined; topP?: number | undefined; textFormatting?: "compact" | "readable" | "detailed" | undefined; }'. Did you mean to write 'maxTokens'?
+src/services/api-manager.ts(213,11): error TS2561: Object literal may only specify known properties, but 'max_tokens' does not exist in type '{ model: string; apiKey: string; temperature?: number | undefined; maxTokens?: number | undefined; topP?: number | undefined; textFormatting?: "compact" | "readable" | "detailed" | undefined; }'. Did you mean to write 'maxTokens'?
+src/services/api-manager.ts(557,26): error TS2339: Property 'apiKey' does not exist on type 'APIConfig'.
+src/services/api-request-queue.ts(43,9): error TS2322: Type '(value: T | PromiseLike<T>) => void' is not assignable to type '(value: unknown) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type 'T | PromiseLike<T>'.
+src/services/api/api-client.ts(51,21): error TS2339: Property 'message' does not exist on type '{}'.
+src/services/api/api-client.ts(52,21): error TS2339: Property 'details' does not exist on type '{}'.
+src/services/api/api-client.ts(192,87): error TS2554: Expected 1-2 arguments, but got 3.
+src/services/api/emotion-analysis.ts(3,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionAnalysisRequest'.
+src/services/api/emotion-analysis.ts(4,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionAnalysisResponse'.
+src/services/api/emotion-analysis.ts(5,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionTrackingRequest'.
+src/services/api/emotion-analysis.ts(6,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionTrackingResponse'.
+src/services/api/emotion-analysis.ts(7,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionBasedResponseRequest'.
+src/services/api/emotion-analysis.ts(8,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionBasedResponseResponse'.
+src/services/api/emotion-analysis.ts(95,7): error TS2322: Type 'unknown' is not assignable to type '{ change_detected: boolean; change_type: "stable" | "improvement" | "deterioration"; intensity: number; triggers: string[]; suggestions: string[]; }'.
+src/services/api/emotion-analysis.ts(121,7): error TS2322: Type 'unknown' is not assignable to type '{ stability_score: number; volatility_index: number; dominant_emotions: string[]; stability_trend: "stable" | "improving" | "declining"; recommendations: string[]; }'.
+src/services/api/emotion-analysis.ts(155,37): error TS2339: Property 'dialogue_style' does not exist on type 'Character'.
+src/services/api/emotion-analysis.ts(160,7): error TS2322: Type 'unknown' is not assignable to type '{ strategy: string; approach: "direct" | "indirect" | "gradual"; key_phrases: string[]; topics_to_avoid: string[]; topics_to_emphasize: string[]; expected_outcome: string; }'.
+src/services/api/emotion-analysis.ts(189,37): error TS2339: Property 'dialogue_style' does not exist on type 'Character'.
+src/services/api/emotion-analysis.ts(193,7): error TS2322: Type 'unknown' is not assignable to type '{ empathy_score: number; emotional_alignment: number; response_appropriateness: number; improvement_suggestions: string[]; }'.
+src/services/api/emotion-analysis.ts(221,7): error TS2322: Type 'unknown' is not assignable to type '{ model_updated: boolean; accuracy_improvement: number; new_accuracy: number; training_samples_processed: number; }'.
+src/services/api/emotion-analysis.ts(246,7): error TS2322: Type 'unknown' is not assignable to type '{ overall_accuracy: number; per_emotion_accuracy: Record<string, number>; confusion_matrix: Record<string, Record<string, number>>; improvement_areas: string[]; }'.
+src/services/api/gemini-client.ts(85,39): error TS2366: Function lacks ending return statement and return type does not include 'undefined'.
+src/services/api/message-generation.ts(3,3): error TS2724: '"@/types/api"' has no exported member named 'MessageGenerationRequest'. Did you mean 'ImageGenerationRequest'?
+src/services/api/message-generation.ts(4,3): error TS2724: '"@/types/api"' has no exported member named 'MessageGenerationResponse'. Did you mean 'ImageGenerationResponse'?
+src/services/api/message-generation.ts(5,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionAnalysisRequest'.
+src/services/api/message-generation.ts(6,3): error TS2305: Module '"@/types/api"' has no exported member 'EmotionAnalysisResponse'.
+src/services/api/message-generation.ts(7,3): error TS2305: Module '"@/types/api"' has no exported member 'ContextAnalysisRequest'.
+src/services/api/message-generation.ts(8,3): error TS2305: Module '"@/types/api"' has no exported member 'ContextAnalysisResponse'.
+src/services/api/message-generation.ts(107,25): error TS2339: Property 'identity' does not exist on type 'Character'.
+src/services/api/message-generation.ts(109,35): error TS2339: Property 'dialogue_style' does not exist on type 'Character'.
+src/services/api/message-generation.ts(111,32): error TS2339: Property 'preferences' does not exist on type 'Character'.
+src/services/api/message-generation.ts(117,30): error TS2339: Property 'preferences' does not exist on type 'Persona'.
+src/services/api/message-generation.ts(123,24): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/message-generation.ts(127,23): error TS2339: Property 'mood' does not exist on type 'ConversationContext'.
+src/services/api/message-generation.ts(128,24): error TS2339: Property 'topic' does not exist on type 'ConversationContext'.
+src/services/api/message-generation.ts(129,37): error TS2339: Property 'relationship_level' does not exist on type 'ConversationContext'.
+src/services/api/message-generation.ts(130,37): error TS2339: Property 'conversation_depth' does not exist on type 'ConversationContext'.
+src/services/api/message-generation.ts(172,13): error TS2353: Object literal may only specify known properties, and 'mood' does not exist in type 'ConversationContext'.
+src/services/api/message-generation.ts(209,7): error TS2322: Type 'unknown' is not assignable to type '{ suggested_topics: string[]; predicted_mood_change: string; relationship_impact: number; }'.
+src/services/api/message-generation.ts(236,37): error TS2339: Property 'dialogue_style' does not exist on type 'Character'.
+src/services/api/message-generation.ts(240,7): error TS2322: Type 'unknown' is not assignable to type '{ quality_score: number; coherence_score: number; character_alignment_score: number; suggestions: string[]; }'.
+src/services/api/summarization.ts(3,3): error TS2305: Module '"@/types/api"' has no exported member 'SummarizationRequest'.
+src/services/api/summarization.ts(4,3): error TS2305: Module '"@/types/api"' has no exported member 'SummarizationResponse'.
+src/services/api/summarization.ts(5,3): error TS2305: Module '"@/types/api"' has no exported member 'KeywordExtractionRequest'.
+src/services/api/summarization.ts(6,3): error TS2305: Module '"@/types/api"' has no exported member 'KeywordExtractionResponse'.
+src/services/api/summarization.ts(7,3): error TS2305: Module '"@/types/api"' has no exported member 'CategoryClassificationRequest'.
+src/services/api/summarization.ts(8,3): error TS2305: Module '"@/types/api"' has no exported member 'CategoryClassificationResponse'.
+src/services/api/summarization.ts(92,26): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/summarization.ts(99,7): error TS2322: Type 'unknown' is not assignable to type '{ title: string; summary: string; keywords: string[]; category: MemoryCategory; importance: MemoryImportance; emotional_content: string[]; key_insights: string[]; }'.
+src/services/api/summarization.ts(129,26): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/summarization.ts(135,7): error TS2322: Type 'unknown' is not assignable to type '{ emotional_arc: string; key_emotional_moments: { timestamp: number; emotion: string; intensity: number; trigger: string; }[]; overall_mood_trend: "stable" | "improving" | "declining" | "fluctuating"; relationship_development: string; emotional_resolution: string; }'.
+src/services/api/summarization.ts(169,26): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/summarization.ts(175,7): error TS2322: Type 'unknown' is not assignable to type '{ main_topics: { topic: string; importance: number; discussion_depth: number; related_keywords: string[]; }[]; topic_transitions: { from_topic: string; to_topic: string; transition_reason: string; timestamp: number; }[]; overall_conversation_theme: string; topic_coherence_score: number; }'.
+src/services/api/summarization.ts(211,26): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/summarization.ts(218,7): error TS2322: Type 'unknown' is not assignable to type '{ relationship_level_change: number; trust_building_moments: { timestamp: number; action: string; impact: number; }[]; conflict_resolution: { timestamp: number; conflict_type: string; resolution_method: string; outcome: string; }[]; shared_experiences: string[]; future_relationship_potential: number; recommendations...'.
+src/services/api/summarization.ts(253,26): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/api/summarization.ts(259,7): error TS2322: Type 'unknown' is not assignable to type '{ key_learnings: { concept: string; explanation: string; examples: string[]; importance: number; }[]; knowledge_gaps: string[]; learning_progress: { topic: string; initial_understanding: number; current_understanding: number; improvement: number; }[]; suggested_next_steps: string[]; overall_learning_score: number; }'.
+src/services/api/summarization.ts(293,7): error TS2322: Type 'unknown' is not assignable to type '{ overall_score: number; coherence_score: number; completeness_score: number; conciseness_score: number; accuracy_score: number; improvement_suggestions: string[]; }'.
+src/services/api/summarization.ts(321,7): error TS2322: Type 'unknown' is not assignable to type '{ model_updated: boolean; quality_improvement: number; new_quality_score: number; training_samples_processed: number; }'.
+src/services/api/summarization.ts(341,14): error TS18046: 'response' is of type 'unknown'.
+src/services/api/vector-search.ts(3,3): error TS2305: Module '"@/types/api"' has no exported member 'VectorSearchRequest'.
+src/services/api/vector-search.ts(4,3): error TS2305: Module '"@/types/api"' has no exported member 'VectorSearchResponse'.
+src/services/api/vector-search.ts(5,3): error TS2305: Module '"@/types/api"' has no exported member 'MemoryIndexRequest'.
+src/services/api/vector-search.ts(6,3): error TS2305: Module '"@/types/api"' has no exported member 'MemoryIndexResponse'.
+src/services/api/vector-search.ts(7,3): error TS2305: Module '"@/types/api"' has no exported member 'SimilarityCalculationRequest'.
+src/services/api/vector-search.ts(8,3): error TS2305: Module '"@/types/api"' has no exported member 'SimilarityCalculationResponse'.
+src/services/api/vector-search.ts(230,7): error TS2322: Type 'unknown' is not assignable to type '{ matrix: number[][]; memory_ids: string[]; average_similarity: number; clusters: string[][]; }'.
+src/services/api/vector-search.ts(261,7): error TS2322: Type 'unknown' is not assignable to type '{ clusters: { id: string; memories: string[]; centroid: number[]; coherence_score: number; representative_keywords: string[]; }[]; overall_coherence: number; }'.
+src/services/api/vector-search.ts(290,17): error TS2339: Property 'memory_id' does not exist on type 'VectorSearchResult'.
+src/services/api/vector-search.ts(292,22): error TS2339: Property 'content' does not exist on type 'VectorSearchResult'.
+src/services/api/vector-search.ts(297,7): error TS2322: Type 'unknown' is not assignable to type '{ precision: number; recall: number; f1_score: number; user_satisfaction: number; improvement_suggestions: string[]; }'.
+src/services/api/vector-search.ts(324,7): error TS2322: Type 'unknown' is not assignable to type '{ model_updated: boolean; accuracy_improvement: number; new_accuracy: number; training_samples_processed: number; }'.
+src/services/emotion/EmotionalIntelligenceCache.ts(450,7): error TS2783: 'totalEvictions' is specified more than once, so this usage will be overwritten.
+src/services/emotion/GroupEmotionAnalyzer.ts(12,26): error TS2459: Module '"@/types/core/message.types"' declares 'UUID' locally, but it is not exported.
+src/services/emotion/GroupEmotionAnalyzer.ts(316,11): error TS2322: Type 'string' is not assignable to type '"neutral" | "joy" | "sadness" | "anger" | "fear" | "surprise" | "disgust" | "love" | "excitement" | "anxiety"'.
+src/services/emotion/SoloEmotionAnalyzer.ts(478,9): error TS2367: This comparison appears to be unintentional because the types '"neutral" | "joy" | "sadness" | "anger" | "fear" | "surprise" | "disgust" | "love" | "excitement" | "anxiety"' and '"trust"' have no overlap.
+src/services/memory/conversation-manager.ts(8,26): error TS2305: Module '"@/types"' has no exported member 'SearchResult'.
+src/services/memory/conversation-manager.ts(215,7): error TS2353: Object literal may only specify known properties, and 'currentInput' does not exist in type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(361,78): error TS2339: Property 'persona' does not exist on type 'NSFWProfile'.
+src/services/memory/conversation-manager.ts(363,45): error TS2339: Property 'persona' does not exist on type 'NSFWProfile'.
+src/services/memory/conversation-manager.ts(363,116): error TS2339: Property 'persona' does not exist on type 'NSFWProfile'.
+src/services/memory/conversation-manager.ts(421,17): error TS2551: Property 'pinnedMemories' does not exist on type 'ConversationContext'. Did you mean 'pinned_memories'?
+src/services/memory/conversation-manager.ts(423,15): error TS2551: Property 'pinnedMemories' does not exist on type 'ConversationContext'. Did you mean 'pinned_memories'?
+src/services/memory/conversation-manager.ts(423,38): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(430,17): error TS2551: Property 'relevantMemories' does not exist on type 'ConversationContext'. Did you mean 'relevant_memories'?
+src/services/memory/conversation-manager.ts(432,15): error TS2551: Property 'relevantMemories' does not exist on type 'ConversationContext'. Did you mean 'relevant_memories'?
+src/services/memory/conversation-manager.ts(432,82): error TS7006: Parameter 'result' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(459,13): error TS2339: Property 'recentConversation' does not exist on type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(459,40): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(559,32): error TS2304: Cannot find name 'Message'.
+src/services/memory/conversation-manager.ts(567,47): error TS2304: Cannot find name 'Message'.
+src/services/memory/conversation-manager.ts(612,19): error TS2551: Property 'relevantMemories' does not exist on type 'ConversationContext'. Did you mean 'relevant_memories'?
+src/services/memory/conversation-manager.ts(613,17): error TS2551: Property 'relevantMemories' does not exist on type 'ConversationContext'. Did you mean 'relevant_memories'?
+src/services/memory/conversation-manager.ts(614,26): error TS2339: Property 'recentConversation' does not exist on type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(615,17): error TS2339: Property 'recentConversation' does not exist on type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(631,30): error TS2339: Property 'currentInput' does not exist on type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(633,27): error TS2339: Property 'recentConversation' does not exist on type 'ConversationContext'.
+src/services/memory/conversation-manager.ts(633,54): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(633,59): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(634,27): error TS2551: Property 'relevantMemories' does not exist on type 'ConversationContext'. Did you mean 'relevant_memories'?
+src/services/memory/conversation-manager.ts(634,52): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(634,57): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(635,27): error TS2551: Property 'pinnedMemories' does not exist on type 'ConversationContext'. Did you mean 'pinned_memories'?
+src/services/memory/conversation-manager.ts(635,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(635,55): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/services/memory/conversation-manager.ts(681,39): error TS2304: Cannot find name 'Message'.
+src/services/memory/conversation-manager.ts(769,42): error TS2304: Cannot find name 'Message'.
+src/services/memory/dynamic-summarizer.ts(236,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/memory/memory-card-generator.ts(82,16): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(83,18): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(84,19): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(85,41): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(85,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/memory/memory-card-generator.ts(88,46): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(88,46): error TS2345: Argument of type '{}' is not assignable to parameter of type 'number'.
+src/services/memory/memory-card-generator.ts(93,13): error TS2322: Type '{}' is not assignable to type 'number'.
+src/services/memory/memory-card-generator.ts(93,26): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(97,9): error TS2740: Type '{}' is missing the following properties from type 'EmotionTag[]': length, pop, push, concat, and 35 more.
+src/services/memory/memory-card-generator.ts(97,23): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(98,23): error TS18047: 'analysisResult' is possibly 'null'.
+src/services/memory/memory-card-generator.ts(170,48): error TS2322: Type '"question"' is not assignable to type 'MemoryCategory'.
+src/services/memory/memory-card-generator.ts(197,7): error TS2353: Object literal may only specify known properties, and 'context_tags' does not exist in type 'Partial<MemoryCard>'.
+src/services/memory/memory-layer-manager.ts(54,23): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(75,50): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(118,44): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(134,39): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(142,40): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(153,40): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(165,16): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(166,14): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(167,15): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(168,15): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(199,40): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(206,21): error TS2304: Cannot find name 'Message'.
+src/services/memory/memory-layer-manager.ts(207,24): error TS2304: Cannot find name 'Message'.
+src/services/memory/vector-store.ts(97,17): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(97,53): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(105,49): error TS2353: Object literal may only specify known properties, and 'embedding' does not exist in type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(132,53): error TS2353: Object literal may only specify known properties, and 'embedding' does not exist in type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(143,53): error TS2353: Object literal may only specify known properties, and 'embedding' does not exist in type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(210,11): error TS2739: Type 'UnifiedMessage' is missing the following properties from type 'Message': timestamp, sender
+src/services/memory/vector-store.ts(283,15): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(283,32): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(284,21): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(284,43): error TS2339: Property 'importance' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(287,27): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/memory/vector-store.ts(288,27): error TS2339: Property 'timestamp' does not exist on type 'UnifiedMessage'.
+src/services/prompt-builder.service.ts(222,35): error TS2339: Property 'consent_level' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(222,101): error TS2339: Property 'consent_level' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(223,35): error TS2339: Property 'preferred_scenarios' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(223,90): error TS2339: Property 'preferred_scenarios' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(223,179): error TS2339: Property 'preferred_scenarios' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(225,35): error TS2339: Property 'limits' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(225,77): error TS2339: Property 'limits' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(225,140): error TS2339: Property 'limits' does not exist on type 'NSFWProfile'.
+src/services/prompt-builder.service.ts(240,8): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(242,8): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(242,62): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(243,8): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(243,49): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(243,126): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(244,8): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(244,35): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(244,96): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(245,8): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(245,36): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(245,87): error TS2339: Property 'nsfw_persona' does not exist on type 'Persona'.
+src/services/prompt-builder.service.ts(255,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/services/scenario-generator.ts(171,32): error TS2339: Property 'occupation' does not exist on type 'Persona'.
+src/services/scenario-generator.ts(221,33): error TS2339: Property 'occupation' does not exist on type 'Persona'.
+src/services/scenario-generator.ts(306,13): error TS2322: Type 'Partial<GeneratedScenario>' is not assignable to type 'GeneratedScenario'.
+  Types of property 'title' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/scenario-generator.ts(316,11): error TS2322: Type 'Partial<GeneratedScenario>' is not assignable to type 'GeneratedScenario'.
+  Types of property 'title' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/scenario-generator.ts(478,47): error TS2339: Property 'occupation' does not exist on type 'Persona'.
+src/services/tracker/tracker-manager.ts(1,29): error TS2724: '"@/types"' has no exported member named 'TrackerUpdate'. Did you mean 'TrackerState'?
+src/services/tracker/tracker-manager.ts(1,44): error TS2305: Module '"@/types"' has no exported member 'TrackerValue'.
+src/services/tracker/tracker-manager.ts(56,13): error TS2322: Type 'string | undefined' is not assignable to type '"boolean" | "state" | "numeric" | "text" | "composite"'.
+  Type 'undefined' is not assignable to type '"boolean" | "state" | "numeric" | "text" | "composite"'.
+src/services/tracker/tracker-manager.ts(57,13): error TS2322: Type 'string | number | boolean | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/services/tracker/tracker-manager.ts(70,13): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/services/tracker/tracker-manager.ts(71,13): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/services/tracker/tracker-manager.ts(72,29): error TS2339: Property 'step' does not exist on type 'LegacyTrackerDefinition'.
+src/services/tracker/tracker-manager.ts(104,45): error TS2339: Property 'min_value' does not exist on type 'never'.
+src/services/tracker/tracker-manager.ts(105,43): error TS2339: Property 'min_value' does not exist on type 'never'.
+src/services/tracker/tracker-manager.ts(107,45): error TS2339: Property 'max_value' does not exist on type 'never'.
+src/services/tracker/tracker-manager.ts(108,43): error TS2339: Property 'max_value' does not exist on type 'never'.
+src/services/tracker/tracker-manager.ts(124,58): error TS2339: Property 'min_value' does not exist on type 'never'.
+src/services/tracker/tracker-manager.ts(139,64): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(139,76): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(139,88): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(139,102): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(142,64): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(142,71): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(142,79): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(142,85): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(142,93): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(147,64): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(147,76): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(147,84): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(147,92): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(150,64): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(150,70): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(150,76): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(150,82): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(154,62): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(154,68): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(154,75): error TS2322: Type 'string' is not assignable to type 'StateDefinition'.
+src/services/tracker/tracker-manager.ts(159,13): error TS2322: Type 'StateDefinition' is not assignable to type 'string | number | boolean'.
+src/services/tracker/tracker-manager.ts(197,52): error TS2339: Property 'initial_value' does not exist on type 'TrackerConfig'.
+  Property 'initial_value' does not exist on type 'StateTrackerConfig'.
+src/services/tracker/tracker-manager.ts(198,52): error TS2339: Property 'initial_state' does not exist on type 'TrackerConfig'.
+  Property 'initial_state' does not exist on type 'NumericTrackerConfig'.
+src/services/tracker/tracker-manager.ts(227,47): error TS2352: Conversion of type 'Tracker' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Tracker'.
+src/services/tracker/tracker-manager.ts(227,101): error TS2352: Conversion of type 'Tracker' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Tracker'.
+src/services/tracker/tracker-manager.ts(227,155): error TS2352: Conversion of type 'Tracker' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Tracker'.
+src/services/tracker/tracker-manager.ts(708,55): error TS2339: Property 'toLowerCase' does not exist on type 'never'.
+src/store/index.ts(122,32): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/index.ts(122,35): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/store/index.ts(142,30): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/index.ts(142,33): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/store/index.ts(154,32): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/index.ts(154,35): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/store/index.ts(266,32): error TS2339: Property '_type' does not exist on type '{}'.
+src/store/index.ts(270,48): error TS2339: Property 'value' does not exist on type '{}'.
+src/store/index.ts(279,38): error TS2339: Property 'value' does not exist on type '{}'.
+src/store/index.ts(281,32): error TS2339: Property '_type' does not exist on type '{}'.
+src/store/index.ts(282,38): error TS2339: Property 'value' does not exist on type '{}'.
+src/store/slices/character.slice.ts(167,177): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(168,182): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(170,167): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(171,157): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(172,172): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(181,187): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(189,152): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/store/slices/character.slice.ts(202,17): error TS2322: Type 'unknown' is not assignable to type 'string | undefined'.
+src/store/slices/character.slice.ts(203,17): error TS2322: Type 'unknown' is not assignable to type 'string | undefined'.
+src/store/slices/character.slice.ts(204,17): error TS2322: Type 'unknown' is not assignable to type 'TrackerCategory | undefined'.
+src/store/slices/character.slice.ts(205,17): error TS2322: Type 'string' is not assignable to type 'TrackerType | undefined'.
+src/store/slices/character.slice.ts(213,21): error TS2322: Type 'unknown' is not assignable to type 'number'.
+src/store/slices/character.slice.ts(214,21): error TS2322: Type 'unknown' is not assignable to type 'number'.
+src/store/slices/character.slice.ts(215,21): error TS2322: Type 'unknown' is not assignable to type 'number'.
+src/store/slices/character.slice.ts(216,21): error TS2322: Type '{}' is not assignable to type 'number'.
+src/store/slices/character.slice.ts(229,21): error TS2322: Type 'unknown' is not assignable to type 'boolean'.
+src/store/slices/character.slice.ts(235,21): error TS2322: Type '{}' is not assignable to type 'string'.
+src/store/slices/chat.slice.ts(128,56): error TS2322: Type '"relevance"' is not assignable to type 'RetentionPolicy'.
+src/store/slices/chat.slice.ts(136,7): error TS2740: Type '{ current_topic: string; }' is missing the following properties from type 'ConversationContext': session_id, current_emotion, current_mood, recent_messages, and 8 more.
+src/store/slices/chat.slice.ts(146,9): error TS2353: Object literal may only specify known properties, and 'user_engagement' does not exist in type 'SessionStatistics'.
+src/store/slices/chat.slice.ts(302,13): error TS2345: Argument of type 'TrackerManager | null | undefined' is not assignable to parameter of type 'TrackerManager | undefined'.
+  Type 'null' is not assignable to type 'TrackerManager | undefined'.
+src/store/slices/chat.slice.ts(347,46): error TS2345: Argument of type '{ role: MessageRole; content: string; }' is not assignable to parameter of type '{ role: "user" | "assistant"; content: string; }'.
+  Types of property 'role' are incompatible.
+    Type 'MessageRole' is not assignable to type '"user" | "assistant"'.
+      Type '"function"' is not assignable to type '"user" | "assistant"'.
+src/store/slices/chat.slice.ts(575,9): error TS2345: Argument of type 'TrackerManager | null | undefined' is not assignable to parameter of type 'TrackerManager | undefined'.
+  Type 'null' is not assignable to type 'TrackerManager | undefined'.
+src/store/slices/chat.slice.ts(685,9): error TS2345: Argument of type 'TrackerManager | null | undefined' is not assignable to parameter of type 'TrackerManager | undefined'.
+  Type 'null' is not assignable to type 'TrackerManager | undefined'.
+src/store/slices/chat.slice.ts(733,31): error TS2365: Operator '+' cannot be applied to types '{}' and 'number'.
+src/store/slices/groupChat.slice.ts(1071,31): error TS2365: Operator '+' cannot be applied to types '{}' and 'number'.
+src/store/slices/history.slice.ts(337,34): error TS2304: Cannot find name 'set'.
+src/store/slices/memory.slice.ts(57,28): error TS2339: Property 'sessions' does not exist on type 'MemorySlice'.
+src/store/slices/memory.slice.ts(112,9): error TS2353: Object literal may only specify known properties, and 'context_tags' does not exist in type 'MemoryCard'.
+src/store/slices/memory.slice.ts(112,40): error TS2339: Property 'context_tags' does not exist on type 'Partial<MemoryCard>'.
+src/store/slices/memory.slice.ts(160,9): error TS2353: Object literal may only specify known properties, and 'context_tags' does not exist in type 'MemoryCard'.
+src/store/slices/suggestion.slice.ts(95,43): error TS2353: Object literal may only specify known properties, and 'geminiApiKey' does not exist in type 'Partial<APIConfig> & { openRouterApiKey?: string | undefined; }'.
+src/store/slices/suggestion.slice.ts(132,122): error TS2353: Object literal may only specify known properties, and 'geminiApiKey' does not exist in type 'Partial<APIConfig> & { openRouterApiKey?: string | undefined; }'.
+src/store/slices/suggestion.slice.ts(151,43): error TS2353: Object literal may only specify known properties, and 'geminiApiKey' does not exist in type 'Partial<APIConfig> & { openRouterApiKey?: string | undefined; }'.
+src/store/slices/tracker.slice.ts(140,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/store/slices/tracker.slice.ts(203,25): error TS2352: Conversion of type 'TrackerSlice' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'TrackerSlice'.
+src/store/slices/tracker.slice.ts(205,48): error TS2339: Property 'get' does not exist on type '{}'.
+src/store/slices/tracker.slice.ts(208,27): error TS2349: This expression is not callable.
+  Type '{}' has no call signatures.
+src/utils/storage-analyzer.ts(211,4): error TS2352: Conversion of type 'Window & typeof globalThis' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Window & typeof globalThis'.
+src/utils/storage-manager.ts(75,38): error TS2339: Property 'updatedAt' does not exist on type '{}'.
+src/utils/storage-manager.ts(75,63): error TS2339: Property 'updatedAt' does not exist on type '{}'.
+src/utils/storage-manager.ts(96,38): error TS2339: Property 'updated_at' does not exist on type '{}'.
+src/utils/storage-manager.ts(96,64): error TS2339: Property 'updated_at' does not exist on type '{}'.
+src/utils/storage-manager.ts(189,15): error TS2339: Property '_type' does not exist on type '{}'.
+src/utils/storage-manager.ts(189,39): error TS2339: Property 'value' does not exist on type '{}'.
+src/utils/storage-manager.ts(190,19): error TS2339: Property 'value' does not exist on type '{}'.

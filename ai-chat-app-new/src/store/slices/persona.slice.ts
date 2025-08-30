@@ -46,13 +46,29 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
     },
     getSelectedPersona: () => {
         const activeId = get().activePersonaId;
+        const personas = get().personas;
+        
+        console.log('🔍 [PersonaSlice] getSelectedPersona called:', {
+            activePersonaId: activeId,
+            personasCount: personas.size,
+            personaIds: Array.from(personas.keys())
+        });
+        
         if (activeId) {
-            const persona = get().personas.get(activeId);
-            if (persona) return persona;
+            const persona = personas.get(activeId);
+            if (persona) {
+                console.log('🔍 [PersonaSlice] Found active persona:', `${persona.name} (${persona.id})`);
+                return persona;
+            } else {
+                console.warn('🔍 [PersonaSlice] Active persona ID not found in personas map:', activeId);
+            }
         }
+        
         // アクティブなものがない場合、デフォルトを探す
-        const personas = Array.from(get().personas.values());
-        return personas.find(p => p.is_default) || personas[0] || null;
+        const personasArray = Array.from(personas.values());
+        const defaultPersona = personasArray.find(p => p.is_default) || personasArray[0] || null;
+        console.log('🔍 [PersonaSlice] Falling back to default persona:', defaultPersona ? `${defaultPersona.name} (${defaultPersona.id})` : 'null');
+        return defaultPersona;
     },
     setShowPersonaGallery: (show) => set({ showPersonaGallery: show }),
 
@@ -131,10 +147,14 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
             }
 
             console.log('persona.slice: Setting persona data to store. Total personas:', personasMap.size);
+            // 既存のactivePersonaIdを保持し、未設定の場合のみdefault-userを設定
+            const currentActivePersonaId = get().activePersonaId;
+            const shouldSetDefault = !currentActivePersonaId || !personasMap.has(currentActivePersonaId);
+            
             set({ 
                 personas: personasMap, 
                 isPersonasLoaded: true,
-                activePersonaId: 'default-user' // デフォルトペルソナをアクティブに設定
+                activePersonaId: shouldSetDefault ? 'default-user' : currentActivePersonaId
             });
             console.log('persona.slice: Store updated. isPersonasLoaded should be true.');
             

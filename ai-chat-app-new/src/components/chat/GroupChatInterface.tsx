@@ -41,7 +41,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   } = useAppStore();
   
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
-  const [groupName, setGroupName] = useState('新しいグループチャット');
+  const [groupName, setGroupName] = useState<string>('新しいグループチャット');
   const [chatMode, setChatMode] = useState<GroupChatMode>('sequential');
   const [showSetup, setShowSetup] = useState(false);
   const [currentStep, setCurrentStep] = useState<'characters' | 'scenario' | 'settings'>('characters');
@@ -62,14 +62,10 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
         // キャラクターを削除
         console.log(`Removing ${characterName} from selection`);
         return prev.filter(id => id !== characterId);
-      } else if (prev.length < 5) { // 最大5人まで
+      } else {
         // キャラクターを追加
         console.log(`Adding ${characterName} to selection`);
         return [...prev, characterId];
-      } else {
-        // 最大数に達している
-        console.log(`Cannot add ${characterName} - maximum 5 characters reached`);
-        return prev;
       }
     });
   };
@@ -254,7 +250,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-white/80">参加キャラクター</h4>
             <span className="text-xs text-white/50">
-              {activeGroupSession.active_character_ids.size}/{activeGroupSession.max_active_characters}人
+              {activeGroupSession.active_character_ids.size}人参加中
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -284,7 +280,6 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                   }}
                   title={
                     !canToggle ? "最低1人のキャラクターが必要です" :
-                    !canJoin ? `最大${activeGroupSession.max_active_characters}人まで参加できます` :
                     isActive ? "クリックで脱退" : "クリックで参加"
                   }
                 >
@@ -510,7 +505,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
             <label className="block text-white/80 font-medium mb-2">グループ名</label>
             <input
               type="text"
-              value={groupName}
+              value={groupName || ''}
               onChange={(e) => setGroupName(e.target.value)}
               className="w-full px-4 py-2 bg-slate-800 border border-purple-400/30 rounded-lg text-white focus:border-purple-400 focus:outline-none"
               placeholder="グループチャット名を入力"
@@ -556,7 +551,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
               {/* キャラクター選択 */}
               <div className="mb-6">
                 <label className="block text-white/80 font-medium mb-2">
-                  参加キャラクター (2-5人)
+                  参加キャラクター (2人以上)
                 </label>
             <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800 pr-2">
               <div className="grid grid-cols-2 gap-3">

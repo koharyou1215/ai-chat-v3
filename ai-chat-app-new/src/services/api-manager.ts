@@ -145,6 +145,46 @@ export class APIManager {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
 
+    // 開発環境でのログ出力
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    if (isDevelopment) {
+      console.log('\n[DEV]--- API Manager Generate ---');
+      console.log(`[DEV][Config] Provider: ${provider}, Model: ${model}`);
+      console.log(`[DEV][Params] temp=${temperature}, max_tokens=${max_tokens}, top_p=${top_p}`);
+      console.log(`[DEV][Text Format] ${options?.textFormatting || 'default'}`);
+      
+      // 会話履歴の詳細
+      console.log(`\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`);
+      if (conversationHistory.length > 0) {
+        conversationHistory.slice(-2).forEach((msg, idx) => {
+          const preview = msg.content.substring(0, 150);
+          console.log(`${msg.role}: ${preview}${msg.content.length > 150 ? '...' : ''}`);
+        });
+        if (conversationHistory.length > 2) {
+          console.log(`[... ${conversationHistory.length - 2} older messages]`);
+        }
+      }
+      
+      // ユーザーメッセージ
+      console.log(`\n[DEV]--- User Message ---`);
+      console.log(userMessage);
+      
+      // システムプロンプトの詳細表示
+      if (systemPrompt) {
+        console.log(`\n[DEV]--- System Prompt (${systemPrompt.length} chars) ---`);
+        const lines = systemPrompt.split('\n');
+        lines.slice(0, 10).forEach(line => {
+          console.log(line);
+        });
+        if (lines.length > 10) {
+          console.log('...');
+        }
+      }
+      
+      console.log('===================================\n');
+    }
+
     // options から渡された API キーを優先して使用
     if (options?.openRouterApiKey) {
       this.openRouterApiKey = options.openRouterApiKey;

@@ -37,12 +37,22 @@ const getModelDisplayName = (modelId: string): string => {
     if (modelId.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
     if (modelId.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
     
-    if (modelId.startsWith('x-ai/')) return 'Grok-4';
+    if (modelId.startsWith('x-ai/')) {
+        if (modelId.includes('grok-code-fast-1')) return 'Grok Code';
+        return 'Grok-4';
+    }
     if (modelId.startsWith('openai/')) return 'GPT-5';
     if (modelId.startsWith('deepseek/')) return 'DeepSeek';
     if (modelId.startsWith('mistralai/')) return 'Mistral';
     if (modelId.startsWith('meta-llama/')) return 'Llama';
-    if (modelId.startsWith('qwen/')) return 'Qwen';
+    if (modelId.startsWith('qwen/')) {
+        if (modelId.includes('qwen3-30b-a3b-thinking')) return 'Qwen3 Think';
+        return 'Qwen';
+    }
+    if (modelId.startsWith('nousresearch/')) {
+        if (modelId.includes('hermes-4-405b')) return 'Hermes 4';
+        return 'Nous';
+    }
     if (modelId.startsWith('z-ai/')) return 'GLM';
     if (modelId.startsWith('moonshotai/')) return 'Kimi';
     

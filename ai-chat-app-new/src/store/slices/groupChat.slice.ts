@@ -4,6 +4,7 @@ import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core
 import { apiManager } from '@/services/api-manager';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { generateCompactGroupPrompt } from '@/utils/character-summarizer';
+import { GroupEmotionAnalyzer } from '@/services/emotion/GroupEmotionAnalyzer';
 import { AppStore } from '..';
 import { 
   generateGroupSessionId, 
@@ -12,6 +13,23 @@ import {
   generateAIMessageId,
   generateSystemMessageId 
 } from '@/utils/uuid';
+
+// 🎭 グループ感情から絵文字への変換ヘルパー
+const getGroupEmotionEmoji = (emotion: string): string => {
+  const emotionEmojiMap: Record<string, string> = {
+    'joy': '😊',
+    'sadness': '😢',
+    'anger': '😠',
+    'fear': '😨',
+    'surprise': '😲',
+    'disgust': '😖',
+    'neutral': '😐',
+    'love': '💕',
+    'excitement': '🤩',
+    'anxiety': '😰'
+  };
+  return emotionEmojiMap[emotion] || '😐';
+};
 
 export interface GroupChatSlice {
   groupSessions: Map<UUID, GroupChatSession>;
@@ -101,7 +119,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       ],
       
       chat_mode: mode,
-      max_active_characters: 3,
+      max_active_characters: 99,
       speaking_order: characters.map(c => c.id),
       voice_settings: new Map(),
       response_delay: 500,
@@ -186,6 +204,67 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       };
 
       groupSession.messages.push(userMessage);
+
+      // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
+      const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
+      if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+        setTimeout(async () => {
+          try {
+            const groupAnalyzer = new GroupEmotionAnalyzer();
+            const conversationalContext = {
+              recentMessages: groupSession.messages.slice(-10),
+              messageCount: groupSession.message_count + 1,
+              activeCharacters: groupSession.characters,
+              sessionType: 'group' as const,
+              sessionId: activeGroupSessionId,
+              sessionDuration: Math.floor((new Date().getTime() - new Date(groupSession.created_at).getTime()) / 60000),
+              conversationPhase: 'development' as const
+            };
+            
+            const emotionResult = await groupAnalyzer.analyzeGroupEmotion(
+              userMessage,
+              conversationalContext,
+              groupSession.characters
+            );
+            
+            // 感情分析結果をメッセージに反映
+            const updatedUserMessage = {
+              ...userMessage,
+              expression: {
+                emotion: {
+                  primary: emotionResult.emotion.primaryEmotion,
+                  intensity: emotionResult.emotion.intensity,
+                  emoji: getGroupEmotionEmoji(emotionResult.emotion.primaryEmotion)
+                },
+                style: { font_weight: 'normal' as const, text_color: '#ffffff' },
+                effects: []
+              }
+            };
+            
+            // セッションを更新（非同期）
+            set(state => {
+              const currentSession = state.groupSessions.get(activeGroupSessionId);
+              if (currentSession) {
+                const messageIndex = currentSession.messages.findIndex(m => m.id === userMessage.id);
+                if (messageIndex !== -1) {
+                  const updatedMessages = [...currentSession.messages];
+                  updatedMessages[messageIndex] = updatedUserMessage;
+                  const updatedSession = { ...currentSession, messages: updatedMessages };
+                  return {
+                    groupSessions: new Map(state.groupSessions).set(activeGroupSessionId, updatedSession)
+                  };
+                }
+              }
+              return state;
+            });
+            
+            console.log('🎭 Group user emotion analysis completed:', emotionResult.emotion.primaryEmotion);
+            console.log('🎭 Group dynamics:', emotionResult.groupDynamics);
+          } catch (error) {
+            console.warn('🎭 Group user emotion analysis failed:', error);
+          }
+        }, 0);
+      }
 
       // アクティブキャラクターからの応答を生成
       const activeCharacters = Array.from(groupSession.active_character_ids)
@@ -277,12 +356,92 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         groupSessions: new Map(state.groupSessions).set(activeGroupSessionId, groupSession)
       }));
 
+      // 🎭 感情分析: AI応答群 (バックグラウンド処理)
+      if (emotionalIntelligenceFlags?.emotion_analysis_enabled && responses.length > 0) {
+        setTimeout(async () => {
+          try {
+            const groupAnalyzer = new GroupEmotionAnalyzer();
+            const conversationalContext = {
+              recentMessages: groupSession.messages.slice(-15),
+              messageCount: groupSession.message_count,
+              activeCharacters: groupSession.characters,
+              sessionType: 'group' as const,
+              sessionId: activeGroupSessionId,
+              sessionDuration: Math.floor((new Date().getTime() - new Date(groupSession.created_at).getTime()) / 60000),
+              conversationPhase: 'development' as const
+            };
+            
+            // 各AI応答に感情分析を実行
+            const emotionUpdatedResponses = await Promise.all(
+              responses.map(async (response) => {
+                try {
+                  const emotionResult = await groupAnalyzer.analyzeGroupEmotion(
+                    response,
+                    conversationalContext,
+                    groupSession.characters,
+                    response.character_id
+                  );
+                  
+                  return {
+                    ...response,
+                    expression: {
+                      emotion: {
+                        primary: emotionResult.emotion.primaryEmotion,
+                        intensity: emotionResult.emotion.intensity,
+                        emoji: getGroupEmotionEmoji(emotionResult.emotion.primaryEmotion)
+                      },
+                      style: { font_weight: 'normal' as const, text_color: '#ffffff' },
+                      effects: []
+                    }
+                  };
+                } catch (error) {
+                  console.warn(`🎭 Individual response emotion analysis failed for ${response.character_name}:`, error);
+                  return response; // Return original on failure
+                }
+              })
+            );
+            
+            // セッションを更新（感情分析結果を反映）
+            set(state => {
+              const currentSession = state.groupSessions.get(activeGroupSessionId);
+              if (currentSession) {
+                const updatedMessages = [...currentSession.messages];
+                
+                // 各応答メッセージを感情分析結果で更新
+                emotionUpdatedResponses.forEach(updatedResponse => {
+                  const messageIndex = updatedMessages.findIndex(m => m.id === updatedResponse.id);
+                  if (messageIndex !== -1) {
+                    updatedMessages[messageIndex] = updatedResponse;
+                  }
+                });
+                
+                const updatedSession = { ...currentSession, messages: updatedMessages };
+                return {
+                  groupSessions: new Map(state.groupSessions).set(activeGroupSessionId, updatedSession)
+                };
+              }
+              return state;
+            });
+            
+            console.log('🎭 Group AI responses emotion analysis completed');
+            console.log('🎭 Analyzed responses:', emotionUpdatedResponses.map(r => 
+              `${r.character_name}: ${r.expression.emotion.primary} (${Math.round(r.expression.emotion.intensity * 100)}%)`
+            ));
+          } catch (error) {
+            console.warn('🎭 Group AI emotion analysis failed:', error);
+          }
+        }, 100); // Slight delay to ensure UI updates first
+      }
+
       // 🆕 グループチャット用のトラッカー・メモリー連携処理を追加（ソロチャットと同様）
       setTimeout(() => {
         const trackerManagers = get().trackerManagers;
         Promise.allSettled([
-          // 各キャラクターのメモリー処理（dynamicな要求読み込み）
+          // 🧠 各キャラクターのメモリー処理（emotional_memory_enabled設定チェック追加）
           (async () => {
+            if (!get().emotionalIntelligenceFlags.emotional_memory_enabled) {
+              return Promise.resolve([]);
+            }
             try {
               const { autoMemoryManager } = await import('@/services/memory/auto-memory-manager');
               return await Promise.all(responses.map(response => 
@@ -298,8 +457,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
               return Promise.resolve();
             }
           })(),
-          // 各キャラクターのトラッカー更新処理
-          Promise.all(activeCharacters.map(character => {
+          // 🎯 各キャラクターのトラッカー更新処理（autoTrackerUpdate設定チェック追加）
+          get().effectSettings.autoTrackerUpdate ? Promise.all(activeCharacters.map(character => {
             const trackerManager = trackerManagers.get(character.id);
             if (!trackerManager) return Promise.resolve();
             
@@ -311,7 +470,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
                 .filter(response => response.character_id === character.id)
                 .map(response => trackerManager.analyzeMessageForTrackerUpdates(response, character.id))
             ]);
-          }))
+          })) : Promise.resolve([])
         ]).then(results => {
           const memoryResults = results[0];
           const trackerResults = results[1];

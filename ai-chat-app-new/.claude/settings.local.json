@@ -90,7 +90,11 @@
       "Bash(chmod:*)",
       "Bash(icacls:*)",
       "Bash(kill:*)",
-      "Bash(attrib:*)"
+      "Bash(attrib:*)",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=\"--max-old-space-size=6144\" timeout 120s npm run build)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=6144\" npm run build)",
+      "Bash(/bashes)",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 npm run dev)"
     ],
     "deny": [],
     "ask": [],

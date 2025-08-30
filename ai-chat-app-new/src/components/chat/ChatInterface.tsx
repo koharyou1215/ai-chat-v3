@@ -180,6 +180,7 @@ const ChatInterfaceContent: React.FC = () => {
         isEnhancingText,
         enhanceTextForModal,
         systemPrompts,
+        currentInputText,
         setCurrentInputText,
         isLeftSidebarOpen, // isLeftSidebarOpen をストアから取得
         isRightPanelOpen, // isRightPanelOpen をストアから取得
@@ -197,6 +198,7 @@ const ChatInterfaceContent: React.FC = () => {
         toggleGroupCreationModal, // 新規作成用アクションを取得
         isScenarioModalOpen, // 追加
         toggleScenarioModal, // 追加
+        appearanceSettings // 背景設定の競合を解決するために追加
     } = useAppStore();
     useVH(); // Safari対応版のVHフックを使用
     const session = getActiveSession();
@@ -214,7 +216,7 @@ const ChatInterfaceContent: React.FC = () => {
     }, []);
     
     // グループチャットセッションの取得
-    const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
+    const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) as any : null;
 
     // キャラクターIDを安全に取得
     const currentCharacterId = useMemo(() => {
@@ -291,12 +293,18 @@ const ChatInterfaceContent: React.FC = () => {
                             setCurrentInputText(suggestion);
                         }}
                         onRegenerate={async () => {
-                            // Group chat mode: use group session data
-                            if (active_group_session_id) {
+                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
+                            
+                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
+                            if (is_group_mode && active_group_session_id) {
+                                console.log('📥 Using GROUP session for regeneration');
                                 const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) return;
+                                if (!groupSession) {
+                                    console.warn('Group session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = groupSession.messages.slice(-6);
+                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
                                     ? systemPrompts.replySuggestion 
                                     : undefined;
@@ -309,11 +317,14 @@ const ChatInterfaceContent: React.FC = () => {
                                 
                                 await generateSuggestions(recentMessages, character, user, customPrompt, true);
                             } else {
-                                // Fallback to solo mode
+                                console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
-                                if (!session) return;
+                                if (!session) {
+                                    console.warn('Solo session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = session.messages.slice(-6);
+                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
                                     ? systemPrompts.replySuggestion 
                                     : undefined;
@@ -336,12 +347,18 @@ const ChatInterfaceContent: React.FC = () => {
                             setShowEnhancementModal(false);
                         }}
                         onRegenerate={async () => {
-                            // Group chat mode: use group session data
-                            if (active_group_session_id) {
+                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
+                            
+                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
+                            if (is_group_mode && active_group_session_id) {
+                                console.log('📥 Using GROUP session for regeneration');
                                 const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) return;
+                                if (!groupSession) {
+                                    console.warn('Group session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = groupSession.messages.slice(-6);
+                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
                                     ? systemPrompts.textEnhancement 
                                     : undefined;
@@ -350,11 +367,14 @@ const ChatInterfaceContent: React.FC = () => {
                                 
                                 await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
                             } else {
-                                // Fallback to solo mode
+                                console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
-                                if (!session) return;
+                                if (!session) {
+                                    console.warn('Solo session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = session.messages.slice(-6);
+                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
                                     ? systemPrompts.textEnhancement 
                                     : undefined;
@@ -380,7 +400,7 @@ const ChatInterfaceContent: React.FC = () => {
                     {isGroupMemberModalOpen && activeGroupSession && (
                       <CharacterGalleryModal
                         isGroupEditingMode={true}
-                        activeGroupMembers={activeGroupSession.characters}
+                        activeGroupMembers={activeGroupSession?.characters || []}
                         onUpdateGroupMembers={(newCharacters) => {
                           if (active_group_session_id) {
                             updateGroupMembers(active_group_session_id, newCharacters);
@@ -454,13 +474,15 @@ const ChatInterfaceContent: React.FC = () => {
                 height: 'calc(var(--vh, 1vh) * 100)'
             }}
         >
-            {/* 背景画像 - メインコンテンツエリアに合わせて配置 */}
+            {/* 🎨 キャラクター背景画像・動画（最優先表示） */}
             {character && character.background_url && (
                 <div 
-                    className="fixed top-0 bottom-0 overflow-hidden z-0"
+                    className="fixed inset-0 overflow-hidden z-0"
                     style={{
                         left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
-                        right: isRightPanelOpen && windowWidth >= 768 ? '400px' : '0'
+                        right: isRightPanelOpen && windowWidth >= 768 ? '400px' : '0',
+                        top: 0,
+                        bottom: 0
                     }}
                 >
                     {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
@@ -544,7 +566,7 @@ const ChatInterfaceContent: React.FC = () => {
                     >
                         {currentMessages.length > 0 ? (
                             <AnimatePresence mode="popLayout" initial={false}>
-                                {currentMessages.map((message, index) => (
+                                {currentMessages.map((message: any, index: number) => (
                                     <MessageBubble
                                         key={message.id}
                                         message={message}
@@ -650,12 +672,18 @@ const ChatInterfaceContent: React.FC = () => {
                             setCurrentInputText(suggestion);
                         }}
                         onRegenerate={async () => {
-                            // Group chat mode: use group session data
-                            if (active_group_session_id) {
+                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
+                            
+                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
+                            if (is_group_mode && active_group_session_id) {
+                                console.log('📥 Using GROUP session for regeneration');
                                 const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) return;
+                                if (!groupSession) {
+                                    console.warn('Group session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = groupSession.messages.slice(-6);
+                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
                                     ? systemPrompts.replySuggestion 
                                     : undefined;
@@ -668,11 +696,14 @@ const ChatInterfaceContent: React.FC = () => {
                                 
                                 await generateSuggestions(recentMessages, character, user, customPrompt, true);
                             } else {
-                                // Fallback to solo mode
+                                console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
-                                if (!session) return;
+                                if (!session) {
+                                    console.warn('Solo session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = session.messages.slice(-6);
+                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
                                     ? systemPrompts.replySuggestion 
                                     : undefined;
@@ -695,12 +726,18 @@ const ChatInterfaceContent: React.FC = () => {
                             setShowEnhancementModal(false);
                         }}
                         onRegenerate={async () => {
-                            // Group chat mode: use group session data
-                            if (active_group_session_id) {
+                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
+                            
+                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
+                            if (is_group_mode && active_group_session_id) {
+                                console.log('📥 Using GROUP session for regeneration');
                                 const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) return;
+                                if (!groupSession) {
+                                    console.warn('Group session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = groupSession.messages.slice(-6);
+                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
                                     ? systemPrompts.textEnhancement 
                                     : undefined;
@@ -709,11 +746,14 @@ const ChatInterfaceContent: React.FC = () => {
                                 
                                 await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
                             } else {
-                                // Fallback to solo mode
+                                console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
-                                if (!session) return;
+                                if (!session) {
+                                    console.warn('Solo session not found for regeneration');
+                                    return;
+                                }
                                 
-                                const recentMessages = session.messages.slice(-6);
+                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
                                 const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
                                     ? systemPrompts.textEnhancement 
                                     : undefined;
@@ -739,7 +779,7 @@ const ChatInterfaceContent: React.FC = () => {
                     {isGroupMemberModalOpen && activeGroupSession && (
                       <CharacterGalleryModal
                         isGroupEditingMode={true}
-                        activeGroupMembers={activeGroupSession.characters}
+                        activeGroupMembers={activeGroupSession?.characters || []}
                         onUpdateGroupMembers={(newCharacters) => {
                           if (active_group_session_id) {
                             updateGroupMembers(active_group_session_id, newCharacters);

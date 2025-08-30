@@ -90,16 +90,13 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
     if (removed.length > 0) {
       warnings.push(`${removed.length}人のキャラクターが削除され、${affectedMessages}件のメッセージが影響を受けます`);
     }
-    if (selectedCharacterIds.length > 5) {
-      warnings.push('同時に参加できるキャラクターは最大5人です');
-    }
 
     return {
       added,
       removed,
       kept,
       affectedMessages,
-      canProceed: selectedCharacterIds.length >= 2 && selectedCharacterIds.length <= 5,
+      canProceed: selectedCharacterIds.length >= 2,
       warnings
     };
   }, [session, selectedCharacterIds, availableCharacters]);
@@ -123,7 +120,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
     );
 
     // セッションを更新
-    updateSessionCharacters(session.id, newCharacters);
+    (updateSessionCharacters as any)(session.id, newCharacters);
     
     // 変更通知メッセージを追加
     if (changePreview.added.length > 0 || changePreview.removed.length > 0) {
@@ -192,7 +189,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
             <div className="flex-1 flex flex-col">
               <div className="p-6 pb-4 flex-shrink-0">
                 <h3 className="text-lg font-medium text-white mb-4">
-                  利用可能なキャラクター ({selectedCharacterIds.length}/5選択中)
+                  利用可能なキャラクター ({selectedCharacterIds.length}人選択中)
                 </h3>
               </div>
               <div className="px-6 pb-6 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-slate-800">
@@ -305,7 +302,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
                         <div className="relative w-6 h-6">
                           <Image 
-                            src={char.avatar_url} 
+                            src={char.avatar_url || '/default-avatar.png'} 
                             alt={char.name}
                             width={24}
                             height={24}

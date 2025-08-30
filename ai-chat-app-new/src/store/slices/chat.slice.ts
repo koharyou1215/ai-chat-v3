@@ -6,6 +6,7 @@ import { promptValidator } from '@/utils/prompt-validator';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
+import { SoloEmotionAnalyzer } from '@/services/emotion/SoloEmotionAnalyzer';
 import { AppStore } from '..';
 import { 
   generateSessionId, 
@@ -13,6 +14,23 @@ import {
   generateUserMessageId, 
   generateAIMessageId 
 } from '@/utils/uuid';
+
+// 🧠 感情から絵文字への変換ヘルパー
+const getEmotionEmoji = (emotion: string): string => {
+  const emotionEmojiMap: Record<string, string> = {
+    'joy': '😊',
+    'sadness': '😢',
+    'anger': '😠',
+    'fear': '😨',
+    'surprise': '😲',
+    'disgust': '😖',
+    'neutral': '😐',
+    'love': '💕',
+    'excitement': '🤩',
+    'anxiety': '😰'
+  };
+  return emotionEmojiMap[emotion] || '😐';
+};
 
 export interface ChatSlice {
   sessions: Map<UUID, UnifiedChatSession>;
@@ -210,12 +228,86 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         sessions: new Map(state.sessions).set(activeSessionId, sessionWithUserMessage)
     }));
 
+    // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
+    const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
+    if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+      setTimeout(async () => {
+        try {
+          const soloAnalyzer = new SoloEmotionAnalyzer();
+          const conversationalContext = {
+            recentMessages: sessionWithUserMessage.messages.slice(-5),
+            messageCount: sessionWithUserMessage.message_count,
+            activeCharacters: activeSession.participants.characters,
+            sessionType: 'solo' as const,
+            sessionId: activeSessionId,
+            sessionDuration: Math.floor((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000),
+            conversationPhase: 'development' as const
+          };
+          
+          const emotionResult = await soloAnalyzer.analyzeSoloEmotion(
+            userMessage,
+            conversationalContext,
+            activeSession.participants.characters[0]?.id || '',
+            'default_user'
+          );
+          
+          // 感情分析結果をメッセージに反映
+          const updatedUserMessage = {
+            ...userMessage,
+            expression: {
+              emotion: {
+                primary: emotionResult.emotion.primaryEmotion,
+                intensity: emotionResult.emotion.intensity,
+                emoji: getEmotionEmoji(emotionResult.emotion.primaryEmotion)
+              },
+              style: { font_weight: 'normal' as const, text_color: '#ffffff' },
+              effects: []
+            }
+          };
+          
+          // セッションを更新（非同期）
+          set(state => {
+            const currentSession = state.sessions.get(activeSessionId);
+            if (currentSession) {
+              const messageIndex = currentSession.messages.findIndex(m => m.id === userMessage.id);
+              if (messageIndex !== -1) {
+                const updatedMessages = [...currentSession.messages];
+                updatedMessages[messageIndex] = updatedUserMessage;
+                const updatedSession = { ...currentSession, messages: updatedMessages };
+                return {
+                  sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+                };
+              }
+            }
+            return state;
+          });
+          
+          console.log('🧠 User emotion analysis completed:', emotionResult.emotion.primaryEmotion);
+        } catch (error) {
+          console.warn('🧠 User emotion analysis failed:', error);
+        }
+      }, 0);
+    }
+
     // 3. AI応答生成などの重い処理を非同期で実行
     (async () => {
       try {
         const characterId = activeSession.participants.characters[0]?.id;
         const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
         
+        // 🚨 緊急デバッグ：セッション情報の確認
+        console.log('🚨 [sendMessage] sessionWithUserMessage.participants:', {
+          charactersCount: sessionWithUserMessage.participants.characters?.length || 0,
+          firstCharacter: sessionWithUserMessage.participants.characters?.[0] ? {
+            id: sessionWithUserMessage.participants.characters[0].id,
+            name: sessionWithUserMessage.participants.characters[0].name
+          } : 'UNDEFINED',
+          user: sessionWithUserMessage.participants.user ? {
+            id: sessionWithUserMessage.participants.user.id,
+            name: sessionWithUserMessage.participants.user.name
+          } : 'UNDEFINED'
+        });
+
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
         const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
             sessionWithUserMessage,
@@ -244,7 +336,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           //   }
           // }
           
-          return fetch('/api/chat/generate', {
+          // 軽量版で最初のAPIリクエストを開始
+          const initialResponse = await fetch('/api/chat/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -281,6 +374,52 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               useEnhancedPrompt: false // フラグで制御
             }),
           });
+
+          // 重量版が準備できたら、完全版で再度APIリクエスト
+          try {
+            const fullPrompt = await enhancePrompt();
+            console.log('✨ Enhanced prompt ready, using full version');
+            
+            // 完全版でAPIリクエスト
+            return fetch('/api/chat/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemPrompt: fullPrompt, // 完全版を使用
+                userMessage: content,
+                conversationHistory: (() => {
+                  // 重複除去と履歴クリーンアップ
+                  const recentMessages = activeSession.messages.slice(-10);
+                  const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+                  
+                  for (const msg of recentMessages) {
+                    const historyEntry = { role: msg.role, content: msg.content };
+                    
+                    const isDuplicate = deduplicatedHistory.some(existing => 
+                      existing.role === historyEntry.role && 
+                      existing.content === historyEntry.content
+                    );
+                    
+                    if (!isDuplicate && historyEntry.content.trim()) {
+                      deduplicatedHistory.push(historyEntry);
+                    }
+                  }
+                  
+                  return deduplicatedHistory.slice(-5);
+                })(),
+                textFormatting: state.effectSettings.textFormatting,
+                apiConfig: {
+                  ...apiConfig,
+                  openRouterApiKey: get().openRouterApiKey,
+                  geminiApiKey: get().geminiApiKey
+                },
+                useEnhancedPrompt: true // 完全版フラグ
+              }),
+            });
+          } catch (error) {
+            console.warn('Enhanced prompt failed, using base prompt:', error);
+            return initialResponse; // フォールバック
+          }
         }, requestId);
         
         // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
@@ -298,18 +437,83 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         const aiResponseContent = data.response;
         
         // 🔍 デバッグ: 応答品質検証（メタ発言チェック）
-        if (process.env.NODE_ENV === 'development') {
-          const character = activeSession.participants.characters[0];
-          const responseCheck = promptValidator.checkResponseForMeta(aiResponseContent, character?.name || 'Character');
-          
-          if (responseCheck.hasMeta) {
-            console.warn('⚠️ Meta conversation detected:', responseCheck);
-            console.warn('🔍 Response content:', aiResponseContent.substring(0, 200) + '...');
-          } else {
-            console.log('✅ Response looks good - no meta conversation detected');
+        // TEMPORARILY DISABLED: promptValidator may cause infinite loading
+        // if (process.env.NODE_ENV === 'development') {
+        //   const character = activeSession.participants.characters[0];
+        //   const responseCheck = promptValidator.checkResponseForMeta(aiResponseContent, character?.name || 'Character');
+        //   
+        //   if (responseCheck.hasMeta) {
+        //     console.warn('⚠️ Meta conversation detected:', responseCheck);
+        //     console.warn('🔍 Response content:', aiResponseContent.substring(0, 200) + '...');
+        //   } else {
+        //     console.log('✅ Response looks good - no meta conversation detected');
+        //   }
+        // }
+        
+        // 🧠 感情分析: AI応答 (同期処理 - UI表示前)
+        let aiEmotionExpression = {
+          emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' },
+          style: { font_weight: 'normal' as const, text_color: '#ffffff' },
+          effects: []
+        };
+        
+        if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+          try {
+            const soloAnalyzer = new SoloEmotionAnalyzer();
+            const currentSession = get().sessions.get(activeSessionId);
+            if (currentSession) {
+              const conversationalContext = {
+                recentMessages: currentSession.messages.slice(-5),
+                messageCount: currentSession.message_count + 1,
+                activeCharacters: activeSession.participants.characters,
+                sessionType: 'solo' as const,
+                sessionId: activeSessionId,
+                sessionDuration: Math.floor((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000),
+                conversationPhase: 'development' as const
+              };
+              
+              // 一時的なAI応答メッセージを作成して分析
+              const tempAiMessage: UnifiedMessage = {
+                id: generateAIMessageId(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                version: 1,
+                session_id: activeSessionId,
+                is_deleted: false,
+                role: 'assistant',
+                content: aiResponseContent,
+                character_id: activeSession.participants.characters[0]?.id,
+                memory: { importance: { score: 0.6, factors: { emotional_weight: 0.4, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.7 } }, is_pinned: false, is_bookmarked: false, keywords: [], summary: undefined },
+                expression: { emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' }, style: { font_weight: 'normal', text_color: '#ffffff' }, effects: [] },
+                edit_history: [],
+                regeneration_count: 0,
+                metadata: {}
+              };
+              
+              const aiEmotionResult = await soloAnalyzer.analyzeSoloEmotion(
+                tempAiMessage,
+                conversationalContext,
+                activeSession.participants.characters[0]?.id || '',
+                'default_user'
+              );
+              
+              aiEmotionExpression = {
+                emotion: {
+                  primary: aiEmotionResult.emotion.primaryEmotion,
+                  intensity: aiEmotionResult.emotion.intensity,
+                  emoji: getEmotionEmoji(aiEmotionResult.emotion.primaryEmotion)
+                },
+                style: { font_weight: 'normal' as const, text_color: '#ffffff' },
+                effects: []
+              };
+              
+              console.log('🧠 AI emotion analysis completed:', aiEmotionResult.emotion.primaryEmotion);
+            }
+          } catch (error) {
+            console.warn('🧠 AI emotion analysis failed:', error);
           }
         }
-        
+
         const aiResponse: UnifiedMessage = {
             id: generateAIMessageId(),
             created_at: new Date().toISOString(),
@@ -329,11 +533,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
                 keywords: ['response'],
                 summary: 'ユーザーの質問への回答'
             },
-            expression: {
-                emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' },
-                style: { font_weight: 'normal', text_color: '#ffffff' },
-                effects: []
-            },
+            expression: aiEmotionExpression,
             edit_history: [],
             regeneration_count: 0,
             metadata: {}
@@ -354,16 +554,18 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         // ⚡ パフォーマンス最適化: 後処理をバックグラウンドキューで処理しUIを完全非ブロッキング化
         setTimeout(() => {
           Promise.allSettled([
-            autoMemoryManager.processNewMessage(
+            // 🧠 emotional_memory_enabled設定チェックを追加
+            get().emotionalIntelligenceFlags.emotional_memory_enabled ? autoMemoryManager.processNewMessage(
               aiResponse,
               activeSessionId,
               activeSession.participants.characters[0]?.id,
               get().createMemoryCard
-            ),
-            trackerManager && characterId ? Promise.all([
+            ) : Promise.resolve(null),
+            // 🎯 autoTrackerUpdate設定チェックを追加
+            trackerManager && characterId && get().effectSettings.autoTrackerUpdate ? Promise.all([
               trackerManager.analyzeMessageForTrackerUpdates(userMessage, characterId),
               trackerManager.analyzeMessageForTrackerUpdates(aiResponse, characterId)
-            ]) : Promise.resolve()
+            ]) : Promise.resolve([])
           ]).then(results => {
             const memoryResult = results[0];
             const trackerResult = results[1];

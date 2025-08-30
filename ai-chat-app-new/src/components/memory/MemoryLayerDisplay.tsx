@@ -109,20 +109,20 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
     }
   ];
   
-  const getLayerData = (type: MemoryLayerType): MemoryLayer<unknown> | null => {
+  const getLayerData = (type: MemoryLayerType): MemoryLayer<number> | null => {
     if (!sessionLayers) return null;
     
     switch (type) {
       case 'immediate_memory':
-        return sessionLayers.immediate_memory;
+        return sessionLayers.immediate_memory as MemoryLayer<number>;
       case 'working_memory':
-        return sessionLayers.working_memory;
+        return sessionLayers.working_memory as MemoryLayer<number>;
       case 'episodic_memory':
-        return sessionLayers.episodic_memory;
+        return sessionLayers.episodic_memory as MemoryLayer<number>;
       case 'semantic_memory':
-        return sessionLayers.semantic_memory;
+        return sessionLayers.semantic_memory as MemoryLayer<number>;
       case 'permanent_memory':
-        return sessionLayers.permanent_memory as MemoryLayer<unknown>; // PermanentMemory is different structure
+        return sessionLayers.permanent_memory as any as MemoryLayer<number>; // PermanentMemory is different structure
       default:
         return null;
     }
@@ -266,7 +266,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-white/60">容量:</span>
                           <span className="text-white/80">
-                            {layerData?.messages?.length || 0} / {layerData?.max_size || '∞'}
+{layerData?.messages?.length || 0} / {layerData?.max_size || '∞'}
                           </span>
                         </div>
                         
@@ -326,13 +326,13 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-white/60">総メッセージ数:</span>
               <span className="text-white/80">
-                {Object.values(sessionLayers).reduce((total, layer) => total + (layer?.messages?.length || 0), 0)}
+                {Object.values(sessionLayers).reduce((total: number, layer: any) => total + (layer?.messages?.length || 0), 0)}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-white/60">アクティブレイヤー:</span>
               <span className="text-white/80">
-                {Object.values(sessionLayers).filter(layer => layer?.messages?.length > 0).length}
+{Object.values(sessionLayers).filter((layer: any) => layer?.messages?.length > 0).length}
               </span>
             </div>
           </div>

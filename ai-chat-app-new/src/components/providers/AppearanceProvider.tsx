@@ -4,11 +4,13 @@ import React, { useEffect } from 'react';
 import { useAppStore } from '@/store';
 
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { appearanceSettings } = useAppStore();
+  const { appearanceSettings, getSelectedCharacter, selectedCharacterId } = useAppStore();
+  const currentCharacter = getSelectedCharacter();
 
   useEffect(() => {
     // CSS変数を設定して、全体のスタイルを動的に変更
     const root = document.documentElement;
+    const hasCharacterBackground = !!(currentCharacter && currentCharacter.background_url);
     
     // カラー設定を適用
     root.style.setProperty('--primary-color', appearanceSettings.primaryColor);
@@ -74,15 +76,8 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 背景設定を適用 - bodyにdata属性も設定
     const body = document.body;
     
-    if (appearanceSettings.backgroundType === 'solid') {
-      root.style.setProperty('--background', appearanceSettings.backgroundColor);
-      body.setAttribute('data-background-type', 'solid');
-      body.style.setProperty('background', appearanceSettings.backgroundColor, 'important');
-    } else if (appearanceSettings.backgroundType === 'gradient') {
-      root.style.setProperty('--background', appearanceSettings.backgroundGradient);
-      body.setAttribute('data-background-type', 'gradient');
-      body.style.setProperty('background', appearanceSettings.backgroundGradient, 'important');
-    } else if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
+    // 外観設定の画像背景を最優先に適用
+    if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
       root.style.setProperty('--background', `url(${appearanceSettings.backgroundImage})`);
       root.style.setProperty('--background-blur', `${appearanceSettings.backgroundBlur}px`);
       root.style.setProperty('--background-opacity', `${appearanceSettings.backgroundOpacity}%`);
@@ -92,6 +87,19 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       body.style.setProperty('background-position', 'center', 'important');
       body.style.setProperty('background-repeat', 'no-repeat', 'important');
       body.style.setProperty('background-attachment', 'fixed', 'important');
+    } else if (hasCharacterBackground) {
+      // 外観設定の画像背景がない場合のみキャラクター背景のフォールバック設定を適用
+      body.setAttribute('data-background-type', 'character');
+      body.style.setProperty('background', 'transparent', 'important');
+      root.style.setProperty('--background', 'transparent');
+    } else if (appearanceSettings.backgroundType === 'solid') {
+      root.style.setProperty('--background', appearanceSettings.backgroundColor);
+      body.setAttribute('data-background-type', 'solid');
+      body.style.setProperty('background', appearanceSettings.backgroundColor, 'important');
+    } else if (appearanceSettings.backgroundType === 'gradient') {
+      root.style.setProperty('--background', appearanceSettings.backgroundGradient);
+      body.setAttribute('data-background-type', 'gradient');
+      body.style.setProperty('background', appearanceSettings.backgroundGradient, 'important');
     }
     
     // アニメーション設定を適用
@@ -116,7 +124,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       document.head.appendChild(style);
     }
     
-  }, [appearanceSettings]);
+  }, [appearanceSettings, selectedCharacterId]);
 
   // グローバルスタイルも追加
   useEffect(() => {

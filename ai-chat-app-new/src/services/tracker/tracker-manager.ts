@@ -1,24 +1,5 @@
-import { TrackerDefinition, TrackerUpdate, TrackerValue, UnifiedMessage } from '@/types';
+import { TrackerDefinition, TrackerUpdate, TrackerValue, UnifiedMessage, TrackerType, LegacyTrackerDefinition } from '@/types';
 import type { NumericTrackerConfig, StateTrackerConfig } from '@/types/core/tracker.types';
-// Removed unused imports: BooleanTrackerConfig, TextTrackerConfig
-
-// 古い形式のトラッカー定義（下位互換性のため）
-interface LegacyTrackerDefinition {
-  id: string;
-  name: string;
-  display_name: string;
-  description: string;
-  category: string;
-  type?: string;
-  initial_value?: number;
-  min_value?: number;
-  max_value?: number;
-  initial_state?: string;
-  possible_states?: Array<{ id: string; label: string; }>;
-  initial_boolean?: boolean;
-  initial_text?: string;
-  config?: TrackerDefinition['config'];
-}
 
 // This is a placeholder for the full TrackerSet from the specs
 // We will expand on this later.
@@ -50,27 +31,60 @@ export class TrackerManager {
       if (!definition.config && (definition as LegacyTrackerDefinition).type) {
         // 古い形式の場合、新しい形式に変換
         const oldFormat = definition as LegacyTrackerDefinition;
+        // 型安全な変換処理
+        const trackerType = oldFormat.type as TrackerType || 'text';
+        const configBase = {
+          type: trackerType,
+        };
+        
+        let config: TrackerDefinition['config'];
+        
+        switch (trackerType) {
+          case 'numeric':
+            config = {
+              ...configBase,
+              type: 'numeric',
+              initial_value: oldFormat.initial_value ?? (oldFormat.min_value ?? 0),
+              min_value: oldFormat.min_value ?? 0,
+              max_value: oldFormat.max_value ?? 100,
+              step: oldFormat.step ?? 1
+            } as NumericTrackerConfig;
+            break;
+          case 'state':
+            config = {
+              ...configBase,
+              type: 'state',
+              initial_state: oldFormat.initial_state ?? '',
+              possible_states: oldFormat.possible_states?.map(s => ({
+                id: s.id,
+                label: s.label
+              })) ?? []
+            } as StateTrackerConfig;
+            break;
+          case 'boolean':
+            config = {
+              ...configBase,
+              type: 'boolean',
+              initial_value: oldFormat.initial_boolean ?? false
+            };
+            break;
+          case 'text':
+            config = {
+              ...configBase,
+              type: 'text',
+              initial_value: oldFormat.initial_text ?? ''
+            };
+            break;
+          default:
+            config = {
+              ...configBase,
+              type: 'composite'
+            };
+        }
+        
         normalizedDefinition = {
           ...definition,
-          config: {
-            type: oldFormat.type,
-            initial_value: oldFormat.initial_value !== undefined 
-              ? oldFormat.initial_value 
-              : oldFormat.initial_text !== undefined 
-                ? oldFormat.initial_text
-                : oldFormat.initial_boolean !== undefined 
-                  ? oldFormat.initial_boolean 
-                  : oldFormat.type === 'boolean' 
-                    ? false 
-                    : oldFormat.type === 'numeric'
-                      ? (oldFormat.min_value || 0)
-                      : undefined,
-            initial_state: oldFormat.initial_state,
-            possible_states: oldFormat.possible_states || [],
-            min_value: oldFormat.min_value,
-            max_value: oldFormat.max_value,
-            step: oldFormat.step || 1
-          }
+          config
         };
         
         console.log(`[TrackerManager] Converted old format tracker '${definition.name}':`, {

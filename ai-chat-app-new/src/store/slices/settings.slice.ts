@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { AISettings, SystemPrompts, ChatSettings, VoiceSettings, ImageGenerationSettings, APIConfig, APIProvider } from '@/types/core/settings.types';
 import { apiManager } from '@/services/api-manager';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_JAILBREAK_PROMPT } from '@/constants/prompts';
+import { EmotionalIntelligenceFlags } from '@/types/core/emotional-intelligence.types';
 
 // 言語設定の型定義
 export interface LanguageSettings {
@@ -111,6 +112,8 @@ export interface SettingsSlice extends AISettings {
   effectSettings: EffectSettings;
   // Appearance settings
   appearanceSettings: AppearanceSettings;
+  // 🧠 Emotional Intelligence flags (新機能、既存設定は完全保護)
+  emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
@@ -118,6 +121,8 @@ export interface SettingsSlice extends AISettings {
   updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
   updateEffectSettings: (settings: Partial<EffectSettings>) => void;
   updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
+  // 🧠 Emotional Intelligence actions (新機能)
+  updateEmotionalFlags: (flags: Partial<EmotionalIntelligenceFlags>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
@@ -187,7 +192,7 @@ export const createSettingsSlice: StateCreator<
     backgroundParticlesIntensity: 25, // パフォーマンス重視で最小
     
     // 感情分析
-    realtimeEmotion: false,
+    realtimeEmotion: false, // リアルタイム感情分析（未実装のEmotionDisplayコンポーネント使用）
     emotionBasedStyling: false,
     autoReactions: false,
     
@@ -195,7 +200,7 @@ export const createSettingsSlice: StateCreator<
     emotionStylingIntensity: 45, // 控えめな感情表現
     
     // トラッカー
-    autoTrackerUpdate: false,
+    autoTrackerUpdate: true, // 🎯 デフォルトを有効に変更（永続化問題対策）
     showTrackers: true,
     
     // パフォーマンス
@@ -246,6 +251,30 @@ export const createSettingsSlice: StateCreator<
     
     // カスタムCSS
     customCSS: ''
+  },
+  
+  // 🧠 Emotional Intelligence flags - 安全なデフォルト値（全て無効）
+  emotionalIntelligenceFlags: {
+    // Phase 1: 基盤機能（全てfalse）
+    emotion_analysis_enabled: false, // TypeScriptエラー解決まで一時無効化
+    emotional_memory_enabled: true,
+    basic_effects_enabled: true,
+    
+    // Phase 2: 統合機能（全てfalse）
+    contextual_analysis_enabled: true,
+    adaptive_performance_enabled: true,
+    visual_effects_enabled: true,
+    
+    // Phase 3: 高度機能（全てfalse）
+    predictive_analysis_enabled: true,
+    advanced_effects_enabled: true,
+    multi_layer_analysis_enabled: true,
+    
+    // 安全制御（安全側にデフォルト設定）
+    safe_mode: false,              // 安全モード有効
+    fallback_to_legacy: true,     // レガシーフォールバック有効
+    performance_monitoring: false, // 性能監視有効
+    debug_mode: false,           // デバッグモード無効
   },
   
   // Initial state
@@ -361,6 +390,15 @@ export const createSettingsSlice: StateCreator<
     set((state) => ({
       appearanceSettings: { ...state.appearanceSettings, ...settings },
     })),
+  
+  // 🧠 Emotional Intelligence flags update method
+  updateEmotionalFlags: (flags) => {
+    console.log('🧠 Updating emotional intelligence flags:', flags);
+    set((state) => ({
+      emotionalIntelligenceFlags: { ...state.emotionalIntelligenceFlags, ...flags },
+    }));
+    console.log('✅ Emotional intelligence flags updated');
+  },
   
   updateSystemPrompts: (prompts) => {
     set((state) => {

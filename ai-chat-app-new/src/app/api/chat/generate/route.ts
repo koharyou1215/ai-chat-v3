@@ -48,20 +48,81 @@ export async function POST(request: Request) {
       console.log('✅ OpenRouter API key provided from client');
     }
     
-    // ログ出力（これがターミナルに表示される）
-    // 本番・開発環境共通でログ出力
+    // 開発環境でのログ出力
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const logPrefix = isDevelopment ? '[DEV]' : '[PROD]';
     
-    console.log(`${logPrefix}\n--- [API Route: /api/chat/generate] ---`);
-    console.log(`${logPrefix}[Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
-    console.log(`${logPrefix}--- System Prompt ---`);
-    console.log(systemPrompt);
-    console.log(`${logPrefix}--- Conversation History (${conversationHistory.length} messages) ---`);
-    console.log(JSON.stringify(conversationHistory, null, 2));
-    console.log(`${logPrefix}--- User Message ---`);
-    console.log(userMessage);
-    console.log(`${logPrefix}-----------------------------------------\n`);
+    if (isDevelopment) {
+      console.log('[DEV]');
+      console.log('--- [API Route: /api/chat/generate] ---');
+      console.log(`[DEV][Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
+      
+      // システムプロンプトの詳細表示
+      if (systemPrompt) {
+        console.log('[DEV]--- System Prompt ---');
+        // システムプロンプト全体を表示（最初の部分）
+        const lines = systemPrompt.split('\n');
+        lines.slice(0, 15).forEach(line => {
+          console.log(line);
+        });
+        if (lines.length > 15) {
+          console.log('...');
+        }
+        
+        // キャラクター情報の抽出と表示
+        const charInfoMatch = systemPrompt.match(/<character_information>([\s\S]*?)<\/character_information>/);
+        if (charInfoMatch) {
+          console.log('\n[DEV]--- Character Information ---');
+          const charInfo = charInfoMatch[1].trim();
+          const charLines = charInfo.split('\n');
+          charLines.slice(0, 10).forEach(line => {
+            console.log(line);
+          });
+          if (charLines.length > 10) {
+            console.log('...');
+          }
+        }
+        
+        // ペルソナ情報の抽出と表示
+        const personaInfoMatch = systemPrompt.match(/<persona_information>([\s\S]*?)<\/persona_information>/);
+        if (personaInfoMatch) {
+          console.log('\n[DEV]--- Persona Information ---');
+          const personaInfo = personaInfoMatch[1].trim();
+          console.log(personaInfo);
+        }
+        
+        // トラッカー情報の抽出と表示
+        const trackerMatch = systemPrompt.match(/<character_trackers>([\s\S]*?)<\/character_trackers>/);
+        if (trackerMatch) {
+          console.log('\n[DEV]--- Tracker Information ---');
+          const trackerInfo = trackerMatch[1].trim();
+          const trackerLines = trackerInfo.split('\n');
+          trackerLines.slice(0, 20).forEach(line => {
+            console.log(line);
+          });
+          if (trackerLines.length > 20) {
+            console.log('...');
+          }
+        }
+      }
+      
+      // 会話履歴の詳細表示
+      console.log(`\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`);
+      if (conversationHistory && conversationHistory.length > 0) {
+        conversationHistory.slice(-3).forEach((msg, idx) => {
+          const preview = msg.content.substring(0, 200);
+          console.log(`${msg.role}: ${preview}${msg.content.length > 200 ? '...' : ''}`);
+        });
+        if (conversationHistory.length > 3) {
+          console.log(`[... ${conversationHistory.length - 3} older messages]`);
+        }
+      }
+      
+      // ユーザーメッセージ
+      console.log(`\n[DEV]--- User Message ---`);
+      console.log(userMessage);
+      
+      console.log('=====================================\n');
+    }
 
     const aiResponseContent = await apiManager.generateMessage(
       systemPrompt,
@@ -70,10 +131,14 @@ export async function POST(request: Request) {
       { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
     );
 
-    // レスポンスログ出力
-    console.log(`${logPrefix}--- AI Response ---`);
-    console.log(aiResponseContent);
-    console.log(`${logPrefix}--- End Response ---\n`);
+    // レスポンスログ
+    if (isDevelopment) {
+      console.log(`\n[DEV]--- AI Response Generated ---`);
+      console.log(`[DEV][Response Length] ${aiResponseContent.length} chars`);
+      const preview = aiResponseContent.substring(0, 200);
+      console.log(`[DEV][Response Preview] ${preview}${aiResponseContent.length > 200 ? '...' : ''}`);
+      console.log('=====================================\n');
+    }
 
     return NextResponse.json({ response: aiResponseContent });
 

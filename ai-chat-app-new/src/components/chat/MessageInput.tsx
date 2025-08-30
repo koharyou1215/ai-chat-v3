@@ -79,7 +79,7 @@ export const MessageInput: React.FC = () => {
       const groupSession = groupSessions.get(active_group_session_id);
       if (!groupSession) return;
       
-      const recentMessages = groupSession.messages.slice(-6);
+      const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
       
       // グループチャット用: 最初のアクティブキャラを使用
       const activeChars = Array.from(groupSession.active_character_ids)
@@ -94,7 +94,7 @@ export const MessageInput: React.FC = () => {
       const session = getActiveSession();
       if (!session) return;
       
-      const recentMessages = session.messages.slice(-6);
+      const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
       const character = session.participants.characters[0];
       const user = session.participants.user;
       
@@ -117,7 +117,7 @@ export const MessageInput: React.FC = () => {
       const groupSession = groupSessions.get(active_group_session_id);
       if (!groupSession) return;
       
-      const recentMessages = groupSession.messages.slice(-6);
+      const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
       const user = groupSession.persona;
       
       await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
@@ -129,7 +129,7 @@ export const MessageInput: React.FC = () => {
         return;
       }
       
-      const recentMessages = session.messages.slice(-6);
+      const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
       const user = session.participants.user;
       
       await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
@@ -332,7 +332,7 @@ export const MessageInput: React.FC = () => {
 
         <textarea
           ref={textareaRef}
-          value={currentInputText}
+          value={currentInputText || ''}
           onChange={(e) => setCurrentInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="メッセージを入力..."

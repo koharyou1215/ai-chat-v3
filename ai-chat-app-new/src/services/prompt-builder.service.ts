@@ -125,12 +125,35 @@ export class PromptBuilderService {
     const character = session.participants.characters[0];
     const user = session.participants.user;
     
-    const basePrompt = this.buildBalancedPrompt(character, user, userInput, trackerManager);
+    // 🚨 緊急デバッグ：キャラクター情報の確認
+    console.log('🚨 [buildPromptProgressive] Debug - Character:', character ? {
+      id: character.id,
+      name: character.name,
+      personality: character.personality?.substring(0, 50) + '...'
+    } : 'UNDEFINED');
+    console.log('🚨 [buildPromptProgressive] Debug - User:', user ? {
+      id: user.id,
+      name: user.name,
+      description: user.description?.substring(0, 50) + '...'
+    } : 'UNDEFINED');
+    
+    if (!character) {
+      console.error('🚨 CRITICAL: Character is undefined in buildPromptProgressive!');
+    }
+    if (!user) {
+      console.error('🚨 CRITICAL: User is undefined in buildPromptProgressive!');
+    }
+    
+    // 軽量版: 基本情報のみ（重複しない内容）
+    const basePrompt = this.buildBasicInfo(character, user, userInput);
     
     // 2. 拡張プロンプト関数（バックグラウンド実行用）
     const enhancePrompt = async (): Promise<string> => {
       try {
-        return await this.buildPrompt(session, userInput, trackerManager);
+        // 重量版: 履歴情報のみ（基本情報は含まない）
+        const historyInfo = await this.getHistoryInfo(session, trackerManager);
+        // 基本情報 + 履歴情報を結合（重複なし）
+        return basePrompt + '\n\n' + historyInfo;
       } catch (error) {
         console.warn('Enhanced prompt build failed, using base prompt:', error);
         // 拡張プロンプト構築に失敗した場合でも、ベースプロンプトで継続
@@ -145,15 +168,26 @@ export class PromptBuilderService {
   }
 
   /**
-   * バランス版プロンプト構築 - パフォーマンスと品質の両立
-   * 必要な深み情報は保持、重い処理のみ最適化
+   * 軽量版: 基本情報のみを生成（重複しない）
    */
-  private buildBalancedPrompt(
+  private buildBasicInfo(
     character: Character,
     user: Persona,
-    userInput: string,
-    trackerManager?: TrackerManager
+    userInput: string
   ): string {
+    // 🎯 システム設定を取得（永続化された設定を反映）
+    const store = useAppStore.getState();
+    const systemSettings = {
+      systemPrompts: store.systemPrompts,
+      enableSystemPrompt: store.enableSystemPrompt,
+      enableJailbreakPrompt: store.enableJailbreakPrompt
+    };
+    
+    if (!character) {
+      console.error('🚨 CRITICAL: buildBasicInfo received undefined character!');
+      return 'ERROR: No character information available';
+    }
+    
     // 変数置換コンテキストを作成
     const variableContext = { user, character };
     
@@ -164,8 +198,19 @@ export class PromptBuilderService {
     
     let prompt = `AI={{char}}, User={{user}}
 
-<system_instructions>
-## 絶対厳守事項
+`;
+
+    // 🎯 Jailbreak Prompt (設定で有効な場合)
+    if (systemSettings.enableJailbreakPrompt && systemSettings.systemPrompts?.jailbreak) {
+      prompt += `<jailbreak>
+${systemSettings.systemPrompts.jailbreak}
+</jailbreak>
+
+`;
+    }
+
+    // 🎯 System Instructions (デフォルト + カスタム追加)
+    let systemInstructions = `## 絶対厳守事項
 - **最優先**: 以下の<character_information>で定義された設定のみを厳密に維持し、他のいかなるキャラクター設定も混同しないこと。
 - **知識の制限**: キャラクター設定に書かれていない、あなたの内部知識やインターネット上の情報を絶対に使用しないこと。このキャラクターは、この対話のためだけのオリジナルな存在です。
 
@@ -179,7 +224,17 @@ export class PromptBuilderService {
 ## 応答スタイル
 - 口調維持: 定義された話し方を一貫使用
 - 感情豊か: 適切な感情表現で機械的でない応答
-- 簡潔性: 長々と話し続けず、ユーザーの反応を待つ
+- 簡潔性: 長々と話し続けず、ユーザーの反応を待つ`;
+
+    // カスタムシステムプロンプトが有効で内容がある場合は追加
+    if (systemSettings.enableSystemPrompt && 
+        systemSettings.systemPrompts?.system && 
+        systemSettings.systemPrompts.system.trim() !== '') {
+      systemInstructions += `\n\n## 追加指示\n${systemSettings.systemPrompts.system}`;
+    }
+
+    prompt += `<system_instructions>
+${systemInstructions}
 </system_instructions>
 
 <character_information>
@@ -231,7 +286,7 @@ NSFW Persona:
 ${user.nsfw_persona.consent_level ? `- Consent Level: ${user.nsfw_persona.consent_level}` : ''}
 ${user.nsfw_persona.preferred_scenarios && user.nsfw_persona.preferred_scenarios.length > 0 ? `- Preferred Scenarios: ${user.nsfw_persona.preferred_scenarios.join(', ')}` : ''}
 ${user.nsfw_persona.kinks && user.nsfw_persona.kinks.length > 0 ? `- Kinks/Preferences: ${user.nsfw_persona.kinks.join(', ')}` : ''}
-${user.nsfw_persona.limits && user.nsfw_persona.limits.length > 0 ? `- Limits: ${user.nsfw_persona.limits.join(', ')}` : ''}` : ''}
+${user.nsfw_persona.limits && user.nsfw_persona.limits.length > 0 ? `- Limits: ${user.nsfw_persona.kinks.join(', ')}` : ''}` : ''}
 </persona_information>`;
     }
 
@@ -266,6 +321,47 @@ ${trackerInfo}
     prompt = replaceVariables(prompt, variableContext);
 
     return prompt;
+  }
+
+  /**
+   * 重量版: 履歴情報のみを生成（基本情報は含まない）
+   */
+  private async getHistoryInfo(
+    session: UnifiedChatSession,
+    trackerManager?: TrackerManager
+  ): Promise<string> {
+    try {
+      // ConversationManagerを使って履歴情報のみを取得
+      const conversationManager = await this.getOrCreateManager(
+        session.id, 
+        session.messages, 
+        trackerManager
+      );
+
+      // 履歴情報のみを構築（基本情報は含まない）
+      let historyPrompt = '';
+
+      // 会話履歴
+      const recentMessages = session.messages.slice(-5);
+      if (recentMessages.length > 0) {
+        historyPrompt += `## Recent Conversation\n`;
+        recentMessages.forEach(msg => {
+          const role = msg.role === 'user' ? 'あなた' : 'AI';
+          historyPrompt += `${role}: ${msg.content}\n`;
+        });
+        historyPrompt += '\n';
+      }
+
+      // セッション要約（あれば）
+      if (conversationManager['sessionSummary']) {
+        historyPrompt += `## Session Summary\n${conversationManager['sessionSummary']}\n\n`;
+      }
+
+      return historyPrompt;
+    } catch (error) {
+      console.warn('Failed to get history info:', error);
+      return '';
+    }
   }
 
   /**

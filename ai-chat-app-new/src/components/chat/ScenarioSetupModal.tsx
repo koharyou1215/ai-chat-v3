@@ -4,7 +4,8 @@ import { X, Mic, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Character, GroupChatScenario } from '@/types';
+import { Character } from '@/types';
+import { GroupChatScenario } from '@/types/core/group-chat.types';
 
 interface ScenarioSetupModalProps {
   isOpen: boolean;
@@ -25,9 +26,15 @@ export const ScenarioSetupModal: React.FC<ScenarioSetupModalProps> = ({
 
   const handleSubmit = () => {
     const scenario: GroupChatScenario = {
+      id: `scenario_${Date.now()}`,
       title: title.trim() === '' ? 'スキップ' : title.trim(),
+      setting: situation.trim(),
       situation: situation.trim(),
+      initial_prompt: situation.trim(),
       character_roles: characterRoles,
+      objectives: [],
+      background_context: '',
+      scenario_type: 'custom'
     };
     onSubmit(scenario);
   };

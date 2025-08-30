@@ -8,6 +8,7 @@ export * from './core/persona.types';
 export * from './core/session.types';
 export * from './core/tracker.types';
 export * from './core/settings.types';
+export * from './core/emotional-intelligence.types';
 
 // メッセージ型は重複エクスポートを避けて個別にエクスポート
 export type { UnifiedMessage, MessageRole, MessageEditEntry, MessageMetadata } from './core/message.types';

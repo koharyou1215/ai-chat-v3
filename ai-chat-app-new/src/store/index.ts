@@ -328,6 +328,8 @@ const createStore = () => {
         imageGeneration: state.imageGeneration,
         languageSettings: state.languageSettings,
         effectSettings: state.effectSettings,
+        appearanceSettings: state.appearanceSettings,
+        emotionalIntelligenceFlags: state.emotionalIntelligenceFlags,
         
         // Memory System
         memories: state.memories,

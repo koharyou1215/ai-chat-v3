@@ -91,7 +91,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        2, // 2個に制限
+        3, // 3個に増加
         { ...apiConfig, openRouterApiKey, geminiApiKey },
         forceRegenerate
       );

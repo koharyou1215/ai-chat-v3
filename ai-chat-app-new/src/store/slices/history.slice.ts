@@ -334,5 +334,5 @@ export const createHistorySlice: StateCreator<AppStore, [], [], HistorySlice> = 
   },
   
   // Actions
-  setShowHistoryModal: (show) => set({ showHistoryModal: show })
+  setShowHistoryModal: (show) => (set as any)({ showHistoryModal: show })
 });

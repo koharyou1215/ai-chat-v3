@@ -107,7 +107,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     setIsRegenerating(true);
     try {
       const state = useAppStore.getState();
-      if (state.is_group_mode && state.active_group_session_id) {
+      if (isGroupChat && state.active_group_session_id) {
         // グループチャット用再生成
         await state.regenerateLastGroupMessage();
       } else {
@@ -123,7 +123,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     setIsContinuing(true);
     try {
       const state = useAppStore.getState();
-      if (state.is_group_mode && state.active_group_session_id) {
+      if (isGroupChat && state.active_group_session_id) {
         // グループチャット用続きを生成
         await state.continueLastGroupMessage();
       } else {

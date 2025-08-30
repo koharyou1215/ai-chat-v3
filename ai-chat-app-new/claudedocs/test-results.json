@@ -1,0 +1,55 @@
+{
+  "timestamp": "2025-08-30T05:33:35.611Z",
+  "tests": {
+    "Core Components Exist": {
+      "passed": true,
+      "message": "File exists",
+      "timestamp": "2025-08-30T05:33:35.616Z"
+    },
+    "Store Exists": {
+      "passed": true,
+      "message": "File exists",
+      "timestamp": "2025-08-30T05:33:35.616Z"
+    },
+    "Types Exist": {
+      "passed": true,
+      "message": "File exists",
+      "timestamp": "2025-08-30T05:33:35.616Z"
+    },
+    "ChatInterface Syntax": {
+      "passed": false,
+      "message": "Imports: true, Exports: true, Clean syntax: false",
+      "timestamp": "2025-08-30T05:33:35.617Z"
+    },
+    "Chat Slice Syntax": {
+      "passed": true,
+      "message": "Imports: true, Exports: true, Clean syntax: true",
+      "timestamp": "2025-08-30T05:33:35.617Z"
+    },
+    "Settings Configuration": {
+      "passed": true,
+      "message": "Emotion Analysis: false, Debug Mode: false",
+      "timestamp": "2025-08-30T05:33:35.617Z"
+    },
+    "ChatInterface Imports": {
+      "passed": true,
+      "message": "All 19 imports valid",
+      "timestamp": "2025-08-30T05:33:35.619Z"
+    },
+    "Emotion System Base": {
+      "passed": true,
+      "message": "File exists",
+      "timestamp": "2025-08-30T05:33:35.620Z"
+    },
+    "Emotion System Solo": {
+      "passed": true,
+      "message": "File exists",
+      "timestamp": "2025-08-30T05:33:35.620Z"
+    }
+  },
+  "summary": {
+    "passed": 8,
+    "failed": 1,
+    "skipped": 0
+  }
+}

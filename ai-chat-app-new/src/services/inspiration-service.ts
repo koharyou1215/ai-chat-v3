@@ -35,7 +35,7 @@ export class InspirationService {
     character: Character,
     user: Persona,
     customPrompt?: string,
-  suggestionCount: number = 2, // デフォルト提案数を3 -> 2 に減らして負荷を下げる
+  suggestionCount: number = 3, // デフォルト提案数を3つに戻す
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string },
     forceRegenerate: boolean = false
   ): Promise<InspirationSuggestion[]> {
@@ -69,10 +69,22 @@ export class InspirationService {
     try {
       // ⚡ インスピレーションリクエストをキュー経由で実行（チャットと競合しない）
       const responseContent = await apiRequestQueue.enqueueInspirationRequest(async () => {
+        console.log('\n🌟 ===== Inspiration Request =====');
         console.log('✨ Inspiration request started via queue');
+        console.log(`🎯 Suggestion count: ${suggestionCount}`);
+        console.log(`📚 Recent messages count: ${recentMessages.length}`);
+        console.log(`👤 Character: ${character.name}`);
+        console.log(`🧑 User: ${user.name}`);
+        if (customPrompt) {
+          console.log(`🎨 Custom prompt (${customPrompt.length} chars):`);
+          console.log(`   ${customPrompt.substring(0, 150)}...`);
+        } else {
+          console.log('🎨 Using default inspiration prompt');
+        }
         // 返信提案用に十分なトークンを確保
         const effectiveMaxTokens = apiConfig?.max_tokens ?? 800;
         console.log(`💡 Using max_tokens for reply suggestions: ${effectiveMaxTokens}`);
+        console.log('=====================================\n');
         const inspirationApiConfig = {
           ...apiConfig,
           max_tokens: effectiveMaxTokens
@@ -171,10 +183,21 @@ export class InspirationService {
     try {
       // ⚡ テキスト拡張もキュー経由で実行
       const enhancedText = await apiRequestQueue.enqueueInspirationRequest(async () => {
+        console.log('\n🎆 ===== Text Enhancement Request =====');
         console.log('🎆 Text enhancement request started via queue');
+        console.log(`📝 Input text (${inputText.length} chars):`);
+        console.log(`   ${inputText.substring(0, 100)}...`);
+        console.log(`🧑 User: ${user.name}${user.personality ? ` (${user.personality})` : ''}`);
+        if (enhancePrompt) {
+          console.log(`🎨 Custom enhancement prompt (${enhancePrompt.length} chars):`);
+          console.log(`   ${enhancePrompt.substring(0, 150)}...`);
+        } else {
+          console.log('🎨 Using default enhancement prompt');
+        }
         // 文章強化用に十分なトークンを確保（元の文章より長くなることを想定）
         const effectiveMaxTokens = apiConfig?.max_tokens ?? 1000;
         console.log(`🎯 Using max_tokens for text enhancement: ${effectiveMaxTokens}`);
+        console.log('========================================\n');
         return this.tryGenerateWithRetry(prompt, { ...apiConfig, max_tokens: effectiveMaxTokens });
       });
       
@@ -277,19 +300,22 @@ export class InspirationService {
   }
 
   /**
-   * 軽量文脈構築 - インスピレーション生成用高速版
+   * 会話文脈構築 - インスピレーション生成用（会話の流れを重視）
    */
   private buildLightweightContext(messages: UnifiedMessage[]): string {
-    // 最新3-5メッセージのみ使用（パフォーマンス優先）
-    const recentMessages = messages.slice(-5);
-    return recentMessages.map(msg => {
+    // 最新8メッセージを使用（会話の流れを十分に把握）
+    const recentMessages = messages.slice(-8);
+    
+    const contextLines = recentMessages.map(msg => {
       const role = msg.role === 'user' ? 'ユーザー' : (msg.character_name || 'アシスタント');
-      // 長いメッセージは要約（100文字制限）
-      const content = msg.content.length > 100 ? 
-        msg.content.substring(0, 100) + '...' : 
+      // 会話の流れを把握するため、長いメッセージも保持（500文字まで）
+      const content = msg.content.length > 500 ? 
+        msg.content.substring(0, 500) + '...' : 
         msg.content;
       return `${role}: ${content}`;
-    }).join('\n');
+    });
+    
+    return contextLines.join('\n');
   }
 
   /**
@@ -311,15 +337,32 @@ export class InspirationService {
     user: Persona,
     suggestionCount: number
   ): string {
-    return `${user.name}として${character.name}に返信する。${suggestionCount}つの異なる返信を生成。
+    return `あなたは「${user.name}」です。以下の会話を読んで、「${character.name}」に返事をしてください。
 
 会話:
 ${context}
 
-ユーザー: ${user.name}${user.personality ? ` (${user.personality})` : ''}
+あなた: ${user.name}
 相手: ${character.name}
 
-返信（${suggestionCount}行、各150-200文字）:`;
+指示: 会話の流れに沿って、${suggestionCount}通りの異なるアプローチで返事を書いてください。各返事は約150文字程度の長さで、それぞれ異なる感情や反応を表現してください。
+
+重要な注意：
+- 見出しや番号は一切付けないでください
+- 「提案」「返信」「候補」という言葉は絶対に使わないでください
+- 説明文は書かないでください
+- 各返事は完結した文章にしてください（150文字程度）
+- それぞれ異なる感情・アプローチで書いてください（優しく・積極的・心配そうに など）
+
+良い例:
+おはよう。よく眠れた？
+昨夜は遅くまでありがとう。
+
+悪い例（絶対にしないでください）:
+提案1: おはよう
+返信①: 昨夜は...
+
+あなたの${suggestionCount}通りの返事:`;
   }
 
   /**
@@ -336,59 +379,53 @@ ${context}
   }
 
   /**
-   * 生成された提案のパース
+   * 生成された提案のパース（シンプル版）
    */
   private parseSuggestions(content: string, approaches: string[]): string[] {
-    // コンテンツをクリーンアップ
-    const cleanContent = content
-      .replace(/^[\s\S]*?(?=\n|^)/, '') // 前置きを削除
-      .replace(/\*\*/g, '') // マークダウンの強調を削除
-      .trim();
-
-    const suggestions: string[] = [];
+    const expectedCount = approaches.length > 0 ? approaches.length : 3;
     
-    // アプローチが指定されている場合は[カテゴリー]形式を試す
-    if (approaches.length > 0) {
-      const escapedApproaches = approaches.map(app => 
-        app.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      );
-      const regex = new RegExp(`\\[(${escapedApproaches.join('|')})\\]\\s*([\\s\\S]*?)(?=\\s*\\[|$)`, 'g');
+    // 改行で分割し、不要な行を除外
+    const allLines = content.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    const validLines = [];
+    
+    for (const line of allLines) {
+      // 除外パターン
+      if (line.match(/^提案\s*\d+/i)) continue;
+      if (line.match(/^返信[①②③④⑤]/i)) continue;
+      if (line.match(/^候補\s*\d+/i)) continue;
+      if (line.match(/^\d+[\.\)]/)) continue;
+      if (line.match(/^[-•·]\s/)) continue;
+      if (line.includes('通りの返事') || line.includes('書いてください')) continue;
+      if (line.includes('例:') || line.includes('間違った例')) continue;
+      if (line.length < 5) continue;
       
-      let match;
-      while ((match = regex.exec(cleanContent)) !== null) {
-        const suggestion = match[2].trim();
-        if (suggestion.length > 0) {
-          suggestions.push(suggestion);
-        }
-      }
+      // 有効な行として追加
+      validLines.push(line);
       
-      if (suggestions.length > 0) {
-        return suggestions.slice(0, approaches.length);
+      // 必要な数が揃ったら停止
+      if (validLines.length >= expectedCount) {
+        break;
       }
     }
     
-    // シンプルな改行区切りで分割（推奨フォーマット）
-    const lines = cleanContent.split('\n')
-      .map(line => {
-        // 番号や記号を削除
-        return line
-          .replace(/^\s*\d+[\.\)]\s*/, '') // 1. 2. 3) などを削除
-          .replace(/^\s*[-•·]\s*/, '') // - • · などを削除
-          .replace(/^(続き|それから|また|さらに|そして)[、。:\s]*/, '') // 接続詞を削除
-          .trim();
-      })
-      .filter(line => {
-        // 有効な提案のみを残す
-        return line.length > 10 && 
-               !line.includes('以下') && 
-               !line.includes('※') &&
-               !line.includes('：') &&
-               !line.includes('提案');
-      });
+    // 最終クリーンアップ
+    const result = validLines.map(line => {
+      return line
+        .replace(/^「/, '').replace(/」$/, '')
+        .replace(/^『/, '').replace(/』$/, '')
+        .replace(/^"/, '').replace(/"$/, '')
+        .trim();
+    });
     
-    // 期待する数の提案を返す
-    const expectedCount = approaches.length > 0 ? approaches.length : 2;
-    return lines.slice(0, expectedCount);
+    // フォールバック
+    if (result.length === 0) {
+      return ['そうですね...', 'なるほど。'];
+    }
+    
+    return result;
   }
 
   /**

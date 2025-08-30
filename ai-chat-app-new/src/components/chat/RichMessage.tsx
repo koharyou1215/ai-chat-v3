@@ -198,7 +198,7 @@ export const RichMessage: React.FC<RichMessageProps> = ({
       <div
         ref={messageRef}
         className={cn(
-          'relative px-4 py-3 rounded-2xl max-w-lg transition-all duration-300',
+          'relative px-4 py-3 rounded-2xl max-w-full md:max-w-lg transition-all duration-300 break-words overflow-wrap-anywhere',
           effectSettings.colorfulBubbles ? 
             'backdrop-blur-sm' : 
             'bg-gray-800',

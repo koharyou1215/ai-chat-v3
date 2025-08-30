@@ -99,7 +99,7 @@ export const CharacterGalleryModal: React.FC<CharacterGalleryModalProps> = ({
               <CharacterGallery
                 characters={charactersArray}
                 onSelectCharacter={handleSelectCharacter}
-                onCreateCharacter={() => startEditingCharacter(null)} // 新規作成にも対応
+                onCreateCharacter={() => startEditingCharacter({} as Character)} // 新規作成にも対応
                 onImportCharacter={handleImportCharacter}
                 // グループ編集モード用のプロパティを渡す
                 isGroupEditingMode={isGroupEditingMode}
