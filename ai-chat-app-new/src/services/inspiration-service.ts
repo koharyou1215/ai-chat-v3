@@ -37,11 +37,22 @@ export class InspirationService {
     customPrompt?: string,
   suggestionCount: number = 3, // デフォルト提案数を3つに戻す
     apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string },
-    forceRegenerate: boolean = false
+    forceRegenerate: boolean = false,
+    isGroupMode: boolean = false // グループモード判定を外部から受け取る
   ): Promise<InspirationSuggestion[]> {
+    // グループモード自動判定（パラメータがない場合）
+    if (!isGroupMode) {
+      isGroupMode = recentMessages.some(msg => 
+        msg.character_name && msg.user_name && 
+        recentMessages.some(other => 
+          other.character_name !== msg.character_name || other.user_name !== msg.user_name
+        )
+      );
+    }
+
     // 🚀 キャッシュチェック（パフォーマンス最適化）
-    const context = this.buildLightweightContext(recentMessages);
-    const cacheKey = `suggestions_${context.substring(0, 100)}_${customPrompt || 'default'}_${suggestionCount}`;
+    const context = this.buildLightweightContext(recentMessages, isGroupMode);
+    const cacheKey = `suggestions_${context.substring(0, 100)}_${customPrompt || 'default'}_${suggestionCount}_${isGroupMode ? 'group' : 'solo'}`;
     const cached = this.suggestionCache.get(cacheKey);
     
     if (!forceRegenerate && cached && Date.now() - cached.timestamp < this.cacheTimeout) {
@@ -63,7 +74,7 @@ export class InspirationService {
       prompt = customPrompt.replace(/{{conversation}}/g, context);
     } else {
       approaches = []; // アプローチのリストは空にする
-      prompt = this.buildDefaultSuggestionPrompt(context, character, user, suggestionCount);
+      prompt = this.buildDefaultSuggestionPrompt(context, character, user, suggestionCount, isGroupMode);
     }
 
     try {
@@ -302,20 +313,39 @@ export class InspirationService {
   /**
    * 会話文脈構築 - インスピレーション生成用（会話の流れを重視）
    */
-  private buildLightweightContext(messages: UnifiedMessage[]): string {
+  private buildLightweightContext(messages: UnifiedMessage[], isGroupMode?: boolean): string {
     // 最新8メッセージを使用（会話の流れを十分に把握）
     const recentMessages = messages.slice(-8);
     
-    const contextLines = recentMessages.map(msg => {
-      const role = msg.role === 'user' ? 'ユーザー' : (msg.character_name || 'アシスタント');
-      // 会話の流れを把握するため、長いメッセージも保持（500文字まで）
-      const content = msg.content.length > 500 ? 
-        msg.content.substring(0, 500) + '...' : 
-        msg.content;
-      return `${role}: ${content}`;
-    });
-    
-    return contextLines.join('\n');
+    // グループモードの場合は複数参加者を明示
+    if (isGroupMode) {
+      const contextLines = recentMessages.map(msg => {
+        const role = msg.role === 'user' ? 
+          (msg.user_name || 'ユーザー') : 
+          (msg.character_name || 'アシスタント');
+        
+        // 会話の流れを把握するため、長いメッセージも保持（500文字まで）
+        const content = msg.content.length > 500 ? 
+          msg.content.substring(0, 500) + '...' : 
+          msg.content;
+        return `${role}: ${content}`;
+      });
+      
+      // グループチャットであることを明示
+      return `グループチャット参加者:\n${contextLines.join('\n')}`;
+    } else {
+      // ソロモードの場合
+      const contextLines = recentMessages.map(msg => {
+        const role = msg.role === 'user' ? 'ユーザー' : (msg.character_name || 'アシスタント');
+        // 会話の流れを把握するため、長いメッセージも保持（500文字まで）
+        const content = msg.content.length > 500 ? 
+          msg.content.substring(0, 500) + '...' : 
+          msg.content;
+        return `${role}: ${content}`;
+      });
+      
+      return contextLines.join('\n');
+    }
   }
 
   /**
@@ -335,34 +365,70 @@ export class InspirationService {
     context: string, 
     character: Character,
     user: Persona,
-    suggestionCount: number
+    suggestionCount: number,
+    isGroupMode: boolean = false
   ): string {
-    return `あなたは「${user.name}」です。以下の会話を読んで、「${character.name}」に返事をしてください。
+    
+    if (isGroupMode) {
+      // グループモード用プロンプト
+      return `グループチャット参加者「${user.name}」として、以下の会話に返事してください。
 
-会話:
+会話履歴:
 ${context}
 
-あなた: ${user.name}
-相手: ${character.name}
+重要：${suggestionCount}つの全く異なるアプローチで返事を生成してください。各返事は完全に独立した内容で、約120-150文字でまとめてください。
 
-指示: 会話の流れに沿って、${suggestionCount}通りの異なるアプローチで返事を書いてください。各返事は約150文字程度の長さで、それぞれ異なる感情や反応を表現してください。
+アプローチの例（必ずこの多様性を実現）:
+- 共感・理解を示すアプローチ
+- 積極的・行動的なアプローチ  
+- 質問・興味を示すアプローチ
+- ユーモア・軽快なアプローチ
+- 深く考察するアプローチ
 
-重要な注意：
-- 見出しや番号は一切付けないでください
-- 「提案」「返信」「候補」という言葉は絶対に使わないでください
-- 説明文は書かないでください
-- 各返事は完結した文章にしてください（150文字程度）
-- それぞれ異なる感情・アプローチで書いてください（優しく・積極的・心配そうに など）
+出力形式：番号や見出しは一切不要。各返事を改行で区切るだけ。
 
-良い例:
-おはよう。よく眠れた？
-昨夜は遅くまでありがとう。
-
-悪い例（絶対にしないでください）:
-提案1: おはよう
-返信①: 昨夜は...
+例：
+そうなんですね。私も同じような経験があって、とても共感します。お疲れ様でした。
+それは面白そうですね！私もぜひ参加してみたいです。何か手伝えることがあれば声をかけてください。
+詳しく教えてもらえますか？どんな感じだったのか、もう少し聞きたいです。
 
 あなたの${suggestionCount}通りの返事:`;
+    } else {
+      // ソロモード用プロンプト
+      return `**超重要**: 3つの全く別の人格として返答してください。**続き話ではありません**。
+
+会話状況:
+${context}
+
+あなた（${user.name}）として、3つの**完全に異なる人格・感情**で返事をしてください。
+
+**絶対に守る条件**:
+1. 各返事は**独立した完結文章**（120-150文字）
+2. **つながりのない別々の反応**
+3. **番号・説明・見出し一切禁止**
+4. **改行で分けるだけ**
+
+**3つの人格設定**:
+・優しく理解のある反応
+・元気で積極的な反応  
+・好奇心旺盛な質問系反応
+
+**禁止例**（ストーリー続き）:
+ひまり、起きてるんだろ？俺も気づいてたよ。
+でも別に怒ってないから安心してくれ。
+寒かったんだろ？毛布貸してやるよ。
+
+**正解例**（独立した反応）:
+大丈夫ですよ、お疲れさまでした。気にしないでくださいね。今度は毛布を2つ用意しておきましょうか。私も気をつけるので、お互い快適に過ごせるようにしたいと思います。
+
+わあ、寒い思いをさせてしまってごめんなさい！今度からは遠慮なく起こしてくださいね。私も毛布をしっかり確保しておきます。一緒に温かく過ごしましょう！
+
+起きてたんですか？どのくらい前から気づいてたんでしょう？寝顔を見られてたのはちょっと恥ずかしいですが...今度はどうしたらいいでしょうか？
+
+3つの異なる反応:
+
+**最終確認**: 各行が独立した完全な文章になっていることを確認してから出力してください。続き話や関連する内容は絶対に避けてください。`;
+    }
   }
 
   /**
@@ -379,7 +445,7 @@ ${context}
   }
 
   /**
-   * 生成された提案のパース（シンプル版）
+   * 生成された提案のパース（改良版）
    */
   private parseSuggestions(content: string, approaches: string[]): string[] {
     const expectedCount = approaches.length > 0 ? approaches.length : 3;
@@ -390,17 +456,49 @@ ${context}
       .filter(line => line.length > 0);
     
     const validLines = [];
+    let skipNext = false;
     
-    for (const line of allLines) {
-      // 除外パターン
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i];
+      
+      if (skipNext) {
+        skipNext = false;
+        continue;
+      }
+      
+      // 除外パターン（強化版）
       if (line.match(/^提案\s*\d+/i)) continue;
       if (line.match(/^返信[①②③④⑤]/i)) continue;
       if (line.match(/^候補\s*\d+/i)) continue;
       if (line.match(/^\d+[\.\)]/)) continue;
       if (line.match(/^[-•·]\s/)) continue;
       if (line.includes('通りの返事') || line.includes('書いてください')) continue;
-      if (line.includes('例:') || line.includes('間違った例')) continue;
-      if (line.length < 5) continue;
+      if (line.includes('例:') || line.includes('良い例') || line.includes('悪い例')) {
+        // 例の説明行をスキップし、次の数行も除外
+        skipNext = true;
+        continue;
+      }
+      if (line.includes('アプローチ') || line.includes('多様性') || line.includes('重要')) continue;
+      if (line.includes('出力形式') || line.includes('番号') || line.includes('見出し')) continue;
+      if (line.length < 10) continue; // 最低文字数を10文字に引き上げ
+      if (line.length > 200) continue; // 長すぎる行を除外
+      
+      // 重複チェック - 似たような文章を排除
+      const isDuplicate = validLines.some(existing => {
+        const similarity = this.calculateSimilarity(line, existing);
+        return similarity > 0.7; // 70%以上似ている場合は重複とみなす
+      });
+      
+      if (isDuplicate) continue;
+      
+      // 連続性チェック - つながった文章を検出して除外
+      if (validLines.length > 0) {
+        const lastLine = validLines[validLines.length - 1];
+        if (this.isSequentialText(lastLine, line)) {
+          console.log('🚫 Sequential text detected, skipping:', line);
+          continue;
+        }
+      }
       
       // 有効な行として追加
       validLines.push(line);
@@ -417,15 +515,128 @@ ${context}
         .replace(/^「/, '').replace(/」$/, '')
         .replace(/^『/, '').replace(/』$/, '')
         .replace(/^"/, '').replace(/"$/, '')
+        .replace(/^\./, '').replace(/^\-/, '')
         .trim();
     });
     
-    // フォールバック
+    // フォールバック - より多様性のある提案
     if (result.length === 0) {
-      return ['そうですね...', 'なるほど。'];
+      return [
+        'そうですね、とても興味深いお話だと思います。',
+        'それは素晴らしいアイデアですね！ぜひ詳しく教えてください。',
+        '同じような経験があります。一緒に考えてみませんか？'
+      ];
     }
     
-    return result;
+    // 結果が少ない場合の補完
+    if (result.length < expectedCount) {
+      const fallbackSuggestions = [
+        'その通りだと思います。とても共感できます。',
+        '面白い視点ですね。もう少し詳しく聞かせてください。',
+        'なるほど、そういう考え方もありますね。参考になります。',
+        'それは良いアイデアですね。実現できそうでしょうか？',
+        '同感です。私も同じようなことを考えていました。'
+      ];
+      
+      for (const fallback of fallbackSuggestions) {
+        if (result.length >= expectedCount) break;
+        
+        const isDuplicate = result.some(existing => {
+          return this.calculateSimilarity(fallback, existing) > 0.6;
+        });
+        
+        if (!isDuplicate) {
+          result.push(fallback);
+        }
+      }
+    }
+    
+    return result.slice(0, expectedCount);
+  }
+
+  /**
+   * 文章の類似度を計算（簡単なレーベンシュタイン距離ベース）
+   */
+  private calculateSimilarity(str1: string, str2: string): number {
+    if (str1 === str2) return 1.0;
+    
+    const maxLength = Math.max(str1.length, str2.length);
+    if (maxLength === 0) return 1.0;
+    
+    // 簡単な共通単語数ベースの類似度計算
+    const words1 = str1.replace(/[。、！？]/g, '').split('');
+    const words2 = str2.replace(/[。、！？]/g, '').split('');
+    
+    let commonChars = 0;
+    const minLength = Math.min(words1.length, words2.length);
+    
+    for (let i = 0; i < minLength; i++) {
+      if (words1[i] === words2[i]) {
+        commonChars++;
+      }
+    }
+    
+    // より厳密なチェック：同じ文字の出現頻度を比較
+    const charCount1: { [key: string]: number } = {};
+    const charCount2: { [key: string]: number } = {};
+    
+    for (const char of words1) {
+      charCount1[char] = (charCount1[char] || 0) + 1;
+    }
+    
+    for (const char of words2) {
+      charCount2[char] = (charCount2[char] || 0) + 1;
+    }
+    
+    let sharedChars = 0;
+    for (const char in charCount1) {
+      if (charCount2[char]) {
+        sharedChars += Math.min(charCount1[char], charCount2[char]);
+      }
+    }
+    
+    return sharedChars / maxLength;
+  }
+
+  /**
+   * 2つの文章が連続的（つながっている）かどうかを判定
+   */
+  private isSequentialText(prevText: string, currentText: string): boolean {
+    // 明らかな連続パターンを検出
+    const sequentialPatterns = [
+      // 代名詞での継続
+      /^(でも|だから|それで|そして|また|さらに)/,
+      // 接続詞での継続
+      /^(しかし|だけど|けれど|なので|そのため)/,
+      // 話の流れの継続
+      /^(俺も|私も|君も|あなたも)/,
+      // 時間的継続
+      /^(その後|それから|次に|今度は)/
+    ];
+    
+    // 現在のテキストが連続パターンで始まっている場合
+    const startsWithSequential = sequentialPatterns.some(pattern => 
+      pattern.test(currentText.trim())
+    );
+    
+    if (startsWithSequential) {
+      return true;
+    }
+    
+    // 前のテキストの終わりと現在のテキストの始まりの文脈的関連性をチェック
+    const prevWords = prevText.replace(/[。、！？]/g, '').split('').slice(-10);
+    const currentWords = currentText.replace(/[。、！？]/g, '').split('').slice(0, 10);
+    
+    // 共通する文字が多すぎる場合（同じ話題の継続）
+    let commonCount = 0;
+    for (const word of currentWords) {
+      if (prevWords.includes(word)) {
+        commonCount++;
+      }
+    }
+    
+    // 50%以上共通している場合は連続性があると判定
+    return commonCount / Math.min(prevWords.length, currentWords.length) > 0.5;
   }
 
   /**

@@ -339,11 +339,51 @@ export class ConversationManager {
       }
       
       // NSFW設定（適切に処理）
-      if (processedCharacter.nsfw_profile && processedCharacter.nsfw_profile.persona) {
+      if (processedCharacter.nsfw_profile) {
+        const nsfw = processedCharacter.nsfw_profile;
+        let hasNsfwContent = false;
+        
         prompt += `\n## Special Context\n`;
-        if (processedCharacter.nsfw_profile.persona) prompt += `Context Persona: ${processedCharacter.nsfw_profile.persona}\n`;
-        if (processedCharacter.nsfw_profile.situation) prompt += `Situation: ${processedCharacter.nsfw_profile.situation}\n`;
-        if (processedCharacter.nsfw_profile.mental_state) prompt += `Mental State: ${processedCharacter.nsfw_profile.mental_state}\n`;
+        
+        // persona_profile フィールド (CharacterFormで使用)
+        if (nsfw.persona_profile && nsfw.persona_profile.trim()) {
+          prompt += `Context Profile: ${nsfw.persona_profile}\n`;
+          hasNsfwContent = true;
+        }
+        
+        // libido_level フィールド (CharacterFormで使用)  
+        if (nsfw.libido_level && nsfw.libido_level.trim()) {
+          prompt += `Libido Level: ${nsfw.libido_level}\n`;
+          hasNsfwContent = true;
+        }
+        
+        // 従来のフィールドも保持（後方互換性）
+        if (nsfw.persona && nsfw.persona.trim()) {
+          prompt += `Context Persona: ${nsfw.persona}\n`;
+          hasNsfwContent = true;
+        }
+        if (nsfw.situation && nsfw.situation.trim()) {
+          prompt += `Situation: ${nsfw.situation}\n`;
+          hasNsfwContent = true;
+        }
+        if (nsfw.mental_state && nsfw.mental_state.trim()) {
+          prompt += `Mental State: ${nsfw.mental_state}\n`;
+          hasNsfwContent = true;
+        }
+        
+        // kinks配列の処理
+        if (Array.isArray(nsfw.kinks) && nsfw.kinks.length > 0) {
+          const validKinks = nsfw.kinks.filter(k => k && k.trim());
+          if (validKinks.length > 0) {
+            prompt += `Preferences: ${validKinks.join(', ')}\n`;
+            hasNsfwContent = true;
+          }
+        }
+        
+        // Special Contextセクションが空の場合は削除
+        if (!hasNsfwContent) {
+          prompt = prompt.replace(/\n## Special Context\n$/, '');
+        }
       }
       
       prompt += '</character_information>\n\n';
@@ -356,6 +396,12 @@ export class ConversationManager {
       prompt += `Name: ${persona.name}\n`;
       prompt += `Role: ${persona.role}\n`;
       prompt += `Description: ${persona.description}\n`;
+      
+      // Additional persona settings (if available)
+      if (persona.other_settings && persona.other_settings.trim()) {
+        prompt += `Additional Settings: ${persona.other_settings}\n`;
+      }
+      
       prompt += '</persona_information>\n\n';
     } else {
       console.warn('⚠️ [ConversationManager] No persona provided to generatePrompt');
@@ -538,7 +584,7 @@ export class ConversationManager {
   /**
    * ピン留めされたメッセージの取得
    */
-  private getPinnedMessages(): Message[] {
+  private getPinnedMessages(): UnifiedMessage[] {
     return this.allMessages.filter(m => this.pinnedMessages.has(m.id));
   }
 
@@ -546,9 +592,9 @@ export class ConversationManager {
    * 自動ピン留めの判定
    * AIが重要と判断した情報を自動的にピン留め
    */
-  private async shouldAutoPinMessage(message: Message): Promise<boolean> {
+  private async shouldAutoPinMessage(message: UnifiedMessage): Promise<boolean> {
     // 重要度が高い場合
-    if (message.importance && message.importance >= 0.8) {
+    if (message.memory?.importance?.score && message.memory.importance.score >= 0.8) {
       return true;
     }
 
@@ -660,17 +706,17 @@ export class ConversationManager {
    * インデックスすべきメッセージか判定
    * コスト最適化
    */
-  private shouldIndexMessage(message: Message): boolean {
+  private shouldIndexMessage(message: UnifiedMessage): boolean {
     // ピン留めされたメッセージは必ずインデックス
     if (this.pinnedMessages.has(message.id)) return true;
     
     // 重要度が閾値以上
-    if (message.importance && message.importance >= this.config.costOptimization.lowImportanceThreshold) {
+    if (message.memory?.importance?.score && message.memory.importance.score >= this.config.costOptimization.lowImportanceThreshold) {
       return true;
     }
     
     // ユーザーメッセージは基本的にインデックス
-    if (message.sender === 'user') return true;
+    if (message.role === 'user') return true;
     
     return false;
   }

@@ -79,7 +79,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setShowEnhancementModal: (show) => set({ showEnhancementModal: show }),
   setIsEnhancingText: (isEnhancing) => set({ isEnhancingText: isEnhancing }),
   
-  generateSuggestions: async (messages, character, user, customPrompt, forceRegenerate = false) => {
+  generateSuggestions: async (messages, character, user, customPrompt, suggestionCount = 3, apiConfigOverride, forceRegenerate = false, isGroupMode = false) => {
     const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
     if (isGeneratingSuggestions) return;
     
@@ -91,9 +91,10 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        3, // 3個に増加
-        { ...apiConfig, openRouterApiKey, geminiApiKey },
-        forceRegenerate
+        suggestionCount,
+        apiConfigOverride || { ...apiConfig, openRouterApiKey, geminiApiKey },
+        forceRegenerate,
+        isGroupMode
       );
       
       const suggestionData: SuggestionData[] = suggestions.map((suggestion) => ({

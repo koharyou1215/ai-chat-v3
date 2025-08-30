@@ -315,7 +315,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -332,7 +332,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, false); // ソロモード再生成
                             }
                         }}
                     />
@@ -694,7 +694,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -711,7 +711,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true);
+                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, false); // ソロモード再生成
                             }
                         }}
                     />

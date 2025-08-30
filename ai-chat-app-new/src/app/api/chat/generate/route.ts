@@ -48,10 +48,10 @@ export async function POST(request: Request) {
       console.log('✅ OpenRouter API key provided from client');
     }
     
-    // 開発環境でのログ出力
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    // このルートは使用されていないため、ログ出力を無効化
+    // 実際のAPI呼び出しはAPIManagerが処理
     
-    if (isDevelopment) {
+    if (false) { // 無効化: isDevelopment
       console.log('[DEV]');
       console.log('--- [API Route: /api/chat/generate] ---');
       console.log(`[DEV][Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
@@ -131,7 +131,8 @@ export async function POST(request: Request) {
       { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
     );
 
-    // レスポンスログ
+    // レスポンスログ（開発環境での確認用）
+    const isDevelopment = process.env.NODE_ENV === 'development';
     if (isDevelopment) {
       console.log(`\n[DEV]--- AI Response Generated ---`);
       console.log(`[DEV][Response Length] ${aiResponseContent.length} chars`);

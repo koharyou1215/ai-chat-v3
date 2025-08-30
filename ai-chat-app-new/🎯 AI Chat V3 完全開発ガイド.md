@@ -2072,3 +2072,271 @@ git push --force origin main
 - Check Vercel deployment logs
 - Test critical user flows immediately
 - Monitor error rates for first 30 minutes
+
+---
+
+## 🎯 System Prompt Architecture & Verification Guide
+
+### 📋 Complete Prompt Structure Specification
+
+This section defines the **exact structure and content** that should be included in every AI chat prompt to ensure consistent character behavior, personality reflection, and feature integration.
+
+#### 🏗️ Prompt Build Order (Strict Sequence)
+
+The prompt must be constructed in this **exact order** by `ConversationManager.generatePrompt()`:
+
+```
+1. AI/User Definition
+2. System Instructions  
+3. Character Information
+4. Persona Information
+5. Memory System Information
+6. Tracker Information
+7. Context & History
+8. Current Interaction
+```
+
+#### 📝 Detailed Section Specifications
+
+##### 1. **AI/User Definition** (Required - Always First)
+```
+AI={{char}}, User={{user}}
+```
+- **Purpose**: Variable definition for prompt consistency
+- **Location**: Very first line of every prompt
+- **Variables**: Replaced by actual character and user names
+
+##### 2. **System Instructions** (Required - Critical Priority)
+```xml
+<system_instructions>
+## 絶対厳守事項
+- **最優先**: 以下の<character_information>で定義された設定のみを厳密に維持
+- **知識の制限**: キャラクター設定に書かれていない情報を絶対に使用しないこと
+
+## 基本動作原則
+- **キャラクター一貫性**: 設定された性格・口調を厳密に維持
+- **自然な対話**: 人間らしい感情表現と自然な会話の流れ
+- **メタ発言禁止**: AIである事実やシステムについて言及しない
+</system_instructions>
+```
+- **Purpose**: Core AI behavioral rules and constraints
+- **Content**: System-level instructions, character consistency rules
+- **Critical**: Must never be altered by character or user settings
+
+##### 3. **Character Information** (Required if Character Selected)
+```xml
+<character_information>
+## Basic Information
+Name: [character.name]
+Age: [character.age]
+Occupation: [character.occupation]
+Catchphrase: "[character.catchphrase]"
+Tags: [character.tags.join(', ')]
+
+## Appearance
+[character.appearance]
+
+## Personality
+Overall: [character.personality]
+External (How others see them): [character.external_personality]
+Internal (True feelings): [character.internal_personality]
+
+## Communication Style
+Speaking Style: [character.speaking_style]
+First Person: [character.first_person]
+Second Person: [character.second_person]
+Verbal Tics: [character.verbal_tics.join(', ')]
+
+## Background
+[character.background]
+
+## Current Scenario
+[character.scenario]
+
+## Reference First Message
+"[character.first_message]"
+
+## Special Context
+[character.nsfw_profile content if applicable]
+</character_information>
+```
+
+**Required Fields Verification**:
+- ✅ Name, personality, speaking_style are always required
+- ✅ Arrays (tags, verbal_tics, etc.) must be properly joined
+- ✅ External/internal personality distinguish public vs private thoughts
+- ✅ Background and scenario provide context foundation
+- ✅ Variable replacement must be applied (`replaceVariablesInCharacter()`)
+
+##### 4. **Persona Information** (Required - User Context)
+```xml
+<persona_information>
+Name: [persona.name]
+Role: [persona.role]
+Description: [persona.description]
+</persona_information>
+```
+- **Purpose**: User personality and role definition
+- **Always Present**: Even if default persona, must be included
+- **Warning Signs**: If missing, characters lose user context awareness
+
+##### 5. **Memory System Information** (Dynamic Content)
+
+**5a. Pinned Memory Cards** (Highest Priority)
+```xml
+<pinned_memory_cards>
+[category] title: summary
+Keywords: keyword1, keyword2, keyword3
+</pinned_memory_cards>
+```
+
+**5b. Relevant Memory Cards** (Context-Aware)
+```xml
+<relevant_memory_cards>
+[category] title: summary
+Keywords: keyword1, keyword2, keyword3
+</relevant_memory_cards>
+```
+
+**5c. Pinned Messages** (Traditional Memory)
+```xml
+<pinned_messages>
+role: content
+role: content
+</pinned_messages>
+```
+
+**5d. Relevant Messages** (Traditional Memory)
+```xml
+<relevant_messages>
+role: content
+role: content
+</relevant_messages>
+```
+
+**5e. Session Summary**
+```xml
+<session_summary>
+[Summarized conversation context and important developments]
+</session_summary>
+```
+
+##### 6. **Tracker Information** (Character State Management)
+```xml
+<character_trackers>
+## [Tracker Name 1]
+Current Value: [current_value] (Range: [min]-[max])
+Description: [detailed explanation of what this tracks]
+
+## [Tracker Name 2]  
+Current Value: [current_state] (Possible: state1, state2, state3)
+Description: [behavioral impact description]
+</character_trackers>
+```
+
+**Critical Requirements**:
+- ✅ Every character should have active trackers
+- ✅ Values must reflect current session state
+- ✅ Descriptions explain behavioral implications
+- ✅ AI must reference these values in responses
+
+##### 7. **Context & History** (Conversation Flow)
+- Recent conversation history (optimized length)
+- Important contextual messages
+- Emotional state continuity
+
+##### 8. **Current Interaction** (User Input)
+- Current user message
+- Any attached media context
+- Immediate response requirements
+
+---
+
+### 🔍 Prompt Verification Checklist
+
+#### **Every AI Response Must Reflect:**
+
+**Character Consistency** ✅
+- [ ] Speaking style matches `character.speaking_style`
+- [ ] First/second person usage follows character settings
+- [ ] Personality traits are evident in response
+- [ ] Verbal tics appear naturally (if applicable)
+
+**Persona Awareness** ✅  
+- [ ] AI acknowledges user's defined role/persona
+- [ ] Response appropriately addresses persona context
+- [ ] User is referred to by persona name when relevant
+
+**Tracker Integration** ✅
+- [ ] Character behavior reflects current tracker values
+- [ ] Emotional state aligns with tracker settings
+- [ ] Responses show awareness of character development
+
+**Memory Utilization** ✅
+- [ ] References relevant pinned memories when applicable
+- [ ] Acknowledges important past events (memory cards)
+- [ ] Maintains conversation continuity
+
+**System Instruction Compliance** ✅
+- [ ] No meta-commentary about being AI
+- [ ] Stays strictly within character boundaries
+- [ ] Maintains immersive roleplay experience
+
+---
+
+### ⚠️ Common Integration Failures & Solutions
+
+#### **Problem: Character Information Missing**
+- **Symptoms**: Generic responses, no personality traits
+- **Cause**: `<character_information>` section empty or malformed
+- **Solution**: Verify character data loading and variable replacement
+
+#### **Problem: Tracker Values Not Reflected**
+- **Symptoms**: Character behavior doesn't match tracker states
+- **Cause**: TrackerManager not initialized or values not passed to prompt
+- **Solution**: Ensure tracker updates are properly integrated in prompt building
+
+#### **Problem: Memory System Not Working**
+- **Symptoms**: AI doesn't reference past conversations or pinned memories
+- **Cause**: ConversationManager not retrieving or formatting memory properly
+- **Solution**: Check memory card storage and retrieval mechanisms
+
+#### **Problem: Persona Context Lost**
+- **Symptoms**: AI doesn't acknowledge user's role or persona
+- **Cause**: Persona information missing from prompt or not properly formatted
+- **Solution**: Verify persona selection and integration in prompt building
+
+---
+
+### 🛠️ Quick Prompt Debugging
+
+**For Development/Testing:**
+1. **Enable Detailed Logging**: Set `NODE_ENV=development` in `.env.local`
+2. **Check APIManager Logs**: Look for full prompt content in terminal
+3. **Verify Section Presence**: Ensure all required XML sections are included
+4. **Validate Content**: Check that character/persona data is properly populated
+
+**For Production Issues:**
+1. **Character Behavior Inconsistent**: Check character data integrity and tracker values
+2. **Memory Not Working**: Verify ConversationManager initialization and memory retrieval
+3. **Generic Responses**: Ensure character information is properly loaded and formatted
+
+---
+
+### 📖 Reference Implementation Files
+
+**Core Prompt Building**:
+- `src/services/prompt-builder.service.ts` - Main orchestrator
+- `src/services/memory/conversation-manager.ts` - Prompt generation logic
+
+**Supporting Systems**:
+- `src/services/tracker/tracker-manager.ts` - Character state management
+- `src/utils/variable-replacer.ts` - Character data processing
+
+**Integration Points**:
+- `src/store/slices/chat.slice.ts` - Chat flow integration
+- `src/services/api-manager.ts` - API communication layer
+
+---
+
+This specification ensures **consistent, high-quality character interactions** by maintaining strict prompt structure and content requirements. Any deviation from this structure may result in degraded character behavior or missing functionality.

@@ -76,8 +76,14 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 背景設定を適用 - bodyにdata属性も設定
     const body = document.body;
     
-    // 外観設定の画像背景を最優先に適用
-    if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
+    // キャラクター背景を最優先に適用
+    if (hasCharacterBackground) {
+      // キャラクター背景が存在する場合は最優先で適用
+      body.setAttribute('data-background-type', 'character');
+      body.style.setProperty('background', 'transparent', 'important');
+      root.style.setProperty('--background', 'transparent');
+    } else if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
+      // キャラクター背景がない場合のみ外観設定の画像背景を適用
       root.style.setProperty('--background', `url(${appearanceSettings.backgroundImage})`);
       root.style.setProperty('--background-blur', `${appearanceSettings.backgroundBlur}px`);
       root.style.setProperty('--background-opacity', `${appearanceSettings.backgroundOpacity}%`);
@@ -87,11 +93,6 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       body.style.setProperty('background-position', 'center', 'important');
       body.style.setProperty('background-repeat', 'no-repeat', 'important');
       body.style.setProperty('background-attachment', 'fixed', 'important');
-    } else if (hasCharacterBackground) {
-      // 外観設定の画像背景がない場合のみキャラクター背景のフォールバック設定を適用
-      body.setAttribute('data-background-type', 'character');
-      body.style.setProperty('background', 'transparent', 'important');
-      root.style.setProperty('--background', 'transparent');
     } else if (appearanceSettings.backgroundType === 'solid') {
       root.style.setProperty('--background', appearanceSettings.backgroundColor);
       body.setAttribute('data-background-type', 'solid');
