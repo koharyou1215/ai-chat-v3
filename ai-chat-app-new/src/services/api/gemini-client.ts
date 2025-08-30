@@ -48,11 +48,13 @@ export interface GeminiResponse {
 
 export class GeminiClient {
   private apiKey: string;
+  private openRouterApiKey: string;
   private baseURL: string;
   private model: string;
 
   constructor() {
     this.apiKey = '';
+    this.openRouterApiKey = '';
     this.baseURL = 'https://generativelanguage.googleapis.com/v1beta/models';
     this.model = 'gemini-2.5-pro'; // Gemini 2.5 Proモデル名
     this.initializeApiKeySync();
@@ -66,6 +68,13 @@ export class GeminiClient {
       console.log('✅ Gemini API Key loaded from environment variable (sync)');
     } else {
       console.warn('❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
+    }
+
+    // OpenRouter API キーも初期化（フォールバック用）
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      this.openRouterApiKey = openRouterKey;
+      console.log('✅ OpenRouter API Key loaded for Gemini fallback');
     }
   }
 
@@ -241,9 +250,8 @@ export class GeminiClient {
       topK?: number;
     }
   ): Promise<string> {
-    const openRouterApiKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
-    if (!openRouterApiKey) {
-      throw new Error('OpenRouter API key not found for fallback');
+    if (!this.openRouterApiKey) {
+      throw new Error('OpenRouter API key not found for fallback. Please set OpenRouter API key.');
     }
 
     // GeminiメッセージをOpenRouter形式に変換
@@ -255,7 +263,7 @@ export class GeminiClient {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Authorization': `Bearer ${this.openRouterApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.VERCEL_URL || 'http://localhost:3000',
         'X-Title': 'AI Chat V3'
@@ -384,6 +392,11 @@ export class GeminiClient {
   setApiKey(apiKey: string): void {
     this.apiKey = apiKey;
     console.log('✅ Gemini API key set dynamically');
+  }
+
+  setOpenRouterApiKey(apiKey: string): void {
+    this.openRouterApiKey = apiKey;
+    console.log('✅ OpenRouter API key set for Gemini fallback');
   }
 
   getAvailableModels(): string[] {

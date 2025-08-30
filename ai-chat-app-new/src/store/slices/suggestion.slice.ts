@@ -40,7 +40,8 @@ export interface SuggestionSlice {
     character: Character, 
     user: Persona, 
     customPrompt?: string,
-    forceRegenerate?: boolean
+    forceRegenerate?: boolean,
+    isGroupMode?: boolean
   ) => Promise<void>;
   enhanceText: (
     text: string, 
@@ -79,7 +80,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setShowEnhancementModal: (show) => set({ showEnhancementModal: show }),
   setIsEnhancingText: (isEnhancing) => set({ isEnhancingText: isEnhancing }),
   
-  generateSuggestions: async (messages, character, user, customPrompt, suggestionCount = 3, apiConfigOverride, forceRegenerate = false, isGroupMode = false) => {
+  generateSuggestions: async (messages, character, user, customPrompt, forceRegenerate = false, isGroupMode = false) => {
     const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
     if (isGeneratingSuggestions) return;
     
@@ -91,8 +92,8 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        suggestionCount,
-        apiConfigOverride || { ...apiConfig, openRouterApiKey, geminiApiKey },
+        3, // Fixed suggestion count
+        { ...apiConfig, openRouterApiKey, geminiApiKey },
         forceRegenerate,
         isGroupMode
       );

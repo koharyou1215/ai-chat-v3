@@ -20,6 +20,35 @@ export class APIManager {
   private openRouterApiKey: string | null = null;
   private geminiApiKey: string | null = null;
 
+  /**
+   * JSON Parse with better error handling and text sanitization
+   */
+  private safeJsonParse(text: string): any {
+    try {
+      // Remove control characters that can break JSON parsing
+      const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      return JSON.parse(sanitized);
+    } catch (error) {
+      console.error('🚨 JSON Parse Error:', error);
+      console.error('🔍 Raw text (first 200 chars):', text.substring(0, 200));
+      console.error('🔍 Text length:', text.length);
+      
+      // Try to extract valid JSON from potentially malformed response
+      const jsonMatch = text.match(/\{.*\}/s);
+      if (jsonMatch) {
+        try {
+          const sanitized = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+          console.warn('🔧 Attempting to parse extracted JSON...');
+          return JSON.parse(sanitized);
+        } catch (secondError) {
+          console.error('🚨 Second JSON parse attempt failed:', secondError);
+        }
+      }
+      
+      throw new Error(`JSON解析エラー: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   constructor() {
     this.currentConfig = {
       provider: 'gemini',
@@ -27,8 +56,8 @@ export class APIManager {
       temperature: 0.7,
       max_tokens: 2048,
       top_p: 0.9,
-      frequency_penalty: 0,
-      presence_penalty: 0,
+      frequency_penalty: 0.6,
+      presence_penalty: 0.3,
       context_window: 20, // A reasonable default
     };
     
@@ -252,6 +281,11 @@ export class APIManager {
       geminiClient.setApiKey(this.geminiApiKey);
     }
     
+    // OpenRouter APIキーも設定（フォールバック用）
+    if (this.openRouterApiKey) {
+      geminiClient.setOpenRouterApiKey(this.openRouterApiKey);
+    }
+    
     const messages = geminiClient.formatMessagesForGemini(
       systemPrompt,
       userMessage,
@@ -289,6 +323,11 @@ export class APIManager {
     // APIキーが設定されている場合は優先して使用
     if (this.geminiApiKey) {
       geminiClient.setApiKey(this.geminiApiKey);
+    }
+    
+    // OpenRouter APIキーも設定（フォールバック用）
+    if (this.openRouterApiKey) {
+      geminiClient.setOpenRouterApiKey(this.openRouterApiKey);
     }
     
     const messages = geminiClient.formatMessagesForGemini(
@@ -355,7 +394,8 @@ export class APIManager {
         const errorText = await response.text();
         throw new Error(`OpenRouter APIがJSON以外のレスポンスを返しました: ${errorText}`);
       }
-      data = await response.json();
+      const responseText = await response.text();
+      data = this.safeJsonParse(responseText);
     } catch (parseError) {
       if (parseError instanceof SyntaxError) {
         throw new Error('OpenRouter APIレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
@@ -436,7 +476,7 @@ export class APIManager {
             if (data === '[DONE]') break;
 
             try {
-              const parsed = JSON.parse(data);
+              const parsed = this.safeJsonParse(data);
               const content = parsed.choices[0]?.delta?.content || '';
               if (content) {
                 fullResponse += content;
@@ -536,7 +576,8 @@ export class APIManager {
           const errorText = await response.text();
           throw new Error(`OpenRouter models APIがJSON以外のレスポンスを返しました: ${errorText}`);
         }
-        data = await response.json();
+        const responseText = await response.text();
+        data = this.safeJsonParse(responseText);
       } catch (parseError) {
         if (parseError instanceof SyntaxError) {
           throw new Error('OpenRouter models APIレスポンスの解析に失敗しました。');

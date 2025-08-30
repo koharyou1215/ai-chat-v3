@@ -52,6 +52,9 @@ export interface ChatSlice {
   setShowSettingsModal: (show: boolean) => void;
   setCurrentInputText: (text: string) => void;
   
+  // 🚨 緊急修復機能
+  resetGeneratingState: () => void; // 生成状態を強制リセット
+  
   // For Sidebar
   setActiveSessionId: (sessionId: UUID | null) => void;
   deleteSession: (sessionId: UUID) => void;
@@ -293,7 +296,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     (async () => {
       try {
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
+        const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
         
         // 🚨 緊急デバッグ：セッション情報の確認
         console.log('🚨 [sendMessage] sessionWithUserMessage.participants:', {
@@ -630,23 +633,31 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
+      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
       
+      // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
+      const regeneratePrompt = `以下のメッセージに対して、キャラクターとして応答してください。前回とは異なる角度や表現で、新鮮で創造的な応答を生成してください。
+
+ユーザーメッセージ: "${lastUserMessage.content}"`;
+
       let systemPrompt = await promptBuilderService.buildPrompt(
         { ...session, messages: messagesForPrompt },
-        lastUserMessage.content,
+        regeneratePrompt,
         trackerManager
       );
       
-      // A案：メタ発言を抑制する指示を追加
-      const antiMetaPrompt = `
-<meta_instruction>
-**重要**: あなたはAIアシスタントではなく、キャラクターとして応答しています。
-AI、モデル、システムといったメタ的な話題に言及することは固く禁じられています。
-以前の応答とは異なる、より創造的でキャラクターらしい応答を生成してください。
-</meta_instruction>
+      // 再生成専用の指示を追加
+      const regenerateInstruction = `
+<regenerate_instruction>
+**重要**: これは再生成リクエストです。
+- 前回の応答とは全く異なるアプローチで応答してください
+- 新しい視点、感情、表現を使用してください  
+- 同じパターンや言い回しを避けてください
+- キャラクターの別の面を表現してください
+- 創造性と多様性を重視してください
+</regenerate_instruction>
 `;
-      systemPrompt += antiMetaPrompt;
+      systemPrompt += regenerateInstruction;
 
       const conversationHistory = messagesForPrompt
         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
@@ -737,7 +748,7 @@ AI、モデル、システムといったメタ的な話題に言及すること
 
       const lastAiMessage = session.messages[lastAiMessageIndex];
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(activeSessionId) : null;
+      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
       
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
       const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
@@ -856,7 +867,7 @@ AI、モデル、システムといったメタ的な話題に言及すること
     // 3. トラッカーをリセット
     const characterId = session.participants.characters[0]?.id;
     if (characterId) {
-      const trackerManager = get().trackerManagers.get(activeSessionId);
+      const trackerManager = get().trackerManagers.get(characterId);
       if (trackerManager) {
         // 全てのトラッカーを初期値にリセット
         trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
@@ -951,6 +962,12 @@ AI、モデル、システムといったメタ的な話題に言及すること
 
   setCurrentInputText: (text) => {
     set({ currentInputText: text });
+  },
+
+  // 🚨 緊急修復機能: 生成状態を強制リセット
+  resetGeneratingState: () => {
+    console.log('🚨 EMERGENCY: Forcing reset of generating state');
+    set({ is_generating: false });
   },
 
   // For Sidebar

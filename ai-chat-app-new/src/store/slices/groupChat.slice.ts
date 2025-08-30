@@ -57,6 +57,9 @@ export interface GroupChatSlice {
   addSystemMessage: (sessionId: UUID, content: string) => void;
   rollbackGroupSession: (message_id: UUID) => void; // 新しいアクションを追加
   
+  // 🚨 緊急修復機能
+  resetGroupGeneratingState: () => void; // グループ生成状態を強制リセット
+  
   // ヘルパー関数
   generateCharacterResponse: (groupSession: GroupChatSession, character: Character, userMessage: string, previousResponses: UnifiedMessage[]) => Promise<UnifiedMessage>;
 }
@@ -779,6 +782,12 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
     set({ showCharacterReselectionModal: show });
   },
 
+  // 🚨 緊急修復機能: グループ生成状態を強制リセット
+  resetGroupGeneratingState: () => {
+    console.log('🚨 EMERGENCY: Forcing reset of group generating state');
+    set({ group_generating: false });
+  },
+
   rollbackGroupSession: (message_id) => {
     const activeSessionId = get().active_group_session_id;
     if (!activeSessionId) return;
@@ -985,14 +994,96 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       // メッセージ履歴を最後のユーザーメッセージまで切り詰める
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
-      // 新しい応答を生成
-      const previousResponses: UnifiedMessage[] = [];
-      const regeneratedMessage = await state.generateCharacterResponse(
-        session,
-        targetCharacter,
-        lastUserMessage.content,
-        previousResponses
-      );
+      // 新しい応答を生成（ソロチャットと同じ方式）
+      const otherCharacters = session.characters
+        .filter(c => c.id !== targetCharacter.id)
+        .map(c => c.name)
+        .join(', ');
+      
+      const apiConfig = state.apiConfig;
+      const isGemini = apiConfig?.provider === 'gemini';
+      const USE_COMPACT_MODE = isGemini || session.characters.length > 2;
+      
+      const systemPrompt = USE_COMPACT_MODE 
+        ? generateCompactGroupPrompt(targetCharacter, otherCharacters, session.persona.name)
+        : `【超重要・絶対厳守】
+あなたは、グループチャットに参加している『${targetCharacter.name}』というキャラクターです。
+AIやアシスタントとしての応答は固く禁じられています。
+
+=== あなたの唯一のタスク ===
+- これから提示される会話の文脈に対し、『${targetCharacter.name}』として、**あなた自身のセリフのみを**出力してください。
+
+=== 禁止事項（違反厳禁） ===
+- **地の文やナレーションの禁止:** 小説のような三人称視点の描写（「〇〇は言った」など）は絶対に使用しないでください。
+- **他のキャラクターのなりすまし禁止:** あなた以外のキャラクター（${otherCharacters || '他の参加者'}）のセリフや行動を絶対に生成しないでください。
+- **AIとしての自己言及の禁止:** "AI", "モデル", "システム" などの単語は絶対に使用しないでください。
+
+=== ${targetCharacter.name}の人物設定（要約） ===
+- **名前:** ${targetCharacter.name}
+- **性格:** ${targetCharacter.personality ? targetCharacter.personality.substring(0, 150) + '...' : '未設定'}
+- **話し方:** ${targetCharacter.speaking_style ? targetCharacter.speaking_style.substring(0, 100) + '...' : '未設定'}
+- **一人称:** ${targetCharacter.first_person || '未設定'}, **二人称:** ${targetCharacter.second_person || '未設定'}
+
+=== グループチャットの状況 ===
+- **ユーザー:** ${session.persona.name}
+- **他の参加者:** ${otherCharacters || 'なし'}
+- **あなた:** ${targetCharacter.name}
+${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : ''}
+
+【応答形式】
+キャラクターのセリフのみを出力し、他の要素は含めないでください。`;
+      const regenerateInstruction = `
+<regenerate_instruction>
+**重要**: これは再生成リクエストです。
+- 前回の応答とは全く異なるアプローチで応答してください
+- 新しい視点、感情、表現を使用してください  
+- 同じパターンや言い回しを避けてください
+- キャラクターの別の面を表現してください
+- 創造性と多様性を重視してください
+</regenerate_instruction>
+`;
+      const finalSystemPrompt = systemPrompt + regenerateInstruction;
+
+      const conversationHistory = messagesForPrompt
+        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+        .slice(-10)
+        .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
+
+      const regenerationApiConfig = {
+        ...apiConfig,
+        temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.3),
+        seed: Math.floor(Math.random() * 1000000),
+        openRouterApiKey: state.openRouterApiKey,
+        geminiApiKey: state.geminiApiKey
+      };
+
+      const response = await fetch('/api/chat/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt: finalSystemPrompt,
+          userMessage: lastUserMessage.content,
+          conversationHistory,
+          textFormatting: state.effectSettings?.textFormatting || 'readable',
+          apiConfig: regenerationApiConfig
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'API request failed during group regeneration');
+      }
+
+      const data = await response.json();
+      const aiResponseContent = data.response;
+      
+      const regeneratedMessage: UnifiedMessage = {
+        ...lastAiMessage,
+        id: generateAIMessageId(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        content: aiResponseContent
+      };
 
       // 再生成カウントを増加
       regeneratedMessage.regeneration_count = (lastAiMessage.regeneration_count || 0) + 1;

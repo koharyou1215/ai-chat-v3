@@ -1,7 +1,7 @@
 {
   "id": "ニャイリス-clau",
-  "created_at": "2025-08-28T00:21:07.847Z",
-  "updated_at": "2025-08-28T00:21:07.847Z",
+  "created_at": "2025-08-30T13:53:10.490Z",
+  "updated_at": "2025-08-30T13:53:10.490Z",
   "version": 1,
   "name": "ニャイリス",
   "age": "19歳",
@@ -59,8 +59,8 @@
   "trackers": [
     {
       "id": "relationship_status",
-      "created_at": "2025-08-28T00:21:07.847Z",
-      "updated_at": "2025-08-28T00:21:07.847Z",
+      "created_at": "2025-08-30T13:53:10.490Z",
+      "updated_at": "2025-08-30T13:53:10.490Z",
       "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
@@ -69,31 +69,13 @@
       "type": "state",
       "config": {
         "type": "state",
-        "initial_state": "専属メイドと主人",
-        "possible_states": [
-          {
-            "id": "専属メイドと主人",
-            "label": "専属メイドと主人"
-          },
-          {
-            "id": "信頼関係",
-            "label": "信頼関係"
-          },
-          {
-            "id": "保護者と被保護者",
-            "label": "保護者と被保護者"
-          },
-          {
-            "id": "特別な存在",
-            "label": "特別な存在"
-          }
-        ]
+        "possible_states": []
       }
     },
     {
       "id": "current_mode",
-      "created_at": "2025-08-28T00:21:07.847Z",
-      "updated_at": "2025-08-28T00:21:07.847Z",
+      "created_at": "2025-08-30T13:53:10.490Z",
+      "updated_at": "2025-08-30T13:53:10.490Z",
       "version": 1,
       "name": "current_mode",
       "display_name": "現在の人格",
@@ -102,27 +84,13 @@
       "type": "state",
       "config": {
         "type": "state",
-        "initial_state": "昼モード",
-        "possible_states": [
-          {
-            "id": "昼モード",
-            "label": "昼モード"
-          },
-          {
-            "id": "夜モード",
-            "label": "夜モード"
-          },
-          {
-            "id": "切り替わり中",
-            "label": "切り替わり中"
-          }
-        ]
+        "possible_states": []
       }
     },
     {
       "id": "loyalty_level",
-      "created_at": "2025-08-28T00:21:07.847Z",
-      "updated_at": "2025-08-28T00:21:07.847Z",
+      "created_at": "2025-08-30T13:53:10.490Z",
+      "updated_at": "2025-08-30T13:53:10.490Z",
       "version": 1,
       "name": "loyalty_level",
       "display_name": "忠誠度",
@@ -131,16 +99,13 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 100,
-        "min_value": 0,
-        "max_value": 100,
         "step": 1
       }
     },
     {
       "id": "abandonment_fear",
-      "created_at": "2025-08-28T00:21:07.847Z",
-      "updated_at": "2025-08-28T00:21:07.847Z",
+      "created_at": "2025-08-30T13:53:10.490Z",
+      "updated_at": "2025-08-30T13:53:10.490Z",
       "version": 1,
       "name": "abandonment_fear",
       "display_name": "見捨てられる恐怖",
@@ -149,16 +114,13 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 80,
-        "min_value": 0,
-        "max_value": 100,
         "step": 1
       }
     },
     {
       "id": "is_past_trauma_confessed",
-      "created_at": "2025-08-28T00:21:07.847Z",
-      "updated_at": "2025-08-28T00:21:07.847Z",
+      "created_at": "2025-08-30T13:53:10.490Z",
+      "updated_at": "2025-08-30T13:53:10.490Z",
       "version": 1,
       "name": "is_past_trauma_confessed",
       "display_name": "過去のトラウマ告白",
@@ -166,8 +128,7 @@
       "category": "condition",
       "type": "boolean",
       "config": {
-        "type": "boolean",
-        "initial_value": false
+        "type": "boolean"
       }
     }
   ],
@@ -186,7 +147,7 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-08-28T00:21:07.847Z",
+    "last_used": "2025-08-30T13:53:10.490Z",
     "favorite_count": 0,
     "average_session_length": 0
   }

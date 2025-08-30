@@ -1640,6 +1640,68 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 ---
 ## 🆕 Latest Updates
 
+### Critical Update: August 30, 2025
+
+#### 🎯 Geminiフォールバック機能とグループチャット再生成の完全修正
+- **Gemini API フォールバック機能修正:** GeminiClientにOpenRouter APIキー管理機能を追加し、クォータ制限時のOpenRouterフォールバックが正常動作
+- **グループチャット再生成エラー修正:** `regenerateLastGroupMessage()`を`/api/chat/generate`エンドポイント使用に統一し、ソロチャットと同等の再生成指示・多様性確保機能を実装
+- **プロンプト検証システム拡張:** PROMPT_VERIFICATION_GUIDEでソロチャット偏重問題を特定、グループチャット専用検証項目の必要性を明確化
+
+#### 🏗️ 複雑なプロンプト生成システムの全体像文書化
+
+**ソロチャット vs グループチャットの実装差異:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  プロンプト生成アーキテクチャ比較                  │
+├─────────────────────────────────────────────────────────────────┤
+│ ソロチャット                    │ グループチャット                │
+├─────────────────────────────────┼─────────────────────────────────┤
+│ PromptBuilderService            │ 直接生成 (複数ファイル分散)     │
+│ ConversationManager統合         │ 個別メソッド分散管理            │
+│ /api/chat/generate エンドポイント│ apiManager.generateMessage直接  │
+│ 統一されたエラーハンドリング    │ 個別エラー処理                  │
+│ 再生成専用指示あり              │ 再生成指示 (8/30修正済み)       │
+└─────────────────────────────────┴─────────────────────────────────┘
+```
+
+**📊 現在のプロンプト生成フロー:**
+
+```
+ソロチャット:
+User Input → ChatSlice.sendMessage() → PromptBuilderService.buildSystemPrompt()
+    → ConversationManager.getSystemPrompt() → /api/chat/generate
+    → APIManager → Gemini/OpenRouter → Response
+
+グループチャット:
+User Input → GroupChatSlice.sendGroupMessage() → generateCharacterResponse()
+    → 直接システムプロンプト生成 → apiManager.generateMessage()
+    → Gemini/OpenRouter → Multi-character responses
+```
+
+**🎨 インスピレーション機能の統合アーキテクチャ:**
+- **InspirationService:** ソロ・グループ両対応の返信提案生成
+- **ReplySuggestions.tsx:** 4タイプの提案表示 (共感・質問・トピック・クリエイティブ)
+- **SuggestionSlice:** 提案生成状態管理とテキスト強化機能
+- **エラー修正済み:** 空のuserMessage問題とテンプレート応答の修正完了
+
+#### 🔧 グループチャット特有の技術的複雑性
+
+**マルチキャラクター管理:**
+- **キャラクター境界強制:** なりすまし防止システム
+- **コンパクトプロンプト:** Gemini使用時の自動最適化
+- **トークン配分:** キャラクターあたり250トークン基準
+- **ターン管理:** Sequential/Simultaneous/Random/Smartモード対応
+
+**システムプロンプト生成 (groupChat.slice.ts):**
+```typescript
+// コンパクトモード vs フルモード
+const USE_COMPACT_MODE = isGemini || groupSession.characters.length > 2;
+const systemPrompt = USE_COMPACT_MODE 
+  ? generateCompactGroupPrompt(character, otherCharacters, persona.name)
+  : // フル詳細プロンプト (300行の詳細指示)
+```
+
 ### Critical Update: August 28, 2025
 
 #### 🎯 Project Guidelines Comprehensive Update
@@ -2077,6 +2139,107 @@ git push --force origin main
 
 ## 🎯 System Prompt Architecture & Verification Guide
 
+### 🏗️ 現在の複雑なプロンプト生成システム (2025年8月実装)
+
+#### 📊 ソロチャット vs グループチャット実装差異
+
+**重要:** 現在のシステムは**2つの異なるプロンプト生成方式**が併存しています：
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        プロンプト生成システム現状                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ソロチャット                    │ グループチャット                         │
+├─────────────────────────────────┼─────────────────────────────────────────┤
+│ 🎯 統一されたサービス層         │ 🔧 分散処理                             │
+│ - PromptBuilderService          │ - 直接生成 (groupChat.slice.ts内)       │
+│ - ConversationManager           │ - generateCompactGroupPrompt()           │
+│ - /api/chat/generate            │ - apiManager.generateMessage()直接       │
+│                                 │                                         │
+│ 🎭 プロンプト構造                │ 🎭 プロンプト構造                        │
+│ - 統一された8段階構成           │ - コンパクト vs フルモード自動切替       │
+│ - メモリー・トラッカー統合      │ - なりすまし防止特化                     │
+│ - 一貫したエラーハンドリング    │ - グループダイナミクス重視               │
+│                                 │                                         │
+│ 🚀 パフォーマンス               │ 🚀 パフォーマンス                       │
+│ - 再生成指示統合                │ - トークン配分管理 (250/キャラ)          │
+│ - temperature/seed制御          │ - Gemini最適化 (コンパクト)              │
+└─────────────────────────────────┴─────────────────────────────────────────┘
+```
+
+#### 🔄 複雑な多段階フロー (複数ファイル連携)
+
+**ソロチャット生成フロー:**
+```
+1. ChatSlice.sendMessage() [chat.slice.ts]
+   ↓
+2. PromptBuilderService.buildSystemPrompt() [prompt-builder.service.ts]  
+   ↓ 
+3. ConversationManager.getSystemPrompt() [conversation-manager.ts]
+   ↓
+4. TrackerManager統合 [tracker-manager.ts]
+   ↓
+5. MemoryCard統合 [memory.slice.ts]
+   ↓
+6. /api/chat/generate [route.ts] 
+   ↓
+7. APIManager.generateMessage() [api-manager.ts]
+   ↓
+8. GeminiClient (フォールバック対応) [gemini-client.ts]
+```
+
+**グループチャット生成フロー:**
+```
+1. GroupChatSlice.sendGroupMessage() [groupChat.slice.ts]
+   ↓
+2. generateCharacterResponse() [同ファイル内]
+   ↓ 分岐：コンパクト判定
+   ├─ A) generateCompactGroupPrompt() [character-summarizer.ts]
+   └─ B) フル詳細プロンプト (300行) [groupChat.slice.ts内]
+   ↓
+3. apiManager.generateMessage()直接呼び出し [api-manager.ts]
+   ↓
+4. GeminiClient.generateMessage() [gemini-client.ts]
+```
+
+#### 🎨 インスピレーション機能統合 (共通)
+
+**ソロ・グループ対応アーキテクチャ:**
+```
+InspirationService.generateReplySuggestions()
+├─ ソロモード: ConversationManager経由でメモリー取得
+├─ グループモード: 直接GroupSession参照
+├─ 4タイプ生成: continuation, question, topic, creative
+└─ SuggestionSlice状態管理 → ReplySuggestions.tsx表示
+```
+
+**修正済み問題 (2025年8月30日):**
+- ❌ **旧:** 空のuserMessage → テンプレート応答
+- ✅ **新:** 適切なメッセージ内容 → 多様な提案生成
+
+#### 🔧 グループチャット特有の技術的複雑性
+
+**1. キャラクター境界強制システム:**
+```typescript
+// groupChat.slice.ts内の厳格な指示
+=== 禁止事項（違反厳禁） ===
+- **地の文やナレーションの禁止:** 小説のような三人称視点の描写
+- **他のキャラクターのなりすまし禁止:** 他キャラのセリフを絶対生成しない  
+- **AIとしての自己言及の禁止:** "AI", "モデル"等の単語使用禁止
+```
+
+**2. 動的プロンプト最適化:**
+```typescript
+// Gemini使用時またはキャラクター数>2でコンパクトモード
+const USE_COMPACT_MODE = isGemini || groupSession.characters.length > 2;
+```
+
+**3. トークン配分アルゴリズム:**
+```typescript  
+// perCharacterMaxTokens計算 (複雑な配分ロジック)
+const baseTokens = Math.max(250, Math.floor(totalTokens / activeCharacters.length));
+```
+
 ### 📋 Complete Prompt Structure Specification
 
 This section defines the **exact structure and content** that should be included in every AI chat prompt to ensure consistent character behavior, personality reflection, and feature integration.
@@ -2281,6 +2444,91 @@ Description: [behavioral impact description]
 - [ ] No meta-commentary about being AI
 - [ ] Stays strictly within character boundaries
 - [ ] Maintains immersive roleplay experience
+
+---
+
+### 🎭 グループチャット専用検証システム (2025年8月実装)
+
+#### 🚨 グループチャット特有の失敗パターン
+
+**キャラクター境界違反 (最重要):**
+```
+❌ 失敗例: "美咲は微笑みながら「そうですね」と答えた"
+✅ 正解例: "そうですね" (キャラクター自身のセリフのみ)
+
+❌ 失敗例: "こんにちは！" 田中さんも「はじめまして」と挨拶した
+✅ 正解例: "こんにちは！" (他キャラを巻き込まない)
+```
+
+**なりすまし・多重応答:**
+```
+❌ 失敗例: 応答に複数キャラクターのセリフが混在
+❌ 失敗例: 「私」で始まるセリフが他キャラクターの内容
+❌ 失敗例: "○○（他キャラ）なら～と言うでしょう"
+```
+
+**地の文・ナレーション混入:**
+```
+❌ 失敗例: "彼女は困ったような表情を浮かべながら"
+❌ 失敗例: "*頭を掻きながら*"  
+❌ 失敗例: "その時、部屋に沈黙が流れた"
+```
+
+#### 🔧 グループチャット検証チェックリスト
+
+**必須検証項目:**
+
+**🎭 キャラクター境界 (Critical)**
+- [ ] レスポンスが1人のキャラクターのセリフのみで構成
+- [ ] 他キャラクターの名前や行動への言及がない
+- [ ] 一人称が対象キャラクターと一致
+- [ ] 地の文・ナレーション的表現が皆無
+
+**🎯 シナリオ・ロール統合**
+- [ ] キャラクターが割り当てられた役割を認識
+- [ ] グループシナリオの設定・世界観を反映
+- [ ] 他参加者との関係性が適切
+
+**⚙️ システム動作確認**
+- [ ] コンパクトモード自動判定が機能 (Gemini使用時・3人以上)
+- [ ] トークン配分が適切 (最低250トークン/キャラ確保)
+- [ ] 再生成機能がソロと同等に機能 (2025/8/30修正済み)
+
+#### 🛠️ デバッグ・トラブルシューティング
+
+**開発モード確認コマンド:**
+```bash
+# グループチャット詳細ログ確認
+npm run dev
+# コンソールで以下を確認:
+# - 🎯 [キャラクター名] トークン配分: 250 
+# - 🤖 [APIManager] プロンプト長さ
+# - ✅ Group message generated successfully
+```
+
+**よくある問題と解決方法:**
+
+| 問題 | 症状 | 解決方法 |
+|------|------|----------|
+| **なりすまし** | 他キャラのセリフが混入 | システムプロンプトの禁止指示強化 |
+| **短すぎるレスポンス** | <20文字の応答 | トークン配分確認・APIConfig調整 |
+| **シナリオ無視** | 設定された役割を無視 | scenario.character_roles統合確認 |
+| **再生成エラー** | 再生成ボタン無反応 | 2025/8/30修正で解決済み |
+| **メモリー汚染** | 他キャラの記憶参照 | GroupSession内メモリー分離確認 |
+
+#### 🎯 パフォーマンス監視ポイント
+
+**レスポンス時間:**
+- ソロチャット: ~3-8秒 (ConversationManager統合)
+- グループチャット: ~5-15秒 (複数キャラクター・トークン配分)
+
+**メモリー使用量:**
+- コンパクトプロンプト: ~800-1200 chars/キャラ
+- フルプロンプト: ~2000-3000 chars/キャラ
+
+**API呼び出し:**
+- ソロ: 1回/メッセージ
+- グループ: 1-4回/メッセージ (モードにより変動)
 
 ---
 

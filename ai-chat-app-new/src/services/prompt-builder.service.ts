@@ -291,12 +291,13 @@ ${user.nsfw_persona.limits && user.nsfw_persona.limits.length > 0 ? `- Limits: $
     }
 
     // 軽量トラッカー情報（キャラクター設定強化版）
+    const trackerManager = character?.id && store.trackerManagers?.get(character.id);
     if (trackerManager) {
       try {
         // まず詳細版を試行、失敗したら軽量版にフォールバック
-        let trackerInfo = trackerManager.getDetailedTrackersForPrompt?.(character.id);
+        let trackerInfo = character?.id ? trackerManager.getDetailedTrackersForPrompt?.(character.id) : null;
         if (!trackerInfo) {
-          trackerInfo = this.getEssentialTrackerInfo(trackerManager, character.id);
+          trackerInfo = character?.id ? this.getEssentialTrackerInfo(trackerManager, character.id) : null;
         }
         
         if (trackerInfo) {

@@ -18,9 +18,69 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 
 ---
 
-## 🏗️ Required Prompt Structure (Exact Order)
+## 🏗️ プロンプト生成システム現状 (2025年8月実装)
 
-Every AI prompt **must** contain these sections in this **exact sequence**:
+### ⚡ ソロチャット vs グループチャット - 実装差異
+
+**重要:** 現在のシステムは**2つの異なるプロンプト生成方式**が併存しています
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    プロンプト生成アーキテクチャ                   │
+├─────────────────────────────────────────────────────────────────┤
+│ ソロチャット                │ グループチャット                   │
+├─────────────────────────────┼───────────────────────────────────┤
+│ 🎯 統一システム             │ 🔧 分散処理                       │
+│ • PromptBuilderService      │ • 直接生成(groupChat.slice.ts)    │
+│ • ConversationManager       │ • generateCompactGroupPrompt()    │
+│ • /api/chat/generate        │ • apiManager直接呼び出し          │
+│                             │                                   │
+│ 🎭 プロンプト構造            │ 🎭 プロンプト構造                  │
+│ • 統一8段階構成             │ • コンパクト/フル自動切替          │
+│ • メモリー・トラッカー統合   │ • なりすまし防止特化               │
+│ • 再生成指示統合            │ • グループダイナミクス重視         │
+│                             │                                   │
+│ 🚀 フロー                   │ 🚀 フロー                         │
+│ 1. ChatSlice.sendMessage    │ 1. GroupChatSlice.sendMessage     │
+│ 2. PromptBuilderService     │ 2. generateCharacterResponse      │
+│ 3. ConversationManager      │ 3. 直接プロンプト生成             │
+│ 4. /api/chat/generate       │ 4. apiManager.generateMessage     │
+│ 5. APIManager               │ 5. GeminiClient                   │
+└─────────────────────────────┴───────────────────────────────────┘
+```
+
+### 🎨 インスピレーション機能の複雑なアーキテクチャ
+
+**マルチモード対応システム:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  InspirationService統合システム                  │
+├─────────────────────────────────────────────────────────────────┤
+│ ソロモード                    │ グループモード                   │
+├───────────────────────────────┼─────────────────────────────────┤
+│ ConversationManager経由       │ 直接GroupSession参照             │
+│ メモリーカード統合            │ グループメモリー分離             │
+│ 単一キャラクター文脈          │ 複数キャラクター考慮             │
+│                               │                                 │
+│ 共通：4タイプ提案生成システム                                   │
+│ ├─ continuation (共感・受容型)                                  │
+│ ├─ question (質問・探求型)                                      │
+│ ├─ topic (トピック展開型)                                       │
+│ └─ creative (クリエイティブ型)                                  │
+│                               │                                 │
+│ SuggestionSlice状態管理 → ReplySuggestions.tsx表示             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**修正済み問題 (2025年8月30日):**
+- ❌ **旧:** 空のuserMessage → テンプレート応答「はい、そうですね」
+- ✅ **新:** 適切なメッセージ内容 → 多様で創造的な提案生成
+
+---
+
+## 📋 ソロチャット プロンプト構造 (統一8段階)
+
+**PromptBuilderService & ConversationManager統合フロー:**
 
 ```
 1. AI/User Definition          → AI={{char}}, User={{user}}
@@ -31,6 +91,54 @@ Every AI prompt **must** contain these sections in this **exact sequence**:
 6. Tracker Information         → <character_trackers>...</character_trackers>
 7. Context & History          → Recent conversation flow
 8. Current Interaction        → User input and response context
+```
+
+---
+
+## 🎭 グループチャット プロンプト構造 (動的切替)
+
+### ⚙️ 自動モード判定システム
+```typescript
+// groupChat.slice.ts内のロジック
+const USE_COMPACT_MODE = isGemini || groupSession.characters.length > 2;
+```
+
+### 📊 コンパクトモード vs フルモード
+
+**コンパクトモード (Gemini使用時・3人以上):**
+```
+1. キャラクター定義           → 簡潔な役割説明
+2. 禁止事項 (最重要)          → なりすまし・地の文・AI言及禁止
+3. グループ状況              → 参加者・シナリオ要約
+4. 応答指示                  → セリフのみ出力指示
+```
+**生成:** `generateCompactGroupPrompt()` [character-summarizer.ts]
+
+**フルモード (OpenRouter使用・2人以下):**
+```
+1. 【超重要・絶対厳守】ヘッダー → キャラクター宣言
+2. 唯一のタスク              → セリフのみ生成指示
+3. 禁止事項 (詳細)           → 300行の厳格な制約
+4. キャラクター人物設定       → 性格・話し方・一人称等
+5. グループチャット状況       → ユーザー・他参加者・シナリオ
+6. 応答形式指示              → セリフのみ出力厳守
+```
+**生成:** 直接生成 [groupChat.slice.ts内 600-650行]
+
+### 🚨 グループチャット特有の重要要素
+
+**キャラクター境界強制システム:**
+```xml
+=== 禁止事項（違反厳禁） ===
+- **地の文やナレーションの禁止:** 「〇〇は言った」等の三人称描写禁止
+- **他キャラなりすまし禁止:** あなた以外のキャラのセリフ・行動生成禁止  
+- **AI自己言及禁止:** "AI", "モデル", "システム"等の単語使用厳禁
+```
+
+**トークン配分制御:**
+```typescript
+// perCharacterMaxTokens計算
+const baseTokens = Math.max(250, Math.floor(totalTokens / activeCharacters.length));
 ```
 
 ---
@@ -117,7 +225,154 @@ Description: [behavioral impact explanation]
 
 ---
 
-## ⚠️ Common Failure Patterns & Quick Fixes
+## 🎭 グループチャット専用検証システム
+
+### 🚨 Critical Group Chat Verification Checklist
+
+**必須検証項目 (グループチャット):**
+
+#### **🎯 キャラクター境界 (最重要)**
+- [ ] **単一キャラクター応答**: レスポンスが1人のキャラクターのセリフのみ
+- [ ] **なりすまし防止**: 他キャラクターの名前・行動への言及なし
+- [ ] **一人称一致**: 対象キャラクターの設定と一致
+- [ ] **地の文排除**: ナレーション・三人称描写が完全に排除
+
+#### **⚙️ システム動作確認**  
+- [ ] **モード判定**: Gemini使用時・3人以上でコンパクトモード自動選択
+- [ ] **トークン配分**: 最低250トークン/キャラ確保されている
+- [ ] **再生成機能**: ソロチャットと同等に動作 (2025/8/30修正済み)
+- [ ] **API統合**: フォールバック機能が正常動作
+
+#### **🎨 シナリオ・ロール統合**
+- [ ] **役割認識**: キャラクターが割り当てられた役割を理解
+- [ ] **世界観反映**: グループシナリオの設定・背景を反映
+- [ ] **関係性**: 他参加者との関係性が適切に表現
+
+### 🚨 Group Chat Failure Patterns
+
+**❌ キャラクター境界違反例:**
+```
+失敗: "美咲は微笑みながら「そうですね」と答えた"
+正解: "そうですね"
+
+失敗: "こんにちは！" 田中さんも「はじめまして」と挨拶した  
+正解: "こんにちは！"
+
+失敗: "*頭を掻きながら* えーっと..."
+正解: "えーっと..."
+```
+
+**❌ システム動作異常例:**
+```
+問題: レスポンス <20文字 → トークン配分不足
+問題: 再生成ボタン無反応 → APIエンドポイント不一致 (修正済み)
+問題: 長い応答時間 >30秒 → コンパクトモード未適用
+```
+
+### 🛠️ Group Chat Debug Commands
+
+**開発モード確認:**
+```bash
+npm run dev
+# コンソールで確認すべきログ:
+# ✅ 🎯 [キャラクター名] トークン配分: 250
+# ✅ 🤖 [APIManager] プロンプト長さ確認  
+# ✅ Group message generated successfully
+# ❌ 🔄 Attempting fallback via OpenRouter (Gemini障害時)
+```
+
+**よくある問題と解決:**
+
+| 症状 | 原因 | 解決方法 |
+|------|------|----------|
+| **他キャラのセリフ混入** | 境界制御失敗 | システムプロンプト禁止指示強化 |
+| **レスポンス短すぎる** | トークン不足 | baseTokens計算・API設定確認 |
+| **シナリオ無視** | ロール統合失敗 | scenario.character_roles確認 |
+| **再生成エラー** | エンドポイント不一致 | 2025/8/30修正で解決済み |
+
+---
+
+## 🎨 インスピレーション機能検証
+inspiration-service.ts
+
+返信提案: generateReplySuggestions(...)
+カスタムプロンプトがある場合は customPrompt.replace(/{{conversation}}/g, context) で会話コンテキストを差し替え。
+デフォルトは buildDefaultSuggestionPrompt(context, character, user, suggestionCount) を使う（関数内に長いテンプレート文字列あり）。
+提案の解析は parseSuggestions(content, approaches) が担当。[] で指定されたアプローチ（approaches）を抽出するロジックと、行分割で返すロジックがあるため、生成形式に依存して分割される。
+文章強化: enhanceText(inputText, recentMessages, user, enhancePrompt?)
+カスタム enhancePrompt がある場合は {{conversation}}, {{user}}, {{text}} を置換。
+カスタムが無ければデフォルトで（Janitor AI風の）強化テンプレート文字列を組み立てる（user の情報や「強化の指針」などを含む長いテンプレート）。
+重要点:
+extractApproachesFromPrompt(prompt)：[...] の括弧でアプローチを抽出する実装がある（テンプレート形式に依存）。
+parseSuggestions のフィルタやルール（番号・箇条書き除去、最小文字数等）で期待と違う切れ方をする可能性あり。
+キャッシュ・max_tokens の扱い（インスピレーション系はより大きめの max_tokens を使う）も存在。
+prompt-templates.ts
+
+DEFAULT_PROMPT_TEMPLATES に返信提案系・文章強化系テンプレートが収録されている（例: friendly-suggestions, professional-suggestions, expand-detail, add-emotion, make-polite）。
+各テンプレートは id, category, template と変数リストを持つ（{{context}}, {{text}} など）。
+SettingsModal.tsx
+
+UI上で編集できるプロンプトのキー:
+systemPrompts.replySuggestion（返信提案プロンプトの textarea）
+systemPrompts.textEnhancement（文章強化プロンプトの textarea）
+また systemPrompts.system と systemPrompts.jailbreak も存在（SystemPrompts 型）。
+AIPanel 内で onUpdateSystemPrompts({ ...systemPrompts, [key]: value }) により更新される流れ。
+settings.types.ts
+
+SystemPrompts 型定義:
+keys: system, jailbreak, replySuggestion, textEnhancement
+MessageInput.tsx
+
+ボタン押下での呼び出しロジック:
+返信提案ボタン -> handleSuggestClick() が呼ばれる。中で
+if is_group_mode && active_group_session_id → groupSession から recentMessages / activeChars / user を取得して generateSuggestions(...) を呼ぶ（グループ用のコンテキスト）。
+else（ソロ）→ session から recentMessages と character/user を取り generateSuggestions(...) を呼ぶ。
+文章強化ボタン -> handleEnhanceClick() と同様にグループ/ソロで enhanceTextForModal(...) を呼ぶ。
+つまりソロ/グループで渡す recentMessages や character/user が異なるため、生成結果が変わる。
+ReplySuggestions.tsx
+
+提案のUI表示（タイプ別ラベル: continuation, question, topic, creative） — 提案の type は getApproachType() 等で決定される。
+なぜ「思った通りにならない」ことが起きやすいか（簡潔な分析）
+プロンプトが複数箇所に分かれている
+設定UIの systemPrompts.*、DEFAULT_PROMPT_TEMPLATES、inspiration-service 内のデフォルトテンプレートの3系統があるため、どれが使われているかで差が生じる。
+テンプレート形式依存
+extractApproachesFromPrompt（[...]）や parseSuggestions の解析ルールに生成フォーマットが合わないと期待どおりに分割・抽出されない。
+ソロ／グループのコンテキスト差
+recentMessages、character の選び方や範囲が変わることで出力が変わる（グループは複数キャラの情報を使う場合がある）。
+max_tokens / API config の違い
+Inspiration 用に max_tokens を大きく取る等の調整があるため、同じプロンプトでも出力長やスタイルが変わる可能性。
+### 📊 Inspiration System Verification
+###**返信提案**
+###**理想とする動作**: **全く異なるパターンの返信を。2から3パターン生成**
+**✅ 必須動作確認:**
+- [ ] **ソロ・グループ対応**: 両モードで適切な提案生成
+- [ ] **テンプレート排除**: 「はい、そうですね」等の汎用応答なし
+- [ ] **文脈連携**: 会話履歴・キャラクター性格を反映
+
+**❌ よくある失敗パターン:**
+```
+失敗: "はい、そうですね。それについて詳しく説明します。"
+正解: キャラクター固有の個性的な提案
+
+失敗: 全提案が同じようなトーン
+正解: 4タイプそれぞれ異なるアプローチ
+
+失敗: 会話文脈を無視した提案  
+正解: 直前のメッセージに適切に応答する提案
+```
+
+**🔧 Debug方法:**
+```bash
+# ReplySuggestions表示確認
+# 1. インスピレーションボタンクリック
+# 2. 4タイプのアイコン・ラベル表示確認
+# 3. 提案内容の多様性・適切性確認
+# 4. 再生成で異なる提案生成確認
+```
+
+---
+
+## ⚠️ Common Failure Patterns & Quick Fixes (All Modes)
 
 | **Problem** | **Symptoms** | **Quick Fix** |
 |-------------|--------------|---------------|
@@ -153,22 +408,56 @@ Look for these log patterns:
 
 ---
 
-## 🚨 Deployment Verification (2-Minute Check)
+## 🚨 実践的検証フロー (2分でできる確認)
 
-### **Critical Path Test**
-1. **Start new chat session**
-2. **Select character with trackers** 
-3. **Send test message**
-4. **Verify response contains**:
-   - Character's unique speaking style ✅
-   - Reference to user persona ✅ 
-   - Behavioral consistency with trackers ✅
+### **ソロチャット検証**
+1. **新しいセッション開始**
+2. **トラッカー付きキャラクター選択** 
+3. **テストメッセージ送信**
+4. **応答内容確認**:
+   - キャラクター固有の話し方 ✅
+   - ユーザーペルソナ言及 ✅ 
+   - トラッカー値反映 ✅
+   - メモリー参照 ✅
 
-### **Red Flags** 🚩
-- Generic/bland character responses
-- AI refers to user as generic "you" instead of persona name
-- Character behavior contradicts tracker states
-- No memory of previous conversations
+### **グループチャット検証 (追加)**
+1. **グループセッション作成** (2-3キャラ)
+2. **シナリオ設定** (推奨)
+3. **各キャラクターに発言**
+4. **必須確認事項**:
+   - 各キャラが自分のセリフのみ ✅
+   - 他キャラなりすまし・地の文なし ✅
+   - シナリオ役割反映 ✅
+   - 再生成ボタン動作 ✅
+
+### **インスピレーション機能検証**
+1. **ソロ・グループ両方でテスト**
+2. **インスピレーションボタンクリック**
+3. **4タイプ提案表示確認**:
+   - 共感・受容型 (❤️) ✅
+   - 質問・探求型 (🧠) ✅ 
+   - トピック展開型 (⚡) ✅
+   - クリエイティブ型 (⭐) ✅
+4. **再生成で異なる提案** ✅
+
+### **🚩 Critical Red Flags**
+
+**ソロチャット:**
+- 汎用的な応答 (個性なし)
+- "あなた"呼び (ペルソナ名使用せず)
+- トラッカー値無視
+- 会話記憶なし
+
+**グループチャット:**
+- 他キャラのセリフ混入
+- 「○○は言った」等の地の文
+- シナリオ設定無視  
+- 再生成ボタン無反応
+
+**インスピレーション:**
+- テンプレート応答「はい、そうですね」
+- 4タイプ全て同じ内容
+- 会話文脈無視
 
 ---
 

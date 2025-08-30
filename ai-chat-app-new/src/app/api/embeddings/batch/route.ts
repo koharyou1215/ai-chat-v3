@@ -71,41 +71,79 @@ async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
     text.length > 8000 ? text.substring(0, 8000) : text
   );
   
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-ada-002', // Most cost-effective model
-      input: truncatedTexts,
-      encoding_format: 'float'
-    }),
-  });
+  // Retry logic for API stability
+  const maxRetries = 3;
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small', // Updated model (ada-002 deprecated)
+          input: truncatedTexts,
+          encoding_format: 'float'
+        }),
+      });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const error = new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+        
+        // Don't retry on 4xx errors (client errors)
+        if (response.status >= 400 && response.status < 500) {
+          throw error;
+        }
+        
+        lastError = error;
+        console.log(`Embedding attempt ${attempt}/${maxRetries} failed:`, error.message);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+          continue;
+        }
+        
+        throw error;
+      }
+      
+      // Success - process response
+      const data = await response.json();
+      
+      // Ensure the embeddings are returned in the same order as input
+      // Define types for OpenAI API response
+      interface OpenAIEmbeddingItem {
+        index: number;
+        embedding: number[];
+      }
+      
+      interface OpenAIEmbeddingData {
+        data: OpenAIEmbeddingItem[];
+      }
+      
+      const typedData = data as OpenAIEmbeddingData;
+      const embeddings = typedData.data
+        .sort((a, b) => a.index - b.index)
+        .map(item => item.embedding);
+      
+      return embeddings;
+      
+    } catch (error) {
+      lastError = error as Error;
+      console.log(`Embedding attempt ${attempt}/${maxRetries} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+    }
   }
-
-  const data = await response.json();
   
-  // Ensure the embeddings are returned in the same order as input
-  // Define types for OpenAI API response
-  interface OpenAIEmbeddingItem {
-    index: number;
-    embedding: number[];
-  }
-  
-  interface OpenAIEmbeddingData {
-    data: OpenAIEmbeddingItem[];
-  }
-  
-  const typedData = data as OpenAIEmbeddingData;
-  const embeddings = typedData.data
-    .sort((a, b) => a.index - b.index)
-    .map(item => item.embedding);
-  
-  return embeddings;
+  throw lastError || new Error('All embedding attempts failed');
 }

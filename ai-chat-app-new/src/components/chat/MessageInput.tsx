@@ -88,7 +88,7 @@ export const MessageInput: React.FC = () => {
       const character = activeChars[0] || groupSession.characters[0];
       const user = groupSession.persona;
       
-      await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, false, true); // グループモード
+      await generateSuggestions(recentMessages, character, user, customPrompt, false, true); // グループモード
     } else {
       // ソロモード
       const session = getActiveSession();
@@ -98,7 +98,7 @@ export const MessageInput: React.FC = () => {
       const character = session.participants.characters[0];
       const user = session.participants.user;
       
-      await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, false, false); // ソロモード
+      await generateSuggestions(recentMessages, character, user, customPrompt, false, false); // ソロモード
     }
   };
 
@@ -378,7 +378,7 @@ export const MessageInput: React.FC = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSend}
-                  disabled={is_generating}
+                  disabled={isSending} // 🔧 修正: 送信中は無効化
                   className="p-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white"
                 >
                   {is_generating ? (

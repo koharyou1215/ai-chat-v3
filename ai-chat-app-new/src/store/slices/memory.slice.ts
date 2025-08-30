@@ -54,11 +54,18 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
   createMemoryCard: async (message_ids, session_id, character_id) => {
     // セッションからメッセージを取得
     const state = get() as any;
-    const sessions = state.sessions || new Map();
-    const session = sessions.get(session_id);
+    
+    // ソロチャットとグループチャットの両方をチェック
+    const soloSessions = state.sessions || new Map();
+    const groupSessions = state.group_sessions || new Map();
+    
+    let session = soloSessions.get(session_id) || groupSessions.get(session_id);
     
     if (!session) {
-      throw new Error('Session not found');
+      console.warn(`🔍 [MemorySlice] Session ${session_id} not found in solo (${soloSessions.size}) or group (${groupSessions.size}) sessions`);
+      console.warn('🔍 Available solo sessions:', Array.from(soloSessions.keys()).slice(0, 3));
+      console.warn('🔍 Available group sessions:', Array.from(groupSessions.keys()).slice(0, 3));
+      return null; // エラーではなく警告として処理
     }
     
     // 指定されたメッセージIDのメッセージを取得

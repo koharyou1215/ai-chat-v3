@@ -523,10 +523,14 @@ export class ConversationManager {
 
     // 時間減衰を適用
     const now = Date.now();
-    return results.map(result => ({
-      ...result,
-      similarity: this.applyTimeDecay(result.similarity, result.message.timestamp, now)
-    })).sort((a, b) => b.similarity - a.similarity);
+    return results.map(result => {
+      // 型安全なtimestamp取得（Legacy Message か UnifiedMessage かを判定）
+      const timestamp = (result.message as any).timestamp || (result.message as any).created_at;
+      return {
+        ...result,
+        similarity: this.applyTimeDecay(result.similarity, timestamp, now)
+      };
+    }).sort((a, b) => b.similarity - a.similarity);
   }
 
   /**
@@ -671,10 +675,27 @@ export class ConversationManager {
    */
   private applyTimeDecay(
     baseScore: number,
-    timestamp: Date,
+    timestamp: Date | string | undefined,
     now: number
   ): number {
-    const messageTime = timestamp.getTime();
+    let messageTime: number;
+    
+    if (!timestamp) {
+      // timestampが undefined の場合は現在時刻を使用（減衰なし）
+      return baseScore;
+    }
+    
+    if (timestamp instanceof Date) {
+      // Legacy Message type (timestamp: Date)
+      messageTime = timestamp.getTime();
+    } else if (typeof timestamp === 'string') {
+      // UnifiedMessage type (created_at: string)
+      messageTime = new Date(timestamp).getTime();
+    } else {
+      // フォールバック: 現在時刻を使用
+      return baseScore;
+    }
+    
     const ageInHours = (now - messageTime) / (1000 * 60 * 60);
     
     // 24時間で約0.7倍、48時間で約0.5倍に減衰

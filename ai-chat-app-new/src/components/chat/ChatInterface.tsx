@@ -315,7 +315,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, true); // グループモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -332,7 +332,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, false); // ソロモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true, false); // ソロモード再生成
                             }
                         }}
                     />
@@ -552,7 +552,8 @@ const ChatInterfaceContent: React.FC = () => {
                     
                     {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
                     <div 
-                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300" 
+                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300"
+ 
                         style={{ 
                             position: 'fixed',
                             top: 0,
@@ -587,6 +588,80 @@ const ChatInterfaceContent: React.FC = () => {
                         {(is_generating || group_generating) && <ThinkingIndicator />}
                         
                         <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* 🚨 緊急デバッグボタン */}
+                    <div style={{ position: 'fixed', bottom: '100px', right: '20px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {is_group_mode && (
+                            <button
+                                onClick={() => {
+                                    useAppStore.setState({ 
+                                        is_group_mode: false,
+                                        active_group_session_id: null
+                                    });
+                                    if (typeof window !== 'undefined') {
+                                        const notification = document.createElement('div');
+                                        notification.textContent = '🔄 ソロモードに切り替えました';
+                                        notification.style.cssText = 'position:fixed;top:80px;right:20px;background:#3b82f6;color:white;padding:12px 20px;border-radius:8px;z-index:1000;font-size:14px;';
+                                        document.body.appendChild(notification);
+                                        setTimeout(() => notification.remove(), 3000);
+                                    }
+                                }}
+                                style={{ background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                            >
+                                ソロモード
+                            </button>
+                        )}
+                        
+                        <button
+                            onClick={() => {
+                                const state = useAppStore.getState();
+                                const activeSession = state.sessions.get(state.active_session_id || '');
+                                
+                                if (typeof window !== 'undefined') {
+                                    // 履歴表示用のモーダルを作成
+                                    const modal = document.createElement('div');
+                                    modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:10000;display:flex;justify-content:center;align-items:center;';
+                                    
+                                    const content = document.createElement('div');
+                                    content.style.cssText = 'background:white;color:black;padding:20px;border-radius:8px;max-width:80vw;max-height:80vh;overflow-y:auto;';
+                                    
+                                    const title = document.createElement('h2');
+                                    title.textContent = '📜 チャット履歴';
+                                    title.style.marginBottom = '16px';
+                                    content.appendChild(title);
+                                    
+                                    if (activeSession && activeSession.messages) {
+                                        activeSession.messages.forEach((msg, index) => {
+                                            const msgDiv = document.createElement('div');
+                                            msgDiv.style.cssText = 'margin-bottom:12px;padding:8px;border:1px solid #ccc;border-radius:4px;';
+                                            msgDiv.innerHTML = `
+                                                <strong>[${index}] ${msg.role}:</strong><br>
+                                                ${msg.content}<br>
+                                                <small>ID: ${msg.id}</small>
+                                            `;
+                                            content.appendChild(msgDiv);
+                                        });
+                                    } else {
+                                        const noMsg = document.createElement('p');
+                                        noMsg.textContent = 'セッションまたはメッセージが見つかりません';
+                                        content.appendChild(noMsg);
+                                    }
+                                    
+                                    const closeBtn = document.createElement('button');
+                                    closeBtn.textContent = '閉じる';
+                                    closeBtn.style.cssText = 'margin-top:16px;padding:8px 16px;background:#f44336;color:white;border:none;border-radius:4px;cursor:pointer;';
+                                    closeBtn.onclick = () => modal.remove();
+                                    content.appendChild(closeBtn);
+                                    
+                                    modal.appendChild(content);
+                                    document.body.appendChild(modal);
+                                }
+                            }}
+                            style={{ background: '#22c55e', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                        >
+                            履歴表示
+                        </button>
                     </div>
 
                     {/* メッセージ入力欄 */}
@@ -694,7 +769,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, true); // グループモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -711,7 +786,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, 3, undefined, true, false); // ソロモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true, false); // ソロモード再生成
                             }
                         }}
                     />

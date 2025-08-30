@@ -102,18 +102,25 @@ export class InspirationService {
         };
   return this.tryGenerateWithRetry(prompt, inspirationApiConfig);
       });
-      const suggestions = this.parseSuggestions(responseContent, approaches);
+      console.log('🔍 [DEBUG] Raw AI response:', responseContent.substring(0, 500) + '...');
       
-      // アプローチが見つからない場合でも、レスポンスをそのまま提案として返す
+      const suggestions = this.parseSuggestions(responseContent, approaches);
+      console.log('🔍 [DEBUG] Parsed suggestions:', suggestions);
+      
+      // レスポンスが取得できていても提案が0の場合の改善された処理
       if (suggestions.length === 0 && responseContent) {
-        return responseContent.split('\n').filter(s => s.trim()).map((s, i) => ({
-          id: `suggestion_${Date.now()}_${i}`,
-          type: 'continuation',
-          content: s,
-          context,
-          confidence: 0.7,
-          source: 'pattern' as const
-        }));
+        console.log('🔄 Using improved content extraction from raw response');
+        const extractedSuggestions = this.extractSuggestionsFromRawContent(responseContent, 3);
+        if (extractedSuggestions.length > 0) {
+          return extractedSuggestions.map((content, i) => ({
+            id: `extracted_${Date.now()}_${i}`,
+            type: 'continuation',
+            content,
+            context,
+            confidence: 0.7,
+            source: 'pattern' as const
+          }));
+        }
       }
 
       const result = suggestions.map((content, index) => ({
@@ -133,7 +140,41 @@ export class InspirationService {
       
       return result;
     } catch (error) {
-      console.error('Failed to generate suggestions:', error);
+      console.error('🚨 [InspirationService] Failed to generate suggestions:', error);
+      
+      // 開発環境ではエラー詳細をUI表示用に出力
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      if (isDevelopment) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('🔍 [DEBUG] Error details:', {
+          errorType: error?.constructor?.name,
+          errorMessage,
+          stack: error instanceof Error ? error.stack : 'No stack available',
+          recentMessagesCount: recentMessages.length,
+          character: character.name,
+          user: user.name
+        });
+        
+        // デバッグモードではエラーを含む提案を返す
+        return [{
+          id: `error_debug_${Date.now()}`,
+          type: 'continuation',
+          content: `🚨 DEBUG: API Error - ${errorMessage}`,
+          context: this.buildConversationContext(recentMessages),
+          confidence: 0.0,
+          source: 'error' as const
+        }, {
+          id: `error_info_${Date.now()}`,
+          type: 'continuation', 
+          content: `🔧 Check console for full error details`,
+          context: this.buildConversationContext(recentMessages),
+          confidence: 0.0,
+          source: 'error' as const
+        }];
+      }
+      
+      // 本番環境のみフォールバック使用
+      console.log('🚨 [DEBUG] Error in suggestion generation:', error);
       return this.generateFallbackSuggestions(recentMessages);
     }
   }
@@ -222,10 +263,27 @@ export class InspirationService {
       
       return result;
     } catch (error) {
-      console.error('Failed to enhance text:', error);
-      // エラーメッセージをより具体的に
+      console.error('🚨 [InspirationService] Failed to enhance text:', error);
+      
+      // 開発環境では詳細なエラー情報を出力
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      if (isDevelopment) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('🔍 [DEBUG] Text enhancement error details:', {
+          errorType: error?.constructor?.name,
+          errorMessage,
+          stack: error instanceof Error ? error.stack : 'No stack available',
+          inputText: inputText.substring(0, 100) + '...',
+          inputLength: inputText.length,
+          user: user.name
+        });
+      }
+      
+      // エラーメッセージをより具体的に（開発モードでは詳細含む）
       if (error instanceof Error) {
-        throw new Error(`文章強化に失敗しました: ${error.message}`);
+        const baseMessage = `文章強化に失敗しました: ${error.message}`;
+        const debugInfo = isDevelopment ? `\n🔍 DEBUG: Check console for full error details` : '';
+        throw new Error(baseMessage + debugInfo);
       }
       throw new Error('文章強化中に予期しないエラーが発生しました。しばらく時間をおいて再試行してください。');
     }
@@ -244,7 +302,7 @@ export class InspirationService {
     while (attempt < 3) {
       try {
         attempt++;
-        const resp = await apiManager.generateMessage(currentPrompt, '', [], { ...apiConfig, max_tokens: currentMax });
+        const resp = await apiManager.generateMessage(currentPrompt, 'Generate reply suggestions based on the conversation.', [], { ...apiConfig, max_tokens: currentMax });
         return resp;
       } catch (err: unknown) {
         const isErrorLike = (v: unknown): v is { message?: unknown } => typeof v === 'object' && v !== null && 'message' in v;
@@ -272,7 +330,7 @@ export class InspirationService {
     // last resort: try minimal prompt
     try {
       console.warn('🆘 Final attempt with minimal prompt and 64 tokens');
-      return await apiManager.generateMessage(currentPrompt.slice(0, 200), '', [], { ...apiConfig, max_tokens: 64 });
+      return await apiManager.generateMessage(currentPrompt.slice(0, 200), 'Generate a brief fallback response.', [], { ...apiConfig, max_tokens: 64 });
     } catch (finalErr) {
       const isErrorLike = (v: unknown): v is { message?: unknown } => typeof v === 'object' && v !== null && 'message' in v;
       const finalMsg = isErrorLike(finalErr) && typeof finalErr.message === 'string' ? finalErr.message : String(finalErr);
@@ -370,64 +428,32 @@ export class InspirationService {
   ): string {
     
     if (isGroupMode) {
-      // グループモード用プロンプト
-      return `グループチャット参加者「${user.name}」として、以下の会話に返事してください。
+      // グループモード用プロンプト（シンプル版）
+      return `グループチャットの参加者「${user.name}」として、${suggestionCount}つの異なる返事を生成してください。
 
-会話履歴:
+会話:
 ${context}
 
-重要：${suggestionCount}つの全く異なるアプローチで返事を生成してください。各返事は完全に独立した内容で、約120-150文字でまとめてください。
+条件:
+- 各返事は独立した内容（120-150文字）
+- 番号や見出しは不要
+- 改行で区切る
 
-アプローチの例（必ずこの多様性を実現）:
-- 共感・理解を示すアプローチ
-- 積極的・行動的なアプローチ  
-- 質問・興味を示すアプローチ
-- ユーモア・軽快なアプローチ
-- 深く考察するアプローチ
-
-出力形式：番号や見出しは一切不要。各返事を改行で区切るだけ。
-
-例：
-そうなんですね。私も同じような経験があって、とても共感します。お疲れ様でした。
-それは面白そうですね！私もぜひ参加してみたいです。何か手伝えることがあれば声をかけてください。
-詳しく教えてもらえますか？どんな感じだったのか、もう少し聞きたいです。
-
-あなたの${suggestionCount}通りの返事:`;
+${suggestionCount}つの返事:`;
     } else {
-      // ソロモード用プロンプト
-      return `**超重要**: 3つの全く別の人格として返答してください。**続き話ではありません**。
+      // ソロモード用プロンプト（シンプル版）
+      return `あなたは${user.name}です。以下の会話に対して、3つの異なる返事を生成してください。
 
-会話状況:
+会話:
 ${context}
 
-あなた（${user.name}）として、3つの**完全に異なる人格・感情**で返事をしてください。
+条件:
+- 各返事は完全に独立した内容
+- 120-150文字程度
+- 番号や見出しは不要
+- 改行で区切る
 
-**絶対に守る条件**:
-1. 各返事は**独立した完結文章**（120-150文字）
-2. **つながりのない別々の反応**
-3. **番号・説明・見出し一切禁止**
-4. **改行で分けるだけ**
-
-**3つの人格設定**:
-・優しく理解のある反応
-・元気で積極的な反応  
-・好奇心旺盛な質問系反応
-
-**禁止例**（ストーリー続き）:
-ひまり、起きてるんだろ？俺も気づいてたよ。
-でも別に怒ってないから安心してくれ。
-寒かったんだろ？毛布貸してやるよ。
-
-**正解例**（独立した反応）:
-大丈夫ですよ、お疲れさまでした。気にしないでくださいね。今度は毛布を2つ用意しておきましょうか。私も気をつけるので、お互い快適に過ごせるようにしたいと思います。
-
-わあ、寒い思いをさせてしまってごめんなさい！今度からは遠慮なく起こしてくださいね。私も毛布をしっかり確保しておきます。一緒に温かく過ごしましょう！
-
-起きてたんですか？どのくらい前から気づいてたんでしょう？寝顔を見られてたのはちょっと恥ずかしいですが...今度はどうしたらいいでしょうか？
-
-3つの異なる反応:
-
-**最終確認**: 各行が独立した完全な文章になっていることを確認してから出力してください。続き話や関連する内容は絶対に避けてください。`;
+3つの返事:`;
     }
   }
 
@@ -445,63 +471,58 @@ ${context}
   }
 
   /**
-   * 生成された提案のパース（改良版）
+   * 生成された提案のパース（簡潔版）
    */
   private parseSuggestions(content: string, approaches: string[]): string[] {
     const expectedCount = approaches.length > 0 ? approaches.length : 3;
     
-    // 改行で分割し、不要な行を除外
+    // 1. まず基本的な行分割とクリーンアップ
     const allLines = content.split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0);
     
-    const validLines = [];
-    let skipNext = false;
+    // 2. ストーリー継続か独立提案かを判定
+    const isNarrativeContinuation = this.detectNarrativeContinuation(allLines);
     
-    for (let i = 0; i < allLines.length; i++) {
-      const line = allLines[i];
+    if (isNarrativeContinuation) {
+      // ストーリー継続の場合: 全体を一つの提案として扱う
+      console.log('📖 Detected narrative continuation, treating as single suggestion');
+      const fullStory = allLines
+        .filter(line => !line.match(/^(提案|返信|候補|\d+[\.\)]|例|アプローチ|条件)/i))
+        .join(' ')
+        .replace(/^[「『"'-]+|[」』"'-]+$/g, '')
+        .trim();
       
-      if (skipNext) {
-        skipNext = false;
-        continue;
+      if (fullStory.length > 20) {
+        return [fullStory];
       }
+    }
+    
+    // 3. 通常の独立提案処理
+    const validLines = [];
+    
+    for (const line of allLines) {
+      // 最小限の除外パターンのみ適用
+      if (line.match(/^提案\s*\d+|^返信[①②③④⑤]|^候補\s*\d+|^\d+[\.\)]/i)) continue;
+      if (line.match(/^[-•·]\s|例:|アプローチ:|出力形式:|通りの返事|書いてください/i)) continue;
+      if (line.length < 5 || line.length > 300) continue; // 長さ制限を緩和
       
-      // 除外パターン（強化版）
-      if (line.match(/^提案\s*\d+/i)) continue;
-      if (line.match(/^返信[①②③④⑤]/i)) continue;
-      if (line.match(/^候補\s*\d+/i)) continue;
-      if (line.match(/^\d+[\.\)]/)) continue;
-      if (line.match(/^[-•·]\s/)) continue;
-      if (line.includes('通りの返事') || line.includes('書いてください')) continue;
-      if (line.includes('例:') || line.includes('良い例') || line.includes('悪い例')) {
-        // 例の説明行をスキップし、次の数行も除外
-        skipNext = true;
-        continue;
-      }
-      if (line.includes('アプローチ') || line.includes('多様性') || line.includes('重要')) continue;
-      if (line.includes('出力形式') || line.includes('番号') || line.includes('見出し')) continue;
-      if (line.length < 10) continue; // 最低文字数を10文字に引き上げ
-      if (line.length > 200) continue; // 長すぎる行を除外
+      // 引用符のクリーンアップ
+      const cleaned = line
+        .replace(/^[「『"']/g, '').replace(/[」』"']$/g, '')
+        .replace(/^[\-\.\s]+/g, '')
+        .trim();
       
-      // 重複チェック - 似たような文章を排除
+      if (cleaned.length < 5) continue;
+      
+      // 基本的な重複チェックのみ（より緩い条件）
       const isDuplicate = validLines.some(existing => {
-        const similarity = this.calculateSimilarity(line, existing);
-        return similarity > 0.7; // 70%以上似ている場合は重複とみなす
+        return existing === cleaned || this.calculateSimilarity(cleaned, existing) > 0.85;
       });
       
-      if (isDuplicate) continue;
-      
-      // 連続性チェック - つながった文章を検出して除外
-      if (validLines.length > 0) {
-        const lastLine = validLines[validLines.length - 1];
-        if (this.isSequentialText(lastLine, line)) {
-          console.log('🚫 Sequential text detected, skipping:', line);
-          continue;
-        }
+      if (!isDuplicate) {
+        validLines.push(cleaned);
       }
-      
-      // 有効な行として追加
-      validLines.push(line);
       
       // 必要な数が揃ったら停止
       if (validLines.length >= expectedCount) {
@@ -509,49 +530,32 @@ ${context}
       }
     }
     
-    // 最終クリーンアップ
-    const result = validLines.map(line => {
-      return line
-        .replace(/^「/, '').replace(/」$/, '')
-        .replace(/^『/, '').replace(/』$/, '')
-        .replace(/^"/, '').replace(/"$/, '')
-        .replace(/^\./, '').replace(/^\-/, '')
-        .trim();
-    });
-    
-    // フォールバック - より多様性のある提案
-    if (result.length === 0) {
-      return [
-        'そうですね、とても興味深いお話だと思います。',
-        'それは素晴らしいアイデアですね！ぜひ詳しく教えてください。',
-        '同じような経験があります。一緒に考えてみませんか？'
-      ];
+    // 結果が不足している場合のみフォールバック
+    if (validLines.length === 0) {
+      console.log('🔄 No valid suggestions parsed, using contextual fallback');
+      return this.generateContextualFallback(content, expectedCount);
     }
     
-    // 結果が少ない場合の補完
-    if (result.length < expectedCount) {
-      const fallbackSuggestions = [
-        'その通りだと思います。とても共感できます。',
-        '面白い視点ですね。もう少し詳しく聞かせてください。',
-        'なるほど、そういう考え方もありますね。参考になります。',
-        'それは良いアイデアですね。実現できそうでしょうか？',
-        '同感です。私も同じようなことを考えていました。'
+    // 不足分を補完（必要な場合のみ）
+    while (validLines.length < expectedCount) {
+      const fallbacks = [
+        'その通りだと思います。',
+        '面白い視点ですね。',
+        'もう少し詳しく教えてください。'
       ];
       
-      for (const fallback of fallbackSuggestions) {
-        if (result.length >= expectedCount) break;
-        
-        const isDuplicate = result.some(existing => {
-          return this.calculateSimilarity(fallback, existing) > 0.6;
-        });
-        
-        if (!isDuplicate) {
-          result.push(fallback);
-        }
+      const availableFallback = fallbacks.find(fb => 
+        !validLines.some(existing => this.calculateSimilarity(fb, existing) > 0.6)
+      );
+      
+      if (availableFallback) {
+        validLines.push(availableFallback);
+      } else {
+        break; // これ以上追加できない
       }
     }
     
-    return result.slice(0, expectedCount);
+    return validLines.slice(0, expectedCount);
   }
 
   /**
@@ -599,44 +603,132 @@ ${context}
   }
 
   /**
-   * 2つの文章が連続的（つながっている）かどうかを判定
+   * ストーリー継続と独立提案を区別する検出ロジック
    */
-  private isSequentialText(prevText: string, currentText: string): boolean {
-    // 明らかな連続パターンを検出
-    const sequentialPatterns = [
-      // 代名詞での継続
-      /^(でも|だから|それで|そして|また|さらに)/,
-      // 接続詞での継続
-      /^(しかし|だけど|けれど|なので|そのため)/,
-      // 話の流れの継続
-      /^(俺も|私も|君も|あなたも)/,
-      // 時間的継続
-      /^(その後|それから|次に|今度は)/
-    ];
+  private detectNarrativeContinuation(lines: string[]): boolean {
+    if (lines.length < 2) return false;
     
-    // 現在のテキストが連続パターンで始まっている場合
-    const startsWithSequential = sequentialPatterns.some(pattern => 
-      pattern.test(currentText.trim())
-    );
+    // ストーリー継続の特徴を検出
+    let narrativeScore = 0;
+    const joinedText = lines.join(' ');
     
-    if (startsWithSequential) {
-      return true;
+    // グローバル指標: 全体的な連続性
+    // 1. 同一人称の一貫使用
+    const firstPersonCount = (joinedText.match(/(俺|私|僕|オレ)/g) || []).length;
+    if (firstPersonCount >= 2) {
+      narrativeScore += 2;
+      console.log('📖 Consistent first person usage +2');
     }
     
-    // 前のテキストの終わりと現在のテキストの始まりの文脈的関連性をチェック
-    const prevWords = prevText.replace(/[。、！？]/g, '').split('').slice(-10);
-    const currentWords = currentText.replace(/[。、！？]/g, '').split('').slice(0, 10);
+    // 2. 時系列的な行動シーケンス
+    const actionSequence = joinedText.match(/(起きろ|起き|作る|寝て|寝る|眠)/g);
+    if (actionSequence && actionSequence.length >= 2) {
+      narrativeScore += 2;
+      console.log('📖 Action sequence detected +2');
+    }
     
-    // 共通する文字が多すぎる場合（同じ話題の継続）
-    let commonCount = 0;
-    for (const word of currentWords) {
-      if (prevWords.includes(word)) {
-        commonCount++;
+    // 行間の関係性チェック
+    for (let i = 1; i < lines.length; i++) {
+      const current = lines[i].trim();
+      const previous = lines[i-1].trim();
+      
+      // 3. 接続詞での継続
+      if (current.match(/^(でも|だから|それで|そして|また|さらに|しかし|だけど|けれど|なので|そのため)/)) {
+        narrativeScore += 1;
+      }
+      
+      // 4. 時間的継続
+      if (current.match(/^(その後|それから|次に|今度は)/)) {
+        narrativeScore += 1;
+      }
+      
+      // 5. 状況の継続（場所・時間・人物の一貫性）
+      if (previous.includes('寝') && current.includes('眠')) {
+        narrativeScore += 1;
+      }
+      
+      // 6. 直接的な人物言及の継続
+      if (previous.includes('ひまり') && current.match(/(マジで|ま、)/)) {
+        narrativeScore += 1;
       }
     }
     
-    // 50%以上共通している場合は連続性があると判定
-    return commonCount / Math.min(prevWords.length, currentWords.length) > 0.5;
+    // より低い閾値でストーリー継続と判定（柔軟性向上）
+    const isNarrative = narrativeScore >= 1;
+    console.log(`📖 Narrative detection: score=${narrativeScore}, isNarrative=${isNarrative}`);
+    
+    return isNarrative;
+  }
+  
+  /**
+   * コンテキストベースのフォールバック生成
+   */
+  private generateContextualFallback(content: string, expectedCount: number): string[] {
+    // AIの生成内容から意味のある部分を抽出
+    const sentences = content.split(/[。！？\n]/).filter(s => s.trim().length > 10);
+    
+    const contextualSuggestions = [];
+    
+    // 生成された内容から文脈に合った提案を作成
+    for (const sentence of sentences.slice(0, expectedCount)) {
+      const trimmed = sentence.trim();
+      if (trimmed.length > 5 && trimmed.length < 200) {
+        contextualSuggestions.push(trimmed);
+      }
+    }
+    
+    // まだ不足している場合の汎用フォールバック
+    const genericFallbacks = [
+      'そうですね、よくわかります。',
+      'とても興味深いお話ですね。',
+      'もう少し詳しく聞かせてください。'
+    ];
+    
+    while (contextualSuggestions.length < expectedCount && genericFallbacks.length > 0) {
+      const fallback = genericFallbacks.shift()!;
+      if (!contextualSuggestions.includes(fallback)) {
+        contextualSuggestions.push(fallback);
+      }
+    }
+    
+    return contextualSuggestions;
+  }
+
+  /**
+   * 生のコンテンツから提案を抽出する改善されたメソッド
+   */
+  private extractSuggestionsFromRawContent(content: string, expectedCount: number): string[] {
+    console.log('📝 Extracting suggestions from raw content:', content.substring(0, 200) + '...');
+    
+    // より柔軟な抽出ロジック
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const extracted = [];
+    
+    for (const line of lines) {
+      // 非常に基本的なフィルタリングのみ
+      if (
+        !line.match(/^(提案|返信|候補|\d+[.\)]|出力|例|アプローチ|条件|重要|生成|以下|上記)/i) &&
+        line.length >= 10 && 
+        line.length <= 250 &&
+        !line.includes('番号') &&
+        !line.includes('見出し')
+      ) {
+        // 簡単なクリーンアップ
+        const cleaned = line
+          .replace(/^[「『"'-]+|[」』"'-]+$/g, '')
+          .replace(/^\s*[-•·]\s*/, '')
+          .trim();
+        
+        if (cleaned.length >= 10) {
+          extracted.push(cleaned);
+        }
+      }
+      
+      if (extracted.length >= expectedCount) break;
+    }
+    
+    console.log('🎯 Extracted suggestions:', extracted);
+    return extracted;
   }
 
   /**
@@ -708,7 +800,7 @@ ${context}
   }
 
   /**
-   * フォールバック用の提案生成
+   * 改善されたフォールバック提案生成
    */
   private generateFallbackSuggestions(messages: UnifiedMessage[]): InspirationSuggestion[] {
     const lastMessage = messages[messages.length - 1];
@@ -717,27 +809,38 @@ ${context}
       return this.generateGreetingSuggestions();
     }
 
-    const fallbackSuggestions = [
-      'なるほど、わかりました。',
-      'ありがとうございます。',
-      'そうですね。'
-    ];
-
-    // 簡単なパターンマッチング
-    if (lastMessage.content.includes('？') || lastMessage.content.includes('?')) {
-      fallbackSuggestions.unshift(
-        'はい、そうですね。',
-        'それについて詳しく説明します。',
-        'ご質問ありがとうございます。'
-      );
+    console.log('🔄 Generating contextual fallback for:', lastMessage.content.substring(0, 100));
+    
+    const suggestions = [];
+    const messageContent = lastMessage.content.toLowerCase();
+    
+    // 文脈ベースの動的提案生成
+    if (messageContent.includes('？') || messageContent.includes('?')) {
+      suggestions.push('その話題について、もっと詳しく教えていただけますか？');
+      suggestions.push('とても興味深いご質問ですね。私の考えも聞いていただけますか？');
+    } else if (messageContent.match(/楽しい|嬉しい|よかった|ありがとう/)) {
+      suggestions.push('こちらこそ、素晴らしい時間をありがとうございます！');
+      suggestions.push('一緒に楽しめて嬉しいです。またお話ししましょう。');
+    } else if (messageContent.match(/悲しい|つらい|大変|疑問/)) {
+      suggestions.push('お疲れ様でした。何かお手伝いできることはありますか？');
+      suggestions.push('そんなことがあったんですね。一人で抱え込まないでくださいね。');
+    } else {
+      // 一般的な内容への応答
+      suggestions.push('なるほど、そういう考え方もあるんですね。');
+      suggestions.push('それは面白い発想ですね。どんなきっかけでしたか？');
+    }
+    
+    // 三番目の提案（汎用）
+    if (suggestions.length < 3) {
+      suggestions.push('もっと詳しくお話してみませんか？お時間があるときにでも。');
     }
 
-    return fallbackSuggestions.slice(0, 3).map((content, index) => ({
+    return suggestions.slice(0, 3).map((content, index) => ({
       id: `fallback_${Date.now()}_${index}`,
-      type: 'continuation' as const,
+      type: index === 0 ? 'question' : index === 1 ? 'topic' : 'continuation' as const,
       content,
       context: this.buildConversationContext(messages),
-      confidence: 0.5,
+      confidence: 0.6,
       source: 'pattern' as const
     }));
   }
