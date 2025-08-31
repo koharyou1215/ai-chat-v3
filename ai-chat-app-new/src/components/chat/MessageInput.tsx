@@ -34,59 +34,30 @@ export const MessageInput: React.FC = React.memo(() => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // **ストアセレクター最適化: 複数購読を1つにまとめる**
-  const storeData = useAppStore((state) => ({
-    sendMessage: state.sendMessage,
-    is_generating: state.is_generating,
-    currentInputText: state.currentInputText,
-    setCurrentInputText: state.setCurrentInputText,
-    setShowCharacterGallery: state.setShowCharacterGallery,
-    setShowPersonaGallery: state.setShowPersonaGallery,
-    setShowHistoryModal: state.setShowHistoryModal,
-    setShowSettingsModal: state.setShowSettingsModal,
-    setShowVoiceSettingsModal: state.setShowVoiceSettingsModal,
-    setShowSuggestionModal: state.setShowSuggestionModal,
-    generateSuggestions: state.generateSuggestions,
-    enhanceText: state.enhanceText,
-    showEnhancementModal: state.showEnhancementModal,
-    setShowEnhancementModal: state.setShowEnhancementModal,
-    enhanceTextForModal: state.enhanceTextForModal,
-    isEnhancingText: state.isEnhancingText,
-    getActiveSession: state.getActiveSession,
-    systemPrompts: state.systemPrompts,
-    is_group_mode: state.is_group_mode,
-    active_group_session_id: state.active_group_session_id,
-    groupSessions: state.groupSessions,
-    isGeneratingSuggestions: state.isGeneratingSuggestions,
-    toggleGroupMemberModal: state.toggleGroupMemberModal
-  }));
-
-  // 分割代入で既存コードとの互換性を保持
-  const {
-    sendMessage,
-    is_generating,
-    currentInputText,
-    setCurrentInputText,
-    setShowCharacterGallery,
-    setShowPersonaGallery,
-    setShowHistoryModal,
-    setShowSettingsModal,
-    setShowVoiceSettingsModal,
-    setShowSuggestionModal,
-    generateSuggestions,
-    enhanceText,
-    showEnhancementModal,
-    setShowEnhancementModal,
-    enhanceTextForModal,
-    isEnhancingText,
-    getActiveSession,
-    systemPrompts,
-    is_group_mode,
-    active_group_session_id,
-    groupSessions,
-    isGeneratingSuggestions,
-    toggleGroupMemberModal
-  } = storeData;
+  // **安全な個別セレクター（無限ループ回避）**
+  const sendMessage = useAppStore(state => state.sendMessage);
+  const is_generating = useAppStore(state => state.is_generating);
+  const currentInputText = useAppStore(state => state.currentInputText);
+  const setCurrentInputText = useAppStore(state => state.setCurrentInputText);
+  const setShowCharacterGallery = useAppStore(state => state.setShowCharacterGallery);
+  const setShowPersonaGallery = useAppStore(state => state.setShowPersonaGallery);
+  const setShowHistoryModal = useAppStore(state => state.setShowHistoryModal);
+  const setShowSettingsModal = useAppStore(state => state.setShowSettingsModal);
+  const setShowVoiceSettingsModal = useAppStore(state => state.setShowVoiceSettingsModal);
+  const setShowSuggestionModal = useAppStore(state => state.setShowSuggestionModal);
+  const generateSuggestions = useAppStore(state => state.generateSuggestions);
+  const enhanceText = useAppStore(state => state.enhanceText);
+  const showEnhancementModal = useAppStore(state => state.showEnhancementModal);
+  const setShowEnhancementModal = useAppStore(state => state.setShowEnhancementModal);
+  const enhanceTextForModal = useAppStore(state => state.enhanceTextForModal);
+  const isEnhancingText = useAppStore(state => state.isEnhancingText);
+  const getActiveSession = useAppStore(state => state.getActiveSession);
+  const systemPrompts = useAppStore(state => state.systemPrompts);
+  const is_group_mode = useAppStore(state => state.is_group_mode);
+  const active_group_session_id = useAppStore(state => state.active_group_session_id);
+  const groupSessions = useAppStore(state => state.groupSessions);
+  const isGeneratingSuggestions = useAppStore(state => state.isGeneratingSuggestions);
+  const toggleGroupMemberModal = useAppStore(state => state.toggleGroupMemberModal);
   
   const hasMessage = currentInputText.trim().length > 0;
   const hasContent = hasMessage || selectedImage;

@@ -38,41 +38,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const [isContinuing, setIsContinuing] = useState(false);
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   
-  // **Zustandストア最適化: 複数購読を1つのセレクターにまとめる**
-  const storeData = useAppStore((state) => ({
-    characters: state.characters,
-    getSelectedPersona: state.getSelectedPersona,
-    deleteMessage: state.deleteMessage,
-    regenerateLastMessage: state.regenerateLastMessage,
-    is_generating: state.is_generating,
-    group_generating: state.group_generating,
-    trackerManagers: state.trackerManagers,
-    activeSessionId: state.active_session_id,
-    rollbackSession: state.rollbackSession,
-    rollbackGroupSession: state.rollbackGroupSession,
-    activeCharacterId: state.active_character_id,
-    clearActiveConversation: state.clearActiveConversation,
-    clearLayer: state.clearLayer,
-    addMessageToLayers: state.addMessageToLayers
-  }));
-
-  // 分割代入で既存コードとの互換性を保持
-  const {
-    characters,
-    getSelectedPersona,
-    deleteMessage: _deleteMessage,
-    regenerateLastMessage,
-    is_generating,
-    group_generating,
-    trackerManagers,
-    activeSessionId,
-    rollbackSession,
-    rollbackGroupSession,
-    activeCharacterId,
-    clearActiveConversation: _clearActiveConversation,
-    clearLayer: _clearLayer,
-    addMessageToLayers: _addMessageToLayers
-  } = storeData;
+  // **安全な個別セレクター（無限ループ回避）**
+  const characters = useAppStore(state => state.characters);
+  const getSelectedPersona = useAppStore(state => state.getSelectedPersona);
+  const _deleteMessage = useAppStore(state => state.deleteMessage);
+  const regenerateLastMessage = useAppStore(state => state.regenerateLastMessage);
+  const is_generating = useAppStore(state => state.is_generating);
+  const group_generating = useAppStore(state => state.group_generating);
+  const trackerManagers = useAppStore(state => state.trackerManagers);
+  const activeSessionId = useAppStore(state => state.active_session_id);
+  const rollbackSession = useAppStore(state => state.rollbackSession);
+  const rollbackGroupSession = useAppStore(state => state.rollbackGroupSession);
+  const activeCharacterId = useAppStore(state => state.active_character_id);
+  const _clearActiveConversation = useAppStore(state => state.clearActiveConversation);
+  const _clearLayer = useAppStore(state => state.clearLayer);
+  const _addMessageToLayers = useAppStore(state => state.addMessageToLayers);
 
   const isUser = message.role === 'user';
   const persona = getSelectedPersona();
