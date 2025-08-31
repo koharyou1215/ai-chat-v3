@@ -72,6 +72,14 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**修正済み問題 (2025年8月31日):**
+- ❌ **旧:** 白い画面・全機能停止 → Zustand無限ループエラー
+- ✅ **新:** MessageInput.tsx・ChatSidebar.tsxでuseCallback selectors削除、直接destructuring採用
+- ❌ **旧:** OpenRouter API 401エラー → 認証失敗による機能不全
+- ✅ **新:** OPENROUTER_API_KEY環境変数追加、デプロイ時セキュリティロック対応
+- ❌ **旧:** テキスト選択メニュー無反応 → 強化・翻訳・説明機能未実装
+- ✅ **新:** 完全なAPIエンドポイント統合、関数名修正で機能復旧
+
 **修正済み問題 (2025年8月30日):**
 - ❌ **旧:** 空のuserMessage → テンプレート応答「はい、そうですね」
 - ✅ **新:** 適切なメッセージ内容 → 多様で創造的な提案生成
@@ -285,6 +293,10 @@ npm run dev
 
 | 症状 | 原因 | 解決方法 |
 |------|------|----------|
+| **白い画面・アプリ停止** | Zustand無限ループ | useCallback selectors削除、直接destructuring使用 (2025/8/31修正済み) |
+| **テキスト選択無反応** | API統合不完全・関数名不一致 | APIエンドポイント統合、continue/regenerate関数名修正 (2025/8/31修正済み) |
+| **OpenRouter認証失敗** | API key不足・デプロイロック | OPENROUTER_API_KEY環境変数追加、キー更新 (2025/8/31修正済み) |
+| **デプロイ失敗・依存関係** | tw-animate-css package未インストール | package.jsonに依存関係追加 (2025/8/31修正済み) |
 | **他キャラのセリフ混入** | 境界制御失敗 | システムプロンプト禁止指示強化 |
 | **レスポンス短すぎる** | トークン不足 | baseTokens計算・API設定確認 |
 | **シナリオ無視** | ロール統合失敗 | scenario.character_roles確認 |

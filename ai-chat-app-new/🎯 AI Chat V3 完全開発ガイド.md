@@ -89,7 +89,16 @@ import { apiManager } from '@/services/api-manager';              // Unified API
 import { useAppStore } from '@/store';                            // Zustand store
 ```
 
-**Recent CRITICAL Fixes (Aug 27, 2025)**
+**Recent CRITICAL Fixes (Aug 31, 2025)**
+- 🔧 **Zustand Infinite Loop Resolution**: Fixed critical infinite loops in MessageInput.tsx and ChatSidebar.tsx by replacing useCallback selectors with direct destructuring from useAppStore()
+- 🔧 **Text Selection System Implementation**: Complete text selection functionality with enhance/translate/explain/copy actions via API integration
+- 🔧 **OpenRouter API Authentication**: Added missing OPENROUTER_API_KEY to environment configuration
+- 🔧 **Function Name Corrections**: Fixed continueMessage → continueLastMessage and regenerateMessage → regenerateLastMessage in MessageBubble
+- 🔧 **TypeScript Property Alignment**: Fixed property names - emotionDisplay → realtimeEmotion, messageEffects → typewriterEffect, emotionReactions → autoReactions
+- 🔧 **UI Cleanup**: Removed debug history display button from ChatInterface.tsx for cleaner interface
+- 🔧 **Deployment Dependency**: Added missing tw-animate-css dependency for successful deployment
+
+**Previous Fixes (Aug 27, 2025)**
 - 🔧 **TypeScript Safety**: Added AppStore index signature `[key: string]: unknown`
 - 🔧 **PersonaSlice**: Fixed method naming `setActivePersonaId` → `activatePersona`
 - 🔧 **API Types**: Added explicit `string[]` type for VoiceVox troubleshooting array
@@ -1640,6 +1649,29 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 ---
 ## 🆕 Latest Updates
 
+### Critical Update: August 31, 2025
+
+#### 🎯 White Screen Issue Resolution and UI Functionality Restoration
+- **Zustand Infinite Loop Fix**: Resolved critical white screen issue caused by infinite loops in MessageInput.tsx and ChatSidebar.tsx
+  - **Problem**: `getSnapshot should be cached to avoid infinite loop` errors causing complete UI freeze
+  - **Solution**: Replaced useCallback selector patterns with direct destructuring from useAppStore()
+  - **Files**: `src/components/chat/MessageInput.tsx`, `src/components/chat/ChatSidebar.tsx`
+- **Text Selection System**: Implemented complete text selection functionality
+  - **Features**: Enhanced selection menu with enhance/translate/explain/copy actions
+  - **Integration**: Full API endpoint integration for text processing requests
+  - **Files**: `src/components/chat/MessageBubble.tsx`
+- **API Authentication Fix**: Resolved OpenRouter 401 errors
+  - **Issue**: Missing OPENROUTER_API_KEY causing authentication failures
+  - **Solution**: Added API key to .env.local (deployment requires key rotation due to security lock)
+- **Function Name Alignment**: Fixed method name mismatches in MessageBubble
+  - **Changes**: `continueMessage` → `continueLastMessage`, `regenerateMessage` → `regenerateLastMessage`
+  - **Result**: Continue and regenerate buttons now function correctly
+- **TypeScript Property Updates**: Fixed property name inconsistencies
+  - **Changes**: `emotionDisplay` → `realtimeEmotion`, `messageEffects` → `typewriterEffect`, `emotionReactions` → `autoReactions`
+  - **Result**: Effect settings now properly reflect in UI
+- **UI Cleanup**: Removed debug history display button for cleaner interface
+- **Deployment Fix**: Added missing tw-animate-css dependency for successful production builds
+
 ### Critical Update: August 30, 2025
 
 #### 🎯 Geminiフォールバック機能とグループチャット再生成の完全修正
@@ -2510,6 +2542,10 @@ npm run dev
 
 | 問題 | 症状 | 解決方法 |
 |------|------|----------|
+| **白い画面・無限ループ** | 画面真っ白、全機能停止、`getSnapshot infinite loop` エラー | MessageInput.tsx・ChatSidebar.tsxのuseCallback selectors削除、直接destructuringに変更 (2025/8/31修正) |
+| **OpenRouter API 401エラー** | `User not found.`エラー、API認証失敗 | .env.localにOPENROUTER_API_KEY追加、デプロイ時キーロック確認 (2025/8/31修正) |
+| **テキスト選択機能不動作** | 選択メニュー表示されるが、強化・翻訳・説明が無反応 | APIエンドポイント統合、continue/regenerate関数名修正 (2025/8/31修正) |
+| **デプロイ失敗・依存関係不足** | `Module not found: tw-animate-css` エラー | package.jsonにtw-animate-css依存関係追加 (2025/8/31修正) |
 | **なりすまし** | 他キャラのセリフが混入 | システムプロンプトの禁止指示強化 |
 | **短すぎるレスポンス** | <20文字の応答 | トークン配分確認・APIConfig調整 |
 | **シナリオ無視** | 設定された役割を無視 | scenario.character_roles統合確認 |
