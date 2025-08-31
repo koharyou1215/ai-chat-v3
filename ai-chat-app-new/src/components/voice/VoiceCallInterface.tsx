@@ -33,6 +33,7 @@ interface WebSocketMessage {
 
 interface VoiceCallInterfaceProps {
   characterId?: string;
+  _characterId?: string; // 既存プロパティとの互換性のため
   isActive?: boolean;
   onEnd?: () => void;
 }
@@ -116,7 +117,8 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData, isActive, 
 };
 
 export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
-  _characterId: characterId,
+  _characterId,
+  characterId = _characterId,
   isActive,
   onEnd
 }) => {
@@ -156,9 +158,9 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   const audioQueueRef = useRef<Blob[]>([]);
   const isPlayingRef = useRef(false);
   const callStartTimeRef = useRef<number>(0);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(0);
   const pingTimeRef = useRef<number>(0);
-  const visualizerUpdateRef = useRef<number>();
+  const visualizerUpdateRef = useRef<number>(0);
   
   // Store hooks
   const { active_session_id, sendMessage } = useAppStore();
@@ -245,7 +247,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
         setIsConnected(false);
         
         // Show user-friendly error message
-        setLastMessage('Connection failed - please check server status');
+        _setLastMessage('Connection failed - please check server status');
       };
 
       ws.onclose = (event) => {
@@ -266,9 +268,9 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
       setConnectionStatus('error');
-      setLastMessage('WebSocket creation failed - server unavailable');
+      _setLastMessage('WebSocket creation failed - server unavailable');
     }
-  }, [handleWebSocketMessage, isCallActive, playNextAudio, startCall]);
+  }, [isCallActive]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((message: VoiceCallMessage) => {
@@ -279,7 +281,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
       case 'pong':
         const latency = Date.now() - pingTimeRef.current;
-        _setStats(prev => ({ ...prev, latency }));
+        _setStats((prev: any) => ({ ...prev, latency }));
         break;
 
       case 'voice_activity':
@@ -306,7 +308,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             }
           };
           
-            sendMessage(userMessage as UnifiedMessage);
+            sendMessage(userMessage.content || '');
           }
         }
         break;
@@ -334,7 +336,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             }
           };
           
-            sendMessage(aiMessage as UnifiedMessage);
+            sendMessage(aiMessage.content || '');
           }
         }
         break;
@@ -342,20 +344,20 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       case 'error':
         if (isErrorMessage(message)) {
           console.error('Voice call error:', message.error);
-          setLastMessage(`Error: ${message.error}`);
+          _setLastMessage(`Error: ${message.error}`);
         }
         break;
 
       case 'stats':
         if (isStatsMessage(message)) {
-          setStats(prev => ({ ...prev, ...message.stats }));
+          _setStats((prev: any) => ({ ...prev, ...message.stats }));
         }
         break;
         
       case 'response':
         if (isResponseMessage(message)) {
           console.log('🧪 Response received:', message.message);
-          setLastMessage(`Response: ${message.message}`);
+          _setLastMessage(`Response: ${message.message}`);
         }
         break;
     }
@@ -398,7 +400,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     } catch (error) {
       console.error('Audio playback error:', error);
       // Don't retry immediately on NotAllowedError
-      if (error.name !== 'NotAllowedError') {
+      if ((error as any).name !== 'NotAllowedError') {
         playNextAudio();
       } else {
         console.log('🔊 Audio blocked by browser - user interaction required');
@@ -485,7 +487,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       console.error('Failed to start call:', error);
       alert('マイクへのアクセスが必要です。ブラウザの設定を確認してください。');
     }
-  }, [isMuted, isConnected, updateAudioVisualizer]);
+  }, [isMuted, isConnected]);
 
   // End voice call
   const endCall = useCallback(() => {
@@ -557,8 +559,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     setIsCallActive(false);
     setCallDuration(0);
     setVoiceActivityStatus('idle');
-    setTranscription('');
-    setLastMessage('');
+    _setTranscription('');
+    _setLastMessage('');
     setAudioVisualizerData(new Uint8Array(32));
     
     // 9. 親コンポーネントに通知

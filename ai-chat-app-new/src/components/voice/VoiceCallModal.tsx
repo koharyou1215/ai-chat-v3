@@ -165,7 +165,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const callStartTimeRef = useRef<number>(0);
-  const visualizerUpdateRef = useRef<number>();
+  const visualizerUpdateRef = useRef<number>(0);
 
   // Store hooks
   const { active_session_id, sendMessage } = useAppStore();
@@ -234,7 +234,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         break;
 
       case 'voice_activity':
-        setVoiceActivityStatus(message.status);
+        setVoiceActivityStatus(message.status || 'idle');
         break;
 
       case 'transcription':

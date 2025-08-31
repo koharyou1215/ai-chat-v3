@@ -44,7 +44,7 @@ export const StorageMonitor: React.FC = () => {
     items.sort((a, b) => b.sizeMB - a.sizeMB);
     
     // ai-chat-v3-storageの詳細
-    let details = null;
+    let details: any = null;
     try {
       const mainStorage = localStorage.getItem('ai-chat-v3-storage');
       if (mainStorage) {
@@ -62,12 +62,12 @@ export const StorageMonitor: React.FC = () => {
             if (data.state.sessions._type === 'map' && data.state.sessions.value) {
               details.sessions = data.state.sessions.value.length;
               data.state.sessions.value.forEach(([, session]: [any, any]) => {
-                details.messages += session.messages?.length || 0;
+                details!.messages += session.messages?.length || 0;
               });
             } else if (typeof data.state.sessions === 'object') {
               details.sessions = Object.keys(data.state.sessions).length;
               Object.values(data.state.sessions).forEach((session: any) => {
-                details.messages += session.messages?.length || 0;
+                details!.messages += session.messages?.length || 0;
               });
             }
           }

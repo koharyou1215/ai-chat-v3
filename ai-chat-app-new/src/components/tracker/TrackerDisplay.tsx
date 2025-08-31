@@ -59,7 +59,7 @@ const categoryGradients = {
 export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, character_id }) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['relationship', 'status']));
   const [trackerChanges, setTrackerChanges] = useState<Map<string, TrackerChangeIndicator>>(new Map());
-  const prevTrackersRef = useRef<Map<string, string | number | boolean>>();
+  const prevTrackersRef = useRef<Map<string, string | number | boolean>>(new Map());
 
   // Get tracker data from store with initialization check
   const trackerManager = useAppStore(state => state.trackerManagers.get(session_id));
