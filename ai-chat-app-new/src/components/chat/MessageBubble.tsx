@@ -39,7 +39,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   
   // **Zustandストア最適化: 複数購読を1つのセレクターにまとめる**
-  const storeData = useAppStore(useCallback((state) => ({
+  const storeData = useAppStore((state) => ({
     characters: state.characters,
     getSelectedPersona: state.getSelectedPersona,
     deleteMessage: state.deleteMessage,
@@ -54,7 +54,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     clearActiveConversation: state.clearActiveConversation,
     clearLayer: state.clearLayer,
     addMessageToLayers: state.addMessageToLayers
-  }), []));
+  }));
 
   // 分割代入で既存コードとの互換性を保持
   const {

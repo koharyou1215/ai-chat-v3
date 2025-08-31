@@ -35,7 +35,7 @@ export const MessageInput: React.FC = React.memo(() => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // **ストアセレクター最適化: 複数購読を1つにまとめる**
-  const storeData = useAppStore(useCallback((state) => ({
+  const storeData = useAppStore((state) => ({
     sendMessage: state.sendMessage,
     is_generating: state.is_generating,
     currentInputText: state.currentInputText,
@@ -59,7 +59,7 @@ export const MessageInput: React.FC = React.memo(() => {
     groupSessions: state.groupSessions,
     isGeneratingSuggestions: state.isGeneratingSuggestions,
     toggleGroupMemberModal: state.toggleGroupMemberModal
-  }), []));
+  }));
 
   // 分割代入で既存コードとの互換性を保持
   const {
