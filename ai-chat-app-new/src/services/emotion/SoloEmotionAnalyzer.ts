@@ -21,6 +21,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   private userEmotionalProfile: Map<string, UserEmotionalPattern> = new Map();
   private characterRelationships: Map<UUID, RelationshipProfile> = new Map();
   private emotionalMemories: Map<string, EmotionalMemory[]> = new Map();
+  private memoryOptimizationInterval: NodeJS.Timeout | null = null;
 
   constructor(qualitySettings?: AnalysisQualitySettings) {
     super(qualitySettings);
@@ -204,10 +205,25 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   private initializeSoloFeatures(): void {
     console.log('🧠👤 Solo Emotion Analyzer initialized on top of BaseEmotionAnalyzer');
     
-    // 定期的なメモリ最適化
-    setInterval(() => {
+    // 定期的なメモリ最適化（メモリリークを防ぐためタイマーIDを保存）
+    this.memoryOptimizationInterval = setInterval(() => {
       this.optimizeSoloMemory();
     }, 300000); // 5分間隔
+  }
+
+  /**
+   * アナライザーの停止とクリーンアップ
+   */
+  public dispose(): void {
+    if (this.memoryOptimizationInterval) {
+      clearInterval(this.memoryOptimizationInterval);
+      this.memoryOptimizationInterval = null;
+    }
+    
+    // 基底クラスのクリーンアップも実行
+    super.dispose && super.dispose();
+    
+    console.log('🧠👤 Solo Emotion Analyzer disposed');
   }
 
   private createNewRelationship(characterId: UUID, userId: string): RelationshipProfile {

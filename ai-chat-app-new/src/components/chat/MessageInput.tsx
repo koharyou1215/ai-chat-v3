@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import NextImage from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -26,7 +26,7 @@ import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
-export const MessageInput: React.FC = () => {
+export const MessageInput: React.FC = React.memo(() => {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -34,8 +34,36 @@ export const MessageInput: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { 
-    sendMessage, 
+  // **ストアセレクター最適化: 複数購読を1つにまとめる**
+  const storeData = useAppStore(useCallback((state) => ({
+    sendMessage: state.sendMessage,
+    is_generating: state.is_generating,
+    currentInputText: state.currentInputText,
+    setCurrentInputText: state.setCurrentInputText,
+    setShowCharacterGallery: state.setShowCharacterGallery,
+    setShowPersonaGallery: state.setShowPersonaGallery,
+    setShowHistoryModal: state.setShowHistoryModal,
+    setShowSettingsModal: state.setShowSettingsModal,
+    setShowVoiceSettingsModal: state.setShowVoiceSettingsModal,
+    setShowSuggestionModal: state.setShowSuggestionModal,
+    generateSuggestions: state.generateSuggestions,
+    enhanceText: state.enhanceText,
+    showEnhancementModal: state.showEnhancementModal,
+    setShowEnhancementModal: state.setShowEnhancementModal,
+    enhanceTextForModal: state.enhanceTextForModal,
+    isEnhancingText: state.isEnhancingText,
+    getActiveSession: state.getActiveSession,
+    systemPrompts: state.systemPrompts,
+    is_group_mode: state.is_group_mode,
+    active_group_session_id: state.active_group_session_id,
+    groupSessions: state.groupSessions,
+    isGeneratingSuggestions: state.isGeneratingSuggestions,
+    toggleGroupMemberModal: state.toggleGroupMemberModal
+  }), []));
+
+  // 分割代入で既存コードとの互換性を保持
+  const {
+    sendMessage,
     is_generating,
     currentInputText,
     setCurrentInputText,
@@ -47,20 +75,18 @@ export const MessageInput: React.FC = () => {
     setShowSuggestionModal,
     generateSuggestions,
     enhanceText,
-    // Text enhancement modal states
     showEnhancementModal,
     setShowEnhancementModal,
     enhanceTextForModal,
     isEnhancingText,
     getActiveSession,
     systemPrompts,
-    // グループチャット関連
     is_group_mode,
     active_group_session_id,
     groupSessions,
     isGeneratingSuggestions,
-    toggleGroupMemberModal, // 追加
-  } = useAppStore();
+    toggleGroupMemberModal
+  } = storeData;
   
   const hasMessage = currentInputText.trim().length > 0;
   const hasContent = hasMessage || selectedImage;
@@ -402,7 +428,9 @@ export const MessageInput: React.FC = () => {
       </div>
     </div>
   );
-};
+});
+
+MessageInput.displayName = 'MessageInput';
 
 const ActionMenu = ({ 
   onClose,

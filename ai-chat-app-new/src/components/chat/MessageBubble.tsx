@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 // シンプルなスピナー
 const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
@@ -38,22 +38,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const [isContinuing, setIsContinuing] = useState(false);
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   
-  // **Zustandストアからの取得を最適化**
-  const characters = useAppStore(state => state.characters);
-  const getSelectedPersona = useAppStore(state => state.getSelectedPersona);
-  const _deleteMessage = useAppStore(state => state.deleteMessage);
-  const regenerateLastMessage = useAppStore(state => state.regenerateLastMessage);
-  const is_generating = useAppStore(state => state.is_generating); // ソロチャット生成状態
-  const group_generating = useAppStore(state => state.group_generating); // グループチャット生成状態
-  // Lazy imports handled within functions where they're needed
-  const trackerManagers = useAppStore(state => state.trackerManagers);
-  const activeSessionId = useAppStore(state => state.active_session_id);
-  const rollbackSession = useAppStore(state => state.rollbackSession); // 新しいアクションを取得
-  const rollbackGroupSession = useAppStore(state => state.rollbackGroupSession); // グループ用アクションを取得
-  const activeCharacterId = useAppStore(state => state.active_character_id);
-  const _clearActiveConversation = useAppStore(state => state.clearActiveConversation);
-  const _clearLayer = useAppStore(state => state.clearLayer);
-  const _addMessageToLayers = useAppStore(state => state.addMessageToLayers);
+  // **Zustandストア最適化: 複数購読を1つのセレクターにまとめる**
+  const storeData = useAppStore(useCallback((state) => ({
+    characters: state.characters,
+    getSelectedPersona: state.getSelectedPersona,
+    deleteMessage: state.deleteMessage,
+    regenerateLastMessage: state.regenerateLastMessage,
+    is_generating: state.is_generating,
+    group_generating: state.group_generating,
+    trackerManagers: state.trackerManagers,
+    activeSessionId: state.active_session_id,
+    rollbackSession: state.rollbackSession,
+    rollbackGroupSession: state.rollbackGroupSession,
+    activeCharacterId: state.active_character_id,
+    clearActiveConversation: state.clearActiveConversation,
+    clearLayer: state.clearLayer,
+    addMessageToLayers: state.addMessageToLayers
+  }), []));
+
+  // 分割代入で既存コードとの互換性を保持
+  const {
+    characters,
+    getSelectedPersona,
+    deleteMessage: _deleteMessage,
+    regenerateLastMessage,
+    is_generating,
+    group_generating,
+    trackerManagers,
+    activeSessionId,
+    rollbackSession,
+    rollbackGroupSession,
+    activeCharacterId,
+    clearActiveConversation: _clearActiveConversation,
+    clearLayer: _clearLayer,
+    addMessageToLayers: _addMessageToLayers
+  } = storeData;
 
   const isUser = message.role === 'user';
   const persona = getSelectedPersona();

@@ -14,7 +14,7 @@ interface RichMessageProps {
   typingSpeed?: number;
 }
 
-export const RichMessage: React.FC<RichMessageProps> = ({
+export const RichMessage: React.FC<RichMessageProps> = React.memo(({
   content,
   role,
   characterColor = '#8b5cf6',
@@ -259,14 +259,16 @@ export const RichMessage: React.FC<RichMessageProps> = ({
       </div>
     </div>
   );
-};
+});
+
+RichMessage.displayName = 'RichMessage';
 
 // スタイル付きテキストコンポーネント
 const StyledText: React.FC<{
   text: string;
   style: string;
   color: string;
-}> = ({ text, style }) => {
+}> = React.memo(({ text, style }) => {
   const getStyleClass = () => {
     switch (style) {
       case 'quote':
@@ -317,6 +319,8 @@ const StyledText: React.FC<{
   }
 
   return <span className={getStyleClass()}>{text}</span>;
-};
+});
+
+StyledText.displayName = 'StyledText';
 
 export default RichMessage;
