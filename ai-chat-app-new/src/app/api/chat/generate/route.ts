@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         console.log('[DEV]--- System Prompt ---');
         // システムプロンプト全体を表示（最初の部分）
         const lines = systemPrompt.split('\n');
-        lines.slice(0, 15).forEach(line => {
+        lines.slice(0, 15).forEach((line: string) => {
           console.log(line);
         });
         if (lines.length > 15) {
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
           console.log('\n[DEV]--- Character Information ---');
           const charInfo = charInfoMatch[1].trim();
           const charLines = charInfo.split('\n');
-          charLines.slice(0, 10).forEach(line => {
+          charLines.slice(0, 10).forEach((line: string) => {
             console.log(line);
           });
           if (charLines.length > 10) {
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
           console.log('\n[DEV]--- Tracker Information ---');
           const trackerInfo = trackerMatch[1].trim();
           const trackerLines = trackerInfo.split('\n');
-          trackerLines.slice(0, 20).forEach(line => {
+          trackerLines.slice(0, 20).forEach((line: string) => {
             console.log(line);
           });
           if (trackerLines.length > 20) {
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       // 会話履歴の詳細表示
       console.log(`\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`);
       if (conversationHistory && conversationHistory.length > 0) {
-        conversationHistory.slice(-3).forEach((msg, idx) => {
+        conversationHistory.slice(-3).forEach((msg: any, idx: number) => {
           const preview = msg.content.substring(0, 200);
           console.log(`${msg.role}: ${preview}${msg.content.length > 200 ? '...' : ''}`);
         });

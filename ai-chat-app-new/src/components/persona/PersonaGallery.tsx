@@ -44,12 +44,12 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
     data: personas,
     searchTerm,
     searchKeys: ['name', 'traits'],
-    sortOption: sortOption as string, // Cast to bypass strict type checking
+    sortOption: sortOption as any,
     sortKeys: {
       updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       created_at: (p: Persona) => p.created_at ? new Date(p.created_at).getTime() : 0,
       name: (p: Persona) => p.name || '',
-    }
+    } as any
   });
   
   const sortOptions: { value: SortOption; label: string }[] = [

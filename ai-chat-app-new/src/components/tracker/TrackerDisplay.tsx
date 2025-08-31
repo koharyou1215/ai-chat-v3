@@ -155,7 +155,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   const handleUpdateTracker = (trackerName: string, value: string | number | boolean) => {
     const latestTrackerManager = useAppStore.getState().trackerManagers.get(session_id);
     if (latestTrackerManager) {
-      latestTrackerManager.updateTracker(character_id, trackerName, value);
+      latestTrackerManager.updateTracker(character_id, trackerName, value as any);
       // Force a state update in Zustand to trigger re-render
       useAppStore.setState(state => ({
         trackerManagers: new Map(state.trackerManagers)
@@ -280,7 +280,7 @@ const TrackerItem: React.FC<{
   hasRecentChange?: boolean;
   changeIndicator?: TrackerChangeIndicator;
   previousValue?: string | number | boolean;
-}> = ({ tracker, onUpdate, hasRecentChange = false, _changeIndicator, previousValue }) => {
+}> = ({ tracker, onUpdate, hasRecentChange = false, previousValue }) => {
 
   const renderTracker = () => {
     // 新しいフォーマット（直接typeフィールド）と古いフォーマット（config.type）の両方をサポート
@@ -344,13 +344,13 @@ const NumericTracker: React.FC<{
   onUpdate: (name: string, value: string | number | boolean) => void;
   hasRecentChange?: boolean;
   previousValue?: string | number | boolean;
-}> = ({ tracker, onUpdate, hasRecentChange = false, _previousValue }) => {
+}> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
   const config = tracker.config as NumericTrackerConfig;
-  const initialValue = tracker.initial_value || config?.initial_value || 0;
+  const initialValue = (tracker as any).initial_value || config?.initial_value || 0;
   const value = typeof tracker.current_value === 'number' ? tracker.current_value : initialValue;
-  const minValue = tracker.min_value || config?.min_value || 0;
-  const maxValue = tracker.max_value || config?.max_value || 100;
+  const minValue = (tracker as any).min_value || config?.min_value || 0;
+  const maxValue = (tracker as any).max_value || config?.max_value || 100;
   const step = config?.step || 1;
   const unit = config?.unit || '';
   const displayType = config?.display_type || 'number';
@@ -463,8 +463,8 @@ const StateTracker: React.FC<{
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
   const config = tracker.config as StateTrackerConfig;
-  const possibleStates = tracker.possible_states || config?.possible_states || [];
-  const initialState = tracker.initial_state || config?.initial_state || possibleStates[0]?.id;
+  const possibleStates = (tracker as any).possible_states || config?.possible_states || [];
+  const initialState = (tracker as any).initial_state || config?.initial_state || possibleStates[0]?.id;
   const value = (tracker.current_value as string) || initialState;
   
   return (
@@ -539,7 +539,7 @@ const BooleanTracker: React.FC<{
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
   const config = tracker.config as BooleanTrackerConfig;
-  const initialBoolean = tracker.initial_boolean !== undefined ? tracker.initial_boolean : config?.initial_value || false;
+  const initialBoolean = (tracker as any).initial_boolean !== undefined ? (tracker as any).initial_boolean : config?.initial_value || false;
   const value = typeof tracker.current_value === 'boolean' ? tracker.current_value : initialBoolean;
   const trueLabel = config?.true_label || 'はい';
   const falseLabel = config?.false_label || 'いいえ';

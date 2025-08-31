@@ -73,7 +73,7 @@ async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
   
   // Retry logic for API stability
   const maxRetries = 3;
-  let lastError: Error;
+  let lastError: Error | undefined;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
-import { SystemPrompts } from '@/types/core/settings.types';
+import { SystemPrompts, APIConfig, APIProvider } from '@/types/core/settings.types';
 import { EffectSettings, AppearanceSettings } from '@/store/slices/settings.slice';
 import { StorageManager } from '@/utils/storage-cleanup';
 
@@ -607,7 +607,7 @@ const SettingItem: React.FC<{
 
 // AI設定パネル
 const AIPanel: React.FC<{
-  systemPrompts: Record<string, string>;
+  systemPrompts: SystemPrompts;
   enableSystemPrompt: boolean;
   enableJailbreakPrompt: boolean;
   apiConfig: APIConfig; // APIConfig型を使用
@@ -617,7 +617,7 @@ const AIPanel: React.FC<{
   showJailbreakPrompt: boolean;
   showReplySuggestionPrompt: boolean;
   showTextEnhancementPrompt: boolean;
-  onUpdateSystemPrompts: (prompts: Record<string, string>) => void;
+  onUpdateSystemPrompts: (prompts: SystemPrompts) => void;
   onSetEnableSystemPrompt: (enable: boolean) => void;
   onSetEnableJailbreakPrompt: (enable: boolean) => void;
   onSetTemperature: (temp: number) => void;
@@ -628,7 +628,7 @@ const AIPanel: React.FC<{
   onToggleReplySuggestionPrompt: () => void;
   onToggleTextEnhancementPrompt: () => void;
   setAPIModel: (model: string) => void; // setAPIModel を追加
-  setAPIProvider: (provider: string) => void; // setAPIProvider を追加
+  setAPIProvider: (provider: APIProvider) => void; // setAPIProvider を追加
   setOpenRouterApiKey: (key: string) => void; // setOpenRouterApiKey を追加
   setGeminiApiKey: (key: string) => void; // setGeminiApiKey を追加
 }> = ({

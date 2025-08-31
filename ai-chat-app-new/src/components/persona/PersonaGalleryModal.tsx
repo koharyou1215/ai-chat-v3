@@ -22,7 +22,6 @@ export const PersonaGalleryModal: React.FC = () => {
     activePersonaId,
     updatePersona,
     addPersona,
-    startEditingPersona,
   } = useAppStore();
 
   const personasArray = useMemo(() => Array.from(personas.values()), [personas]);
@@ -131,8 +130,9 @@ export const PersonaGalleryModal: React.FC = () => {
   };
 
   const handleCreatePersona = () => {
-    startEditingPersona();
-    setShowPersonaGallery(false);
+    // 新規ペルソナ作成処理 - 詳細ダイアログを開く
+    setSelectedPersonaForEdit(null);
+    setShowDetailModal(true);
   };
 
   if (!showPersonaGallery) {
@@ -160,12 +160,12 @@ export const PersonaGalleryModal: React.FC = () => {
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost" className="h-9 px-3">
                 <label htmlFor="persona-json-upload" className="cursor-pointer">
-                  <Upload className="w-4 h-4" title="JSON読込" />
+                  <Upload className="w-4 h-4" aria-label="JSON読込" />
                   <input id="persona-json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
                 </label>
               </Button>
               <Button variant="ghost" onClick={handleCreatePersona} className="h-9 px-3">
-                <Plus className="w-4 h-4" title="新規作成" />
+                <Plus className="w-4 h-4" aria-label="新規作成" />
               </Button>
               <button
                 onClick={() => setShowPersonaGallery(false)}

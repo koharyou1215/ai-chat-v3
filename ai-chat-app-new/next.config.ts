@@ -1,19 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // TypeScript設定 - 🚨 緊急デバッグのため一時的に有効化
+  // TypeScript設定 - ✅ エラー修正完了により正常化
   typescript: {
-    ignoreBuildErrors: true,
+    // ignoreBuildErrors: false, // デフォルト値なので削除
   },
-  // ESLint設定 - 🚨 緊急デバッグのため一時的に有効化  
+  // ESLint設定 - ✅ 主要エラー修正完了
   eslint: {
-    ignoreDuringBuilds: true,
+    // ignoreDuringBuilds: false, // デフォルト値なので削除
   },
   
-  // ビルド最適化設定 - 一時的に無効化
-  // experimental: {
-  //   optimizePackageImports: ['lucide-react', 'framer-motion'],
-  // },
+  // ビルド最適化設定 - ✅ 安定化により有効化
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  },
   
   webpack: (config, { isServer }) => {
     if (!isServer) {
