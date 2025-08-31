@@ -23,7 +23,6 @@ import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { UnifiedChatSession } from '@/types';
 import { GroupChatSession } from '@/types/core/group-chat.types';
-import { TrackerDisplay } from '@/components/tracker/TrackerDisplay';
 
 const ChatSidebar: React.FC = () => {
   // const router = useRouter(); // 일단 주석 처리
@@ -325,20 +324,6 @@ const ChatSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* 🎯 Tracker Display - 緊急修正で追加 */}
-      {currentCharacter && (active_session_id || active_group_session_id) && (
-        <div className="border-b border-purple-400/20 bg-slate-900/30">
-          <div className="p-3 border-b border-purple-400/10">
-            <div className="text-xs text-slate-400 mb-1">Character Trackers</div>
-          </div>
-          <div className="max-h-60 overflow-y-auto">
-            <TrackerDisplay 
-              session_id={is_group_mode ? (active_group_session_id || '') : (active_session_id || '')}
-              character_id={currentCharacter.id}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Search */}
       <div className="p-4 border-b border-purple-400/20">
