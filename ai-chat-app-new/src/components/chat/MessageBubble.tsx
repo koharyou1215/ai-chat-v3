@@ -122,6 +122,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       if (typeof message.emotion_analysis === 'string') {
         return JSON.parse(message.emotion_analysis);
       }
+      // @ts-ignore - emotion_analysis is optional
       return message.emotion_analysis as EmotionResult;
     } catch (error) {
       console.error('Failed to parse emotion analysis:', error);
