@@ -1,5 +1,5 @@
-// Inspiration Service v3 - 成功例を基にした改良版
-// 返信提案と文章強化機能のためのサービス
+// Inspiration Service v2 - Simplified & Reliable
+// 返信提案と文章強化機能のためのシンプルなサービス
 
 import { UnifiedMessage } from '@/types/memory';
 import { apiManager } from '@/services/api-manager';
@@ -30,45 +30,32 @@ export class InspirationService {
     
     let prompt: string;
     if (customPrompt) {
-      // カスタムプロンプトのプレースホルダー置換
-      prompt = customPrompt
-        .replace(/{{conversation}}/g, context)
-        .replace(/{{user}}と{{char}}間の会話履歴/g, context)
-        .replace(/会話履歴:/g, `会話履歴:\n${context}`);
-      
-      // プレースホルダーが見つからない場合は末尾に追加
-      if (prompt === customPrompt) {
-        prompt = `${customPrompt}\n\n会話履歴:\n${context}`;
-      }
+      prompt = customPrompt.replace(/{{conversation}}/g, context);
     } else {
       prompt = this.buildReplySuggestionPrompt(context, character, user, isGroupMode);
     }
 
     try {
-      console.log('📤 返信提案API呼び出し開始');
-      
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
+        console.log('📤 API呼び出し開始');
         const result = await apiManager.generateMessage(
           prompt,
           '返信提案を生成',
           [],
-          { ...apiConfig, max_tokens: 800 }
+          { ...apiConfig, max_tokens: 600 }
         );
-        console.log('📥 API応答受信（先頭200文字）:', result.substring(0, 200));
+        console.log('📥 API応答受信:', result.substring(0, 200));
         return result;
       });
 
-      // 成功例のパース方法を採用
-      const suggestions = this.parseReplySuggestionsAdvanced(response);
-      
-      if (suggestions.length === 0) {
-        console.warn('⚠️ 提案を抽出できませんでした。フォールバックを使用');
-        return this.getFallbackSuggestions();
-      }
-      
-      return suggestions;
+      return this.parseReplySuggestions(response);
     } catch (error) {
       console.error('❌ 返信提案生成エラー:', error);
+      console.error('詳細:', {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        apiConfig: apiConfig?.model || 'default',
+        isGroupMode
+      });
       return this.getFallbackSuggestions();
     }
   }
@@ -118,99 +105,6 @@ export class InspirationService {
   }
 
   /**
-   * 高度な返信提案パース（成功例から移植）
-   */
-  private parseReplySuggestionsAdvanced(content: string): InspirationSuggestion[] {
-    console.log('🔍 AI応答をパース中（先頭200文字）:', content.substring(0, 200));
-    
-    const suggestions: InspirationSuggestion[] = [];
-    const types: ('empathy' | 'question' | 'topic')[] = ['empathy', 'question', 'topic'];
-    
-    // 1. まず番号付きリスト（1. 2. 3.）で分割を試行
-    const numberedSections = content.split(/(?=\d+\.)/);
-    const validNumberedSections = numberedSections
-      .filter(section => section.trim().match(/^\d+\./))
-      .map(section => {
-        // 番号と改行を削除してクリーンなテキストを取得
-        return section
-          .replace(/^\d+\.\s*/, '')
-          .replace(/^【[^】]+】\s*/, '')
-          .replace(/^[\[「『]/, '')
-          .replace(/[\]」』]$/, '')
-          .trim();
-      })
-      .filter(text => text.length >= 10 && text.length <= 250);
-    
-    if (validNumberedSections.length > 0) {
-      console.log(`✅ 番号付きリストを検出: ${validNumberedSections.length}件`);
-      
-      validNumberedSections.forEach((text, index) => {
-        if (index < 3) {
-          suggestions.push({
-            id: `suggestion_${Date.now()}_${index}`,
-            type: types[index],
-            content: text,
-            confidence: 0.9
-          });
-        }
-      });
-      
-      return suggestions;
-    }
-    
-    // 2. 番号がない場合、［タイトル］形式で抽出
-    const bracketPattern = /\[([^\]]+)\]\s*([\s\S]*?)(?=\[|$)/g;
-    const bracketMatches = [...content.matchAll(bracketPattern)];
-    
-    if (bracketMatches.length > 0) {
-      console.log(`✅ ブラケット形式を検出: ${bracketMatches.length}件`);
-      
-      bracketMatches.forEach((match, index) => {
-        if (index < 3) {
-          const title = match[1];
-          const contentAfterTitle = match[2]?.trim() || '';
-          
-          // タイトルと内容を組み合わせるか、内容のみを使用
-          const text = contentAfterTitle || title;
-          
-          if (text.length >= 10 && text.length <= 250) {
-            suggestions.push({
-              id: `suggestion_${Date.now()}_${index}`,
-              type: types[index],
-              content: text,
-              confidence: 0.8
-            });
-          }
-        }
-      });
-      
-      return suggestions;
-    }
-    
-    // 3. 改行で分割してパース（フォールバック）
-    const lines = content.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length >= 10 && line.length <= 250)
-      .filter(line => !line.includes('：') && !line.includes(':'));
-    
-    if (lines.length > 0) {
-      console.log(`✅ 改行区切りで検出: ${lines.length}件`);
-      
-      lines.slice(0, 3).forEach((text, index) => {
-        suggestions.push({
-          id: `suggestion_${Date.now()}_${index}`,
-          type: types[index],
-          content: text,
-          confidence: 0.7
-        });
-      });
-    }
-    
-    console.log(`📊 最終的に${suggestions.length}個の提案を抽出`);
-    return suggestions;
-  }
-
-  /**
    * 会話コンテキストの構築
    */
   private buildContext(messages: UnifiedMessage[], isGroupMode?: boolean): string {
@@ -242,21 +136,23 @@ export class InspirationService {
     const speaker = isGroupMode ? character.name : user.name;
     const target = isGroupMode ? 'グループ全体' : character.name;
     
-    return `${speaker}として${target}への返信を3つ生成してください。
+    return `${speaker}として${target}への返信を3パターン生成してください。
 
 会話履歴:
 ${context}
 
-以下の形式で3つの返信を生成してください：
+以下3つのアプローチで各150文字程度の返信を生成:
 
-1. 相手の気持ちに寄り添い理解を示す返信（100-150文字）
-2. 興味を持って質問し会話を深める返信（100-150文字）  
-3. 新しい視点や話題を提供する返信（100-150文字）
+1. 【共感・受容】相手の気持ちに寄り添い理解を示す
+2. 【質問・探求】興味を持って質問し会話を深める  
+3. 【トピック展開】新しい視点や話題を提供する
 
-注意事項：
-- 各返信は番号（1. 2. 3.）で始めること
-- 説明や見出しは不要、返信文のみ
-- ${speaker}の性格を反映させること`;
+出力形式:
+1: [共感・受容の返信]
+2: [質問・探求の返信]
+3: [トピック展開の返信]
+
+条件: 返信文のみ出力、説明や番号は含めない`;
   }
 
   /**
@@ -279,6 +175,45 @@ ${context}
 - ${user.name}らしい表現に調整
 - 自然で読みやすく
 - 強化された文章のみ出力`;
+  }
+
+  /**
+   * 返信提案のパース
+   */
+  private parseReplySuggestions(response: string): InspirationSuggestion[] {
+    console.log('🔍 AI応答をパース中:', response.substring(0, 200));
+    
+    const lines = response.split('\n').filter(line => line.trim());
+    const suggestions: InspirationSuggestion[] = [];
+    
+    const types: ('empathy' | 'question' | 'topic')[] = ['empathy', 'question', 'topic'];
+    
+    for (const line of lines) {
+      // より柔軟なパターンマッチング
+      let content = line
+        .replace(/^[1-3][\.:：]\s*/, '')  // 1: 1. 1：など
+        .replace(/^【[^】]+】\s*/, '')     // 【共感・受容】など
+        .replace(/^[\[「『]/, '')          // 開始記号
+        .replace(/[\]」』]$/, '')          // 終了記号
+        .trim();
+      
+      // 有効な提案をチェック（10文字以上、200文字以下）
+      if (content.length >= 10 && content.length <= 200 && !content.includes('：')) {
+        if (suggestions.length < 3) {
+          suggestions.push({
+            id: `suggestion_${Date.now()}_${suggestions.length}`,
+            type: types[suggestions.length],
+            content,
+            confidence: 0.8
+          });
+        }
+      }
+    }
+    
+    console.log(`✅ ${suggestions.length}個の提案を抽出`);
+    
+    // 1つでも取得できればOK、0個ならフォールバック
+    return suggestions.length > 0 ? suggestions : this.getFallbackSuggestions();
   }
 
   /**

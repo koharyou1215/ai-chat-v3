@@ -25,6 +25,7 @@ import {
   ModalLoadingFallback,
   PanelLoadingFallback
 } from '../lazy/LazyComponents';
+import { EnhancementModal } from './EnhancementModal';
 
 import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar';
@@ -359,7 +360,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true, true); // グループモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -376,57 +377,19 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true, false); // ソロモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, false); // ソロモード再生成
                             }
                         }}
                     />
-                    <SuggestionModal
+                    <EnhancementModal
                         isOpen={showEnhancementModal}
                         onClose={() => setShowEnhancementModal(false)}
-                        suggestions={enhancedText ? [enhancedText] : []}
+                        originalText={currentInputText}
+                        enhancedText={enhancedText}
                         isLoading={isEnhancingText}
-                        title="文章強化"
                         onSelect={(enhanced) => {
                             setCurrentInputText(enhanced);
                             setShowEnhancementModal(false);
-                        }}
-                        onRegenerate={async () => {
-                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
-                            
-                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
-                            if (is_group_mode && active_group_session_id) {
-                                console.log('📥 Using GROUP session for regeneration');
-                                const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) {
-                                    console.warn('Group session not found for regeneration');
-                                    return;
-                                }
-                                
-                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
-                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
-                                    ? systemPrompts.textEnhancement 
-                                    : undefined;
-                                
-                                const user = groupSession.persona;
-                                
-                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
-                            } else {
-                                console.log('👤 Using SOLO session for regeneration');
-                                const session = getActiveSession();
-                                if (!session) {
-                                    console.warn('Solo session not found for regeneration');
-                                    return;
-                                }
-                                
-                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
-                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
-                                    ? systemPrompts.textEnhancement 
-                                    : undefined;
-                                
-                                const user = session.participants.user;
-                                
-                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
-                            }
                         }}
                     />
                     {showCharacterForm && editingCharacter && 'age' in editingCharacter && (
@@ -740,7 +703,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = activeChars[0] || groupSession.characters[0];
                                 const user = groupSession.persona;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true, true); // グループモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, true); // グループモード再生成
                             } else {
                                 console.log('👤 Using SOLO session for regeneration');
                                 const session = getActiveSession();
@@ -757,57 +720,19 @@ const ChatInterfaceContent: React.FC = () => {
                                 const character = session.participants.characters[0];
                                 const user = session.participants.user;
                                 
-                                await generateSuggestions(recentMessages, character, user, customPrompt, true, false); // ソロモード再生成
+                                await generateSuggestions(recentMessages, character, user, customPrompt, false); // ソロモード再生成
                             }
                         }}
                     />
-                    <SuggestionModal
+                    <EnhancementModal
                         isOpen={showEnhancementModal}
                         onClose={() => setShowEnhancementModal(false)}
-                        suggestions={enhancedText ? [enhancedText] : []}
+                        originalText={currentInputText}
+                        enhancedText={enhancedText}
                         isLoading={isEnhancingText}
-                        title="文章強化"
                         onSelect={(enhanced) => {
                             setCurrentInputText(enhanced);
                             setShowEnhancementModal(false);
-                        }}
-                        onRegenerate={async () => {
-                            console.log('🔄 Regeneration triggered', { is_group_mode, active_group_session_id });
-                            
-                            // FIXED: 正しいセッション判定 - is_group_mode も考慮
-                            if (is_group_mode && active_group_session_id) {
-                                console.log('📥 Using GROUP session for regeneration');
-                                const groupSession = groupSessions.get(active_group_session_id);
-                                if (!groupSession) {
-                                    console.warn('Group session not found for regeneration');
-                                    return;
-                                }
-                                
-                                const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
-                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
-                                    ? systemPrompts.textEnhancement 
-                                    : undefined;
-                                
-                                const user = groupSession.persona;
-                                
-                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
-                            } else {
-                                console.log('👤 Using SOLO session for regeneration');
-                                const session = getActiveSession();
-                                if (!session) {
-                                    console.warn('Solo session not found for regeneration');
-                                    return;
-                                }
-                                
-                                const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
-                                const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
-                                    ? systemPrompts.textEnhancement 
-                                    : undefined;
-                                
-                                const user = session.participants.user;
-                                
-                                await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
-                            }
                         }}
                     />
                     {showCharacterForm && editingCharacter && 'age' in editingCharacter && (

@@ -3,7 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Brain, Zap, Star, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { InspirationSuggestion } from '@/types/memory';
+import { InspirationSuggestion } from '@/services/inspiration-service';
 
 interface ReplySuggestionsProps {
   suggestions: InspirationSuggestion[];
@@ -14,7 +14,7 @@ interface ReplySuggestionsProps {
 }
 
 const suggestionConfig = {
-  continuation: { 
+  empathy: { 
     icon: Heart, 
     color: 'from-pink-500 to-rose-500',
     label: '共感・受容型'
@@ -28,11 +28,6 @@ const suggestionConfig = {
     icon: Zap, 
     color: 'from-orange-500 to-red-500',
     label: 'トピック展開型'
-  },
-  creative: { 
-    icon: Star, 
-    color: 'from-purple-500 to-pink-500',
-    label: 'クリエイティブ型'
   }
 };
 

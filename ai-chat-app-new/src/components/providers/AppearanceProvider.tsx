@@ -92,7 +92,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       body.style.setProperty('background-size', 'cover', 'important');
       body.style.setProperty('background-position', 'center', 'important');
       body.style.setProperty('background-repeat', 'no-repeat', 'important');
-      body.style.setProperty('background-attachment', 'fixed', 'important');
+      body.style.setProperty('background-attachment', 'scroll', 'important');
     } else if (appearanceSettings.backgroundType === 'solid') {
       root.style.setProperty('--background', appearanceSettings.backgroundColor);
       body.setAttribute('data-background-type', 'solid');
@@ -203,7 +203,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           background-size: cover !important;
           background-position: center !important;
           background-repeat: no-repeat !important;
-          background-attachment: fixed !important;
+          background-attachment: scroll !important;
         }
         
         body[data-background-type="image"]::before {
@@ -216,7 +216,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           backdrop-filter: blur(var(--background-blur, 0px));
           opacity: calc(var(--background-opacity, 100%) / 100);
           pointer-events: none;
-          z-index: -1;
+          z-index: -10;
         }
       `;
       document.head.appendChild(style);

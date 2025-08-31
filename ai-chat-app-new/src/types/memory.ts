@@ -84,11 +84,9 @@ export interface PromptTemplate {
 
 export interface InspirationSuggestion {
   id: string;
-  type: 'continuation' | 'question' | 'topic' | 'creative';
+  type: 'empathy' | 'question' | 'topic';
   content: string;
-  context: string;
   confidence: number;
-  source: 'memory' | 'pattern' | 'random';
 }
 
 export interface ConversationContext {

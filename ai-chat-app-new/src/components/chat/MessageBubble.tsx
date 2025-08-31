@@ -324,7 +324,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         transition={bubbleTransition}
         className={cn(
           "group relative flex items-start gap-3 mb-4 max-w-[85%] md:max-w-[75%]",
-          isUser ? "ml-auto flex-row-reverse" : "mr-auto"
+          isUser ? "ml-auto flex-row-reverse" : "mr-auto",
+          "overflow-hidden"
         )}
         onMouseUp={handleTextSelection}
         onTouchEnd={handleTextSelection}
@@ -436,11 +437,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
 
             {/* アクションメニュー */}
             <div className={cn(
-              "absolute transition-all duration-200 z-10",
+              "absolute transition-all duration-200 z-30",
               isUser ? "-left-12" : "-right-12",
               "top-1/2 -translate-y-1/2",
               "opacity-0 group-hover:opacity-100",
-              showFullActions ? "opacity-100" : ""
+              showFullActions ? "opacity-100" : "",
+              "pointer-events-none group-hover:pointer-events-auto"
             )}>
               <div className="flex flex-col gap-1 bg-slate-900/90 backdrop-blur-sm border border-white/10 rounded-lg p-1 shadow-lg">
                 {/* 基本アクション */}
@@ -543,8 +545,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           )}
         </div>
 
-        {/* 選択テキスト用のフローティングメニュー */}
-        {selectedText && showFullActions && (
+        {/* 選択テキスト用のフローティングメニュー - 一時的に無効化 */}
+        {false && selectedText && showFullActions && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}

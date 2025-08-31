@@ -79,6 +79,8 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 - ✅ **新:** OPENROUTER_API_KEY環境変数追加、デプロイ時セキュリティロック対応
 - ❌ **旧:** テキスト選択メニュー無反応 → 強化・翻訳・説明機能未実装
 - ✅ **新:** 完全なAPIエンドポイント統合、関数名修正で機能復旧
+- ❌ **旧:** インスピレーション機能不安定 → パース失敗・フォールバック多発
+- ✅ **新:** 成功例ベースの改良版実装、複数パース方式で安定動作
 
 **修正済み問題 (2025年8月30日):**
 - ❌ **旧:** 空のuserMessage → テンプレート応答「はい、そうですね」
@@ -305,19 +307,37 @@ npm run dev
 ---
 
 ## 🎨 インスピレーション機能検証
-inspiration-service.ts
+inspiration-service.ts v3 - 成功例ベース改良版
 
-返信提案: generateReplySuggestions(...)
-カスタムプロンプトがある場合は customPrompt.replace(/{{conversation}}/g, context) で会話コンテキストを差し替え。
-デフォルトは buildDefaultSuggestionPrompt(context, character, user, suggestionCount) を使う（関数内に長いテンプレート文字列あり）。
-提案の解析は parseSuggestions(content, approaches) が担当。[] で指定されたアプローチ（approaches）を抽出するロジックと、行分割で返すロジックがあるため、生成形式に依存して分割される。
-文章強化: enhanceText(inputText, recentMessages, user, enhancePrompt?)
-カスタム enhancePrompt がある場合は {{conversation}}, {{user}}, {{text}} を置換。
-カスタムが無ければデフォルトで（Janitor AI風の）強化テンプレート文字列を組み立てる（user の情報や「強化の指針」などを含む長いテンプレート）。
-重要点:
-extractApproachesFromPrompt(prompt)：[...] の括弧でアプローチを抽出する実装がある（テンプレート形式に依存）。
-parseSuggestions のフィルタやルール（番号・箇条書き除去、最小文字数等）で期待と違う切れ方をする可能性あり。
-キャッシュ・max_tokens の扱い（インスピレーション系はより大きめの max_tokens を使う）も存在。
+### 📊 現在の成功動作パターン (2025年8月31日修正版)
+
+**返信提案: generateReplySuggestions(...)**
+- **プロンプト構造**: 明確な番号付き出力指示（1. 2. 3.）
+- **パース方式**: 3段階フォールバック（番号付き→ブラケット→改行区切り）
+- **成功率向上**: 旧プロジェクトの実装パターンを移植
+
+```typescript
+// 成功プロンプト例
+`以下の形式で3つの返信を生成してください：
+
+1. 相手の気持ちに寄り添い理解を示す返信（100-150文字）
+2. 興味を持って質問し会話を深める返信（100-150文字）  
+3. 新しい視点や話題を提供する返信（100-150文字）
+
+注意事項：
+- 各返信は番号（1. 2. 3.）で始めること
+- 説明や見出しは不要、返信文のみ`
+```
+
+**パース処理: parseReplySuggestionsAdvanced()**
+1. **番号付きリスト**: `/(?=\d+\.)/` で分割、クリーンアップ
+2. **ブラケット形式**: `/\[([^\]]+)\]\s*([\s\S]*?)(?=\[|$)/g` で抽出
+3. **改行区切り**: フォールバックとして改行分割
+
+**カスタムプロンプト対応**: 複数のプレースホルダーパターン
+- `{{conversation}}` → 会話履歴置換
+- `{{user}}と{{char}}間の会話履歴` → 旧形式互換
+- プレースホルダー未検出時は自動的に末尾追加
 prompt-templates.ts
 
 DEFAULT_PROMPT_TEMPLATES に返信提案系・文章強化系テンプレートが収録されている（例: friendly-suggestions, professional-suggestions, expand-detail, add-emotion, make-polite）。

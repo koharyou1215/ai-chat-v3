@@ -88,7 +88,7 @@ export const MessageInput: React.FC = React.memo(() => {
       const character = activeChars[0] || groupSession.characters[0];
       const user = groupSession.persona;
       
-      await generateSuggestions(recentMessages, character, user, customPrompt, false, true); // グループモード
+      await generateSuggestions(recentMessages, character, user, customPrompt, true); // グループモード
     } else {
       // ソロモード
       const session = getActiveSession();
@@ -98,7 +98,7 @@ export const MessageInput: React.FC = React.memo(() => {
       const character = session.participants.characters[0];
       const user = session.participants.user;
       
-      await generateSuggestions(recentMessages, character, user, customPrompt, false, false); // ソロモード
+      await generateSuggestions(recentMessages, character, user, customPrompt, false); // ソロモード
     }
   };
 

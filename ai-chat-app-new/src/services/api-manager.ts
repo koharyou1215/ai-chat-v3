@@ -179,6 +179,30 @@ export class APIManager {
     
     if (isDevelopment) {
       console.log(`\n🤖 [APIManager] ${provider}/${model} | User: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}" | Prompt: ${systemPrompt.length} chars`);
+      
+      // プロンプト構造検証用の詳細ログ
+      console.log('\n=== 📋 PROMPT STRUCTURE VERIFICATION ===');
+      console.log('🎯 System Prompt Content (first 1000 chars):');
+      console.log(systemPrompt.substring(0, 1000));
+      console.log(`\n📊 Full prompt length: ${systemPrompt.length} characters`);
+      
+      // 8段階構造の確認
+      const structureCheck = {
+        'AI/User Definition': systemPrompt.includes('AI=') || systemPrompt.includes('User='),
+        'System Instructions': systemPrompt.includes('<system_instructions>'),
+        'Character Information': systemPrompt.includes('<character_information>'),
+        'Persona Information': systemPrompt.includes('<persona_information>'),
+        'Memory Cards': systemPrompt.includes('<pinned_memory_cards>') || systemPrompt.includes('<relevant_memory_cards>'),
+        'Tracker Information': systemPrompt.includes('<character_trackers>'),
+        'Conversation Context': systemPrompt.includes('会話履歴') || systemPrompt.includes('Context'),
+        'Current Interaction': userMessage.length > 0
+      };
+      
+      console.log('\n🔍 8段階構造チェック:');
+      Object.entries(structureCheck).forEach(([stage, present]) => {
+        console.log(`  ${present ? '✅' : '❌'} ${stage}`);
+      });
+      console.log('=========================================\n');
     }
 
     // options から渡された API キーを優先して使用

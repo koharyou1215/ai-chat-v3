@@ -76,7 +76,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           />
         )}
 
-        {character.background_url && (
+        {character.background_url && character.background_url.trim() !== '' && (
           <div className="absolute inset-0 opacity-30">
             {character.background_url.endsWith('.mp4') || character.background_url.includes('video') ? (
               <video
@@ -91,8 +91,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               <Image
                 src={character.background_url}
                 alt=""
-                layout="fill"
-                objectFit="cover"
+                fill
+                style={{objectFit: 'cover'}}
                 className="w-full h-full"
               />
             )}
@@ -107,12 +107,12 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               className="relative flex-shrink-0"
             >
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-400/50 shadow-xl relative">
-                {character.avatar_url ? (
+                {character.avatar_url && character.avatar_url.trim() !== '' ? (
                   <Image
                     src={character.avatar_url}
                     alt={character.name}
-                    layout="fill"
-                    objectFit="cover"
+                    fill
+                    style={{objectFit: 'cover'}}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">

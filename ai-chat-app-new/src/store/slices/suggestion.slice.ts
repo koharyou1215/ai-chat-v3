@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { InspirationService } from '@/services/inspiration-service';
+import { InspirationService, InspirationSuggestion } from '@/services/inspiration-service';
 import { UnifiedMessage } from '@/types/memory';
 import { AppStore } from '..';
 import { Character, Persona } from '@/types';
@@ -7,7 +7,7 @@ import { Character, Persona } from '@/types';
 export interface SuggestionData {
   id: string;
   content: string;
-  type: 'continuation' | 'question' | 'topic' | 'creative';
+  type: 'empathy' | 'question' | 'topic';
   confidence: number;
 }
 
@@ -40,7 +40,6 @@ export interface SuggestionSlice {
     character: Character, 
     user: Persona, 
     customPrompt?: string,
-    forceRegenerate?: boolean,
     isGroupMode?: boolean
   ) => Promise<void>;
   enhanceText: (
@@ -80,7 +79,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setShowEnhancementModal: (show) => set({ showEnhancementModal: show }),
   setIsEnhancingText: (isEnhancing) => set({ isEnhancingText: isEnhancing }),
   
-  generateSuggestions: async (messages, character, user, customPrompt, forceRegenerate = false, isGroupMode = false) => {
+  generateSuggestions: async (messages, character, user, customPrompt, isGroupMode = false) => {
     const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
     if (isGeneratingSuggestions) return;
     
@@ -92,10 +91,8 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         character,
         user,
         customPrompt,
-        3, // Fixed suggestion count
-        { ...apiConfig, openRouterApiKey, geminiApiKey },
-        forceRegenerate,
-        isGroupMode
+        isGroupMode,
+        { ...apiConfig, openRouterApiKey, geminiApiKey }
       );
       
       const suggestionData: SuggestionData[] = suggestions.map((suggestion) => ({
