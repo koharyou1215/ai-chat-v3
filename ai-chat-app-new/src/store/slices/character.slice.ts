@@ -35,7 +35,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       
       // 重複チェック - 同じIDが既に存在する場合の処理
       if (characters.has(character.id)) {
-        console.warn(`Character with ID ${character.id} already exists. Overwriting.`);
+        // Character with ID already exists, overwriting
       }
       
       characters.set(character.id, character);
@@ -57,7 +57,6 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       // 選択中のキャラクターが削除された場合はリセット
       const newSelectedId = state.selectedCharacterId === characterId ? null : state.selectedCharacterId;
       
-      console.log(`✅ Deleted character: ${characterId}`);
       return { 
         characters, 
         selectedCharacterId: newSelectedId,
@@ -110,7 +109,6 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
         showCharacterForm: false,
         editingCharacter: null
       }));
-      console.log('Character saved successfully and state updated.');
 
     } catch (error) {
       console.error('Error saving character:', error);
@@ -119,14 +117,11 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
   },
 
   loadCharactersFromPublic: async () => {
-    console.log('character.slice: loadCharactersFromPublic called. Current loaded state:', get().isCharactersLoaded);
     if (get().isCharactersLoaded) {
-      console.log('character.slice: Already loaded, skipping.');
       return;
     }
     
     try {
-      console.log('character.slice: Fetching /api/characters...');
       const response = await fetch('/api/characters');
       if (!response.ok) {
         console.error('character.slice: Failed to fetch character list:', response.status, response.statusText);
@@ -134,7 +129,6 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       }
       
       const characterFiles = await response.json();
-      console.log('character.slice: Received character files:', characterFiles);
       const charactersMap = new Map<UUID, Character>();
       
       // 各キャラクターファイルを読み込み
@@ -142,7 +136,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
         try {
           const charResponse = await fetch(`/characters/${encodeURIComponent(filename)}`);
           if (!charResponse.ok) {
-            console.warn(`character.slice: Failed to fetch character data for ${filename}`);
+            // Failed to fetch character data
             continue;
           }
           
@@ -187,9 +181,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             first_message: characterData.first_message || '',
             
             tags: Array.isArray(characterData.tags) ? characterData.tags : (typeof characterData.tags === 'string' ? characterData.tags.split(',').map(s => s.trim()) : []),
-            trackers: (characterData.trackers || []).reduce((acc: TrackerDefinition[], t: Record<string, unknown>) => {
+            trackers: Array.isArray(characterData.trackers) ? characterData.trackers.reduce((acc: TrackerDefinition[], t: Record<string, unknown>) => {
               if (!t || typeof t.name !== 'string' || typeof t.type !== 'string') {
-                  console.warn('Skipping invalid tracker data:', t);
+                  // Skipping invalid tracker data
                   return acc;
               }
 
@@ -237,14 +231,14 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                   break;
                 default:
                   isValid = false;
-                  console.warn(`Skipping tracker with unknown type: ${t.type}`, t);
+                  // Skipping tracker with unknown type
               }
 
               if (isValid) {
                 acc.push(definition as TrackerDefinition);
               }
               return acc;
-            }, []),
+            }, []) : [],
             nsfw_profile: characterData.nsfw_profile,
 
             // statisticsはストアの内部で初期化
@@ -262,12 +256,10 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
         }
       }
       
-      console.log('character.slice: Setting character data to store. Total characters:', charactersMap.size);
       set({ 
         characters: charactersMap, 
         isCharactersLoaded: true 
       });
-      console.log('character.slice: Store updated. isCharactersLoaded should be true.');
       
     } catch (error) {
       console.error('character.slice: Error in loadCharactersFromPublic:', error);

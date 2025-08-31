@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // import { useRouter } from 'next/navigation'; // 일단 주석 처리
 import {
@@ -20,20 +20,28 @@ import {
   Archive,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { shallow } from 'zustand/shallow';
 import { cn } from '@/lib/utils';
 import { UnifiedChatSession } from '@/types';
 import { GroupChatSession } from '@/types/core/group-chat.types';
 
-const ChatSidebar: React.FC = () => {
+const ChatSidebar: React.FC = React.memo(() => {
   // const router = useRouter(); // 일단 주석 처리
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
+  // Fixed Zustand selectors to prevent infinite loops
   const {
     active_session_id,
     sessions,
+    active_group_session_id,
+    groupSessions,
+    is_group_mode,
+    characters,
+    getSelectedCharacter,
+    getSelectedPersona,
     createSession,
     setActiveSessionId,
     deleteSession,
@@ -41,22 +49,15 @@ const ChatSidebar: React.FC = () => {
     exportActiveConversation,
     saveSessionToHistory,
     pinSession,
-    getSelectedCharacter,
-    getSelectedPersona,
-    // グループセッション関連
-    groupSessions,
-    active_group_session_id,
     setActiveGroupSession,
-    is_group_mode,
     setGroupMode,
-    // キャラクター・ペルソナ状態管理
     setSelectedCharacterId,
     activatePersona,
-    toggleGroupCreationModal, // 追加
-    // グループチャット作成
-    createGroupSession,
-    characters,
+    toggleGroupCreationModal,
+    createGroupSession
   } = useAppStore();
+
+
   
   const currentCharacter = getSelectedCharacter();
   const currentPersona = getSelectedPersona();
@@ -103,14 +104,11 @@ const ChatSidebar: React.FC = () => {
         alert("キャラクターとペルソナを選択してください。");
         return;
       }
-      console.log('🔄 Creating new individual chat...');
       createSession(currentCharacter, currentPersona);
-      console.log('✅ New individual chat created');
     }
   };
 
   const handleSelectSession = (sessionId: string) => {
-    console.log('🔄 Switching to session:', sessionId);
     
     // セッションタイプを特定
     const isGroupSession = sessionId.startsWith('group-');
@@ -120,12 +118,6 @@ const ChatSidebar: React.FC = () => {
       if (sessionId !== active_group_session_id || !is_group_mode) {
         const groupSession = groupSessions.get(sessionId);
         if (groupSession) {
-          console.log('📱 Switching to group session:', {
-            sessionId,
-            name: groupSession.name,
-            characterCount: groupSession.characters.length,
-            persona: groupSession.persona.name
-          });
           
           // グループモードに切り替え & 排他制御
           setActiveSessionId(null); 
@@ -144,12 +136,6 @@ const ChatSidebar: React.FC = () => {
       if (sessionId !== active_session_id || is_group_mode) {
         const session = sessions.get(sessionId);
         if (session) {
-          console.log('👤 Switching to individual session:', {
-            sessionId,
-            title: session.session_info.title,
-            characterId: session.participants.characters[0]?.id,
-            personaId: session.participants.user.id
-          });
           
           // 通常モードに切り替え & 排他制御
           setActiveGroupSession(null);
@@ -497,6 +483,6 @@ const ChatSidebar: React.FC = () => {
       </div>
     </motion.div>
   );
-};
+});
 
 export default ChatSidebar;

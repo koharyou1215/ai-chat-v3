@@ -361,3 +361,5 @@ function getEmotionColor(emotion: string): string {
 
   return emotionColors[emotion as keyof typeof emotionColors] || '#757575';
 }
+
+export { SoloEmotionalEffects };

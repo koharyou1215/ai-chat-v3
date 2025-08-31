@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Upload, ArrowDownUp, Grid, List } from 'lucide-react';
 import { Character } from '@/types/core/character.types';
-import { CharacterCard } from './CharacterCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +15,20 @@ import {
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { useFilterAndSort } from '@/hooks/useFilterAndSort';
+
+// Lazy import for CharacterCard to optimize initial bundle
+const CharacterCard = React.lazy(() => 
+  import('./CharacterCard').then(module => ({ default: module.CharacterCard }))
+);
+
+// Loading fallback for character cards
+const CharacterCardLoadingFallback: React.FC = () => (
+  <div className="bg-slate-800/50 border border-white/10 rounded-lg p-4 animate-pulse">
+    <div className="w-full h-32 bg-slate-700/50 rounded-lg mb-3" />
+    <div className="h-4 bg-slate-700/50 rounded mb-2" />
+    <div className="h-3 bg-slate-700/30 rounded w-3/4" />
+  </div>
+);
 
 interface CharacterGalleryProps {
   characters: Character[];
@@ -207,15 +220,19 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
           >
             {filteredAndSortedCharacters.length > 0 ? (
               filteredAndSortedCharacters.map(character => (
-                <CharacterCard
-                  key={character.id}
-                  character={character}
-                  onSelect={isGroupMode ? handleMemberSelect : onSelectCharacter}
-                  onEdit={() => startEditingCharacter(character)}
-                  onDelete={deleteCharacter}
-                  isSelected={isGroupMode ? selectedMemberIds.has(character.id) : character.id === selectedCharacterId}
-                  isMultiSelectMode={isGroupMode}
-                />
+                <Suspense 
+                  key={character.id} 
+                  fallback={<CharacterCardLoadingFallback />}
+                >
+                  <CharacterCard
+                    character={character}
+                    onSelect={isGroupMode ? handleMemberSelect : onSelectCharacter}
+                    onEdit={() => startEditingCharacter(character)}
+                    onDelete={deleteCharacter}
+                    isSelected={isGroupMode ? selectedMemberIds.has(character.id) : character.id === selectedCharacterId}
+                    isMultiSelectMode={isGroupMode}
+                  />
+                </Suspense>
               ))
             ) : (
               <div className="col-span-full flex items-center justify-center h-full text-slate-500 py-10">

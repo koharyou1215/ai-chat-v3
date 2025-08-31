@@ -10,50 +10,211 @@ const nextConfig: NextConfig = {
     // ignoreDuringBuilds: false, // デフォルト値なので削除
   },
   
-  // ビルド最適化設定 - ✅ 安定化により有効化
+  // ビルド最適化設定 - ✅ 安定化により有効化 + Performance enhancements
   experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    optimizePackageImports: [
+      'lucide-react', 
+      'framer-motion',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tabs',
+    ],
+    // Optimize CSS
+    optimizeCss: true,
   },
   
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
+        net: false,
+        tls: false,
       };
       
-      // Three.jsの最適化（使用時のみロード）
+      // Enhanced code splitting and chunk optimization
       config.optimization.splitChunks = {
-        ...config.optimization.splitChunks,
+        chunks: 'all',
         cacheGroups: {
-          ...config.optimization.splitChunks?.cacheGroups,
+          // Vendor chunk for stable dependencies
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+            priority: 10,
+            reuseExistingChunk: true,
+          },
+          // Framer Motion chunk (heavy animation library)
+          framerMotion: {
+            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            name: 'framer-motion',
+            chunks: 'all',
+            priority: 15,
+            reuseExistingChunk: true,
+          },
+          // Lucide icons chunk
+          icons: {
+            test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+            name: 'icons',
+            chunks: 'all',
+            priority: 12,
+            reuseExistingChunk: true,
+          },
+          // Radix UI components
+          radix: {
+            test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            name: 'radix-ui',
+            chunks: 'all',
+            priority: 11,
+            reuseExistingChunk: true,
+          },
+          // Three.js optimization (for future use)
           threejs: {
             test: /[\\/]node_modules[\\/](three|@react-three)[\\/]/,
             name: 'threejs',
             chunks: 'async',
-            priority: 10,
+            priority: 14,
+            reuseExistingChunk: true,
+          },
+          // UI components chunk
+          ui: {
+            test: /[\\/]src[\\/]components[\\/]ui[\\/]/,
+            name: 'ui-components',
+            chunks: 'all',
+            priority: 8,
+            reuseExistingChunk: true,
+          },
+          // Effects and animations chunk
+          effects: {
+            test: /[\\/]src[\\/]components[\\/](chat[\\/](AdvancedEffects|MessageEffects)|emotion|lazy[\\/]LazyEffects)[\\/]/,
+            name: 'effects',
+            chunks: 'async',
+            priority: 6,
+            minSize: 20000,
+            reuseExistingChunk: true,
+          },
+          // Gallery components chunk
+          galleries: {
+            test: /[\\/]src[\\/]components[\\/](character[\\/].*Gallery|persona[\\/].*Gallery|memory[\\/].*Gallery)[\\/]/,
+            name: 'galleries',
+            chunks: 'async',
+            priority: 5,
+            minSize: 10000,
+            reuseExistingChunk: true,
+          },
+          // Modal components chunk
+          modals: {
+            test: /[\\/]src[\\/]components[\\/](settings[\\/].*Modal|voice[\\/].*Modal|character[\\/].*Form|history[\\/].*Modal)[\\/]/,
+            name: 'modals',
+            chunks: 'async',
+            priority: 4,
+            minSize: 15000,
+            reuseExistingChunk: true,
+          },
+          // Common chunk for shared utilities
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'all',
+            priority: 1,
+            reuseExistingChunk: true,
           },
         },
       };
+
+      // Bundle analyzer for development
+      if (dev && process.env.ANALYZE === 'true') {
+        try {
+          const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+          config.plugins.push(
+            new BundleAnalyzerPlugin({
+              analyzerMode: 'server',
+              openAnalyzer: false, // Don't auto-open in browser
+              analyzerPort: 8888,
+            })
+          );
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.warn('Bundle analyzer not available:', errorMessage);
+        }
+      }
     }
     return config;
   },
   
-  // 画像最適化
+  // 画像最適化 - Enhanced for performance
   images: {
     formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 31536000, // 1 year cache
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'example.com',
       },
+      // Add more remote patterns as needed
     ],
+  },
+
+  // ===== COMPRESSION AND CACHING =====
+  compress: true,
+  poweredByHeader: false,
+  
+  // ===== PERFORMANCE HEADERS =====
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin'
+          }
+        ]
+      },
+      {
+        // Cache static assets aggressively
+        source: '/(_next/static|images|icons)/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
+      {
+        // Don't cache API routes
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
+          }
+        ]
+      }
+    ];
   },
   
   // Railway デプロイ用設定
   env: {
     PORT: process.env.PORT || '3000',
+    ANALYZE: process.env.ANALYZE,
   },
   
   // 出力設定

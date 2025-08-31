@@ -1,326 +1,200 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Image as ImageIcon, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStore } from '@/store';
+
+// Lazy import for heavy markdown processing
+const MarkdownRenderer = React.lazy(() => 
+  import('./MarkdownRenderer').then(module => ({ default: module.MarkdownRenderer }))
+    .catch(() => ({ default: ({ content }: { content: string }) => <div>{content}</div> }))
+);
+
+// Simple loading fallback for markdown
+const MarkdownLoadingFallback: React.FC<{ content: string }> = ({ content }) => (
+  <div className="text-white/90 whitespace-pre-wrap break-words leading-relaxed">
+    {content.slice(0, 200)}{content.length > 200 ? '...' : ''}
+  </div>
+);
 
 interface RichMessageProps {
   content: string;
   role: 'user' | 'assistant';
-  characterColor?: string;
-  enableEffects?: boolean;
-  typingSpeed?: number;
+  isExpanded?: boolean;
+  onToggleExpanded?: () => void;
 }
 
 export const RichMessage: React.FC<RichMessageProps> = React.memo(({
   content,
   role,
-  characterColor = '#8b5cf6',
-  enableEffects = true,
-  typingSpeed = 30
+  isExpanded = false,
+  onToggleExpanded
 }) => {
-  const { effectSettings } = useAppStore();
-  const [displayedContent, setDisplayedContent] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number }>>([]);
-  const messageRef = useRef<HTMLDivElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
-  // ハートエフェクトの生成 - メモリリーク防止
-  const createHeartEffect = React.useCallback(() => {
-    if (!effectSettings.particleEffects) return;
+  // Performance optimization: Detect content types early
+  const contentAnalysis = useMemo(() => {
+    const hasMarkdown = /[*_`#\[\]]/g.test(content);
+    const hasUrls = /https?:\/\/[^\s]+/g.test(content);
+    const hasImages = /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(content);
+    const hasCode = /```[\s\S]*?```|`[^`]+`/g.test(content);
+    const isLong = content.length > 500;
     
-    const newParticle = {
-      id: Date.now() + Math.random(),
-      x: Math.random() * 100 - 50,
-      y: Math.random() * 20
+    return {
+      hasMarkdown,
+      hasUrls,
+      hasImages,
+      hasCode,
+      isLong,
+      shouldUseMarkdown: hasMarkdown || hasCode || hasUrls
     };
-    
-    setParticles(prev => [...prev, newParticle]);
-    
-    // タイマーをクリーンアップ
-    const timeoutId = setTimeout(() => {
-      setParticles(prev => prev.filter(p => p.id !== newParticle.id));
-    }, 2000);
-    
-    // コンポーネントがアンマウントされた場合にクリーンアップ
-    return () => clearTimeout(timeoutId);
-  }, [effectSettings.particleEffects]);
+  }, [content]);
 
-  // タイプライター効果
-  useEffect(() => {
-    if (!enableEffects || !effectSettings.typewriterEffect || typingSpeed === 0) {
-      setDisplayedContent(content);
-      setIsTyping(false);
-      return;
+  // Extract URLs for link previews
+  const urls = useMemo(() => {
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    return content.match(urlRegex) || [];
+  }, [content]);
+
+  // Extract image URLs
+  const imageUrls = useMemo(() => {
+    return urls.filter(url => 
+      /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(url)
+    );
+  }, [urls]);
+
+  // Truncate content for performance if too long
+  const displayContent = useMemo(() => {
+    if (!isExpanded && contentAnalysis.isLong) {
+      return content.slice(0, 500) + '...';
     }
+    return content;
+  }, [content, isExpanded, contentAnalysis.isLong]);
 
-    // コンテンツが変更された場合のみタイプライターを開始
-    setDisplayedContent('');
-    setIsTyping(true);
-    
-    let index = 0;
-    const timer = setInterval(() => {
-      if (index <= content.length) {
-        setDisplayedContent(content.slice(0, index));
-        
-        // 特定の文字でエフェクトを発生
-        if (effectSettings.particleEffects && (content[index] === '♥' || content[index] === '💕')) {
-          createHeartEffect();
-        }
-        
-        index++;
-      } else {
-        setIsTyping(false);
-        clearInterval(timer);
-      }
-    }, typingSpeed / effectSettings.animationSpeed);
-
-    return () => clearInterval(timer);
-  }, [content, enableEffects, typingSpeed, effectSettings.typewriterEffect, effectSettings.animationSpeed, effectSettings.particleEffects, createHeartEffect]); // displayedContentを依存配列から削除
-
-  // コンテンツのパース（特殊フォーマットの検出）
-  const parseContent = (text: string) => {
-    if (!effectSettings.fontEffects) {
-      return <span>{text}</span>;
-    }
-
-    const elements: React.JSX.Element[] = [];
-    
-    // パターンマッチング
-    const patterns = [
-      // 「」内の強調
-      { regex: /「([^」]+)」/g, style: 'quote' },
-      // 『』内の特別強調
-      { regex: /『([^』]+)』/g, style: 'special-quote' },
-      // ※注釈
-      { regex: /※([^※\n]+)/g, style: 'annotation' },
-      // ...省略記法
-      { regex: /\.{3,}/g, style: 'ellipsis' },
-      // 感情表現（！や？の連続）
-      { regex: /[！!？?]{2,}/g, style: 'emotion' },
-      // カスタムタグ [color:text]
-      { regex: /\[(\w+):([^\]]+)\]/g, style: 'custom' }
-    ];
-
-    let lastIndex = 0;
-    const matches: Array<{ start: number; end: number; text: string; style: string; fullMatch: string }> = [];
-
-    // すべてのマッチを収集
-    patterns.forEach(({ regex, style }) => {
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[1] || match[0],
-          style,
-          fullMatch: match[0]
-        });
-      }
-    });
-
-    // マッチを位置でソート
-    matches.sort((a, b) => a.start - b.start);
-
-    // JSX要素を構築
-    matches.forEach((match, index) => {
-      // マッチ前のテキスト
-      if (lastIndex < match.start) {
-        elements.push(
-          <span key={`text-${index}`}>
-            {text.slice(lastIndex, match.start)}
-          </span>
-        );
-      }
-
-      // マッチした部分をスタイル付きで追加
-      elements.push(
-        <StyledText
-          key={`styled-${index}`}
-          text={match.text}
-          style={match.style}
-          color={characterColor}
-        />
-      );
-
-      lastIndex = match.end;
-    });
-
-    // 残りのテキスト
-    if (lastIndex < text.length) {
-      elements.push(
-        <span key="text-final">{text.slice(lastIndex)}</span>
-      );
-    }
-
-    return elements.length > 0 ? elements : <span>{text}</span>;
+  const handleImageClick = (imageUrl: string) => {
+    setShowPreview(true);
+    // You could implement a proper image preview modal here
+    window.open(imageUrl, '_blank');
   };
-
-  // 感情に基づく色の決定
-  const getEmotionColor = (content: string) => {
-    if (!effectSettings.emotionBasedStyling) return characterColor;
-
-    const emotionMap: Record<string, string> = {
-      'love': '#ff69b4',
-      'joy': '#ffd700',
-      'excited': '#ff4500',
-      'sad': '#4169e1',
-      'angry': '#dc143c',
-      'mysterious': '#800080'
-    };
-
-    // 感情キーワードを検出
-    const emotions = {
-      love: ['愛', '好き', '大切', '💕', '❤️'],
-      joy: ['嬉しい', '楽しい', 'わーい', '😊', '😄'],
-      excited: ['すごい', '最高', '！！', 'わお'],
-      sad: ['悲しい', '辛い', '😢', '涙'],
-      angry: ['怒', '腹立', '💢', '😠'],
-      mysterious: ['...', '謎', '秘密']
-    };
-
-    for (const [emotion, keywords] of Object.entries(emotions)) {
-      if (keywords.some(keyword => content.includes(keyword))) {
-        return emotionMap[emotion];
-      }
-    }
-
-    return characterColor;
-  };
-
-  const currentColor = getEmotionColor(content);
 
   return (
-    <div className="relative">
-      {/* メッセージバブル */}
-      <div
-        ref={messageRef}
-        className={cn(
-          'relative px-4 py-3 rounded-2xl max-w-full md:max-w-lg transition-all duration-300 break-words overflow-wrap-anywhere',
-          effectSettings.colorfulBubbles ? 
-            'backdrop-blur-sm' : 
-            'bg-gray-800',
-          role === 'assistant' ? 
-            (effectSettings.colorfulBubbles ? 
-              'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30' :
-              'bg-gray-700') :
-            (effectSettings.colorfulBubbles ? 
-              'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/30' :
-              'bg-gray-600')
+    <div className="space-y-2">
+      {/* Main content */}
+      <div className="text-white/90 leading-relaxed">
+        {contentAnalysis.shouldUseMarkdown ? (
+          <Suspense fallback={<MarkdownLoadingFallback content={displayContent} />}>
+            <MarkdownRenderer content={displayContent} />
+          </Suspense>
+        ) : (
+          <div className="whitespace-pre-wrap break-words">
+            {displayContent}
+          </div>
         )}
-        style={{
-          boxShadow: effectSettings.colorfulBubbles ? `0 0 20px ${currentColor}20` : 'none',
-        }}
-      >
-        {/* タイピングインジケーター */}
-        {isTyping && effectSettings.typewriterEffect && (
-          <motion.span
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1 / effectSettings.animationSpeed, repeat: Infinity }}
-            className="absolute -right-2 -bottom-2"
-          >
-            ✨
-          </motion.span>
-        )}
-
-        {/* メッセージ内容 */}
-        <div className="relative z-10 text-white">
-          {parseContent(displayedContent)}
-        </div>
-
-        {/* パーティクルエフェクト */}
-        <AnimatePresence>
-          {particles.map(particle => (
-            <motion.div
-              key={particle.id}
-              initial={{ 
-                x: 0, 
-                y: 0, 
-                scale: 0,
-                opacity: 1 
-              }}
-              animate={{ 
-                x: particle.x,
-                y: particle.y - 50,
-                scale: [0, 1.5, 0.5],
-                opacity: 0
-              }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 2 / effectSettings.animationSpeed, ease: 'easeOut' }}
-              className="absolute top-1/2 left-1/2 pointer-events-none"
-              style={{ zIndex: 100 }}
-            >
-              <Heart className="w-4 h-4 text-pink-400 fill-pink-400" />
-            </motion.div>
-          ))}
-        </AnimatePresence>
       </div>
+
+      {/* Expand/Collapse button for long content */}
+      {contentAnalysis.isLong && onToggleExpanded && (
+        <button
+          onClick={onToggleExpanded}
+          className="flex items-center gap-1 text-xs text-white/50 hover:text-white/70 transition-colors"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-3 h-3" />
+              折りたたむ
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3 h-3" />
+              続きを読む
+            </>
+          )}
+        </button>
+      )}
+
+      {/* Image previews (lazy loaded) */}
+      {imageUrls.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {imageUrls.slice(0, 4).map((imageUrl, index) => (
+            <div
+              key={index}
+              className="relative group cursor-pointer"
+              onClick={() => handleImageClick(imageUrl)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt={`Image ${index + 1}`}
+                className="w-20 h-20 object-cover rounded-lg border border-white/10 hover:border-white/30 transition-colors"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                <ImageIcon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          ))}
+          {imageUrls.length > 4 && (
+            <div className="w-20 h-20 rounded-lg border border-white/10 flex items-center justify-center text-white/50 text-xs">
+              +{imageUrls.length - 4}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* URL previews (non-image links) */}
+      {urls.filter(url => !imageUrls.includes(url)).length > 0 && (
+        <div className="space-y-1 mt-2">
+          {urls
+            .filter(url => !imageUrls.includes(url))
+            .slice(0, 3)
+            .map((url, index) => (
+              <a
+                key={index}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 transition-colors bg-blue-900/20 rounded px-2 py-1 border border-blue-400/20"
+              >
+                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate max-w-48">
+                  {url.replace(/^https?:\/\//, '')}
+                </span>
+              </a>
+            ))}
+        </div>
+      )}
+
+      {/* Video detection and preview */}
+      {urls.some(url => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url)) && (
+        <div className="mt-2">
+          {urls
+            .filter(url => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url))
+            .slice(0, 2)
+            .map((videoUrl, index) => (
+              <div key={index} className="relative group">
+                <video
+                  src={videoUrl}
+                  className="w-full max-w-sm rounded-lg border border-white/10"
+                  controls
+                  preload="metadata"
+                >
+                  <source src={videoUrl} />
+                  お使いのブラウザは動画の再生に対応していません。
+                </video>
+                <div className="absolute top-2 right-2 bg-black/50 rounded px-2 py-1 text-xs text-white">
+                  <Play className="w-3 h-3 inline mr-1" />
+                  動画
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 });
 
 RichMessage.displayName = 'RichMessage';
-
-// スタイル付きテキストコンポーネント
-const StyledText: React.FC<{
-  text: string;
-  style: string;
-  color: string;
-}> = React.memo(({ text, style }) => {
-  const getStyleClass = () => {
-    switch (style) {
-      case 'quote':
-        return 'text-yellow-300 font-bold';
-      case 'special-quote':
-        return 'text-cyan-300 font-bold text-lg animate-pulse';
-      case 'annotation':
-        return 'text-gray-400 text-sm italic';
-      case 'ellipsis':
-        return 'text-gray-500 tracking-widest';
-      case 'emotion':
-        return 'text-red-400 font-bold text-xl animate-bounce';
-      case 'custom':
-        return 'font-bold';
-      default:
-        return '';
-    }
-  };
-
-  if (style === 'custom') {
-    // カスタムカラーの処理
-    const colorMap: Record<string, string> = {
-      red: '#ef4444',
-      blue: '#3b82f6',
-      green: '#10b981',
-      yellow: '#eab308',
-      purple: '#8b5cf6',
-      pink: '#ec4899',
-      orange: '#f97316',
-      cyan: '#06b6d4',
-      emerald: '#059669',
-      lime: '#65a30d',
-      indigo: '#4f46e5'
-    };
-    
-    const parts = text.split(':');
-    if (parts.length === 2) {
-      const [colorName = '', content = ''] = parts;
-      return (
-        <span 
-          style={{ color: colorMap[colorName] || colorName }}
-          className="font-bold"
-        >
-          {content}
-        </span>
-      );
-    }
-  }
-
-  return <span className={getStyleClass()}>{text}</span>;
-});
-
-StyledText.displayName = 'StyledText';
-
-export default RichMessage;

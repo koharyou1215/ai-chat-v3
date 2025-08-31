@@ -1,25 +1,30 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import React, { useRef, useEffect, useState, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { ChatHeader } from './ChatHeader';
 import { Bot, Brain, X, BarChart3, History, Layers } from 'lucide-react';
-import { MemoryGallery } from '../memory/MemoryGallery';
-import { TrackerDisplay } from '../tracker/TrackerDisplay';
-import { HistorySearch } from '../history/HistorySearch';
-import { MemoryLayerDisplay } from '../memory/MemoryLayerDisplay';
-import { CharacterGalleryModal, CharacterGalleryModalProps } from '../character/CharacterGalleryModal'; // lazyをやめて直接インポート
-import { ScenarioSetupModal } from './ScenarioSetupModal';
+import { CharacterGalleryModal } from '../character/CharacterGalleryModal'; // Keep non-lazy for critical path
 
-const PersonaGalleryModal = lazy(() => import('../persona/PersonaGalleryModal').then(module => ({ default: module.PersonaGalleryModal })));
-const SettingsModal = lazy(() => import('../settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
-const ChatHistoryModal = lazy(() => import('../history/ChatHistoryModal').then(module => ({ default: module.ChatHistoryModal })));
-const VoiceSettingsModal = lazy(() => import('../voice/VoiceSettingsModal').then(module => ({ default: module.VoiceSettingsModal })));
-const CharacterForm = lazy(() => import('../character/CharacterForm').then(module => ({ default: module.CharacterForm })));
-const SuggestionModal = lazy(() => import('./SuggestionModal').then(module => ({ default: module.SuggestionModal })));
+// Lazy imports with centralized loading fallbacks
+import {
+  PersonaGalleryModal,
+  SettingsModal,
+  ChatHistoryModal,
+  VoiceSettingsModal,
+  CharacterForm,
+  SuggestionModal,
+  ScenarioSetupModal,
+  MemoryGallery,
+  TrackerDisplay,
+  HistorySearch,
+  MemoryLayerDisplay,
+  ModalLoadingFallback,
+  PanelLoadingFallback
+} from '../lazy/LazyComponents';
 
 import { GroupChatInterface } from './GroupChatInterface';
 import ChatSidebar from './ChatSidebar';
@@ -234,11 +239,48 @@ const ChatInterfaceContent: React.FC = () => {
     const currentMessages = displaySession && displaySession.messages ? displaySession.messages : [];
     const displaySessionId = displaySession && displaySession.id ? displaySession.id : '';
 
+    // Lazy-loaded panel components with proper fallbacks
     const sidePanelTabs = useMemo(() => [
-        { key: 'memory' as const, icon: Brain, label: 'メモリー', component: <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId!} /> },
-        { key: 'tracker' as const, icon: BarChart3, label: 'トラッカー', component: <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId!} /> },
-        { key: 'history' as const, icon: History, label: '履歴検索', component: <HistorySearch session_id={displaySessionId} /> },
-        { key: 'layers' as const, icon: Layers, label: '記憶層', component: <MemoryLayerDisplay session_id={displaySessionId} /> },
+        { 
+            key: 'memory' as const, 
+            icon: Brain, 
+            label: 'メモリー', 
+            component: (
+                <Suspense fallback={<PanelLoadingFallback />}>
+                    <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId!} />
+                </Suspense>
+            )
+        },
+        { 
+            key: 'tracker' as const, 
+            icon: BarChart3, 
+            label: 'トラッカー', 
+            component: (
+                <Suspense fallback={<PanelLoadingFallback />}>
+                    <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId!} />
+                </Suspense>
+            )
+        },
+        { 
+            key: 'history' as const, 
+            icon: History, 
+            label: '履歴検索', 
+            component: (
+                <Suspense fallback={<PanelLoadingFallback />}>
+                    <HistorySearch session_id={displaySessionId} />
+                </Suspense>
+            )
+        },
+        { 
+            key: 'layers' as const, 
+            icon: Layers, 
+            label: '記憶層', 
+            component: (
+                <Suspense fallback={<PanelLoadingFallback />}>
+                    <MemoryLayerDisplay session_id={displaySessionId} />
+                </Suspense>
+            )
+        },
     ], [displaySessionId, currentCharacterId]);
 
     const scrollToBottom = () => {
@@ -269,12 +311,14 @@ const ChatInterfaceContent: React.FC = () => {
                 <div className="flex-1 flex flex-col">
                     <ChatHeader />
                     <div className="flex-1">
-                        <GroupChatInterface />
+                        <Suspense fallback={<PanelLoadingFallback />}>
+                            <GroupChatInterface />
+                        </Suspense>
                     </div>
                 </div>
                 
                 {/* モーダル群 */}
-                <Suspense fallback={null}>
+                <Suspense fallback={<ModalLoadingFallback />}>
                     <CharacterGalleryModal />
                     <PersonaGalleryModal />
                     <SettingsModal 
@@ -422,29 +466,31 @@ const ChatInterfaceContent: React.FC = () => {
                       />
                     )}
                     {isScenarioModalOpen && (
-                      <ScenarioSetupModal
-                        isOpen={isScenarioModalOpen}
-                        onClose={() => toggleScenarioModal(false)}
-                        onSubmit={async (scenario) => {
-                          const persona = useAppStore.getState().getSelectedPersona();
-                          if (persona && stagingGroupMembers.length >= 2) {
-                            const groupName = scenario.title !== 'スキップ' 
-                              ? scenario.title 
-                              : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
-                            
-                            await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
-                            
-                            // 状態更新がUIに反映されるのを待つために少し遅延させる
-                            setTimeout(() => {
-                              toggleScenarioModal(false);
-                              setStagingGroupMembers([]); // ステージングメンバーをクリア
-                            }, 100);
-                          } else {
-                            alert('ペルソナが選択されていないか、メンバーが2人未満です。');
-                          }
-                        }}
-                        members={stagingGroupMembers}
-                      />
+                      <Suspense fallback={<ModalLoadingFallback />}>
+                        <ScenarioSetupModal
+                          isOpen={isScenarioModalOpen}
+                          onClose={() => toggleScenarioModal(false)}
+                          onSubmit={async (scenario) => {
+                            const persona = useAppStore.getState().getSelectedPersona();
+                            if (persona && stagingGroupMembers.length >= 2) {
+                              const groupName = scenario.title !== 'スキップ' 
+                                ? scenario.title 
+                                : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
+                              
+                              await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
+                              
+                              // 状態更新がUIに反映されるのを待つために少し遅延させる
+                              setTimeout(() => {
+                                toggleScenarioModal(false);
+                                setStagingGroupMembers([]); // ステージングメンバーをクリア
+                              }, 100);
+                            } else {
+                              alert('ペルソナが選択されていないか、メンバーが2人未満です。');
+                            }
+                          }}
+                          members={stagingGroupMembers}
+                        />
+                      </Suspense>
                     )}
                 </AnimatePresence>
             </div>
@@ -590,79 +636,6 @@ const ChatInterfaceContent: React.FC = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* 🚨 緊急デバッグボタン */}
-                    <div style={{ position: 'fixed', bottom: '100px', right: '20px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {is_group_mode && (
-                            <button
-                                onClick={() => {
-                                    useAppStore.setState({ 
-                                        is_group_mode: false,
-                                        active_group_session_id: null
-                                    });
-                                    if (typeof window !== 'undefined') {
-                                        const notification = document.createElement('div');
-                                        notification.textContent = '🔄 ソロモードに切り替えました';
-                                        notification.style.cssText = 'position:fixed;top:80px;right:20px;background:#3b82f6;color:white;padding:12px 20px;border-radius:8px;z-index:1000;font-size:14px;';
-                                        document.body.appendChild(notification);
-                                        setTimeout(() => notification.remove(), 3000);
-                                    }
-                                }}
-                                style={{ background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-                            >
-                                ソロモード
-                            </button>
-                        )}
-                        
-                        <button
-                            onClick={() => {
-                                const state = useAppStore.getState();
-                                const activeSession = state.sessions.get(state.active_session_id || '');
-                                
-                                if (typeof window !== 'undefined') {
-                                    // 履歴表示用のモーダルを作成
-                                    const modal = document.createElement('div');
-                                    modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:10000;display:flex;justify-content:center;align-items:center;';
-                                    
-                                    const content = document.createElement('div');
-                                    content.style.cssText = 'background:white;color:black;padding:20px;border-radius:8px;max-width:80vw;max-height:80vh;overflow-y:auto;';
-                                    
-                                    const title = document.createElement('h2');
-                                    title.textContent = '📜 チャット履歴';
-                                    title.style.marginBottom = '16px';
-                                    content.appendChild(title);
-                                    
-                                    if (activeSession && activeSession.messages) {
-                                        activeSession.messages.forEach((msg, index) => {
-                                            const msgDiv = document.createElement('div');
-                                            msgDiv.style.cssText = 'margin-bottom:12px;padding:8px;border:1px solid #ccc;border-radius:4px;';
-                                            msgDiv.innerHTML = `
-                                                <strong>[${index}] ${msg.role}:</strong><br>
-                                                ${msg.content}<br>
-                                                <small>ID: ${msg.id}</small>
-                                            `;
-                                            content.appendChild(msgDiv);
-                                        });
-                                    } else {
-                                        const noMsg = document.createElement('p');
-                                        noMsg.textContent = 'セッションまたはメッセージが見つかりません';
-                                        content.appendChild(noMsg);
-                                    }
-                                    
-                                    const closeBtn = document.createElement('button');
-                                    closeBtn.textContent = '閉じる';
-                                    closeBtn.style.cssText = 'margin-top:16px;padding:8px 16px;background:#f44336;color:white;border:none;border-radius:4px;cursor:pointer;';
-                                    closeBtn.onclick = () => modal.remove();
-                                    content.appendChild(closeBtn);
-                                    
-                                    modal.appendChild(content);
-                                    document.body.appendChild(modal);
-                                }
-                            }}
-                            style={{ background: '#22c55e', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-                        >
-                            履歴表示
-                        </button>
-                    </div>
 
                     {/* メッセージ入力欄 */}
                     <MessageInputWrapper />
@@ -705,21 +678,19 @@ const ChatInterfaceContent: React.FC = () => {
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4">
                                     <AnimatePresence mode="wait">
-                                        <Suspense fallback={<div>Loading...</div>}>
-                                            {sidePanelTabs.map(tab => (
-                                                activeTab === tab.key && displaySession && (
-                                                    <motion.div
-                                                        key={tab.key}
-                                                        initial={{ opacity: 0, x: 20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: -20 }}
-                                                        transition={{ duration: 0.2 }}
-                                                    >
-                                                        {tab.component}
-                                                    </motion.div>
-                                                )
-                                            ))}
-                                        </Suspense>
+                                        {sidePanelTabs.map(tab => (
+                                            activeTab === tab.key && displaySession && (
+                                                <motion.div
+                                                    key={tab.key}
+                                                    initial={{ opacity: 0, x: 20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: -20 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    {tab.component}
+                                                </motion.div>
+                                            )
+                                        ))}
                                     </AnimatePresence>
                                 </div>
                             </motion.div>
@@ -728,7 +699,7 @@ const ChatInterfaceContent: React.FC = () => {
                 </ClientOnlyProvider>
 
                 {/* モーダル群 */}
-                <Suspense fallback={null}>
+                <Suspense fallback={<ModalLoadingFallback />}>
                     <CharacterGalleryModal />
                     <PersonaGalleryModal />
                     <SettingsModal 
@@ -876,29 +847,31 @@ const ChatInterfaceContent: React.FC = () => {
                       />
                     )}
                     {isScenarioModalOpen && (
-                      <ScenarioSetupModal
-                        isOpen={isScenarioModalOpen}
-                        onClose={() => toggleScenarioModal(false)}
-                        onSubmit={async (scenario) => {
-                          const persona = useAppStore.getState().getSelectedPersona();
-                          if (persona && stagingGroupMembers.length >= 2) {
-                            const groupName = scenario.title !== 'スキップ' 
-                              ? scenario.title 
-                              : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
-                            
-                            await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
-                            
-                            // 状態更新がUIに反映されるのを待つために少し遅延させる
-                            setTimeout(() => {
-                              toggleScenarioModal(false);
-                              setStagingGroupMembers([]); // ステージングメンバーをクリア
-                            }, 100);
-                          } else {
-                            alert('ペルソナが選択されていないか、メンバーが2人未満です。');
-                          }
-                        }}
-                        members={stagingGroupMembers}
-                      />
+                      <Suspense fallback={<ModalLoadingFallback />}>
+                        <ScenarioSetupModal
+                          isOpen={isScenarioModalOpen}
+                          onClose={() => toggleScenarioModal(false)}
+                          onSubmit={async (scenario) => {
+                            const persona = useAppStore.getState().getSelectedPersona();
+                            if (persona && stagingGroupMembers.length >= 2) {
+                              const groupName = scenario.title !== 'スキップ' 
+                                ? scenario.title 
+                                : `${stagingGroupMembers.map(c => c.name).join('、')}とのチャット`;
+                              
+                              await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
+                              
+                              // 状態更新がUIに反映されるのを待つために少し遅延させる
+                              setTimeout(() => {
+                                toggleScenarioModal(false);
+                                setStagingGroupMembers([]); // ステージングメンバーをクリア
+                              }, 100);
+                            } else {
+                              alert('ペルソナが選択されていないか、メンバーが2人未満です。');
+                            }
+                          }}
+                          members={stagingGroupMembers}
+                        />
+                      </Suspense>
                     )}
                 </AnimatePresence>
             </div>
@@ -909,18 +882,7 @@ const ChatInterfaceContent: React.FC = () => {
 // メインのChatInterfaceコンポーネント（Safari対応版）
 export const ChatInterface: React.FC = () => {
     try {
-        return (
-            <ClientOnlyProvider fallback={
-                <div className="flex  text-white overflow-hidden items-center justify-center" 
-                     style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
-                    <div className="text-white/50 text-center">
-                        <div className="animate-pulse">読み込み中...</div>
-                    </div>
-                </div>
-            }>
-                <ChatInterfaceContent />
-            </ClientOnlyProvider>
-        );
+        return <ChatInterfaceContent />;
     } catch (error) {
         return (
             <div className="flex  text-white overflow-hidden items-center justify-center" 

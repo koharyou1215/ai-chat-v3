@@ -7,6 +7,7 @@ import { StorageAnalyzer } from '@/utils/storage-analyzer';
 import { StorageCleaner } from '@/utils/storage-cleaner';
 import { checkStorageUsage } from '@/utils/check-storage';
 import { AppearanceProvider } from '@/components/providers/AppearanceProvider';
+import { PreloadStrategies, BundleAnalysis } from '@/utils/dynamic-imports';
 
 interface AppInitializerProps {
   children: ReactNode;
@@ -26,12 +27,17 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     loadPersonasFromPublic,
     selectedCharacterId,
     setSelectedCharacterId,
+    effectSettings, // Add effect settings for preloading
+    loadStoreFromStorage, // Add store loading
   } = useAppStore();
 
-  // データの読み込み（Safari対応：console.log削除）
+  // データの読み込み（Safari対応：console.log削除）+ Performance optimization
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Performance monitoring start
+        const loadStartTime = performance.now();
+        
         // ストレージ状況を詳細に分析
         const storageInfo = StorageManager.getStorageInfo();
         console.log('📊 Storage info:', storageInfo);
@@ -48,86 +54,108 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         // 自動クリーンアップ
         if (StorageManager.isStorageNearLimit()) {
           console.warn('⚠️ Storage is near limit - starting cleanup');
-          StorageCleaner.cleanupLocalStorage();
+          const cleanupResult = StorageCleaner.cleanupLocalStorage();
+          console.log('🧹 Cleanup completed:', cleanupResult);
         }
         
-        // キャラクターとペルソナを並行で読み込み（個別エラーハンドリング付き）
-        await Promise.allSettled([
+        // Store data is automatically loaded by Zustand persist middleware
+        // No need to manually call loadStoreFromStorage()
+        
+        // データの並列読み込み（パフォーマンス最適化）
+        const [charactersResult, personasResult] = await Promise.allSettled([
           loadCharactersFromPublic(),
           loadPersonasFromPublic()
         ]);
+
+        // エラーハンドリング
+        if (charactersResult.status === 'rejected') {
+          console.error('❌ キャラクター読み込みエラー:', charactersResult.reason);
+        }
+        if (personasResult.status === 'rejected') {
+          console.error('❌ ペルソナ読み込みエラー:', personasResult.reason);
+        }
+
+        // Performance monitoring end
+        const loadEndTime = performance.now();
+        console.log(`⚡ App initialization completed in ${(loadEndTime - loadStartTime).toFixed(2)}ms`);
+        
+        // Preload critical components after successful data load
+        PreloadStrategies.preloadCriticalComponents();
+        
+        // Preload effects based on user settings
+        PreloadStrategies.preloadEffects(effectSettings);
+        
+        // Log bundle analysis in development
+        if (process.env.NODE_ENV === 'development') {
+          setTimeout(() => {
+            BundleAnalysis.logLoadingStatus();
+          }, 5000);
+        }
+
       } catch (error) {
-        console.error('❌ AppInitializer error:', error);
+        console.error('❌ 初期化中にエラーが発生しました:', error);
       }
     };
 
-    if (!isCharactersLoaded || !isPersonasLoaded) {
-      loadData();
-    }
-  }, [isCharactersLoaded, isPersonasLoaded, loadCharactersFromPublic, loadPersonasFromPublic, characters.size, personas.size]);
+    loadData();
+  }, [
+    loadCharactersFromPublic, 
+    loadPersonasFromPublic, 
+    loadStoreFromStorage,
+    effectSettings
+  ]);
 
-  // セッションの初期化（Safari対応：console.log削除）
+  // セッション自動作成ロジック（パフォーマンス最適化版）
   useEffect(() => {
-    // データが読み込まれるまで待機
-    if (!isCharactersLoaded || !isPersonasLoaded) {
-      return;
-    }
-
-    // セッションが存在する場合の処理
-    if (sessions.size > 0) {
-      // しかし、選択中のキャラクターがいない場合
-      if (!selectedCharacterId) {
-        // アクティブなセッション、または最初のセッションを取得
-        const sessionToSetActive = sessions.get(active_session_id!) || sessions.values().next().value;
-        if (sessionToSetActive && sessionToSetActive.participants.characters.length > 0) {
-          const charId = sessionToSetActive.participants.characters[0].id;
-          setSelectedCharacterId(charId);
-        }
+    const createInitialSession = async () => {
+      // 読み込み完了を待つ
+      if (!isCharactersLoaded || !isPersonasLoaded) return;
+      
+      // 既にアクティブなセッションがある場合はスキップ
+      if (active_session_id && sessions.has(active_session_id)) {
+        console.log('👌 既存のアクティブセッションを使用:', active_session_id);
+        return;
       }
-      return; // セッションがあるので初期化は不要
-    }
 
-    // 以下はセッションが一つもない場合（初回起動時など）の処理
-    const initializeSession = async () => {
-      // 最初のキャラクターとアクティブなペルソナを取得
-      const firstCharacter = characters.values().next().value;
-      const activePersona = getSelectedPersona();
-
-      if (firstCharacter && activePersona) {
-        try {
-          await createSession(firstCharacter, activePersona);
-          console.log('✅ 初期セッションを作成しました');
-        } catch (error) {
-          console.error('❌ 初期セッション作成エラー:', error);
-          // セッション作成が失敗した場合、少し待ってからリトライ
-          setTimeout(async () => {
-            try {
-              console.log('🔄 セッション作成をリトライします...');
-              await createSession(firstCharacter, activePersona);
-              console.log('✅ リトライでセッション作成成功');
-            } catch (retryError) {
-              console.error('❌ セッション作成リトライも失敗:', retryError);
-              // 最後の手段：ストレージをクリアして再初期化を促す
-              if (typeof window !== 'undefined') {
-                localStorage.removeItem('ai-chat-sessions');
-                localStorage.removeItem('ai-chat-active-session');
-                console.log('🧹 破損データをクリアしました。ページをリロードしてください。');
-              }
-            }
-          }, 2000);
+      try {
+        const selectedPersona = getSelectedPersona();
+        
+        // キャラクターが選択されている場合
+        if (selectedCharacterId && characters.has(selectedCharacterId) && selectedPersona) {
+          const selectedCharacter = characters.get(selectedCharacterId);
+          if (selectedCharacter) {
+            console.log('🔄 選択中のキャラクターでセッション作成:', selectedCharacter.name);
+            await createSession(selectedCharacter, selectedPersona);
+            return;
+          }
         }
-      } else {
-        console.warn('⚠️ セッション作成に必要なデータが不足:', {
-          hasCharacter: !!firstCharacter,
-          hasPersona: !!activePersona,
-          charactersCount: characters.size,
-          personasCount: personas.size
-        });
+
+        // フォールバック：最初のキャラクターを使用
+        const firstCharacter = characters.values().next().value;
+        if (firstCharacter && selectedPersona) {
+          console.log('🎯 フォールバック：最初のキャラクターでセッション作成:', firstCharacter.name);
+          await createSession(firstCharacter, selectedPersona);
+          setSelectedCharacterId(firstCharacter.id);
+        }
+      } catch (error) {
+        console.error('❌ 初期セッション作成エラー:', error);
       }
     };
 
-    initializeSession();
-  }, [isCharactersLoaded, isPersonasLoaded, characters, personas, sessions, getSelectedPersona, createSession, selectedCharacterId, setSelectedCharacterId, active_session_id]);
+    // Debounce session creation to avoid multiple calls
+    const timeoutId = setTimeout(createInitialSession, 500);
+    return () => clearTimeout(timeoutId);
+  }, [
+    isCharactersLoaded, 
+    isPersonasLoaded, 
+    active_session_id, 
+    sessions, 
+    selectedCharacterId, 
+    characters, 
+    getSelectedPersona, 
+    createSession, 
+    setSelectedCharacterId
+  ]);
 
   return (
     <AppearanceProvider>

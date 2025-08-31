@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Upload, ArrowDownUp, Grid, List } from 'lucide-react';
 import { Persona } from '@/types';
-import { PersonaCard } from './PersonaCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +14,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useFilterAndSort } from '@/hooks/useFilterAndSort';
+
+// Lazy import for PersonaCard to optimize initial bundle
+const PersonaCard = React.lazy(() => 
+  import('./PersonaCard').then(module => ({ default: module.PersonaCard }))
+);
+
+// Loading fallback for persona cards
+const PersonaCardLoadingFallback: React.FC = () => (
+  <div className="bg-slate-800/50 border border-white/10 rounded-lg p-4 animate-pulse">
+    <div className="w-full h-24 bg-slate-700/50 rounded-lg mb-3" />
+    <div className="h-4 bg-slate-700/50 rounded mb-2" />
+    <div className="h-3 bg-slate-700/30 rounded w-2/3" />
+  </div>
+);
 
 interface PersonaGalleryProps {
   personas: Persona[];
@@ -49,9 +62,9 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
       updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       created_at: (p: Persona) => p.created_at ? new Date(p.created_at).getTime() : 0,
       name: (p: Persona) => p.name || '',
-    } as any
+    },
   });
-  
+
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: 'updated_at_desc', label: '更新日 (新しい順)' },
     { value: 'updated_at_asc', label: '更新日 (古い順)' },
@@ -63,7 +76,7 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
 
   const handleJsonUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (file && onImportPersona) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
@@ -87,7 +100,7 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
           <Input
             type="text"
             placeholder="検索..."
-            className="w-full pl-9 bg-slate-800/50 border-slate-700 focus:border-cyan-500 h-9"
+            className="w-full pl-9 bg-slate-800/50 border-slate-700 focus:border-purple-500 h-9"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -95,7 +108,7 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="h-9 min-w-[180px] justify-start text-white bg-transparent border border-slate-700 hover:bg-slate-700">
+            <Button className="h-9 min-w-[200px] justify-start text-white bg-transparent border border-slate-700 hover:bg-slate-700">
               <ArrowDownUp className="w-4 h-4 mr-2" />
               <span className="truncate">
                 {sortOptions.find(o => o.value === sortOption)?.label}
@@ -111,19 +124,29 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="h-9 px-3 bg-transparent border border-slate-700 hover:bg-slate-700 text-white" title={viewMode === 'grid' ? 'リスト表示に切替' : 'グリッド表示に切替'}>
-            {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+        <Button 
+          onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} 
+          className="h-9 px-3 bg-transparent border border-slate-700 hover:bg-slate-700 text-white" 
+          title={viewMode === 'grid' ? 'リスト表示に切替' : 'グリッド表示に切替'}
+        >
+          {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
         </Button>
 
         <div className="h-5 w-px bg-white/10 mx-1"></div>
 
-        <Button asChild variant="ghost" className="h-9 px-3" title="JSON読込">
+        <Button asChild variant="ghost" className="h-9 px-3">
           <label htmlFor="persona-json-upload" className="cursor-pointer">
             <Upload className="w-4 h-4" />
-            <input id="persona-json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
+            <input 
+              id="persona-json-upload" 
+              type="file" 
+              className="hidden" 
+              accept=".json" 
+              onChange={handleJsonUpload} 
+            />
           </label>
         </Button>
-        <Button variant="ghost" onClick={onCreatePersona} className="h-9 px-3" title="新規作成">
+        <Button variant="ghost" onClick={onCreatePersona} className="h-9 px-3">
           <Plus className="w-4 h-4" />
         </Button>
       </div>
@@ -138,19 +161,24 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
             className={cn(
               'gap-4',
               viewMode === 'grid' 
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
                 : 'flex flex-col'
             )}
           >
             {filteredAndSortedPersonas.length > 0 ? (
               filteredAndSortedPersonas.map(persona => (
-                <PersonaCard
-                  key={persona.id}
-                  persona={persona}
-                  onSelect={onSelectPersona}
-                  onEdit={onEditPersona}
-                  isSelected={persona.id === selectedPersonaId}
-                />
+                <Suspense 
+                  key={persona.id} 
+                  fallback={<PersonaCardLoadingFallback />}
+                >
+                  <PersonaCard
+                    persona={persona}
+                    onSelect={onSelectPersona}
+                    onEdit={onEditPersona}
+                    isSelected={persona.id === selectedPersonaId}
+                    viewMode={viewMode}
+                  />
+                </Suspense>
               ))
             ) : (
               <div className="col-span-full flex items-center justify-center h-full text-slate-500 py-10">

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 // シンプルなスピナー
 const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
@@ -14,9 +14,17 @@ import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { replaceVariablesInMessage, getVariableContext } from '@/utils/variable-replacer';
 import { RichMessage } from './RichMessage';
-import { MessageEffects } from './MessageEffects';
-import { HologramMessage, ParticleText } from './AdvancedEffects';
-import { EmotionDisplay, EmotionReactions } from '@/components/emotion/EmotionDisplay';
+
+// Lazy imports for heavy effect components
+import { 
+  HologramMessage, 
+  ParticleText,
+  MessageEffects,
+  EmotionDisplay,
+  EffectLoadingFallback
+} from '../lazy/LazyEffects';
+
+import { EmotionReactions } from '@/components/emotion/EmotionDisplay';
 import { EmotionResult } from '@/services/emotion/EmotionAnalyzer';
 import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 
@@ -48,744 +56,541 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const trackerManagers = useAppStore(state => state.trackerManagers);
   const activeSessionId = useAppStore(state => state.active_session_id);
   const rollbackSession = useAppStore(state => state.rollbackSession);
-  const rollbackGroupSession = useAppStore(state => state.rollbackGroupSession);
-  const activeCharacterId = useAppStore(state => state.active_character_id);
-  const _clearActiveConversation = useAppStore(state => state.clearActiveConversation);
-  const _clearLayer = useAppStore(state => state.clearLayer);
-  const _addMessageToLayers = useAppStore(state => state.addMessageToLayers);
+  const deleteMessage = useAppStore(state => state.deleteMessage);
+  const continueLastMessage = useAppStore(state => state.continueLastMessage);
+  const getSelectedCharacter = useAppStore(state => state.getSelectedCharacter);
+  const addMessage = useAppStore(state => state.addMessage);
+  const copyToClipboard = useAppStore(state => state.copyToClipboard);
+  const effectSettings = useAppStore(state => state.effectSettings);
+  const appearanceSettings = useAppStore(state => state.appearanceSettings);
+  const voice = useAppStore(state => state.voice);
 
+  // グループチャット用のセレクター
+  const is_group_mode = useAppStore(state => state.is_group_mode);
+  const active_group_session_id = useAppStore(state => state.active_group_session_id);
+  const groupSessions = useAppStore(state => state.groupSessions);
+  const regenerateGroupMessage = useAppStore(state => state.regenerateGroupMessage);
+  const continueGroupMessage = useAppStore(state => state.continueGroupMessage);
+  const deleteGroupMessage = useAppStore(state => state.deleteGroupMessage);
+
+  const emotionAnalysisEnabled = useAppStore(state => 
+    state.settings?.emotionalIntelligenceFlags?.emotion_analysis_enabled ?? false
+  );
+
+  // マージンと要素選択のキャッシュ
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedTextSelection, setSelectedTextSelection] = useState<Selection | null>(null);
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [showFullActions, setShowFullActions] = useState(false);
+
+  const isAssistant = message.role === 'assistant';
   const isUser = message.role === 'user';
-  const persona = getSelectedPersona();
-  const character = characters.get(message.character_id || '');
-  
-  // 変数置換コンテキストを取得
-  const variableContext = getVariableContext(useAppStore.getState);
-  
-  // メッセージ内容の変数置換
-  const processedContent = replaceVariablesInMessage(message.content, variableContext);
 
-  // 🎭 グループチャット対応の改善されたキャラクター情報取得
-  const { avatarUrl, displayName, initial, characterColor } = useMemo(() => {
-    if (isUser) {
-      return {
-        avatarUrl: persona?.avatar_url,
-        displayName: persona?.name,
-        initial: persona?.name?.[0] || 'U',
-        characterColor: '#3b82f6' // ユーザー用青色
-      };
+  // キャラクター情報の取得
+  const character = useMemo(() => {
+    if (isGroupChat && message.metadata?.character_id) {
+      return characters.get(message.metadata.character_id);
     }
-    
-    // グループチャット：メッセージに埋め込まれたキャラクター情報を優先使用
-    if (isGroupChat && (message.character_name || message.character_avatar)) {
-      const name = message.character_name || character?.name || 'AI';
-      const avatar = message.character_avatar || character?.avatar_url;
-      const colorHash = message.character_id ? message.character_id.slice(-6) : 'purple';
-      const color = `#${colorHash.padEnd(6, '0').slice(0, 6)}`;
-      
-      return {
-        avatarUrl: avatar,
-        displayName: name,
-        initial: name[0]?.toUpperCase() || 'A',
-        characterColor: color
+    return getSelectedCharacter();
+  }, [characters, message.metadata?.character_id, isGroupChat, getSelectedCharacter]);
+
+  // メッセージ内容の処理（変数置換）
+  const processedContent = useMemo(() => {
+    try {
+      const persona = getSelectedPersona();
+      const variableContext = {
+        user: persona ?? undefined,
+        character: character ?? undefined
       };
+      const processed = replaceVariablesInMessage(message.content, variableContext);
+      return processed;
+    } catch (error) {
+      console.error('Error processing message content:', error);
+      return message.content; // フォールバック
     }
+  }, [message.content, character, getSelectedPersona]);
+
+  // 感情分析結果の解析
+  const emotionResult = useMemo((): EmotionResult | null => {
+    if (!emotionAnalysisEnabled || !message.emotion_analysis) return null;
     
-    // フォールバック：通常のキャラクター取得
-    const name = character?.name || 'AI';
-    return {
-      avatarUrl: character?.avatar_url,
-      displayName: name,
-      initial: name[0]?.toUpperCase() || 'A',
-      characterColor: '#8b5cf6' // デフォルト紫色
-    };
-  }, [isUser, persona, character, isGroupChat, message.character_name, message.character_avatar, message.character_id]);
-  
-  // --- アクションハンドラ群 ---
-  // 再生成本実装（ソロ・グループ分離）
-  const handleRegenerate = async () => {
+    try {
+      if (typeof message.emotion_analysis === 'string') {
+        return JSON.parse(message.emotion_analysis);
+      }
+      return message.emotion_analysis as EmotionResult;
+    } catch (error) {
+      console.error('Failed to parse emotion analysis:', error);
+      return null;
+    }
+  }, [message.emotion_analysis, emotionAnalysisEnabled]);
+
+  // メッセージアクション: 再生成
+  const handleRegenerate = useCallback(async () => {
+    if (!isLatest || !isAssistant) return;
+    
     setIsRegenerating(true);
     try {
-      const state = useAppStore.getState();
-      if (isGroupChat && state.active_group_session_id) {
-        // グループチャット用再生成
-        await state.regenerateLastGroupMessage();
+      if (isGroupChat && active_group_session_id) {
+        await regenerateGroupMessage(active_group_session_id, message.id);
       } else {
-        // ソロチャット用再生成
         await regenerateLastMessage();
       }
+    } catch (error) {
+      console.error('再生成に失敗しました:', error);
     } finally {
       setIsRegenerating(false);
     }
-  };
-  // 続きを出力本実装（ソロ・グループ分離）
-  const handleContinue = async () => {
+  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, regenerateGroupMessage, regenerateLastMessage]);
+
+  // メッセージアクション: 続きを生成
+  const handleContinue = useCallback(async () => {
+    if (!isLatest || !isAssistant) return;
+    
     setIsContinuing(true);
     try {
-      const state = useAppStore.getState();
-      if (isGroupChat && state.active_group_session_id) {
-        // グループチャット用続きを生成
-        await state.continueLastGroupMessage();
+      if (isGroupChat && active_group_session_id) {
+        await continueGroupMessage(active_group_session_id, message.id);
       } else {
-        // ソロチャット用続きを生成
-        await state.continueLastMessage();
+        await continueLastMessage();
       }
+    } catch (error) {
+      console.error('続きの生成に失敗しました:', error);
     } finally {
       setIsContinuing(false);
     }
-  };
-  const handleCopy = () => {
-    navigator.clipboard.writeText(processedContent);
-  };
+  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, continueGroupMessage, continueLastMessage]);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(processedContent);
-  const [showEditOptions, setShowEditOptions] = useState(false);
-  
-  const handleEdit = () => {
-    setIsEditing(true);
-    setEditText(processedContent);
-  };
-  
-  const handleSaveEdit = async (shouldRegenerate = false) => {
-    if (editText.trim() === '') return;
-    
-    const session = useAppStore.getState().sessions.get(activeSessionId || '');
-    if (!session) return;
-    
-    const updatedMessages = session.messages.map(msg => 
-      msg.id === message.id 
-        ? { 
-            ...msg, 
-            content: editText.trim(),
-            updated_at: new Date().toISOString(),
-            edit_history: [
-              ...msg.edit_history,
-              {
-                previous_content: message.content,
-                edited_at: new Date().toISOString(),
-                edit_reason: 'user_edit'
-              }
-            ]
-          }
-        : msg
-    );
-    
-    useAppStore.setState(state => ({
-      sessions: new Map(state.sessions).set(session.id, {
-        ...session,
-        messages: updatedMessages,
-        updated_at: new Date().toISOString(),
-      })
-    }));
-    
-    setIsEditing(false);
-    
-    // 編集後に再生成する場合
-    if (shouldRegenerate) {
-      // 編集されたメッセージ以降を削除してから再生成
-      const messageIndex = session.messages.findIndex(msg => msg.id === message.id);
-      if (messageIndex !== -1) {
-        const truncatedMessages = updatedMessages.slice(0, messageIndex + 1);
-        
-        useAppStore.setState(state => ({
-          sessions: new Map(state.sessions).set(session.id, {
-            ...session,
-            messages: truncatedMessages,
-            message_count: truncatedMessages.length,
-            updated_at: new Date().toISOString(),
-          })
-        }));
-        
-        // 再生成を実行
-        try {
-          await useAppStore.getState().regenerateLastMessage();
-        } catch (error) {
-          console.error('再生成エラー:', error);
-        }
-      }
-    }
-  };
-  
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditText(processedContent);
-  };
-  // ここまで戻る本実装 (新しいロックに更新)
-  const handleRollback = () => {
-    if (!message.id) {
-      alert('メッセージIDが取得できません');
-      return;
-    }
-    
-    const confirmMessage = isGroupChat
-      ? 'このメッセージまでグループチャットの履歴を戻しますか？'
-      : 'このメッセージまで会話履歴を戻しますか？\n（メモリやキャラクターの関係値もこの時点の状態に近づくようにリセットされます）';
-      
-    if (confirm(confirmMessage)) {
-      if (isGroupChat) {
-        rollbackGroupSession(message.id);
-      } else {
-        rollbackSession(message.id);
-      }
-      alert('このメッセージまで巻き戻しました');
-    }
-  };
-  /*
-  // オールクリア本実装
-  const handleClearAll = () => {
-    // チャット履歴クリア
-    clearActiveConversation();
-    // メモリレイヤー全クリア
-    ['immediate_memory','working_memory','episodic_memory','semantic_memory','permanent_memory'].forEach(layer => {
-      clearLayer(layer);
-    });
-    // トラッカー：現在のキャラクターのみリセット
-    if (activeSessionId && trackerManagers.has(activeSessionId) && activeCharacterId) {
-      const manager = trackerManagers.get(activeSessionId);
-      if (manager) {
-        manager.initializeTrackerSet(activeCharacterId, []); // アクティブキャラのみ初期化
-      }
-    }
-    alert('このキャラクターのチャット・メモリ・トラッカーを全てリセットしました');
-  };
-  */
-
-  // 個別メッセージ削除機能
-  const handleDeleteMessage = () => {
+  // メッセージアクション: 削除
+  const handleDelete = useCallback(async () => {
     if (!confirm('このメッセージを削除しますか？')) return;
     
-    const session = useAppStore.getState().sessions.get(activeSessionId || '');
-    if (!session) return;
-    
-    const updatedMessages = session.messages.filter(msg => msg.id !== message.id);
-    
-    useAppStore.setState(state => ({
-      sessions: new Map(state.sessions).set(session.id, {
-        ...session,
-        messages: updatedMessages,
-        message_count: updatedMessages.length,
-        updated_at: new Date().toISOString(),
-      })
-    }));
-    
-    // メモリレイヤーからも削除メッセージを除去（簡易版）
-    // TODO: より精密なメモリ管理が必要な場合は拡張
-    alert('メッセージを削除しました');
-  };
-  
-  // メニュー表示位置を確認（上か下か）
-  const checkMenuPosition = () => {
-    if (messageRef.current) {
-      const rect = messageRef.current.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-      const spaceBelow = windowHeight - rect.bottom;
-      const menuHeight = 60; // メニューのおおよその高さ
-      
-      setMenuPosition(spaceBelow < menuHeight ? 'top' : 'bottom');
+    try {
+      if (isGroupChat && active_group_session_id) {
+        await deleteGroupMessage(active_group_session_id, message.id);
+      } else {
+        deleteMessage(message.id);
+      }
+    } catch (error) {
+      console.error('メッセージの削除に失敗しました:', error);
     }
-  };
-  const [showActions, setShowActions] = useState(false);
-  const [formattedTimestamp, setFormattedTimestamp] = useState('');
-  const [effectTrigger, setEffectTrigger] = useState('');
-  const [effectPosition, setEffectPosition] = useState({ x: 0, y: 0 });
-  const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
-  const messageRef = useRef<HTMLDivElement>(null);
-  const [detectedEmotion, setDetectedEmotion] = useState<EmotionResult | null>(null);
-  const { effectSettings } = useAppStore();
-  
-  // エフェクトのトリガー設定
+  }, [isGroupChat, active_group_session_id, deleteGroupMessage, deleteMessage, message.id]);
+
+  // メッセージアクション: ロールバック
+  const handleRollback = useCallback(async () => {
+    if (!confirm('この地点まで会話をロールバックしますか？')) return;
+    
+    try {
+      await rollbackSession(message.id);
+    } catch (error) {
+      console.error('ロールバックに失敗しました:', error);
+    }
+  }, [rollbackSession, message.id]);
+
+  // テキスト選択イベント
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim() || '';
+    setSelectedText(selectedText);
+    setSelectedTextSelection(selection);
+    setShowFullActions(selectedText.length > 0);
+  }, []);
+
+  // メニューの外側クリックでの閉じる処理
   useEffect(() => {
-    if (effectSettings.particleEffects && isLatest && effectTrigger !== message.content) {
-      setEffectTrigger(message.content);
-      // 位置は画面中央付近に設定
-      setEffectPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2
-      });
-    }
-  }, [message.content, isLatest, effectSettings.particleEffects, effectTrigger]);
-
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const { languageSettings } = useAppStore.getState();
-      const locale = languageSettings?.language === 'ja' ? 'ja-JP' : 
-                    languageSettings?.language === 'zh' ? 'zh-CN' :
-                    languageSettings?.language === 'ko' ? 'ko-KR' : 'en-US';
-      
-      setFormattedTimestamp(
-        new Date(message.created_at).toLocaleTimeString(locale, {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: languageSettings?.timeFormat === '12' || false,
-          timeZone: languageSettings?.timezone || 'Asia/Tokyo'
-        })
-      );
-    }
-  }, [message.created_at]);
-  
-
-  // 動的絵文字の決定
-  const getDynamicEmoji = () => {
-    const emotion = message.expression?.emotion;
-    if (!emotion) return '🤔'; // デフォルト
-
-    const emojiMap: { [key: string]: string[] } = {
-      happy: ['😊', '😄', '😃', '🙂', '😌', '☺️'],
-      love: ['😍', '🥰', '💕', '❤️', '😘', '💖'],
-      sad: ['😢', '😞', '😔', '😟', '😿', '💔'],
-      excited: ['🤩', '😆', '🎉', '✨', '🔥', '⚡'],
-      angry: ['😠', '😡', '💢', '👿', '😤', '🔴'],
-      surprised: ['😲', '😮', '😯', '🤯', '😵', '🙀'],
-      thinking: ['🤔', '💭', '🧐', '💡', '🤯', '🎯'],
-      confused: ['😕', '🤨', '😵‍💫', '😶', '🙄', '❓'],
-      neutral: ['😐', '😑', '🙂', '😊', '🤔', '😌']
-    };
-
-    const emojis = emojiMap[emotion.primary] || emojiMap.neutral;
-    const intensity = emotion.score ?? emotion.intensity ?? 0.5;
-    const index = Math.floor(intensity * emojis.length);
-    
-    return emojis[Math.min(index, emojis.length - 1)];
-  };
-
-  // 感情に基づくアニメーション効果（安全な実装）
-  const getEmotionAnimation = (): TargetAndTransition => {
-    const emotion = message.expression?.emotion;
-    if (!emotion || !effectSettings.emotionBasedStyling || effectSettings.effectQuality === 'low') return {};
-
-    // セーフモード検出
-    const safeMode = typeof window !== 'undefined' && localStorage.getItem('safe-mode') === 'true';
-    if (safeMode) return {};
-
-    // 無限ループを避けて限定回数のアニメーション
-    const animationMap: { [key: string]: TargetAndTransition } = {
-      happy: { 
-        scale: [1, 1.01, 1], 
-        transition: { duration: 2, repeat: 2, repeatType: 'reverse' as const, ease: 'easeInOut' } 
-      },
-      love: { 
-        scale: [1, 1.015, 1], 
-        transition: { duration: 3, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' }
-      },
-      excited: { 
-        y: [0, -1, 0], 
-        transition: { duration: 1.5, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' }
-      },
-      sad: { 
-        opacity: [1, 0.9, 1], 
-        transition: { duration: 2.5, repeat: 1, repeatType: 'reverse' as const, ease: 'easeInOut' } 
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowFullActions(false);
+        setSelectedText('');
       }
     };
 
-    return animationMap[emotion.primary] || {};
-  };
+    if (showFullActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showFullActions]);
+
+  const generateIsActive = is_generating || group_generating;
+  const isCurrentlyGenerating = generateIsActive && isLatest;
+
+  // プロフィール画像の表示判定（グループチャット用）
+  const shouldShowAvatar = isAssistant && (isGroupChat || character?.avatar_url);
+
+  // メッセージ間の時間差計算
+  const timeSincePrevious = useMemo(() => {
+    if (!_previousMessage) return null;
+    const current = new Date(message.timestamp || message.created_at || Date.now());
+    const previous = new Date(_previousMessage.timestamp || _previousMessage.created_at || Date.now());
+    const diffMinutes = Math.abs(current.getTime() - previous.getTime()) / (1000 * 60);
+    return diffMinutes > 5 ? diffMinutes : null; // 5分以上の場合のみ表示
+  }, [message, _previousMessage]);
+
+  // グループチャットでの発言者名表示判定
+  const shouldShowSpeakerName = isGroupChat && isAssistant && character && (
+    !_previousMessage || 
+    _previousMessage.role !== 'assistant' || 
+    _previousMessage.metadata?.character_id !== message.metadata?.character_id ||
+    (timeSincePrevious && timeSincePrevious > 5)
+  );
+
+  // アニメーション設定の最適化
+  const bubbleAnimation: TargetAndTransition = useMemo(() => ({
+    scale: [0.95, 1],
+    opacity: [0, 1],
+    y: [20, 0],
+  }), []);
+
+  const bubbleTransition = useMemo(() => ({
+    duration: 0.3,
+    ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+  }), []);
+
+  // クリップボードコピー
+  const handleCopy = useCallback(async () => {
+    try {
+      const textToCopy = selectedText || processedContent;
+      await copyToClipboard(textToCopy);
+    } catch (error) {
+      console.error('コピーに失敗しました:', error);
+    }
+  }, [selectedText, processedContent, copyToClipboard]);
+
+  // メッセージの編集開始
+  const handleEdit = useCallback(() => {
+    if (selectedText) {
+      console.log('テキスト選択編集:', selectedText);
+    } else {
+      console.log('メッセージ全体編集:', processedContent);
+    }
+  }, [selectedText, processedContent]);
+
+  // 選択範囲へのアクション適用
+  const handleApplyToSelection = useCallback(async (action: string) => {
+    if (!selectedTextSelection || !selectedText) return;
+
+    try {
+      const character = getSelectedCharacter();
+      const systemPrompt = `あなたは選択されたテキストに対して${action === 'enhance' ? '強化・改善' : action === 'translate' ? '翻訳' : action === 'explain' ? '詳細説明' : action}を行うアシスタントです。`;
+      
+      let userPrompt = '';
+      switch (action) {
+        case 'enhance':
+          userPrompt = `次のテキストをより良く改善してください：\n\n"${selectedText}"`;
+          break;
+        case 'translate':
+          userPrompt = `次のテキストを自然な日本語に翻訳してください：\n\n"${selectedText}"`;
+          break;
+        case 'explain':
+          userPrompt = `次のテキストについて詳しく説明してください：\n\n"${selectedText}"`;
+          break;
+      }
+      
+      const response = await fetch('/api/chat/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userPrompt,
+          characterId: character?.id,
+          systemPrompt
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.text();
+        addMessage({
+          id: Date.now().toString(),
+          content: result,
+          role: 'assistant',
+          timestamp: Date.now(),
+          character_id: character?.id
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to apply ${action}:`, error);
+    } finally {
+      setSelectedText('');
+      setShowFullActions(false);
+    }
+  }, [selectedTextSelection, selectedText, getSelectedCharacter, addMessage]);
 
   return (
-    <>
+    <AnimatePresence>
       <motion.div
-        ref={messageRef}
-        initial={isLatest ? { opacity: 0, y: 20 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
+        initial={bubbleAnimation}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={bubbleTransition}
         className={cn(
-          'flex gap-3',
-          isUser ? 'justify-end' : 'justify-start'
+          "group relative flex items-start gap-3 mb-4 max-w-[85%] md:max-w-[75%]",
+          isUser ? "ml-auto flex-row-reverse" : "mr-auto"
         )}
-        // メニューはクリックで表示/非表示を切り替えるので、バブル自体はタッチイベントを処理しない
-        style={{ position: 'relative' }}
+        onMouseUp={handleTextSelection}
+        onTouchEnd={handleTextSelection}
       >
-      {/* アバター */}
-      {!isUser && (character || (isGroupChat && message.character_name)) && (
-        <motion.div
-          initial={isLatest ? { scale: 0 } : false}
-          animate={{ scale: 1 }}
-          className="flex-shrink-0"
-        >
-          <div className="flex flex-col items-center">
-            <div 
-              className="w-10 h-10 rounded-full flex items-center justify-center ring-2 ring-opacity-60"
-              style={{
-                background: isGroupChat && characterColor 
-                  ? (() => {
-                      const color = characterColor.replace('#', '');
-                      const r = parseInt(color.slice(0, 2), 16);
-                      const g = parseInt(color.slice(2, 4), 16);
-                      const b = parseInt(color.slice(4, 6), 16);
-                      return `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.9) 0%, rgba(${Math.min(r + 40, 255)}, ${Math.min(g + 30, 255)}, ${Math.min(b + 50, 255)}, 0.9) 100%)`;
-                    })()
-                  : 'linear-gradient(135deg, rgba(168, 85, 247, 0.9) 0%, rgba(236, 72, 153, 0.9) 100%)',
-                boxShadow: `0 0 0 2px ${isGroupChat && characterColor ? characterColor + '60' : 'rgba(168, 85, 247, 0.6)'}`
-              }}
-            >
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img 
-                  src={avatarUrl} 
-                  alt={displayName}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-white text-sm font-bold">
-                  {initial}
-                </span>
-              )}
-            </div>
-            {/* 🎭 改善されたグループチャットキャラクター名表示 */}
-            {isGroupChat && displayName && !isUser && (
-              <motion.div
-                initial={isLatest ? { opacity: 0, y: -5 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-1 text-center"
-              >
-                <span 
-                  className="text-xs font-medium px-2 py-1 rounded-full bg-black/20 border max-w-[80px] truncate inline-block"
-                  style={{ 
-                    borderColor: characterColor + '40',
-                    color: characterColor,
-                    backgroundColor: characterColor + '15'
-                  }}
-                  title={displayName}
-                >
-                  {displayName}
-                </span>
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {isUser && persona && (
-         <motion.div
-          initial={isLatest ? { scale: 0 } : false}
-          animate={{ scale: 1 }}
-          className="flex-shrink-0"
-        >
-          <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center ring-2 ring-blue-400 ring-opacity-60"
-            style={{
-              background: isGroupChat 
-                ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.9) 0%, rgba(6, 182, 212, 0.9) 100%)'
-                : 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(6, 182, 212, 0.9) 100%)',
-            }}
-          >
-            {avatarUrl ? (
+        {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
+        {shouldShowAvatar && (
+          <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
+            {character?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img 
-                src={avatarUrl} 
-                alt={displayName}
-                className="w-full h-full rounded-full object-cover"
+                src={character.avatar_url} 
+                alt={character.name} 
+                className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
-              <span className="text-white text-sm font-bold">
-                {initial}
-              </span>
+              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                {character?.name?.[0] || 'AI'}
+              </div>
             )}
           </div>
-        </motion.div>
-      )}
-
-      {/* メッセージ本体 */}
-      <div className={cn(
-        'group relative max-w-[70%] transition-all duration-200',
-        isUser && 'items-end'
-      )}>
-        {/* ローディング・再生アニメーション */}
-        {(isRegenerating || isContinuing || isSpeaking) && (
-          <Spinner label={isRegenerating ? '再生成中...' : isContinuing ? '続きを出力中...' : '音声再生中...'} />
         )}
-        {/* メッセージバブル */}
-        <motion.div
-          className={cn(
-            'relative px-4 py-3 rounded-2xl',
-            effectSettings.bubbleBlur ? 'backdrop-blur-md' : '',
-          )}
-          style={{
-            background: isUser 
-              ? `linear-gradient(135deg, rgba(37, 99, 235, ${(100 - effectSettings.bubbleOpacity) / 100}) 0%, rgba(6, 182, 212, ${(100 - effectSettings.bubbleOpacity) / 100}) 100%)` // 透明度を修正
-              : isGroupChat && characterColor && characterColor !== '#8b5cf6'
-                ? (() => {
-                    const color = characterColor.replace('#', '');
-                    const r = parseInt(color.slice(0, 2), 16);
-                    const g = parseInt(color.slice(2, 4), 16);
-                    const b = parseInt(color.slice(4, 6), 16);
-                    const opacity = (100 - effectSettings.bubbleOpacity) / 100; // 透明度を修正: bubbleOpacityが高いほど透明に
-                    return `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, ${opacity}) 0%, rgba(${Math.min(r + 30, 255)}, ${Math.min(g + 20, 255)}, ${Math.min(b + 40, 255)}, ${opacity}) 100%)`;
-                  })()
-                : `linear-gradient(135deg, rgba(168, 85, 247, ${(100 - effectSettings.bubbleOpacity) / 100}) 0%, rgba(236, 72, 153, ${(100 - effectSettings.bubbleOpacity) / 100}) 100%)`, // 透明度を修正
-            borderColor: isUser 
-              ? 'rgba(255, 255, 255, 0.2)' 
-              : isGroupChat && characterColor 
-                ? `${characterColor}40` // 透明度を少し上げる
-                : 'rgba(255, 255, 255, 0.2)',
-            boxShadow: isUser 
-              ? '0 0 30px rgba(59, 130, 246, 0.1)' // 影を少し弱める
-              : isGroupChat && characterColor
-                ? `0 0 30px ${characterColor}20` // 影を少し弱める
-                : '0 0 30px rgba(168, 85, 247, 0.1)' // 影を少し弱める
-          }}
-          animate={
-            !isUser && 
-            effectSettings.emotionBasedStyling && 
-            !effectSettings.typewriterEffect && 
-            !effectSettings.particleEffects 
-              ? getEmotionAnimation()
-              : {}
-          }
-        >
-          {/* 重要度インジケーター */}
-          {message.memory.importance.score > 0.8 && (
-            <motion.div
-              initial={isLatest ? { scale: 0 } : false}
-              animate={{ scale: 1 }}
-              className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-500 rounded-full"
-              title="重要なメッセージ"
-            />
-          )}
 
-          {/* 3Dホログラムメッセージ - AIメッセージのみ */}
-          {!isUser && effectSettings.hologramMessages && isLatest ? (
-            <HologramMessage text={processedContent} />
-          ) : (
-            <>
-              {/* 画像表示 */}
-              {message.image_url && (
-                <div className="mb-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={message.image_url}
-                    alt="Attached image"
-                    className="max-w-full max-h-64 rounded-lg object-contain"
-                  />
-                </div>
+        <div className={cn(
+          "flex flex-col min-w-0 flex-1",
+          isUser ? "items-end" : "items-start"
+        )}>
+          {/* 発言者名とタイムスタンプ（グループチャット用） */}
+          {shouldShowSpeakerName && (
+            <div className="flex items-center gap-2 mb-1 text-xs text-white/60">
+              <span className="font-medium text-purple-300">
+                {character?.name || 'AI'}
+              </span>
+              {timeSincePrevious && timeSincePrevious > 5 && (
+                <span className="text-white/40">
+                  {Math.round(timeSincePrevious)}分前
+                </span>
               )}
-
-              {/* メッセージテキスト - 編集モードと通常表示 */}
-              {isEditing ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    className="w-full bg-black/20 text-white/90 border border-purple-400/30 rounded p-2 min-h-[100px] resize-none focus:outline-none focus:border-purple-400/60"
-                    placeholder="メッセージを編集..."
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={handleCancelEdit}
-                      className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                    >
-                      キャンセル
-                    </button>
-                    <button
-                      onClick={() => setShowEditOptions(true)}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                    >
-                      保存
-                    </button>
-                  </div>
-                  
-                  {/* 編集オプション選択 */}
-                  {showEditOptions && (
-                    <div className="mt-2 p-3 bg-black/30 rounded border border-purple-400/30">
-                      <p className="text-sm text-white/70 mb-2">編集後の動作を選択:</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            handleSaveEdit(false);
-                            setShowEditOptions(false);
-                          }}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                        >
-                          保存のみ
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleSaveEdit(true);
-                            setShowEditOptions(false);
-                          }}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
-                        >
-                          保存して再生成
-                        </button>
-                        <button
-                          onClick={() => setShowEditOptions(false)}
-                          className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {!isUser && (effectSettings.colorfulBubbles || effectSettings.fontEffects || effectSettings.typewriterEffect) ? (
-                    <RichMessage
-                      key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
-                      content={processedContent}
-                      role={message.role as 'user' | 'assistant'}
-                      characterColor='#8b5cf6'
-                      enableEffects={isLatest && effectSettings.typewriterEffect} // タイプライター効果の条件を明確化
-                      typingSpeed={isLatest && effectSettings.typewriterEffect ? 30 : 0}
-                    />
-                  ) : isUser && (effectSettings.colorfulBubbles || effectSettings.fontEffects) ? (
-                    <RichMessage
-                      key={`${message.id}-${processedContent.length}`} // keyを追加して再レンダリングを制御
-                      content={processedContent}
-                      role={message.role as 'user' | 'assistant'}
-                      characterColor='#3b82f6'
-                      enableEffects={false} // ユーザーメッセージはタイプライター効果無効
-                      typingSpeed={0}
-                    />
-                  ) : (
-                    <div className="text-white/90 whitespace-pre-wrap select-none">
-                      {processedContent}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-
-          {/* パーティクルテキストエフェクト - AIメッセージのみ */}
-          {!isUser && effectSettings.particleText && isLatest && (
-            <ParticleText 
-              text={processedContent} 
-              trigger={effectTrigger.length > 0}
-            />
-          )}
-
-          {/* 感情分析表示 - AIメッセージのみ */}
-          {!isUser && effectSettings.realtimeEmotion && (
-            <div className="mt-2">
-              <EmotionDisplay
-                message={processedContent}
-                onEmotionDetected={(emotion) => {
-                  setDetectedEmotion(emotion);
-                  // エフェクトトリガーの更新
-                  if (emotion.intensity > 0.7) {
-                    setEffectTrigger(processedContent);
-                  }
-                }}
-              />
             </div>
           )}
 
-          {/* 感情タグ（動的絵文字付き） */}
-          {!effectSettings.realtimeEmotion && message.expression?.emotion && (
-            <div className="mt-2 flex gap-1">
-              <motion.span 
-                className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/70 flex items-center gap-1"
-                animate={effectSettings.emotionBasedStyling && effectSettings.effectQuality !== 'low' ? {} : {}}
-              >
-                <span className="text-sm">{getDynamicEmoji()}</span>
-                <span>{message.expression.emotion.primary}</span>
-                {(message.expression.emotion.score ?? message.expression.emotion.intensity) && (
-                  <span className="text-xs opacity-60">
-                    ({Math.round((message.expression.emotion.score ?? message.expression.emotion.intensity) * 100)}%)
-                  </span>
+          {/* メッセージバブル本体 */}
+          <div
+            ref={menuRef}
+            className={cn(
+              "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
+              isUser 
+                ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30" 
+                : "bg-slate-800/60 text-white border border-slate-600/30",
+              "hover:shadow-xl group-hover:scale-[1.02]",
+              selectedText ? "ring-2 ring-yellow-400/50" : ""
+            )}
+          >
+            {/* リッチメッセージ表示 */}
+            <RichMessage 
+              content={processedContent} 
+              role={message.role}
+              isExpanded={isExpanded}
+              onToggleExpanded={() => setIsExpanded(!isExpanded)}
+            />
+
+            {/* 感情表示（lazily loaded） */}
+            {emotionResult && effectSettings.realtimeEmotion && (
+              <Suspense fallback={<EffectLoadingFallback />}>
+                <div className="mt-2">
+                  <EmotionDisplay 
+                    emotion={emotionResult} 
+                    character={character}
+                  />
+                </div>
+              </Suspense>
+            )}
+
+            {/* ホログラムエフェクト（lazily loaded） */}
+            {effectSettings.hologramMessages && isAssistant && (
+              <Suspense fallback={<EffectLoadingFallback />}>
+                <div className="mt-2">
+                  <HologramMessage text={processedContent} />
+                </div>
+              </Suspense>
+            )}
+
+            {/* パーティクルエフェクト（lazily loaded） */}
+            {effectSettings.particleEffects && (
+              <Suspense fallback={<EffectLoadingFallback />}>
+                <ParticleText text={processedContent} trigger={isLatest} />
+              </Suspense>
+            )}
+
+            {/* メッセージエフェクト（lazily loaded） */}
+            {effectSettings.typewriterEffect && (
+              <Suspense fallback={<EffectLoadingFallback />}>
+                <MessageEffects 
+                  message={message} 
+                  character={character}
+                  isVisible={true}
+                />
+              </Suspense>
+            )}
+
+            {/* ローディングオーバーレイ */}
+            {(isRegenerating || isContinuing || isCurrentlyGenerating) && (
+              <Spinner label={
+                isRegenerating ? '再生成中...' : 
+                isContinuing ? '続きを生成中...' : 
+                '生成中...'
+              } />
+            )}
+
+            {/* アクションメニュー */}
+            <div className={cn(
+              "absolute transition-all duration-200 z-10",
+              isUser ? "-left-12" : "-right-12",
+              "top-1/2 -translate-y-1/2",
+              "opacity-0 group-hover:opacity-100",
+              showFullActions ? "opacity-100" : ""
+            )}>
+              <div className="flex flex-col gap-1 bg-slate-900/90 backdrop-blur-sm border border-white/10 rounded-lg p-1 shadow-lg">
+                {/* 基本アクション */}
+                <button
+                  onClick={handleCopy}
+                  className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                  title="コピー"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+
+                {/* 音声再生（アシスタントメッセージのみ） */}
+                {isAssistant && voice.autoPlay && (
+                  <button
+                    onClick={handleSpeak}
+                    disabled={isSpeaking}
+                    className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
+                    title={isSpeaking ? "再生中" : "音声再生"}
+                  >
+                    {isSpeaking ? <Pause className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  </button>
                 )}
-              </motion.span>
+
+                {/* 編集アクション */}
+                {selectedText && (
+                  <>
+                    <div className="w-full h-px bg-white/10 my-1" />
+                    <button
+                      onClick={handleEdit}
+                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                      title="編集"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                {/* 最新アシスタントメッセージの操作 */}
+                {isLatest && isAssistant && !generateIsActive && (
+                  <>
+                    <div className="w-full h-px bg-white/10 my-1" />
+                    <button
+                      onClick={handleRegenerate}
+                      disabled={isRegenerating}
+                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
+                      title="再生成"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+                    </button>
+                    <button
+                      onClick={handleContinue}
+                      disabled={isContinuing}
+                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
+                      title="続きを生成"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                {/* 削除・ロールバック */}
+                <div className="w-full h-px bg-white/10 my-1" />
+                <button
+                  onClick={handleDelete}
+                  className="p-2 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                  title="削除"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleRollback}
+                  className="p-2 rounded-md hover:bg-orange-500/20 text-orange-400 hover:text-orange-300 transition-colors"
+                  title="ここまでロールバック"
+                >
+                  <CornerUpLeft className="w-4 h-4" />
+                </button>
+
+                {/* その他のメニュー */}
+                <button
+                  onClick={() => console.log('詳細メニュー:', message)}
+                  className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                  title="詳細"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          )}
-          
-          {/* タイムスタンプとメニューボタン */}
-          <div className="flex items-center justify-between mt-1">
-            <div className="text-xs text-white/40">
-              {formattedTimestamp}
-            </div>
-            {/* ケバブメニューボタン */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                checkMenuPosition();
-                setShowActions(!showActions);
-              }}
-              className="ml-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              title="メニューを表示"
-            >
-              <MoreVertical className="w-3 h-3 text-white/60" />
-            </button>
           </div>
-        </motion.div>
 
-        {/* モバイル対応アクションメニュー - バブル下部に配置 */}
-        <AnimatePresence>
-          {showActions && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={cn(
-                'absolute left-1/2 -translate-x-1/2 z-50',
-                'bg-slate-800/95 backdrop-blur-sm rounded-lg border border-purple-400/20 shadow-lg',
-                'p-1 flex gap-1 justify-center',
-                'max-w-[calc(100vw-2rem)] overflow-hidden',
-                menuPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
-              )}
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
-            >
-              <ActionButton icon={Copy} onClick={handleCopy} title="コピー" compact />
-              <ActionButton icon={isSpeaking ? Pause : Volume2} onClick={handleSpeak} title={isSpeaking ? "停止" : "音声再生"} compact />
-              <ActionButton icon={Edit} onClick={handleEdit} title="チャット編集" compact />
-              <ActionButton icon={X} onClick={handleDeleteMessage} title="このメッセージを削除" compact />
-              <ActionButton icon={RefreshCw} onClick={handleRegenerate} title="再生成" compact disabled={isRegenerating || is_generating || group_generating} />
-              <ActionButton icon={ChevronRight} onClick={handleContinue} title="続きを出力" compact disabled={isContinuing || is_generating || group_generating} />
-              <ActionButton icon={CornerUpLeft} onClick={handleRollback} title="ここまで戻る" compact />
-            </motion.div>
+          {/* 感情リアクション（lazily loaded） */}
+          {emotionResult && effectSettings.autoReactions && (
+            <Suspense fallback={<EffectLoadingFallback />}>
+              <div className="mt-2">
+                <EmotionReactions 
+                  emotions={emotionResult.emotions} 
+                  intensity={emotionResult.intensity}
+                />
+              </div>
+            </Suspense>
           )}
-        </AnimatePresence>
-      </div>
+        </div>
 
-        {/* パーティクルエフェクト */}
-        {effectSettings.particleEffects && effectTrigger && (
-          <MessageEffects
-            trigger={effectTrigger}
-            position={effectPosition}
-          />
-        )}
-
-        {/* 感情リアクション - AIメッセージのみ */}
-        {!isUser && detectedEmotion && effectSettings.autoReactions && (
-          <EmotionReactions
-            emotion={detectedEmotion}
-            onReactionTriggered={(reaction) => {
-              // リアクションに応じて追加のエフェクトを実行
-              if (reaction.type === 'visual') {
-                setEffectTrigger(prev => prev + '🎉');
-              }
+        {/* 選択テキスト用のフローティングメニュー */}
+        {selectedText && showFullActions && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed z-50 bg-slate-900/95 backdrop-blur-md border border-white/20 rounded-lg p-2 shadow-xl"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
             }}
-          />
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-white/60">選択テキスト:</span>
+              <span className="text-xs text-white/80 max-w-32 truncate">
+                {selectedText}
+              </span>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={() => handleApplyToSelection('enhance')}
+                className="px-3 py-1 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded transition-colors"
+              >
+                強化
+              </button>
+              <button
+                onClick={() => handleApplyToSelection('translate')}
+                className="px-3 py-1 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded transition-colors"
+              >
+                翻訳
+              </button>
+              <button
+                onClick={() => handleApplyToSelection('explain')}
+                className="px-3 py-1 text-xs bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 rounded transition-colors"
+              >
+                説明
+              </button>
+              <button
+                onClick={handleCopy}
+                className="px-3 py-1 text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded transition-colors"
+              >
+                コピー
+              </button>
+            </div>
+          </motion.div>
         )}
       </motion.div>
-    </>
+    </AnimatePresence>
   );
 });
-
-MessageBubble.displayName = 'MessageBubble';
-
-const ActionButton: React.FC<{
-  icon: React.ElementType;
-  onClick: () => void;
-  title: string;
-  compact?: boolean;
-  disabled?: boolean;
-}> = ({ icon: Icon, onClick, title, compact = false, disabled = false }) => (
-  <motion.button
-    whileHover={{ scale: disabled ? 1 : 1.1 }}
-    whileTap={{ scale: disabled ? 1 : 0.95 }}
-    onClick={onClick}
-    disabled={disabled}
-    className={cn(
-      "bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors",
-      compact ? "p-1" : "p-2",
-      disabled && "opacity-50 cursor-not-allowed"
-    )}
-    title={title}
-  >
-    <Icon className={cn("text-white/70", compact ? "w-3 h-3" : "w-4 h-4")} />
-  </motion.button>
-);

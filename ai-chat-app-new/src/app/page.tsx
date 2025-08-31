@@ -1,15 +1,12 @@
 'use client';
 
-import React from 'react';
-import AppInitializer from '@/components/AppInitializer';
 import { ChatInterface } from '@/components/chat/ChatInterface';
+import AppInitializer from '@/components/AppInitializer';
 
 export default function Home() {
   return (
     <AppInitializer>
-      <main className="h-screen flex flex-col">
-        <ChatInterface />
-      </main>
+      <ChatInterface />
     </AppInitializer>
   );
 }

@@ -56,13 +56,12 @@ const createStore = () => {
             
             const item = window.localStorage.getItem(name);
             if (!item) {
-              console.log(`📦 No stored data found for key: ${name}`);
               return null;
             }
             
             // JSONの基本的な検証
             if (!item.startsWith('{') && !item.startsWith('[')) {
-              console.warn('Invalid JSON format in localStorage, clearing:', name);
+              // Invalid JSON format in localStorage, clearing
               localStorage.removeItem(name);
               return null;
             }
@@ -72,18 +71,12 @@ const createStore = () => {
               try {
                 const parsed = JSON.parse(item);
                 if (!parsed || typeof parsed !== 'object') {
-                  console.warn('Invalid storage data structure, clearing:', name);
+                  // Invalid storage data structure, clearing
                   localStorage.removeItem(name);
                   return null;
                 }
-                console.log('🔄 Loading persisted settings:', {
-                  hasApiConfig: !!parsed.state?.apiConfig,
-                  hasVoice: !!parsed.state?.voice,
-                  maxTokens: parsed.state?.apiConfig?.max_tokens,
-                  voiceProvider: parsed.state?.voice?.provider
-                });
               } catch (parseErr) {
-                console.warn('Failed to parse stored settings, clearing corrupted data:', parseErr);
+                // Failed to parse stored settings, clearing corrupted data
                 localStorage.removeItem(name);
                 return null;
               }
@@ -106,7 +99,6 @@ const createStore = () => {
             const sizeInMB = sizeInBytes / (1024 * 1024);
             
             if (sizeInMB > 2) { // 2MB制限でより安全に
-              console.warn(`🚨 Storage size too large: ${sizeInMB.toFixed(2)}MB. Attempting cleanup...`);
               
               // 古いセッションデータをクリーンアップ
               try {
@@ -169,7 +161,6 @@ const createStore = () => {
                 
                 value = JSON.stringify(parsed);
                 const newSizeInMB = new Blob([value]).size / (1024 * 1024);
-                console.log(`🧹 Cleaned up storage: ${sizeInMB.toFixed(2)}MB → ${newSizeInMB.toFixed(2)}MB`);
               } catch (cleanupError) {
                 console.error('Failed to cleanup storage data:', cleanupError);
               }
@@ -185,13 +176,6 @@ const createStore = () => {
               
               // 設定関連のデバッグ情報
               if (name === 'ai-chat-v3-storage') {
-                console.log('💾 Saving settings to localStorage:', {
-                  hasApiConfig: !!parsed.state?.apiConfig,
-                  hasVoice: !!parsed.state?.voice,
-                  maxTokens: parsed.state?.apiConfig?.max_tokens,
-                  voiceProvider: parsed.state?.voice?.provider,
-                  sizeInMB: sizeInMB.toFixed(2)
-                });
               }
             } catch (parseErr) {
               console.error('Invalid JSON value, refusing to save:', parseErr);
@@ -199,7 +183,6 @@ const createStore = () => {
             }
             
             window.localStorage.setItem(name, value);
-            console.log(`✅ Successfully saved to localStorage: ${name} (${sizeInMB.toFixed(2)}MB)`);
             
             // デバッグ: 保存直後に確認
             const verification = window.localStorage.getItem(name);
@@ -208,7 +191,6 @@ const createStore = () => {
             } else {
               const verifySize = new Blob([verification]).size / (1024 * 1024);
               if (Math.abs(verifySize - sizeInMB) > 0.01) {
-                console.warn(`⚠️ Size mismatch: expected ${sizeInMB.toFixed(2)}MB, got ${verifySize.toFixed(2)}MB`);
               }
             }
           } catch (error) {
@@ -221,7 +203,6 @@ const createStore = () => {
                 
                 // 再試行
                 window.localStorage.setItem(name, value);
-                console.log('✅ Emergency cleanup successful, data saved');
               } catch (retryError) {
                 console.error('❌ Emergency cleanup failed, trying more aggressive cleanup:', retryError);
                 
@@ -229,10 +210,8 @@ const createStore = () => {
                 try {
                   StorageCleaner.emergencyReset();
                   window.localStorage.setItem(name, value);
-                  console.log('✅ Emergency reset successful, data saved');
                 } catch (finalError) {
                   console.error('❌ All cleanup attempts failed:', finalError);
-                  console.warn('⚠️ ストレージ容量が不足しています。キャラクターを削除してください。');
                 }
               }
             } else {

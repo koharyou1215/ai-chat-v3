@@ -393,19 +393,15 @@ export const createSettingsSlice: StateCreator<
   
   // 🧠 Emotional Intelligence flags update method
   updateEmotionalFlags: (flags) => {
-    console.log('🧠 Updating emotional intelligence flags:', flags);
     set((state) => ({
       emotionalIntelligenceFlags: { ...state.emotionalIntelligenceFlags, ...flags },
     }));
-    console.log('✅ Emotional intelligence flags updated');
   },
   
   updateSystemPrompts: (prompts) => {
     set((state) => {
       const updatedPrompts = { ...state.systemPrompts, ...prompts };
-      console.log('🔄 Updating system prompts:', updatedPrompts);
       // Zustandの自動永続化に任せる（強制永続化を削除）
-      console.log('✅ System prompts updated, auto-persistence will handle storage');
       return { systemPrompts: updatedPrompts };
     });
   },
@@ -417,10 +413,8 @@ export const createSettingsSlice: StateCreator<
     set((state) => ({ chat: { ...state.chat, ...settings } })),
   
   updateVoiceSettings: (settings) => {
-    console.log('🔊 Updating voice settings:', settings);
     set((state) => {
       const newVoiceSettings = { ...state.voice, ...settings };
-      console.log('✅ New voice settings:', newVoiceSettings);
       return { voice: newVoiceSettings };
     });
   },
@@ -461,10 +455,8 @@ export const createSettingsSlice: StateCreator<
   },
   
   setMaxTokens: (tokens) => {
-    console.log(`🔧 Setting max_tokens to: ${tokens}`);
     set((state) => ({ apiConfig: { ...state.apiConfig, max_tokens: tokens } }));
     const newConfig = get().apiConfig;
-    console.log(`✅ Updated API config:`, newConfig);
     apiManager.setConfig(newConfig);
   },
   
@@ -495,7 +487,6 @@ export const createSettingsSlice: StateCreator<
   },
 
   resetSystemPrompts: () => {
-    console.log('🧹 Resetting system prompts to empty state');
     const emptyPrompts = {
       system: '',
       jailbreak: '',
@@ -503,7 +494,6 @@ export const createSettingsSlice: StateCreator<
       textEnhancement: ''
     };
     set({ systemPrompts: emptyPrompts });
-    console.log('✅ System prompts reset to empty state');
   },
   
   setShowSettingsModal: (show, initialTab = 'effects') =>

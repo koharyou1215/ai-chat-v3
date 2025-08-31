@@ -153,11 +153,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
   },
 
   sendGroupMessage: async (content, imageUrl) => {
-    console.log('[GroupChat] Sending group message:', { content: content.substring(0, 50) + '...', hasImage: !!imageUrl });
-    
     const activeGroupSessionId = get().active_group_session_id;
     if (!activeGroupSessionId) {
-      console.error('[GroupChat] No active group session ID');
       return;
     }
 
@@ -166,17 +163,9 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
 
     const groupSession = get().groupSessions.get(activeGroupSessionId);
     if (!groupSession) {
-      console.error('[GroupChat] Group session not found:', activeGroupSessionId);
       set({ group_generating: false });
       return;
     }
-    
-    console.log('[GroupChat] Found group session:', {
-      id: groupSession.id,
-      characterCount: groupSession.characters.length,
-      activeCharacterCount: groupSession.active_character_ids.size,
-      chatMode: groupSession.chat_mode
-    });
 
     try {
       // ユーザーメッセージを追加
@@ -261,10 +250,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
               return state;
             });
             
-            console.log('🎭 Group user emotion analysis completed:', emotionResult.emotion.primaryEmotion);
-            console.log('🎭 Group dynamics:', emotionResult.groupDynamics);
           } catch (error) {
-            console.warn('🎭 Group user emotion analysis failed:', error);
+            // Group user emotion analysis failed, continuing without emotion data
           }
         }, 0);
       }
@@ -274,7 +261,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
         .map(id => groupSession.characters.find(c => c.id === id))
         .filter((char): char is Character => char !== undefined);
 
-      console.log('[GroupChat] Active characters for response:', activeCharacters.map(c => ({ id: c.id, name: c.name })));
 
       const responses: UnifiedMessage[] = [];
 
@@ -348,7 +334,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
 
       // sequentialモード以外の場合のみ、最後にまとめて追加
       if (groupSession.chat_mode !== 'sequential') {
-        console.log('[GroupChat] Generated responses:', responses.length, responses.map(r => ({ character: r.character_name, preview: r.content.substring(0, 50) + '...' })));
         groupSession.messages.push(...responses);
       }
       groupSession.message_count += responses.length + 1; // ユーザーメッセージも含む
@@ -398,7 +383,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
                     }
                   };
                 } catch (error) {
-                  console.warn(`🎭 Individual response emotion analysis failed for ${response.character_name}:`, error);
+                  // Individual response emotion analysis failed, continuing without emotion data
                   return response; // Return original on failure
                 }
               })
@@ -426,12 +411,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
               return state;
             });
             
-            console.log('🎭 Group AI responses emotion analysis completed');
-            console.log('🎭 Analyzed responses:', emotionUpdatedResponses.map(r => 
-              `${r.character_name}: ${r.expression.emotion.primary} (${Math.round(r.expression.emotion.intensity * 100)}%)`
-            ));
           } catch (error) {
-            console.warn('🎭 Group AI emotion analysis failed:', error);
+            // Group AI emotion analysis failed, continuing without emotion data
           }
         }, 100); // Slight delay to ensure UI updates first
       }
@@ -481,17 +462,14 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
           if (memoryResults.status === 'rejected') {
             console.error('🧠 Group chat auto-memory processing failed:', memoryResults.reason);
           } else {
-            console.log('🧠 Group chat auto-memory processing completed for all characters');
           }
           
           if (trackerResults.status === 'rejected') {
             console.error('🎯 Group chat tracker analysis failed:', trackerResults.reason);
           } else if (trackerResults.status === 'fulfilled' && trackerResults.value) {
             const allUpdates = trackerResults.value.flat().flat();
-            console.log(`🎯 Group chat tracker analysis completed: ${allUpdates.length} total updates across all characters`);
           }
           
-          console.log('✨ Group chat background processing completed');
         }).catch(error => {
           console.error('⚠️ Group chat background processing error:', error);
         });
@@ -510,14 +488,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const openRouterApiKey = get().openRouterApiKey;
     const geminiApiKey = get().geminiApiKey;
     
-    // デバッグ: API設定の確認
-    console.log('🔐 [GroupChat] API Configuration:', {
-      provider: apiConfig.provider,
-      model: apiConfig.model,
-      hasOpenRouterKey: !!openRouterApiKey,
-      hasGeminiKey: !!geminiApiKey,
-      maxTokens: apiConfig.max_tokens
-    });
     
     // グループチャット用にトークンを均等配分
     const activeCharCount = groupSession.active_character_ids.size;
@@ -529,7 +499,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const scenarioBonus = groupSession.scenario?.situation?.length || 0 > 100 ? 150 : 0; // シナリオが長い場合はボーナス
     const finalMaxTokens = Math.min(baseTokens + scenarioBonus, 1024); // 上限を1024に設定
 
-    console.log(`🎯 [${character.name}] トークン配分: ${finalMaxTokens} (Base: ${baseTokens}, Bonus: ${scenarioBonus})`);
     
     // グループチャット用のシステムプロンプトを構築
     const otherCharacters = groupSession.characters
@@ -541,7 +510,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const characterIndex = previousResponses.length; // 今何番目のキャラか
     const historyReduction = Math.max(10 - (characterIndex * 2), 4); // 後のキャラほど履歴を減らす
     const recentMessages = groupSession.messages.slice(-historyReduction);
-    console.log(`📚 [${character.name}] 履歴調整: 最新${historyReduction}件を使用`);
     // 全員の発言を含める（グループチャットなので） + 重複除去
     const tempHistory = recentMessages
       .map(msg => {
@@ -582,8 +550,6 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     }
 
     // デバッグ: 会話履歴を確認
-    console.log(`🔍 [${character.name}] 会話履歴:`, conversationHistory);
-    console.log(`🔍 [${character.name}] 全メッセージ数: ${groupSession.messages.length}, 使用履歴: ${conversationHistory.length}件`);
 
     // コンパクトモードを使用（Gemini使用時は自動的に有効）
     const isGemini = apiConfig?.provider === 'gemini';
@@ -784,7 +750,6 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
 
   // 🚨 緊急修復機能: グループ生成状態を強制リセット
   resetGroupGeneratingState: () => {
-    console.log('🚨 EMERGENCY: Forcing reset of group generating state');
     set({ group_generating: false });
   },
 
@@ -815,7 +780,6 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
     }));
     
-    console.log(`⏪ Group session rolled back to message ${message_id}`);
   },
 
   updateGroupMembers: (sessionId, newCharacters) => { // updateSessionCharacters からリネーム
@@ -960,26 +924,22 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       const state = get();
       const activeSessionId = state.active_group_session_id;
       if (!activeSessionId) {
-        console.warn("Group regeneration aborted: No active group session ID.");
         return;
       }
       
       const session = state.groupSessions.get(activeSessionId);
       if (!session || session.messages.length < 2) {
-        console.warn("Group regeneration aborted: Session not found or not enough messages.");
         return;
       }
 
       // 最後のAIメッセージとその直前のユーザーメッセージを見つける
       const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted && !m.metadata?.is_system_message);
       if (lastAiMessageIndex <= 0) {
-        console.warn("Group regeneration aborted: No valid AI message to regenerate.");
         return;
       }
 
       const lastUserMessage = session.messages[lastAiMessageIndex - 1];
       if (!lastUserMessage || lastUserMessage.role !== 'user' || lastUserMessage.is_deleted) {
-        console.warn("Group regeneration aborted: No valid user message found before the last AI message.");
         return;
       }
 
@@ -987,7 +947,6 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       const targetCharacter = session.characters.find(c => c.id === lastAiMessage.character_id);
       
       if (!targetCharacter) {
-        console.warn("Group regeneration aborted: Character not found for last AI message.");
         return;
       }
 
@@ -1102,7 +1061,6 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
         groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
       }));
 
-      console.log('✅ Group message regenerated successfully');
     } catch (error) {
       console.error('❌ Group regeneration failed:', error);
     } finally {
@@ -1117,20 +1075,17 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       const state = get();
       const activeSessionId = state.active_group_session_id;
       if (!activeSessionId) {
-        console.warn("Group continue aborted: No active group session ID.");
         return;
       }
       
       const session = state.groupSessions.get(activeSessionId);
       if (!session || session.messages.length === 0) {
-        console.warn("Group continue aborted: Session not found or no messages.");
         return;
       }
 
       // 最後のAIメッセージを見つける
       const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted && !m.metadata?.is_system_message);
       if (lastAiMessageIndex === -1) {
-        console.warn("Group continue aborted: No valid AI message to continue.");
         return;
       }
 
@@ -1138,7 +1093,6 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       const targetCharacter = session.characters.find(c => c.id === lastAiMessage.character_id);
       
       if (!targetCharacter) {
-        console.warn("Group continue aborted: Character not found for last AI message.");
         return;
       }
 
@@ -1179,7 +1133,6 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
         groupSessions: new Map(state.groupSessions).set(activeSessionId, updatedSession)
       }));
 
-      console.log('✅ Group message continued successfully');
     } catch (error) {
       console.error('❌ Group continuation failed:', error);
     } finally {

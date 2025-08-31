@@ -18,8 +18,18 @@ export const ClientOnlyProvider: React.FC<ClientOnlyProviderProps> = ({
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
+    // Ensure this runs after hydration
+    const timer = setTimeout(() => {
+      setHasMounted(true);
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, []);
+
+  // Check if we're in the browser
+  if (typeof window === 'undefined') {
+    return fallback as React.ReactElement;
+  }
 
   if (!hasMounted) {
     return fallback as React.ReactElement;

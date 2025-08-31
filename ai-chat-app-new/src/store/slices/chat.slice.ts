@@ -159,9 +159,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       // 新しいキャラクターの場合のみTrackerManagerを作成
       trackerManager = new TrackerManager();
       trackerManager.initializeTrackerSet(character.id, character.trackers);
-      console.log(`🎯 Created new TrackerManager for character: ${character.name} (${character.id})`);
     } else {
-      console.log(`🎯 Reusing existing TrackerManager for character: ${character.name} (${character.id})`);
     }
 
     set(state => ({
@@ -177,7 +175,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
     const state = get();
     if (state.is_group_mode && state.active_group_session_id) {
-      console.log('📞 Redirecting to group chat sendMessage');
       return await state.sendGroupMessage(content, imageUrl);
     }
     
@@ -187,7 +184,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     if (!activeSession) return;
 
     if (state.is_generating) {
-      console.log('⚠️ Already generating, ignoring duplicate request');
       return;
     }
     set({ is_generating: true });
@@ -285,9 +281,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             return state;
           });
           
-          console.log('🧠 User emotion analysis completed:', emotionResult.emotion.primaryEmotion);
         } catch (error) {
-          console.warn('🧠 User emotion analysis failed:', error);
+          // User emotion analysis failed, continuing without emotion data
         }
       }, 0);
     }
@@ -298,18 +293,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         const characterId = activeSession.participants.characters[0]?.id;
         const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
         
-        // 🚨 緊急デバッグ：セッション情報の確認
-        console.log('🚨 [sendMessage] sessionWithUserMessage.participants:', {
-          charactersCount: sessionWithUserMessage.participants.characters?.length || 0,
-          firstCharacter: sessionWithUserMessage.participants.characters?.[0] ? {
-            id: sessionWithUserMessage.participants.characters[0].id,
-            name: sessionWithUserMessage.participants.characters[0].name
-          } : 'UNDEFINED',
-          user: sessionWithUserMessage.participants.user ? {
-            id: sessionWithUserMessage.participants.user.id,
-            name: sessionWithUserMessage.participants.user.name
-          } : 'UNDEFINED'
-        });
 
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
         const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
@@ -318,13 +301,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             trackerManager
         );
         
-        console.log('⚡ Base prompt ready, starting API call...');
 
         const apiConfig = get().apiConfig;
         // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
         const requestId = `${activeSessionId}-${Date.now()}`;
         const response = await apiRequestQueue.enqueueChatRequest(async () => {
-          console.log('🚀 Chat request started via queue');
           
           // 🔍 デバッグ: プロンプト品質検証 (無効化)
           // if (process.env.NODE_ENV === 'development') {
@@ -381,7 +362,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           // 重量版が準備できたら、完全版で再度APIリクエスト
           try {
             const fullPrompt = await enhancePrompt();
-            console.log('✨ Enhanced prompt ready, using full version');
             
             // 完全版でAPIリクエスト
             return fetch('/api/chat/generate', {
@@ -420,16 +400,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
               }),
             });
           } catch (error) {
-            console.warn('Enhanced prompt failed, using base prompt:', error);
+            // Enhanced prompt failed, using base prompt
             return initialResponse; // フォールバック
           }
         }, requestId);
         
         // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
         enhancePrompt().then(enhancedPrompt => {
-          console.log('✨ Enhanced prompt ready for future use:', enhancedPrompt.length + ' chars');
           // 将来のリクエストで使用するためにキャッシュ可能
-        }).catch(err => console.warn('⚠️ Enhanced prompt failed:', err));
+        }).catch(err => {
+          // Enhanced prompt failed, not critical
+        });
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -510,10 +491,9 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
                 effects: []
               };
               
-              console.log('🧠 AI emotion analysis completed:', aiEmotionResult.emotion.primaryEmotion);
             }
           } catch (error) {
-            console.warn('🧠 AI emotion analysis failed:', error);
+            // AI emotion analysis failed, continuing without emotion data
           }
         }
 
@@ -576,17 +556,14 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             if (memoryResult.status === 'rejected') {
               console.error('🧠 Auto-memory processing failed:', memoryResult.reason);
             } else {
-              console.log('🧠 Auto-memory processing completed successfully');
             }
             
             if (trackerResult.status === 'rejected') {
               console.error('🎯 Tracker analysis failed:', trackerResult.reason);
             } else if (trackerResult.status === 'fulfilled' && trackerResult.value) {
               const allUpdates = trackerResult.value.flat();
-              console.log(`🎯 Tracker analysis completed: ${allUpdates.length} total updates`);
             }
             
-            console.log('✨ Background processing completed for character:', characterId?.substring(0, 8) + '...');
           }).catch(error => {
             console.error('⚠️ Background processing error:', error);
           });
@@ -606,27 +583,23 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     try {
       const activeSessionId = get().active_session_id;
       if (!activeSessionId) {
-        console.warn("Regeneration aborted: No active session ID.");
         return;
       }
       
       const session = get().sessions.get(activeSessionId);
       // C案：より堅牢なチェック
       if (!session || session.messages.length < 2) {
-        console.warn("Regeneration aborted: Session not found or not enough messages.");
         return;
       }
 
       // 最後のAIメッセージとその直前のユーザーメッセージを見つける
       const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
       if (lastAiMessageIndex <= 0) { // Should be at least the second message
-        console.warn("Regeneration aborted: No valid AI message to regenerate.");
         return;
       }
 
       const lastUserMessage = session.messages[lastAiMessageIndex - 1];
       if (!lastUserMessage || lastUserMessage.role !== 'user' || lastUserMessage.is_deleted) {
-        console.warn("Regeneration aborted: No valid user message found before the last AI message.");
         return;
       }
 
@@ -729,20 +702,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     try {
       const activeSessionId = get().active_session_id;
       if (!activeSessionId) {
-        console.warn("Continue aborted: No active session ID.");
         return;
       }
       
       const session = get().sessions.get(activeSessionId);
       if (!session || session.messages.length === 0) {
-        console.warn("Continue aborted: Session not found or no messages.");
         return;
       }
 
       // 最後のAIメッセージを見つける
       const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
       if (lastAiMessageIndex === -1) {
-        console.warn("Continue aborted: No valid AI message to continue.");
         return;
       }
 
@@ -826,7 +796,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         };
       });
 
-      console.log('✅ Solo message continued successfully');
     } catch (error) {
         console.error("Continue failed:", error);
     } finally {
@@ -871,11 +840,9 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       if (trackerManager) {
         // 全てのトラッカーを初期値にリセット
         trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
-        console.log(`🔄 Trackers reset for character ${characterId}`);
       }
     }
     
-    console.log(`⏪ Session rolled back to message ${message_id}`);
   },
 
   deleteMessage: (message_id) => {
@@ -966,7 +933,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
   // 🚨 緊急修復機能: 生成状態を強制リセット
   resetGeneratingState: () => {
-    console.log('🚨 EMERGENCY: Forcing reset of generating state');
     set({ is_generating: false });
   },
 
@@ -983,10 +949,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           // 各キャラクターのトラッカーを初期化
           session.participants.characters.forEach(character => {
             trackerManager.initializeTrackerSet(character.id, character.trackers);
-            console.log(`Initialized tracker set for character ${character.name} (${character.id})`);
           });
           trackerManagers.set(sessionId, trackerManager);
-          console.log(`Tracker manager created for session ${sessionId}`);
         }
         
         // TrackerManagersを更新
@@ -1051,7 +1015,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       });
       
       if (!response.ok) throw new Error('Failed to save history');
-      console.log(`✅ Session ${session_id} saved to history`);
     } catch (error) {
       console.error('Error saving session to history:', error);
     }
@@ -1070,7 +1033,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         active_session_id: session_id
       }));
       
-      console.log(`✅ Session ${session_id} loaded from history`);
     } catch (error) {
       console.error('Error loading session from history:', error);
     }
@@ -1090,7 +1052,9 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: session_id, updates: { isPinned } })
-      }).catch(console.error);
+      }).catch(error => {
+        // Storage initialization failed, not critical
+      });
       
       return { sessions: newSessions };
     });
@@ -1111,7 +1075,6 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         trackerManagers: new Map(trackerManagers)
       }));
       
-      console.log(`Tracker manager initialized for character ${character.name} (${character.id})`);
     }
   },
 });

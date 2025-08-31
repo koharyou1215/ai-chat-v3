@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import NextImage from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
+import { shallow } from 'zustand/shallow';
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
 export const MessageInput: React.FC = React.memo(() => {
@@ -34,30 +35,32 @@ export const MessageInput: React.FC = React.memo(() => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // **安全な個別セレクター（無限ループ回避）**
-  const sendMessage = useAppStore(state => state.sendMessage);
-  const is_generating = useAppStore(state => state.is_generating);
-  const currentInputText = useAppStore(state => state.currentInputText);
-  const setCurrentInputText = useAppStore(state => state.setCurrentInputText);
-  const setShowCharacterGallery = useAppStore(state => state.setShowCharacterGallery);
-  const setShowPersonaGallery = useAppStore(state => state.setShowPersonaGallery);
-  const setShowHistoryModal = useAppStore(state => state.setShowHistoryModal);
-  const setShowSettingsModal = useAppStore(state => state.setShowSettingsModal);
-  const setShowVoiceSettingsModal = useAppStore(state => state.setShowVoiceSettingsModal);
-  const setShowSuggestionModal = useAppStore(state => state.setShowSuggestionModal);
-  const generateSuggestions = useAppStore(state => state.generateSuggestions);
-  const enhanceText = useAppStore(state => state.enhanceText);
-  const showEnhancementModal = useAppStore(state => state.showEnhancementModal);
-  const setShowEnhancementModal = useAppStore(state => state.setShowEnhancementModal);
-  const enhanceTextForModal = useAppStore(state => state.enhanceTextForModal);
-  const isEnhancingText = useAppStore(state => state.isEnhancingText);
-  const getActiveSession = useAppStore(state => state.getActiveSession);
-  const systemPrompts = useAppStore(state => state.systemPrompts);
-  const is_group_mode = useAppStore(state => state.is_group_mode);
-  const active_group_session_id = useAppStore(state => state.active_group_session_id);
-  const groupSessions = useAppStore(state => state.groupSessions);
-  const isGeneratingSuggestions = useAppStore(state => state.isGeneratingSuggestions);
-  const toggleGroupMemberModal = useAppStore(state => state.toggleGroupMemberModal);
+  // Fixed Zustand selectors to prevent infinite loops
+  const {
+    is_generating,
+    currentInputText,
+    isEnhancingText,
+    isGeneratingSuggestions,
+    showEnhancementModal,
+    is_group_mode,
+    active_group_session_id,
+    groupSessions,
+    systemPrompts,
+    sendMessage,
+    setCurrentInputText,
+    setShowCharacterGallery,
+    setShowPersonaGallery,
+    setShowHistoryModal,
+    setShowSettingsModal,
+    setShowVoiceSettingsModal,
+    setShowSuggestionModal,
+    generateSuggestions,
+    enhanceText,
+    setShowEnhancementModal,
+    enhanceTextForModal,
+    getActiveSession,
+    toggleGroupMemberModal
+  } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
   const hasContent = hasMessage || selectedImage;
@@ -350,7 +353,7 @@ export const MessageInput: React.FC = React.memo(() => {
                   icon={Sparkles} 
                   onClick={handleEnhanceClick} 
                   tooltip="文章強化" 
-                  isLoading={isEnhancing} // ★ isLoadingプロパティを追加
+                  isLoading={isEnhancingText} // ★ isLoadingプロパティを追加
                 />
               ) : (
                 <InputButton 

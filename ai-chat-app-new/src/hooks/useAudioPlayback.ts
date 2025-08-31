@@ -28,6 +28,7 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
   const [isSpeaking, setIsSpeaking] = useState(false);
   const voiceSettings = useAppStore(state => state.voice);
   const autoPlayedRef = useRef<Set<string>>(new Set());
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSpeak = useCallback(async () => {
     // コンテンツが空の場合は処理を中断
@@ -189,16 +190,28 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
     }
   }, [isSpeaking, message.content, voiceSettings]);
 
-  // 自動再生ロジック
+  // 自動再生ロジック - メモリリーク修正
   useEffect(() => {
+    // 既存のタイマーをクリア
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+      autoPlayTimerRef.current = null;
+    }
+    
     // 条件を満たし、まだ再生されていない場合のみ再生
     if (isLatest && message.role !== 'user' && voiceSettings?.autoPlay && !autoPlayedRef.current.has(message.id)) {
-      const timer = setTimeout(() => {
+      autoPlayTimerRef.current = setTimeout(() => {
         autoPlayedRef.current.add(message.id);
         handleSpeak();
+        autoPlayTimerRef.current = null;
       }, 800);
 
-      return () => clearTimeout(timer);
+      return () => {
+        if (autoPlayTimerRef.current) {
+          clearTimeout(autoPlayTimerRef.current);
+          autoPlayTimerRef.current = null;
+        }
+      };
     }
     
     // isLatestでなくなった場合は再生を停止
@@ -212,6 +225,11 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
   // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {
     return () => {
+      // タイマーとオーディオをクリーンアップ
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+        autoPlayTimerRef.current = null;
+      }
       stopGlobalPlayback();
     };
   }, []);

@@ -202,6 +202,7 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { settings } = useEffectSettings();
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
+  const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
 
   const handleClick = (e: React.MouseEvent) => {
     if (!settings.rippleEffects) return;
@@ -213,10 +214,21 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
     const newRipple = { x, y, id: Math.random() };
     setRipples(prev => [...prev, newRipple]);
     
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setRipples(prev => prev.filter(r => r.id !== newRipple.id));
+      timeoutsRef.current.delete(timeoutId);
     }, 1000 / settings.animationSpeed);
+    
+    timeoutsRef.current.add(timeoutId);
   };
+
+  // コンポーネントアンマウント時にタイマーをクリーンアップ
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      timeoutsRef.current.clear();
+    };
+  }, []);
 
   return (
     <div className="relative overflow-hidden" onClick={handleClick}>
