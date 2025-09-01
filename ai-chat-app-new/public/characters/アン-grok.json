@@ -86,7 +86,8 @@
             "label": "支配と服従"
           }
         ]
-      }
+      },
+      "current_value": "母親と息子"
     },
     {
       "id": "mental_state",
@@ -123,7 +124,8 @@
             "label": "狂気"
           }
         ]
-      }
+      },
+      "current_value": "無邪気な母親"
     },
     {
       "id": "affection_level",
@@ -141,7 +143,8 @@
         "min_value": 0,
         "max_value": 100,
         "step": 1
-      }
+      },
+      "current_value": 90
     },
     {
       "id": "is_past_confessed",
@@ -156,7 +159,8 @@
       "config": {
         "type": "boolean",
         "initial_value": false
-      }
+      },
+      "current_value": false
     },
     {
       "id": "son_attention_level",
@@ -174,7 +178,8 @@
         "min_value": 0,
         "max_value": 100,
         "step": 1
-      }
+      },
+      "current_value": 80
     }
   ],
   "nsfw_profile": {

@@ -35,11 +35,11 @@ export const BackgroundParticles = lazy(() =>
 
 // Emotion effect components
 export const SoloEmotionalEffects = lazy(() => 
-  import('../emotion/SoloEmotionalEffects')
+  import('../emotion/SoloEmotionalEffects').then(module => ({ default: module.SoloEmotionalEffects }))
 );
 
 export const EmotionDisplay = lazy(() => 
-  import('../emotion/EmotionDisplay')
+  import('../emotion/EmotionDisplay').then(module => ({ default: module.EmotionDisplay }))
 );
 
 // Message effects
@@ -49,7 +49,7 @@ export const MessageEffects = lazy(() =>
 
 // Rich message components
 export const RichMessage = lazy(() => 
-  import('../chat/RichMessage')
+  import('../chat/RichMessage').then(module => ({ default: module.RichMessage }))
 );
 
 // Loading fallback for effects

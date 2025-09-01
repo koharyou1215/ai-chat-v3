@@ -489,7 +489,7 @@ const ChatInterfaceContent: React.FC = () => {
                     className="fixed inset-0 overflow-hidden z-0"
                     style={{
                         left: windowWidth >= 768 && isLeftSidebarOpen ? '320px' : '0',
-                        right: isRightPanelOpen && windowWidth >= 768 ? '400px' : '0',
+                        right: isRightPanelOpen && windowWidth >= 768 ? '380px' : '0',
                         top: 0,
                         bottom: 0
                     }}
@@ -610,12 +610,12 @@ const ChatInterfaceContent: React.FC = () => {
                         {isRightPanelOpen && (
                             <motion.div
                                 initial={{ width: 0, opacity: 0 }}
-                                animate={{ width: 400, opacity: 1 }}
+                                animate={{ width: windowWidth < 768 ? "100vw" : "380px", opacity: 1 }}
                                 exit={{ width: 0, opacity: 0 }}
                                 transition={{ duration: 0.3 }}
                                 className={cn(
-                                    "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full flex-shrink-0 z-[60]",
-                                    windowWidth < 768 ? "fixed right-0 top-0" : "relative"
+                                    "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full z-[60]",
+                                    windowWidth < 768 ? "fixed right-0 top-0 w-full" : "relative w-[380px]"
                                 )}
                             >
                                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">

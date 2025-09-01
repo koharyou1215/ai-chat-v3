@@ -59,8 +59,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const deleteMessage = useAppStore(state => state.deleteMessage);
   const continueLastMessage = useAppStore(state => state.continueLastMessage);
   const getSelectedCharacter = useAppStore(state => state.getSelectedCharacter);
-  const addMessage = useAppStore(state => state.addMessage);
-  const copyToClipboard = useAppStore(state => state.copyToClipboard);
+  const addMessage = useAppStore(state => (state as any).addMessage);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
   const effectSettings = useAppStore(state => state.effectSettings);
   const appearanceSettings = useAppStore(state => state.appearanceSettings);
   const voice = useAppStore(state => state.voice);
@@ -69,9 +75,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const is_group_mode = useAppStore(state => state.is_group_mode);
   const active_group_session_id = useAppStore(state => state.active_group_session_id);
   const groupSessions = useAppStore(state => state.groupSessions);
-  const regenerateGroupMessage = useAppStore(state => state.regenerateGroupMessage);
-  const continueGroupMessage = useAppStore(state => state.continueGroupMessage);
-  const deleteGroupMessage = useAppStore(state => state.deleteGroupMessage);
+  const regenerateLastGroupMessage = useAppStore(state => state.regenerateLastGroupMessage);
+  const continueLastGroupMessage = useAppStore(state => state.continueLastGroupMessage);
 
   const emotionAnalysisEnabled = useAppStore(state => 
     // @ts-ignore - emotionalIntelligenceFlags is optional
@@ -118,17 +123,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     if (!emotionAnalysisEnabled || !message.emotion_analysis) return null;
     
     try {
-      // @ts-ignore - emotion_analysis is optional
-      if (typeof message.emotion_analysis === 'string') {
-        return JSON.parse(message.emotion_analysis);
+      const emotionData = message.expression?.emotion;
+      if (typeof emotionData === 'string') {
+        return JSON.parse(emotionData);
       }
-      // @ts-ignore - emotion_analysis is optional
-      return message.emotion_analysis as EmotionResult;
+      return emotionData as unknown as EmotionResult || null;
     } catch (error) {
       console.error('Failed to parse emotion analysis:', error);
       return null;
     }
-  }, [message.emotion_analysis, emotionAnalysisEnabled]);
+  }, [message.expression?.emotion, emotionAnalysisEnabled]);
 
   // メッセージアクション: 再生成
   const handleRegenerate = useCallback(async () => {
@@ -137,7 +141,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     setIsRegenerating(true);
     try {
       if (isGroupChat && active_group_session_id) {
-        await regenerateGroupMessage(active_group_session_id, message.id);
+        await regenerateLastGroupMessage();
       } else {
         await regenerateLastMessage();
       }
@@ -146,7 +150,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     } finally {
       setIsRegenerating(false);
     }
-  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, regenerateGroupMessage, regenerateLastMessage]);
+  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, regenerateLastGroupMessage, regenerateLastMessage]);
 
   // メッセージアクション: 続きを生成
   const handleContinue = useCallback(async () => {
@@ -155,7 +159,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     setIsContinuing(true);
     try {
       if (isGroupChat && active_group_session_id) {
-        await continueGroupMessage(active_group_session_id, message.id);
+        await continueLastGroupMessage();
       } else {
         await continueLastMessage();
       }
@@ -164,7 +168,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     } finally {
       setIsContinuing(false);
     }
-  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, continueGroupMessage, continueLastMessage]);
+  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, continueLastGroupMessage, continueLastMessage]);
 
   // メッセージアクション: 削除
   const handleDelete = useCallback(async () => {
@@ -172,14 +176,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     
     try {
       if (isGroupChat && active_group_session_id) {
-        await deleteGroupMessage(active_group_session_id, message.id);
+        console.warn('Group message deletion not implemented');
       } else {
         deleteMessage(message.id);
       }
     } catch (error) {
       console.error('メッセージの削除に失敗しました:', error);
     }
-  }, [isGroupChat, active_group_session_id, deleteGroupMessage, deleteMessage, message.id]);
+  }, [isGroupChat, active_group_session_id, deleteMessage, message.id]);
 
   // メッセージアクション: ロールバック
   const handleRollback = useCallback(async () => {
@@ -225,8 +229,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   // メッセージ間の時間差計算
   const timeSincePrevious = useMemo(() => {
     if (!_previousMessage) return null;
-    const current = new Date(message.timestamp || message.created_at || Date.now());
-    const previous = new Date(_previousMessage.timestamp || _previousMessage.created_at || Date.now());
+    const current = new Date(message.created_at || Date.now());
+    const previous = new Date(_previousMessage.created_at || Date.now());
     const diffMinutes = Math.abs(current.getTime() - previous.getTime()) / (1000 * 60);
     return diffMinutes > 5 ? diffMinutes : null; // 5分以上の場合のみ表示
   }, [message, _previousMessage]);
@@ -259,7 +263,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     } catch (error) {
       console.error('コピーに失敗しました:', error);
     }
-  }, [selectedText, processedContent, copyToClipboard]);
+  }, [selectedText, processedContent]);
 
   // メッセージの編集開始
   const handleEdit = useCallback(() => {
@@ -303,7 +307,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       
       if (response.ok) {
         const result = await response.text();
-        addMessage({
+        if (addMessage) addMessage({
           id: Date.now().toString(),
           content: result,
           role: 'assistant',
@@ -386,7 +390,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             {/* リッチメッセージ表示 */}
             <RichMessage 
               content={processedContent} 
-              role={message.role}
+              role={message.role === 'user' || message.role === 'assistant' ? message.role : 'assistant'}
               isExpanded={isExpanded}
               onToggleExpanded={() => setIsExpanded(!isExpanded)}
             />
@@ -396,8 +400,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <EmotionDisplay 
-                    emotion={emotionResult} 
-                    character={character}
+                    message={processedContent}
                   />
                 </div>
               </Suspense>
@@ -423,9 +426,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             {effectSettings.typewriterEffect && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <MessageEffects 
-                  message={message} 
-                  character={character}
-                  isVisible={true}
+                  trigger={processedContent}
+                  position={{ x: 0, y: 0 }}
                 />
               </Suspense>
             )}
@@ -541,8 +543,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             <Suspense fallback={<EffectLoadingFallback />}>
               <div className="mt-2">
                 <EmotionReactions 
-                  emotions={emotionResult.emotions} 
-                  intensity={emotionResult.intensity}
+                  emotion={emotionResult}
                 />
               </div>
             </Suspense>

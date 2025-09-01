@@ -155,11 +155,11 @@ export const TrackersPanel: React.FC<TrackersPanelProps> = ({
             </AnimatePresence>
           </div>
         ))}
-        {(mode !== 'character' || !formData || !(formData as Character).trackers || (formData as Character).trackers.length === 0) && (
+        {!formData || mode !== 'character' || !(formData as Character).trackers || (formData as Character).trackers.length === 0 ? (
           <p className="text-slate-500 text-center py-4">
             このキャラクターにはトラッカーが設定されていません。
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

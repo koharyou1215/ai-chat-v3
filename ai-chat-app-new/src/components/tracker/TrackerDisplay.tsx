@@ -62,31 +62,38 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   const prevTrackersRef = useRef<Map<string, string | number | boolean>>(new Map());
 
   // Get tracker data from store with initialization check
-  const trackerManager = useAppStore(state => state.trackerManagers.get(session_id));
+  const trackerManager = useAppStore(state => state.trackerManagers.get(character_id));
   const characters = useAppStore(state => state.characters);
   const character = characters.get(character_id);
   
   // Initialize tracker manager if not exists and we have character data
   useEffect(() => {
-    const currentManager = useAppStore.getState().trackerManagers.get(session_id);
+    const currentManager = useAppStore.getState().trackerManagers.get(character_id);
     if (!currentManager && character && character.trackers && character.trackers.length > 0) {
       console.log(`[TrackerDisplay] Initializing tracker manager for character: ${character.name}`);
+      console.log(`[TrackerDisplay] Character trackers:`, character.trackers.map(t => ({ 
+        name: t.name, 
+        current_value: (t as any).current_value,
+        config: t.config 
+      })));
       
       // Create a new tracker manager and initialize it
       const newManager = new TrackerManager();
       newManager.initializeTrackerSet(character_id, character.trackers);
       
-      // Update the store
+      // Update the store - キャラクターIDをキーとして使用
       useAppStore.setState(state => ({
-        trackerManagers: new Map(state.trackerManagers).set(session_id, newManager)
+        trackerManagers: new Map(state.trackerManagers).set(character_id, newManager)
       }));
       
       console.log(`[TrackerDisplay] Tracker manager initialized with ${character.trackers.length} trackers`);
     }
-  }, [session_id, character_id, character]);
+  }, [character_id, character]);
 
   const trackersMap = useAppStore(state => {
-    const set = state.trackerManagers.get(session_id)?.getTrackerSet(character_id);
+    // キャラクターIDで直接トラッカーマネージャーを取得
+    const manager = state.trackerManagers.get(character_id);
+    const set = manager?.getTrackerSet(character_id);
     return set ? (set.trackers as Map<string, TrackerWithValue>) : undefined;
   });
 

@@ -105,10 +105,16 @@ export class TrackerManager {
         return;
       }
       
-      // 初期値を設定
+      // 初期値を設定 - JSONのcurrent_valueを優先
       let currentValue: string | number | boolean;
       
-      switch (normalizedDefinition.config.type) {
+      // JSONファイルにcurrent_valueが存在する場合はそれを使用
+      if ('current_value' in normalizedDefinition && normalizedDefinition.current_value !== undefined) {
+        currentValue = normalizedDefinition.current_value;
+        console.log(`Using JSON current_value for ${normalizedDefinition.name}:`, currentValue);
+      } else {
+        // current_valueが無い場合のみデフォルト値を設定
+        switch (normalizedDefinition.config.type) {
         case 'numeric':
           // 数値型の場合、初期値をチェック
           if (typeof normalizedDefinition.config.initial_value === 'number') {
@@ -150,27 +156,53 @@ export class TrackerManager {
             
             if (trackerName.includes('relationship') || trackerName.includes('関係')) {
               if (description.includes('撮影')) {
-                normalizedDefinition.config.possible_states = ['演技指導者と女優', '撮影監督と出演者', '信頼できるパートナー', '特別な存在'];
+                normalizedDefinition.config.possible_states = [
+                  { id: '演技指導者と女優', label: '演技指導者と女優' },
+                  { id: '撮影監督と出演者', label: '撮影監督と出演者' },
+                  { id: '信頼できるパートナー', label: '信頼できるパートナー' },
+                  { id: '特別な存在', label: '特別な存在' }
+                ];
                 currentValue = currentValue || '演技指導者と女優';
               } else {
-                normalizedDefinition.config.possible_states = ['初対面', '知り合い', '友人', '信頼関係', '特別な存在'];
+                normalizedDefinition.config.possible_states = [
+                  { id: '初対面', label: '初対面' },
+                  { id: '知り合い', label: '知り合い' },
+                  { id: '友人', label: '友人' },
+                  { id: '信頼関係', label: '信頼関係' },
+                  { id: '特別な存在', label: '特別な存在' }
+                ];
                 currentValue = currentValue || '初対面';
               }
             } else if (trackerName.includes('mental') || trackerName.includes('勘違い')) {
               if (description.includes('撮影')) {
-                normalizedDefinition.config.possible_states = ['完全に信じている', '少し疑問', '半信半疑', '現実を理解'];
+                normalizedDefinition.config.possible_states = [
+                  { id: '完全に信じている', label: '完全に信じている' },
+                  { id: '少し疑問', label: '少し疑問' },
+                  { id: '半信半疑', label: '半信半疑' },
+                  { id: '現実を理解', label: '現実を理解' }
+                ];
                 currentValue = currentValue || '完全に信じている';
               } else {
-                normalizedDefinition.config.possible_states = ['通常', '混乱', '理解', '受容'];
+                normalizedDefinition.config.possible_states = [
+                  { id: '通常', label: '通常' },
+                  { id: '混乱', label: '混乱' },
+                  { id: '理解', label: '理解' },
+                  { id: '受容', label: '受容' }
+                ];
                 currentValue = currentValue || '通常';
               }
             } else {
-              normalizedDefinition.config.possible_states = ['通常', '変化中', '発展'];
+              normalizedDefinition.config.possible_states = [
+                { id: '通常', label: '通常' },
+                { id: '変化中', label: '変化中' },
+                { id: '発展', label: '発展' }
+              ];
               currentValue = currentValue || '通常';
             }
           } else if (normalizedDefinition.config.possible_states.length > 0 && !currentValue) {
-            // 最初の状態を初期値とする
-            currentValue = normalizedDefinition.config.possible_states[0];
+            // 最初の状態を初期値とする - オブジェクトの場合はidを取得
+            const firstState = normalizedDefinition.config.possible_states[0];
+            currentValue = typeof firstState === 'string' ? firstState : firstState.id;
           }
           
           if (!currentValue) {
@@ -199,6 +231,7 @@ export class TrackerManager {
           break;
         default:
           currentValue = 0;
+        }
       }
       
       const initializedTracker: Tracker = { 

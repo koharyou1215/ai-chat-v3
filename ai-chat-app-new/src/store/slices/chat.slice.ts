@@ -774,7 +774,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         metadata: { 
           is_continuation: true,
           continuation_of: lastAiMessage.id,
-          continuation_count: (lastAiMessage.metadata?.continuation_count || 0) + 1
+          continuation_count: (typeof (lastAiMessage.metadata as any)?.continuation_count === 'number' ? (lastAiMessage.metadata as any).continuation_count : 0) + 1
         }
       };
 
