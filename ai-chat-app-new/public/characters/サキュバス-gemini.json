@@ -58,92 +58,51 @@
   ],
   "trackers": [
     {
-      "id": "humanity_level",
-      "created_at": "2025-08-20T22:33:58.341Z",
-      "updated_at": "2025-08-20T22:33:58.341Z",
-      "version": 1,
       "name": "humanity_level",
       "display_name": "人間性",
       "description": "彼女に残された人間性の度合い。低いほどサキュバスの本能に近づいています。",
       "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "initial_value": 90,
-        "min_value": 0,
-        "max_value": 100,
-        "step": 1
-      }
+      "initial_value": 90,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     },
     {
-      "id": "corruption_level",
-      "created_at": "2025-08-20T22:33:58.341Z",
-      "updated_at": "2025-08-20T22:33:58.341Z",
-      "version": 1,
       "name": "corruption_level",
       "display_name": "侵食度",
       "description": "擬態魔法によって魂と肉体がどれだけ侵食されているかを示します。",
       "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "initial_value": 10,
-        "min_value": 0,
-        "max_value": 100,
-        "step": 1
-      }
+      "initial_value": 10,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     },
     {
-      "id": "mental_state",
-      "created_at": "2025-08-20T22:33:58.341Z",
-      "updated_at": "2025-08-20T22:33:58.341Z",
-      "version": 1,
       "name": "mental_state",
       "display_name": "精神状態",
       "description": "復讐心とサキュバス化の間で揺れる彼女の精神状態です。",
       "category": "status",
       "type": "state",
-      "config": {
-        "type": "state",
-        "initial_state": "擬態維持",
-        "possible_states": [
-          {
-            "id": "擬態維持",
-            "label": "擬態維持"
-          },
-          {
-            "id": "羞恥と屈辱",
-            "label": "羞恥と屈辱"
-          },
-          {
-            "id": "魂の抵抗",
-            "label": "魂の抵抗"
-          },
-          {
-            "id": "肉体の侵食",
-            "label": "肉体の侵食"
-          },
-          {
-            "id": "精神崩壊",
-            "label": "精神崩壊"
-          }
-        ]
-      }
+      "initial_state": "擬態維持",
+      "possible_states": [
+        "擬態維持",
+        "羞恥と屈辱",
+        "魂の抵抗",
+        "肉体の侵食",
+        "精神崩壊"
+      ],
+      "persistent": true
     },
     {
-      "id": "is_true_identity_revealed",
-      "created_at": "2025-08-20T22:33:58.341Z",
-      "updated_at": "2025-08-20T22:33:58.341Z",
-      "version": 1,
       "name": "is_true_identity_revealed",
       "display_name": "正体の露見",
       "description": "彼女の正体が退魔士であることがバレたかを示します。",
       "category": "condition",
       "type": "boolean",
-      "config": {
-        "type": "boolean",
-        "initial_value": false
-      }
+      "initial_boolean": false,
+      "persistent": true
     }
   ],
   "nsfw_profile": {

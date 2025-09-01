@@ -19,6 +19,12 @@ const createDefaultSettings = (safeMode = false): EffectSettings => ({
   particleEffects: false, // パフォーマンス問題のため常に無効
   typewriterEffect: !safeMode,
   
+  // エフェクト強度設定 (0-100) - 追加
+  colorfulBubblesIntensity: 50,
+  fontEffectsIntensity: 50,
+  particleEffectsIntensity: 30,
+  typewriterIntensity: 70,
+  
   // 外観設定
   bubbleOpacity: 85,
   bubbleBlur: true,
@@ -29,10 +35,19 @@ const createDefaultSettings = (safeMode = false): EffectSettings => ({
   rippleEffects: false,
   backgroundParticles: false,
   
+  // 3Dエフェクト強度設定 (0-100) - 追加
+  hologramIntensity: 40,
+  particleTextIntensity: 35,
+  rippleIntensity: 60,
+  backgroundParticlesIntensity: 25,
+  
   // 感情分析 - 軽量なもののみ
   realtimeEmotion: !safeMode,
   emotionBasedStyling: false, // 震え問題回避のため一時無効
   autoReactions: false, // CPU負荷軽減のため無効
+  
+  // 感情エフェクト強度設定 (0-100) - 追加
+  emotionStylingIntensity: 45,
   
   // トラッカー
   autoTrackerUpdate: !safeMode,
@@ -40,7 +55,10 @@ const createDefaultSettings = (safeMode = false): EffectSettings => ({
   
   // パフォーマンス - 保守的な設定
   effectQuality: safeMode ? 'low' : 'medium',
-  animationSpeed: safeMode ? 0 : 0.5 // より控えめな速度
+  animationSpeed: safeMode ? 0 : 0.5, // より控えめな速度
+  
+  // テキスト整形 - 追加
+  textFormatting: 'readable'
 });
 
 interface EffectSettingsProviderProps {

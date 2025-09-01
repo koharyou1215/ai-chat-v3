@@ -21,10 +21,14 @@ export interface Character extends BaseEntity {
   strengths: string[];
   weaknesses: string[];
   
+  // アイデンティティ（感情分析用）
+  identity?: string;
+  
   // 好み・趣味
   hobbies: string[];
   likes: string[];
   dislikes: string[];
+  preferences?: Record<string, any>; // 感情分析用
   
   // 外見・スタイル
   appearance: string;
@@ -35,6 +39,7 @@ export interface Character extends BaseEntity {
   
   // 会話スタイル
   speaking_style: string;
+  dialogue_style?: string; // 感情分析用
   first_person: string;
   second_person: string;
   verbal_tics: string[];

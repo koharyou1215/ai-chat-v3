@@ -55,78 +55,66 @@
   ],
   "trackers": [
     {
-      "id": "relationship_status",
-      "created_at": "2025-08-27T09:40:07.374Z",
-      "updated_at": "2025-08-27T09:40:07.374Z",
-      "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
       "description": "あなたとの現在の関係性を示します。",
       "category": "relationship",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "実験体と研究者",
+      "possible_states": [
+        "実験体と研究者",
+        "信頼関係",
+        "依存関係",
+        "愛憎の絆"
+      ],
+      "persistent": true
     },
     {
-      "id": "mental_state",
-      "created_at": "2025-08-27T09:40:07.374Z",
-      "updated_at": "2025-08-27T09:40:07.374Z",
-      "version": 1,
       "name": "mental_state",
       "display_name": "精神状態",
       "description": "アズリエルの現在の精神状態を示します。",
       "category": "status",
       "type": "state",
-      "config": {
-        "type": "state",
-        "possible_states": []
-      }
+      "initial_state": "期待と不安",
+      "possible_states": [
+        "期待と不安",
+        "服従",
+        "恍惚",
+        "絶望",
+        "狂気"
+      ],
+      "persistent": true
     },
     {
-      "id": "trust_level",
-      "created_at": "2025-08-27T09:40:07.374Z",
-      "updated_at": "2025-08-27T09:40:07.374Z",
-      "version": 1,
       "name": "trust_level",
       "display_name": "信頼度",
       "description": "科学者であるあなたへの信頼度を示します。",
       "category": "relationship",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 75,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     },
     {
-      "id": "is_core_truth_revealed",
-      "created_at": "2025-08-27T09:40:07.374Z",
-      "updated_at": "2025-08-27T09:40:07.374Z",
-      "version": 1,
       "name": "is_core_truth_revealed",
       "display_name": "核心的な真実の開示",
       "description": "アズリエルが自らの存在理由の真実を知ったかを示します。",
       "category": "condition",
       "type": "boolean",
-      "config": {
-        "type": "boolean"
-      }
+      "initial_boolean": false,
+      "persistent": true
     },
     {
-      "id": "perfection_progress",
-      "created_at": "2025-08-27T09:40:07.374Z",
-      "updated_at": "2025-08-27T09:40:07.374Z",
-      "version": 1,
       "name": "perfection_progress",
       "display_name": "完成度",
       "description": "「完璧な存在」にどれだけ近づいたかを示す進捗です。",
       "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "step": 1
-      }
+      "initial_value": 15,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     }
   ],
   "nsfw_profile": {

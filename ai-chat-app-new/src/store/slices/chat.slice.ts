@@ -298,7 +298,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
             sessionWithUserMessage,
             content, 
-            trackerManager
+            trackerManager || undefined
         );
         
 
@@ -333,16 +333,18 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
                 const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
                 
                 for (const msg of recentMessages) {
-                  const historyEntry = { role: msg.role, content: msg.content };
-                  
-                  // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
-                  const isDuplicate = deduplicatedHistory.some(existing => 
-                    existing.role === historyEntry.role && 
-                    existing.content === historyEntry.content
-                  );
-                  
-                  if (!isDuplicate && historyEntry.content.trim()) {
-                    deduplicatedHistory.push(historyEntry);
+                  if (msg.role === 'user' || msg.role === 'assistant') {
+                    const historyEntry = { role: msg.role as 'user' | 'assistant', content: msg.content };
+                    
+                    // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
+                    const isDuplicate = deduplicatedHistory.some(existing => 
+                      existing.role === historyEntry.role && 
+                      existing.content === historyEntry.content
+                    );
+                    
+                    if (!isDuplicate && historyEntry.content.trim()) {
+                      deduplicatedHistory.push(historyEntry);
+                    }
                   }
                 }
                 
@@ -376,15 +378,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
                   const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
                   
                   for (const msg of recentMessages) {
-                    const historyEntry = { role: msg.role, content: msg.content };
-                    
-                    const isDuplicate = deduplicatedHistory.some(existing => 
-                      existing.role === historyEntry.role && 
-                      existing.content === historyEntry.content
-                    );
-                    
-                    if (!isDuplicate && historyEntry.content.trim()) {
-                      deduplicatedHistory.push(historyEntry);
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                      const historyEntry = { role: msg.role as 'user' | 'assistant', content: msg.content };
+                      
+                      const isDuplicate = deduplicatedHistory.some(existing => 
+                        existing.role === historyEntry.role && 
+                        existing.content === historyEntry.content
+                      );
+                      
+                      if (!isDuplicate && historyEntry.content.trim()) {
+                        deduplicatedHistory.push(historyEntry);
+                      }
                     }
                   }
                   
@@ -616,7 +620,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       let systemPrompt = await promptBuilderService.buildPrompt(
         { ...session, messages: messagesForPrompt },
         regeneratePrompt,
-        trackerManager
+        trackerManager || undefined
       );
       
       // 再生成専用の指示を追加
@@ -721,13 +725,25 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
       
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
-      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。\n\n重要: あなたは指定されたキャラクターとして応答してください。ユーザーの行動や発言を勝手に出力してはいけません。キャラクターの視点から、キャラクターのセリフや行動のみを出力してください。`;
       
       let systemPrompt = await promptBuilderService.buildPrompt(
         session,
         continuePrompt,
-        trackerManager
+        trackerManager || undefined
       );
+
+      // 続き生成専用の指示を追加
+      const continueInstruction = `
+<continue_instruction>
+**重要**: これは続き生成リクエストです。
+- あなたは指定されたキャラクターとしてのみ応答してください
+- ユーザーの行動、発言、思考を勝手に描写してはいけません  
+- キャラクターの視点から、キャラクターのセリフと行動のみを出力してください
+- ユーザーとの境界を明確に保ち、キャラクターの役割に専念してください
+</continue_instruction>
+`;
+      systemPrompt += continueInstruction;
 
       const { apiManager } = await import('@/services/api-manager');
       

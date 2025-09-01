@@ -87,19 +87,66 @@ const ChatHeaderContent: React.FC = () => {
     const persona = getSelectedPersona();
     const activeGroupSession = active_group_session_id ? groupSessions.get(active_group_session_id) : null;
     
-    // sessionがない場合でも、characterとpersonaがいれば部分的に表示
-    if (!character || !persona) {
+    // Loading Skeleton - character/personaが読み込み中でも基本UIを表示
+    // 本番環境でもヘッダーが表示されるように条件を緩和
+    if (false && (!character || !persona)) {
         return (
-            <div className="chat-header fixed top-0 left-0 right-0 z-50 p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">
-                 {/* Maybe a loading skeleton here */}
+            <div className="chat-header fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
+                <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+                    {/* サイドバートグルボタン - 常に表示 */}
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={toggleLeftSidebar}
+                        className={cn(
+                            "p-2 rounded-full transition-colors text-white drop-shadow-lg",
+                            isLeftSidebarOpen ? "bg-purple-500/30 text-purple-200" : "hover:bg-white/20 text-white drop-shadow-lg"
+                        )}
+                        title={isLeftSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                    >
+                        <PanelLeft className="w-6 h-6 md:w-5 md:h-5" />
+                    </motion.button>
+                    
+                    {/* ローディング状態でも基本情報を表示 */}
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                        <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex-shrink-0 flex items-center justify-center">
+                            <Bot className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-white drop-shadow-lg text-sm md:text-base font-bold">AI Chat</h1>
+                            <p className="text-white/60 text-xs">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Right side - 基本ボタンのみ表示 */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setIsVoiceCallModalOpen(true)}
+                        className="p-1.5 md:p-2 rounded-lg transition-colors text-white drop-shadow-lg flex-shrink-0 hover:bg-white/20"
+                        title="音声通話"
+                    >
+                        <Phone className="w-5 h-5 md:w-5 md:h-5" />
+                    </motion.button>
+                    
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={toggleRightPanel}
+                        className={cn(
+                            "p-1.5 md:p-2 rounded-lg transition-colors text-white drop-shadow-lg flex-shrink-0",
+                            isRightPanelOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white drop-shadow-lg"
+                        )}
+                        title={isRightPanelOpen ? "記憶情報を非表示" : "記憶情報を表示"}
+                    >
+                        <Brain className="w-5 h-5 md:w-5 md:h-5" />
+                    </motion.button>
+                </div>
             </div>
         );
     }
-
-    // Calculate last active time
-    // const lastActiveTime = session?.messages.length
-    //   ? formatDistanceToNow(new Date(session.messages[session.messages.length - 1].created_at), { addSuffix: true })
-    //   : 'Not active yet';
 
     return (
         <div className="chat-header fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', height: '68px' }}>
@@ -155,16 +202,16 @@ const ChatHeaderContent: React.FC = () => {
                         }}
                         style={{ pointerEvents: 'auto' }}
                     >
-                        {character.avatar_url ? (
+                        {character?.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={character.avatar_url} alt={character.name} className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover flex-shrink-0"/>
                         ) : (
-                            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                <Bot className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                                <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
                             </div>
                         )}
                         <div className="min-w-0 hidden sm:block">
-                            <h1 className="text-white drop-shadow-lg text-xs md:text-sm font-medium truncate">{character.name}</h1>
+                            <h1 className="text-white drop-shadow-lg text-xs md:text-sm font-medium truncate">{character?.name || 'AI Assistant'}</h1>
                             {!is_group_mode && session && (
                                 <p className="text-white drop-shadow-lg/50 text-xs truncate">
                                     {t({
@@ -190,16 +237,16 @@ const ChatHeaderContent: React.FC = () => {
                         }}
                         style={{ pointerEvents: 'auto' }}
                     >
-                         {persona.avatar_url ? (
+                         {persona?.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={persona.avatar_url} alt={persona.name} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover flex-shrink-0"/>
+                            <img src={persona.avatar_url} alt={persona?.name || 'User'} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover flex-shrink-0"/>
                         ) : (
-                            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-slate-400" />
+                            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+                                <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-white" />
                             </div>
                         )}
                         <div className="min-w-0 hidden md:block">
-                            <h2 className="text-white drop-shadow-lg text-xs font-medium truncate">{persona.name}</h2>
+                            <h2 className="text-white drop-shadow-lg text-xs font-medium truncate">{persona?.name || 'User'}</h2>
                             <p className="text-white drop-shadow-lg/50 text-xs truncate">Persona</p>
                         </div>
                     </div>

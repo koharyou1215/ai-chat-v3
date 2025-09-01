@@ -30,6 +30,9 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
   content: string;
   image_url?: string;
   
+  // 感情分析用タイムスタンプ（後方互換性）
+  timestamp?: number | string;
+  
   // キャラクター関連
   character_id?: UUID;
   character_name?: string;
@@ -130,4 +133,3 @@ export interface MessageEditEntry {
   previous_content: string;
   edit_reason?: string;
 }
-

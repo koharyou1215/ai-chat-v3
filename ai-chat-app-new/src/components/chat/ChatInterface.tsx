@@ -561,7 +561,7 @@ const ChatInterfaceContent: React.FC = () => {
                     
                     {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
                     <div 
-                        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300"
+                        className="flex-1 overflow-y-auto overflow-x-visible px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300"
  
                         style={{ 
                             position: 'fixed',
@@ -615,7 +615,7 @@ const ChatInterfaceContent: React.FC = () => {
                                 transition={{ duration: 0.3 }}
                                 className={cn(
                                     "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full z-[60]",
-                                    windowWidth < 768 ? "fixed right-0 top-0 w-full" : "relative w-[380px]"
+                                    windowWidth < 768 ? "fixed right-0 top-0 w-full" : "fixed right-0 top-0 h-full w-[380px]"
                                 )}
                             >
                                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">

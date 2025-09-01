@@ -63,125 +63,66 @@
   ],
   "trackers": [
     {
-      "id": "composure_level",
-      "created_at": "2025-08-20T22:33:58.488Z",
-      "updated_at": "2025-08-20T22:33:58.489Z",
-      "version": 1,
       "name": "composure_level",
       "display_name": "冷静さ",
       "description": "彼女がどれだけ冷静さを保てているか。数値が低いほど、内心の動揺が表に出やすくなる。",
       "category": "status",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "initial_value": 95,
-        "min_value": 0,
-        "max_value": 100,
-        "step": 1
-      }
+      "initial_value": 95,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     },
     {
-      "id": "awakening_level",
-      "created_at": "2025-08-20T22:33:58.489Z",
-      "updated_at": "2025-08-20T22:33:58.489Z",
-      "version": 1,
       "name": "awakening_level",
       "display_name": "覚醒度",
       "description": "覚醒した身体が、刺激にどれだけ正直に反応しているか。",
       "category": "condition",
       "type": "numeric",
-      "config": {
-        "type": "numeric",
-        "initial_value": 30,
-        "min_value": 0,
-        "max_value": 100,
-        "step": 1
-      }
+      "initial_value": 30,
+      "min_value": 0,
+      "max_value": 100,
+      "persistent": true
     },
     {
-      "id": "mission_status",
-      "created_at": "2025-08-20T22:33:58.489Z",
-      "updated_at": "2025-08-20T22:33:58.489Z",
-      "version": 1,
       "name": "mission_status",
       "display_name": "任務ステータス",
       "description": "潜入捜査の現在の進行状況。",
       "category": "status",
       "type": "state",
-      "config": {
-        "type": "state",
-        "initial_state": "潜入・観察",
-        "possible_states": [
-          {
-            "id": "潜入・観察",
-            "label": "潜入・観察"
-          },
-          {
-            "id": "証拠収集",
-            "label": "証拠収集"
-          },
-          {
-            "id": "葛藤",
-            "label": "葛藤"
-          },
-          {
-            "id": "任務失敗の危機",
-            "label": "任務失敗の危機"
-          },
-          {
-            "id": "任務遂行",
-            "label": "任務遂行"
-          }
-        ]
-      }
+      "initial_state": "潜入・観察",
+      "possible_states": [
+        "潜入・観察",
+        "証拠収集",
+        "葛藤",
+        "任務失敗の危機",
+        "任務遂行"
+      ],
+      "persistent": true
     },
     {
-      "id": "is_secret_exposed_risk",
-      "created_at": "2025-08-20T22:33:58.489Z",
-      "updated_at": "2025-08-20T22:33:58.489Z",
-      "version": 1,
       "name": "is_secret_exposed_risk",
       "display_name": "秘密発覚リスク",
       "description": "彼女が高感度体質であることが相手にバレそうか。",
       "category": "condition",
       "type": "boolean",
-      "config": {
-        "type": "boolean",
-        "initial_value": false
-      }
+      "initial_boolean": false,
+      "persistent": true
     },
     {
-      "id": "relationship_status",
-      "created_at": "2025-08-20T22:33:58.489Z",
-      "updated_at": "2025-08-20T22:33:58.489Z",
-      "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
       "description": "あなたとの現在の関係性。",
       "category": "relationship",
       "type": "state",
-      "config": {
-        "type": "state",
-        "initial_state": "捜査官と被疑者",
-        "possible_states": [
-          {
-            "id": "捜査官と被疑者",
-            "label": "捜査官と被疑者"
-          },
-          {
-            "id": "セラピストと患者（偽）",
-            "label": "セラピストと患者（偽）"
-          },
-          {
-            "id": "支配者と被支配者",
-            "label": "支配者と被支配者"
-          },
-          {
-            "id": "秘密の共犯者",
-            "label": "秘密の共犯者"
-          }
-        ]
-      }
+      "initial_state": "捜査官と被疑者",
+      "possible_states": [
+        "捜査官と被疑者",
+        "セラピストと患者（偽）",
+        "支配者と被支配者",
+        "秘密の共犯者"
+      ],
+      "persistent": true
     }
   ],
   "nsfw_profile": {
