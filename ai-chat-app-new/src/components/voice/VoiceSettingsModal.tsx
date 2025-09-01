@@ -56,7 +56,7 @@ export const VoiceSettingsModal: React.FC = () => {
     const text = 'こんにちは、音声テスト中です。';
 
     try {
-      if (voice.provider === 'System') {
+      if (voice.provider === 'system') {
         // --- System Speech Synthesis ---
         const utterance = new SpeechSynthesisUtterance(text);
         // TODO: Map system voices and settings
@@ -65,18 +65,18 @@ export const VoiceSettingsModal: React.FC = () => {
 
       } else {
         // --- API-based Speech Synthesis ---
-        const apiEndpoint = voice.provider === 'VoiceVox' ? '/api/voice/voicevox' : '/api/voice/elevenlabs';
+        const apiEndpoint = voice.provider === 'voicevox' ? '/api/voice/voicevox' : '/api/voice/elevenlabs';
         
         let requestBody;
-        if (voice.provider === 'VoiceVox') {
+        if (voice.provider === 'voicevox') {
             console.log('🔊 VoiceVox test request:', {
                 text,
-                speaker: voice.voicevox.speakerId,
+                speaker: voice.voicevox.speaker,
                 settings: voice.voicevox
             });
             requestBody = {
                 text,
-                speaker: voice.voicevox.speakerId, // 修正: speakerId → speaker
+                speaker: voice.voicevox.speaker, // 修正: speakerId → speaker
                 settings: voice.voicevox,
             };
         } else { // ElevenLabs
@@ -202,24 +202,23 @@ export const VoiceSettingsModal: React.FC = () => {
                         <SettingRow label="音声エンジン">
                             <select
                                 value={voice.provider}
-                                onChange={(e) => updateVoiceSettings({ provider: e.target.value as 'VoiceVox' | 'ElevenLabs' | 'System' })}
+                                onChange={(e) => updateVoiceSettings({ provider: e.target.value as 'voicevox' | 'elevenlabs' | 'system' })}
                                 className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white"
                             >
-                                <option value="VoiceVox">VoiceVox</option>
-                                <option value="ElevenLabs">ElevenLabs</option>
-                                <option value="System">システム音声</option>
+                                <option value="voicevox">VoiceVox</option>
+                                <option value="elevenlabs">ElevenLabs</option>
+                                <option value="system">システム音声</option>
                             </select>
                         </SettingRow>
-                        <div className="flex items-center justify-between">
-                            <SettingRow label="自動再生" description="AIからの応答を自動で再生します" />
+                        <SettingRow label="自動再生" description="AIからの応答を自動で再生します">
                             <Toggle checked={voice.autoPlay} onChange={checked => updateVoiceSettings({ autoPlay: checked })} />
-                        </div>
+                        </SettingRow>
                     </div>
                 </TabsContent>
                 <TabsContent value="voicevox">
                     <div className="space-y-4">
-                        <SettingRow label={`話者ID: ${voice.voicevox.speakerId}`}>
-                            <Slider value={voice.voicevox.speakerId} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, speakerId: v }})} min={0} max={50} step={1} />
+                        <SettingRow label={`話者ID: ${voice.voicevox.speaker}`}>
+                            <Slider value={voice.voicevox.speaker} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, speaker: v }})} min={0} max={50} step={1} />
                         </SettingRow>
                         <SettingRow label={`速度: ${voice.voicevox.speed}`}>
                             <Slider value={voice.voicevox.speed} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, speed: v }})} min={0.5} max={2.0} step={0.1} />
@@ -233,10 +232,6 @@ export const VoiceSettingsModal: React.FC = () => {
                         <SettingRow label={`音量: ${voice.voicevox.volume}`}>
                             <Slider value={voice.voicevox.volume} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, volume: v }})} min={0} max={2} step={0.1} />
                         </SettingRow>
-                        <div className="flex items-center justify-between">
-                            <SettingRow label="疑問文の自動調整" description="疑問文の語尾を自動的に上げて自然にします" />
-                            <Toggle checked={voice.voicevox.enableInterrogativeUpspeak} onChange={c => updateVoiceSettings({ voicevox: { ...voice.voicevox, enableInterrogativeUpspeak: c }})} />
-                        </div>
                     </div>
                 </TabsContent>
                 <TabsContent value="elevenlabs">
@@ -247,16 +242,9 @@ export const VoiceSettingsModal: React.FC = () => {
                         <SettingRow label={`安定性: ${voice.elevenlabs.stability}`}>
                             <Slider value={voice.elevenlabs.stability} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, stability: v }})} min={0} max={1} step={0.05} />
                         </SettingRow>
-                        <SettingRow label={`類似度ブースト: ${voice.elevenlabs.similarityBoost}`}>
-                            <Slider value={voice.elevenlabs.similarityBoost} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, similarityBoost: v }})} min={0} max={1} step={0.05} />
+                        <SettingRow label={`類似度: ${voice.elevenlabs.similarity}`}>
+                            <Slider value={voice.elevenlabs.similarity} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, similarity: v }})} min={0} max={1} step={0.05} />
                         </SettingRow>
-                        <SettingRow label={`スタイル: ${voice.elevenlabs.style}`}>
-                            <Slider value={voice.elevenlabs.style} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, style: v }})} min={0} max={1} step={0.05} />
-                        </SettingRow>
-                        <div className="flex items-center justify-between">
-                            <SettingRow label="スピーカーブースト" description="音声の明瞭度を向上させます" />
-                            <Toggle checked={voice.elevenlabs.useSpeakerBoost} onChange={c => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, useSpeakerBoost: c }})} />
-                        </div>
                     </div>
                 </TabsContent>
                 <TabsContent value="system">
@@ -284,14 +272,12 @@ export const VoiceSettingsModal: React.FC = () => {
                 </TabsContent>
                 <TabsContent value="advanced">
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <SettingRow label="ノーマライゼーション" description="音声の音量を均一化します" />
+                        <SettingRow label="ノーマライゼーション" description="音声の音量を均一化します">
                             <Toggle checked={voice.advanced.normalization} onChange={c => updateVoiceSettings({ advanced: { ...voice.advanced, normalization: c }})} />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <SettingRow label="ノイズリダクション" description="背景ノイズを低減します" />
+                        </SettingRow>
+                        <SettingRow label="ノイズリダクション" description="背景ノイズを低減します">
                             <Toggle checked={voice.advanced.noiseReduction} onChange={c => updateVoiceSettings({ advanced: { ...voice.advanced, noiseReduction: c }})} />
-                        </div>
+                        </SettingRow>
                     </div>
                 </TabsContent>
               </Tabs>

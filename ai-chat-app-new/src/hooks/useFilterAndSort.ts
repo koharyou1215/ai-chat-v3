@@ -49,13 +49,16 @@ export function useFilterAndSort<T, K extends keyof T>({
       let valA, valB;
 
       // sortKeysにカスタムのアクセサ関数が定義されていればそれを使用
-      if (sortKeys && sortKeys[field]) {
-        valA = sortKeys[field]!(a);
-        valB = sortKeys[field]!(b);
-      } else {
+      if (field && sortKeys && field in sortKeys) {
+        valA = sortKeys[field as keyof typeof sortKeys]!(a);
+        valB = sortKeys[field as keyof typeof sortKeys]!(b);
+      } else if (field && field in a) {
         // デフォルトの動作：オブジェクトのプロパティを直接参照
-        valA = a[field];
-        valB = b[field];
+        valA = (a as any)[field];
+        valB = (b as any)[field];
+      } else {
+        valA = 0;
+        valB = 0;
       }
       
       // 値がnullやundefinedの場合のフォールバック

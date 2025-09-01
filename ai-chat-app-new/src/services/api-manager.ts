@@ -133,10 +133,6 @@ export class APIManager {
       ...this.currentConfig,
       ...config
     };
-
-    if (config.apiKey && config.provider === 'openrouter') {
-      this.saveOpenRouterKey(config.apiKey);
-    }
   }
 
   getConfig(): APIConfig {
@@ -145,9 +141,6 @@ export class APIManager {
 
   setOpenRouterApiKey(key: string) {
     this.saveOpenRouterKey(key);
-    if (this.currentConfig.provider === 'openrouter') {
-      this.currentConfig.apiKey = key;
-    }
   }
 
   getOpenRouterApiKey(): string | null {
@@ -156,9 +149,6 @@ export class APIManager {
 
   setGeminiApiKey(key: string) {
     this.saveGeminiKey(key);
-    if (this.currentConfig.provider === 'gemini') {
-      this.currentConfig.apiKey = key;
-    }
   }
 
   getGeminiApiKey(): string | null {
@@ -230,8 +220,8 @@ export class APIManager {
         return await this.generateWithOpenRouter(systemPrompt, userMessage, conversationHistory, {
           model,
           temperature,
-          max_tokens,
-          top_p,
+          maxTokens: max_tokens,
+          topP: top_p,
           apiKey: this.openRouterApiKey,
           textFormatting: options?.textFormatting
         });
@@ -270,8 +260,8 @@ export class APIManager {
         return await this.generateStreamWithOpenRouter(systemPrompt, userMessage, conversationHistory, onChunk, {
           model,
           temperature,
-          max_tokens,
-          top_p,
+          maxTokens: max_tokens,
+          topP: top_p,
           apiKey: this.openRouterApiKey,
           textFormatting: options?.textFormatting
         });
@@ -625,9 +615,6 @@ export class APIManager {
       localStorage.removeItem('openrouter_api_key');
     }
     this.openRouterApiKey = null;
-    if (this.currentConfig.provider === 'openrouter') {
-      this.currentConfig.apiKey = undefined;
-    }
   }
 
   getProviderStatus(): {

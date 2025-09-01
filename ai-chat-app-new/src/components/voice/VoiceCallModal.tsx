@@ -254,7 +254,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
             }
           };
           
-          sendMessage(userMessage as UnifiedMessage);
+          sendMessage(message.text || '');
         }
         break;
 
@@ -272,7 +272,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
             }
           };
           
-          sendMessage(aiMessage as UnifiedMessage);
+          // AIメッセージは送信済みなので、ここでは履歴に追加のみ
           setLastMessage(message.text);
         }
         break;

@@ -3,6 +3,8 @@
  * This file provides optimized imports that avoid barrel imports and heavy dependencies
  */
 
+import type { AppStore } from '@/store';
+
 // ===== FRAMER MOTION OPTIMIZATIONS =====
 
 // Instead of importing the entire framer-motion library,
@@ -72,9 +74,9 @@ export const getUIComponents = () => {
 export const getOptimizedStoreSelectors = () => {
   return {
     // Commonly used selectors that can be memoized
-    useSelectedCharacter: () => require('@/store').useAppStore(state => state.getSelectedCharacter()),
-    useSelectedPersona: () => require('@/store').useAppStore(state => state.getSelectedPersona()),
-    useIsGenerating: () => require('@/store').useAppStore(state => state.is_generating),
-    useActiveSession: () => require('@/store').useAppStore(state => state.getActiveSession()),
+    useSelectedCharacter: () => require('@/store').useAppStore((state: AppStore) => state.getSelectedCharacter()),
+    useSelectedPersona: () => require('@/store').useAppStore((state: AppStore) => state.getSelectedPersona()),
+    useIsGenerating: () => require('@/store').useAppStore((state: AppStore) => state.is_generating),
+    useActiveSession: () => require('@/store').useAppStore((state: AppStore) => state.getActiveSession()),
   };
 };

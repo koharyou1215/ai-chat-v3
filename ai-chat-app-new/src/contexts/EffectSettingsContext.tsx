@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { EffectSettings } from '@/components/settings/SettingsModal';
+import { EffectSettings } from '@/store/slices/settings.slice';
 
 interface EffectSettingsContextType {
   settings: EffectSettings;

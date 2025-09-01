@@ -59,8 +59,8 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
     searchKeys: ['name', 'traits'],
     sortOption: sortOption as any,
     sortKeys: {
-      updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       created_at: (p: Persona) => p.created_at ? new Date(p.created_at).getTime() : 0,
+      updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       name: (p: Persona) => p.name || '',
     },
   });
@@ -176,7 +176,6 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
                     onSelect={onSelectPersona}
                     onEdit={onEditPersona}
                     isSelected={persona.id === selectedPersonaId}
-                    viewMode={viewMode}
                   />
                 </Suspense>
               ))
