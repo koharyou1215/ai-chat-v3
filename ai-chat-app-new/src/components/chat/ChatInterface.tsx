@@ -8,6 +8,7 @@ import { MessageInput } from "./MessageInput";
 import { ChatHeader } from "./ChatHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, User } from "lucide-react";
+import { serverLog } from "@/utils/server-logger";
 // 一時対処: トラッカーUIが操作を阻害するため、読み込みを停止
 
 interface ChatInterfaceProps {
@@ -146,9 +147,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
         const safeCharactersSize =
           characters instanceof Map ? characters.size : 0;
         const safePersonasSize = personas instanceof Map ? personas.size : 0;
-
-        const flagsReady = isCharactersLoaded && isPersonasLoaded;
-        const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+        serverLog("chat:init:guard", { flagsReady, dataReady, safeCharactersSize, safePersonasSize });
 
         if (!flagsReady && !dataReady) {
           console.log("⏳ データ読み込み未完了 - 次の機会に初期化を試行", {
@@ -165,6 +164,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
         const safeSessions = sessions instanceof Map ? sessions : new Map();
         if (active_session_id && safeSessions.has(active_session_id)) {
           console.log("✅ 既存セッション確認完了");
+          serverLog("chat:init:existing-session", { active_session_id });
           setIsInitialized(true);
           return;
         }
@@ -221,19 +221,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
 
         // セッション作成実行
         console.log("🎯 セッション作成実行:", targetCharacter.name);
+        serverLog("chat:init:create", { character: targetCharacter.name });
         const sessionId = await createSession(targetCharacter, selectedPersona);
 
         // 成功時の処理
         if (sessionId) {
           setSelectedCharacterId(targetCharacter.id);
           console.log("✅ セッション初期化完了:", sessionId);
+          serverLog("chat:init:done", { sessionId });
           setIsInitialized(true);
         } else {
           console.warn("⚠️ セッション作成が失敗");
+          serverLog("chat:init:create:failed");
           setInitializationAttempts((prev) => prev + 1);
         }
       } catch (error) {
         console.error("❌ セッション初期化エラー:", error);
+        serverLog("chat:init:error", String(error));
         setInitializationAttempts((prev) => prev + 1);
       }
     };
@@ -285,7 +289,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
             {(() => {
               const safeCharactersSize =
                 characters instanceof Map ? characters.size : 0;
-              const safePersonasSize = personas instanceof Map ? personas.size : 0;
+              const safePersonasSize =
+                personas instanceof Map ? personas.size : 0;
               const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
               return !isCharactersLoaded && !isPersonasLoaded && !dataReady
                 ? "データを読み込み中..."

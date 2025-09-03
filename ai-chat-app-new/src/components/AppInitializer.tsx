@@ -1,28 +1,29 @@
-'use client';
+"use client";
 
-import { useEffect, ReactNode } from 'react';
-import { useAppStore } from '@/store';
-import { StorageManager } from '@/utils/storage-cleanup';
-import { StorageAnalyzer } from '@/utils/storage-analyzer';
-import { StorageCleaner } from '@/utils/storage-cleaner';
-import { checkStorageUsage } from '@/utils/check-storage';
-import { AppearanceProvider } from '@/components/providers/AppearanceProvider';
-import { PreloadStrategies, BundleAnalysis } from '@/utils/dynamic-imports';
-import { initializeModelMigration } from '@/utils/model-migration';
+import { useEffect, ReactNode } from "react";
+import { useAppStore } from "@/store";
+import { StorageManager } from "@/utils/storage-cleanup";
+import { StorageAnalyzer } from "@/utils/storage-analyzer";
+import { StorageCleaner } from "@/utils/storage-cleaner";
+import { checkStorageUsage } from "@/utils/check-storage";
+import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
+import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
+import { initializeModelMigration } from "@/utils/model-migration";
+import { serverLog } from "@/utils/server-logger";
 
 interface AppInitializerProps {
   children: ReactNode;
 }
 
 const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
-  const { 
-    sessions, 
+  const {
+    sessions,
     active_session_id,
-    createSession, 
+    createSession,
     getSelectedPersona,
-    characters, 
-    personas, 
-    isCharactersLoaded, 
+    characters,
+    personas,
+    isCharactersLoaded,
     isPersonasLoaded,
     loadCharactersFromPublic,
     loadPersonasFromPublic,
@@ -37,100 +38,102 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       try {
         // Performance monitoring start
         const loadStartTime = performance.now();
-        
+        serverLog("init:start", {});
+
         // 🔧 レガシーモデル名の自動移行（最優先で実行）
         initializeModelMigration();
-        
+
         // ストレージ状況を詳細に分析
         const storageInfo = StorageManager.getStorageInfo();
-        console.log('📊 Storage info:', storageInfo);
-        
+        serverLog("storage:info", storageInfo);
+
         // ストレージ使用状況をチェック
         checkStorageUsage();
-        
+
         // 詳細分析（開発環境のみ）
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === "development") {
           StorageAnalyzer.printAnalysis();
           StorageAnalyzer.analyzeMessages();
         }
-        
+
         // 自動クリーンアップ
         if (StorageManager.isStorageNearLimit()) {
-          console.warn('⚠️ Storage is near limit - starting cleanup');
+          serverLog("storage:cleanup:start");
           const cleanupResult = StorageCleaner.cleanupLocalStorage();
-          console.log('🧹 Cleanup completed:', cleanupResult);
+          serverLog("storage:cleanup:done", cleanupResult);
         }
-        
+
         // Store data is automatically loaded by Zustand persist middleware
         // No need to manually call loadStoreFromStorage()
-        
+
         // データの並列読み込み（パフォーマンス最適化）
         const [charactersResult, personasResult] = await Promise.allSettled([
           loadCharactersFromPublic(),
-          loadPersonasFromPublic()
+          loadPersonasFromPublic(),
         ]);
 
         // エラーハンドリング
-        if (charactersResult.status === 'rejected') {
-          console.error('❌ キャラクター読み込みエラー:', charactersResult.reason);
+        if (charactersResult.status === "rejected") {
+          serverLog("load:characters:error", String(charactersResult.reason));
         }
-        if (personasResult.status === 'rejected') {
-          console.error('❌ ペルソナ読み込みエラー:', personasResult.reason);
+        if (personasResult.status === "rejected") {
+          serverLog("load:personas:error", String(personasResult.reason));
         }
 
         // Performance monitoring end
         const loadEndTime = performance.now();
-        console.log(`⚡ App initialization completed in ${(loadEndTime - loadStartTime).toFixed(2)}ms`);
-        
+        serverLog("init:completed", { ms: Number((loadEndTime - loadStartTime).toFixed(2)) });
+
         // Preload critical components after successful data load
         PreloadStrategies.preloadCriticalComponents();
-        
+
         // Preload effects based on user settings
         PreloadStrategies.preloadEffects(effectSettings);
-        
+
         // Log bundle analysis in development
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === "development") {
           setTimeout(() => {
             BundleAnalysis.logLoadingStatus();
           }, 5000);
         }
-
       } catch (error) {
-        console.error('❌ 初期化中にエラーが発生しました:', error);
+        serverLog("init:error", String(error));
       }
     };
 
     loadData();
-  }, [
-    loadCharactersFromPublic, 
-    loadPersonasFromPublic, 
-    effectSettings
-  ]);
+  }, [loadCharactersFromPublic, loadPersonasFromPublic, effectSettings]);
 
   // セッション自動作成ロジック（パフォーマンス最適化版）
   useEffect(() => {
     const createInitialSession = async () => {
       // 読み込み完了を待つ（フラグ OR 実データサイズ）
-      const safeCharactersSize = characters instanceof Map ? characters.size : 0;
+      const safeCharactersSize =
+        characters instanceof Map ? characters.size : 0;
       const safePersonasSize = personas instanceof Map ? personas.size : 0;
       const flagsReady = isCharactersLoaded && isPersonasLoaded;
       const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+      serverLog("session:auto:guard", { flagsReady, dataReady, safeCharactersSize, safePersonasSize });
       if (!flagsReady && !dataReady) return;
-      
+
       // 既にアクティブなセッションがある場合はスキップ
       if (active_session_id && sessions.has(active_session_id)) {
-        console.log('👌 既存のアクティブセッションを使用:', active_session_id);
+        serverLog("session:auto:reuse", { active_session_id });
         return;
       }
 
       try {
         const selectedPersona = getSelectedPersona();
-        
+
         // キャラクターが選択されている場合
-        if (selectedCharacterId && characters.has(selectedCharacterId) && selectedPersona) {
+        if (
+          selectedCharacterId &&
+          characters.has(selectedCharacterId) &&
+          selectedPersona
+        ) {
           const selectedCharacter = characters.get(selectedCharacterId);
           if (selectedCharacter) {
-            console.log('🔄 選択中のキャラクターでセッション作成:', selectedCharacter.name);
+            serverLog("session:auto:create:selected", { character: selectedCharacter.name });
             await createSession(selectedCharacter, selectedPersona);
             return;
           }
@@ -139,12 +142,12 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         // フォールバック：最初のキャラクターを使用
         const firstCharacter = characters.values().next().value;
         if (firstCharacter && selectedPersona) {
-          console.log('🎯 フォールバック：最初のキャラクターでセッション作成:', firstCharacter.name);
+          serverLog("session:auto:create:first", { character: firstCharacter.name });
           await createSession(firstCharacter, selectedPersona);
           setSelectedCharacterId(firstCharacter.id);
         }
       } catch (error) {
-        console.error('❌ 初期セッション作成エラー:', error);
+        serverLog("session:auto:error", String(error));
       }
     };
 
@@ -152,23 +155,19 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     const timeoutId = setTimeout(createInitialSession, 500);
     return () => clearTimeout(timeoutId);
   }, [
-    isCharactersLoaded, 
-    isPersonasLoaded, 
-    active_session_id, 
-    sessions, 
-    selectedCharacterId, 
-    characters, 
+    isCharactersLoaded,
+    isPersonasLoaded,
+    active_session_id,
+    sessions,
+    selectedCharacterId,
+    characters,
     personas,
-    getSelectedPersona, 
-    createSession, 
-    setSelectedCharacterId
+    getSelectedPersona,
+    createSession,
+    setSelectedCharacterId,
   ]);
 
-  return (
-    <AppearanceProvider>
-      {children}
-    </AppearanceProvider>
-  );
+  return <AppearanceProvider>{children}</AppearanceProvider>;
 };
 
 export default AppInitializer;
