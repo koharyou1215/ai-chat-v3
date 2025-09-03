@@ -1,153 +1,205 @@
-import { NextResponse } from 'next/server';
-import { apiManager } from '@/services/api-manager';
+import { NextResponse } from "next/server";
+import { apiManager } from "@/services/api-manager";
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      systemPrompt, 
-      userMessage, 
-      conversationHistory, 
+    const {
+      systemPrompt,
+      userMessage,
+      conversationHistory,
       apiConfig,
-      textFormatting = 'readable'
+      textFormatting = "readable",
     } = body;
 
     if (!userMessage) {
-      return NextResponse.json({ error: 'userMessage is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "userMessage is required" },
+        { status: 400 }
+      );
     }
 
     // API Managerに設定を適用
-    console.log('🔧 Applying API configuration:', apiConfig);
-    
+    console.log("🔧 Applying API configuration:", apiConfig);
+
     // 環境変数から API キーを取得
     const effectiveApiConfig: any = { ...(apiConfig || {}) };
-    const provider = (apiConfig && apiConfig.provider) || process.env.NEXT_PUBLIC_DEFAULT_PROVIDER || 'gemini';
-    
-    if (provider === 'gemini') {
+    const provider =
+      (apiConfig && apiConfig.provider) ||
+      process.env.NEXT_PUBLIC_DEFAULT_PROVIDER ||
+      "gemini";
+
+    if (provider === "gemini") {
       // フロントエンドから送られてくる API キーを最優先で使用
       if (apiConfig?.geminiApiKey) {
         effectiveApiConfig.geminiApiKey = apiConfig.geminiApiKey;
-        console.log('✅ Gemini API key provided from client');
+        console.log("✅ Gemini API key provided from client");
       } else {
         // フォールバック: 環境変数から読み込み
         const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
         if (geminiKey) {
           effectiveApiConfig.geminiApiKey = geminiKey;
-          console.log('✅ Gemini API key loaded from environment (fallback)');
+          console.log("✅ Gemini API key loaded from environment (fallback)");
         } else {
-          console.error('❌ No Gemini API key found (client or environment)');
-          throw new Error('Gemini API キーが設定されていません');
+          console.error("❌ No Gemini API key found (client or environment)");
+          throw new Error("Gemini API キーが設定されていません");
         }
       }
-    } else if (provider === 'openrouter') {
+    } else if (provider === "openrouter") {
       // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
       if (!apiConfig?.openRouterApiKey) {
-        console.error('❌ OpenRouter API key not provided');
-        throw new Error('OpenRouter API キーが設定されていません');
+        console.error("❌ OpenRouter API key not provided");
+        throw new Error("OpenRouter API キーが設定されていません");
       }
-      console.log('✅ OpenRouter API key provided from client');
+      console.log("✅ OpenRouter API key provided from client");
     }
-    
+
     // このルートは使用されていないため、ログ出力を無効化
     // 実際のAPI呼び出しはAPIManagerが処理
-    
-    if (false) { // 無効化: isDevelopment
-      console.log('[DEV]');
-      console.log('--- [API Route: /api/chat/generate] ---');
-      console.log(`[DEV][Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`);
-      
+
+    if (false) {
+      // 無効化: isDevelopment
+      console.log("[DEV]");
+      console.log("--- [API Route: /api/chat/generate] ---");
+      console.log(
+        `[DEV][Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`
+      );
+
       // システムプロンプトの詳細表示
       if (systemPrompt) {
-        console.log('[DEV]--- System Prompt ---');
+        console.log("[DEV]--- System Prompt ---");
         // システムプロンプト全体を表示（最初の部分）
-        const lines = systemPrompt.split('\n');
+        const lines = systemPrompt.split("\n");
         lines.slice(0, 15).forEach((line: string) => {
           console.log(line);
         });
         if (lines.length > 15) {
-          console.log('...');
+          console.log("...");
         }
-        
+
         // キャラクター情報の抽出と表示
-        const charInfoMatch = systemPrompt.match(/<character_information>([\s\S]*?)<\/character_information>/);
+        const charInfoMatch = systemPrompt.match(
+          /<character_information>([\s\S]*?)<\/character_information>/
+        );
         if (charInfoMatch) {
-          console.log('\n[DEV]--- Character Information ---');
+          console.log("\n[DEV]--- Character Information ---");
           const charInfo = charInfoMatch[1].trim();
-          const charLines = charInfo.split('\n');
+          const charLines = charInfo.split("\n");
           charLines.slice(0, 10).forEach((line: string) => {
             console.log(line);
           });
           if (charLines.length > 10) {
-            console.log('...');
+            console.log("...");
           }
         }
-        
+
         // ペルソナ情報の抽出と表示
-        const personaInfoMatch = systemPrompt.match(/<persona_information>([\s\S]*?)<\/persona_information>/);
+        const personaInfoMatch = systemPrompt.match(
+          /<persona_information>([\s\S]*?)<\/persona_information>/
+        );
         if (personaInfoMatch) {
-          console.log('\n[DEV]--- Persona Information ---');
+          console.log("\n[DEV]--- Persona Information ---");
           const personaInfo = personaInfoMatch[1].trim();
           console.log(personaInfo);
         }
-        
+
         // トラッカー情報の抽出と表示
-        const trackerMatch = systemPrompt.match(/<character_trackers>([\s\S]*?)<\/character_trackers>/);
+        const trackerMatch = systemPrompt.match(
+          /<character_trackers>([\s\S]*?)<\/character_trackers>/
+        );
         if (trackerMatch) {
-          console.log('\n[DEV]--- Tracker Information ---');
+          console.log("\n[DEV]--- Tracker Information ---");
           const trackerInfo = trackerMatch[1].trim();
-          const trackerLines = trackerInfo.split('\n');
+          const trackerLines = trackerInfo.split("\n");
           trackerLines.slice(0, 20).forEach((line: string) => {
             console.log(line);
           });
           if (trackerLines.length > 20) {
-            console.log('...');
+            console.log("...");
           }
         }
       }
-      
+
       // 会話履歴の詳細表示
-      console.log(`\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`);
+      console.log(
+        `\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`
+      );
       if (conversationHistory && conversationHistory.length > 0) {
         conversationHistory.slice(-3).forEach((msg: any, idx: number) => {
           const preview = msg.content.substring(0, 200);
-          console.log(`${msg.role}: ${preview}${msg.content.length > 200 ? '...' : ''}`);
+          console.log(
+            `${msg.role}: ${preview}${msg.content.length > 200 ? "..." : ""}`
+          );
         });
         if (conversationHistory.length > 3) {
           console.log(`[... ${conversationHistory.length - 3} older messages]`);
         }
       }
-      
+
       // ユーザーメッセージ
       console.log(`\n[DEV]--- User Message ---`);
       console.log(userMessage);
-      
-      console.log('=====================================\n');
+
+      console.log("=====================================\n");
     }
 
-    const aiResponseContent = await apiManager.generateMessage(
-      systemPrompt,
-      userMessage,
-      conversationHistory,
-      { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
-    );
+    let aiResponseContent: string;
+    try {
+      aiResponseContent = await apiManager.generateMessage(
+        systemPrompt,
+        userMessage,
+        conversationHistory,
+        { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
+      );
+    } catch (e: any) {
+      // オフライン/レート制限などで失敗した場合の簡易フォールバック
+      const errMsg = (e && e.message) ? String(e.message) : "";
+      const isQuotaOrOffline =
+        errMsg.includes("Quota") ||
+        errMsg.includes("quota") ||
+        errMsg.includes("rate limit") ||
+        errMsg.includes("resource_exhausted") ||
+        errMsg.includes("User not found") ||
+        errMsg.includes("ENOTFOUND") ||
+        errMsg.includes("ECONNREFUSED") ||
+        errMsg.includes("Failed to fetch");
+
+      if (isQuotaOrOffline) {
+        console.warn("⚠️ Using local fallback response due to API issue:", errMsg);
+
+        // 簡易応答テンプレート（読みやすい日本語）
+        const safeUser = (typeof userMessage === "string" && userMessage.trim().length > 0)
+          ? userMessage.trim().slice(0, 200)
+          : "(メッセージ)";
+        aiResponseContent = `【ローカル簡易応答】\n現在APIにアクセスできないため、仮の返答で対応しています。\n\n- 入力: "${safeUser}"\n- 状態: 通信エラー/利用制限\n\nこのままテストは可能です。後で設定画面からAPIキーを入力すると、本来のAI応答に切り替わります。`;
+      } else {
+        throw e;
+      }
+    }
 
     // レスポンスログ（開発環境での確認用）
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    const isDevelopment = process.env.NODE_ENV === "development";
     if (isDevelopment) {
       console.log(`\n[DEV]--- AI Response Generated ---`);
       console.log(`[DEV][Response Length] ${aiResponseContent.length} chars`);
       const preview = aiResponseContent.substring(0, 200);
-      console.log(`[DEV][Response Preview] ${preview}${aiResponseContent.length > 200 ? '...' : ''}`);
-      console.log('=====================================\n');
+      console.log(
+        `[DEV][Response Preview] ${preview}${
+          aiResponseContent.length > 200 ? "..." : ""
+        }`
+      );
+      console.log("=====================================\n");
     }
 
     return NextResponse.json({ response: aiResponseContent });
-
   } catch (error) {
-    console.error('Error in /api/chat/generate:', error);
+    console.error("Error in /api/chat/generate:", error);
     return NextResponse.json(
-      { error: 'Failed to generate AI response', details: (error as Error).message }, 
+      {
+        error: "Failed to generate AI response",
+        details: (error as Error).message,
+      },
       { status: 500 }
     );
   }
