@@ -36,13 +36,18 @@ export async function POST(request: Request) {
         effectiveApiConfig.geminiApiKey = apiConfig.geminiApiKey;
         console.log("✅ Gemini API key provided from client");
       } else {
-        // フォールバック: 環境変数から読み込み
-        const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-        if (geminiKey) {
-          effectiveApiConfig.geminiApiKey = geminiKey;
-          console.log("✅ Gemini API key loaded from environment (fallback)");
+        // ヘッダー / サーバー専用環境変数 / public環境変数 の順で解決
+        const headerKey = request.headers.get("x-gemini-api-key");
+        const serverEnvKey = process.env.GEMINI_API_KEY;
+        const publicEnvKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        const resolved = serverEnvKey || headerKey || publicEnvKey;
+        if (resolved) {
+          effectiveApiConfig.geminiApiKey = resolved;
+          console.log(
+            `✅ Gemini API key loaded from ${serverEnvKey ? "server env" : headerKey ? "request header" : "public env"} (fallback)`
+          );
         } else {
-          console.error("❌ No Gemini API key found (client or environment)");
+          console.error("❌ No Gemini API key found (client/header/environment)");
           throw new Error("Gemini API キーが設定されていません");
         }
       }
@@ -52,10 +57,15 @@ export async function POST(request: Request) {
         effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
         console.log("✅ OpenRouter API key provided from client");
       } else {
-        const openRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
-        if (openRouterKey) {
-          effectiveApiConfig.openRouterApiKey = openRouterKey;
-          console.log("✅ OpenRouter API key loaded from environment (fallback)");
+        const headerKey = request.headers.get("x-openrouter-api-key");
+        const serverEnvKey = process.env.OPENROUTER_API_KEY;
+        const publicEnvKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        const resolved = serverEnvKey || headerKey || publicEnvKey;
+        if (resolved) {
+          effectiveApiConfig.openRouterApiKey = resolved;
+          console.log(
+            `✅ OpenRouter API key loaded from ${serverEnvKey ? "server env" : headerKey ? "request header" : "public env"} (fallback)`
+          );
         } else {
           console.error("❌ OpenRouter API key not provided");
           throw new Error("OpenRouter API キーが設定されていません");
