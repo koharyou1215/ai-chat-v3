@@ -1,8 +1,9 @@
 import { geminiClient } from "./api/gemini-client";
-import { APIConfig, APIProvider } from "@/types";
+import { APIConfig, APIProvider, APIProviderStrategy } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
+import { unifiedAPIRouter, UnifiedAPIRouter, UnifiedAPIConfig, UnifiedAPIRequest } from "./api/unified-router";
 
-export type { APIProvider };
+export type { APIProvider, APIProviderStrategy };
 
 // OpenRouter API レスポンス型定義
 interface OpenRouterModel {
@@ -19,6 +20,9 @@ export class APIManager {
   private currentConfig: APIConfig;
   private openRouterApiKey: string | null = null;
   private geminiApiKey: string | null = null;
+  
+  // 🔧 NEW: 統一されたAPI router
+  private unifiedRouter!: UnifiedAPIRouter;
 
   /**
    * JSON Parse with better error handling and text sanitization
@@ -58,14 +62,26 @@ export class APIManager {
 
   constructor() {
     this.currentConfig = {
+      // 🔧 NEW: 統一戦略設定
+      strategy: "auto-optimal",
+      
+      // Legacy compatibility
       provider: "gemini",
+      useDirectGeminiAPI: true,
+      
+      // Model settings
       model: "google/gemini-2.5-flash",
       temperature: 0.7,
       max_tokens: 2048,
       top_p: 0.9,
       frequency_penalty: 0.6,
       presence_penalty: 0.3,
-      context_window: 20, // A reasonable default
+      context_window: 20,
+      
+      // 🔧 NEW: Performance settings
+      enableSmartFallback: true,
+      fallbackDelayMs: 1000,
+      maxRetries: 2,
     };
 
     // ブラウザ環境でのみローカルストレージから読み込み
@@ -73,6 +89,9 @@ export class APIManager {
       this.loadOpenRouterKey();
       this.loadGeminiKey();
     }
+    
+    // 🔧 NEW: 統一routerの初期化
+    this.initializeUnifiedRouter();
   }
 
   private loadOpenRouterKey() {
@@ -140,6 +159,49 @@ export class APIManager {
       ...this.currentConfig,
       ...config,
     };
+    
+    // 🔧 NEW: 統一routerの設定も更新
+    this.updateUnifiedRouterConfig();
+  }
+
+  /**
+   * 🔧 NEW: 統一routerの初期化
+   */
+  private initializeUnifiedRouter(): void {
+    const unifiedConfig: UnifiedAPIConfig = {
+      strategy: this.currentConfig.strategy || 'auto-optimal',
+      model: this.currentConfig.model,
+      geminiApiKey: this.geminiApiKey || undefined,
+      openRouterApiKey: this.openRouterApiKey || undefined,
+      enableSmartFallback: this.currentConfig.enableSmartFallback || true,
+      fallbackDelayMs: this.currentConfig.fallbackDelayMs || 1000,
+      maxRetries: this.currentConfig.maxRetries || 2,
+      temperature: this.currentConfig.temperature,
+      maxTokens: this.currentConfig.max_tokens,
+      topP: this.currentConfig.top_p,
+    };
+    
+    this.unifiedRouter = new UnifiedAPIRouter(unifiedConfig);
+  }
+
+  /**
+   * 🔧 NEW: 統一routerの設定更新
+   */
+  private updateUnifiedRouterConfig(): void {
+    if (this.unifiedRouter) {
+      this.unifiedRouter.updateConfig({
+        strategy: this.currentConfig.strategy || 'auto-optimal',
+        model: this.currentConfig.model,
+        geminiApiKey: this.geminiApiKey || undefined,
+        openRouterApiKey: this.openRouterApiKey || undefined,
+        enableSmartFallback: this.currentConfig.enableSmartFallback || true,
+        fallbackDelayMs: this.currentConfig.fallbackDelayMs || 1000,
+        maxRetries: this.currentConfig.maxRetries || 2,
+        temperature: this.currentConfig.temperature,
+        maxTokens: this.currentConfig.max_tokens,
+        topP: this.currentConfig.top_p,
+      });
+    }
   }
 
   getConfig(): APIConfig {
@@ -148,6 +210,8 @@ export class APIManager {
 
   setOpenRouterApiKey(key: string) {
     this.saveOpenRouterKey(key);
+    // 🔧 NEW: 統一routerの設定も更新
+    this.updateUnifiedRouterConfig();
   }
 
   getOpenRouterApiKey(): string | null {
@@ -156,10 +220,58 @@ export class APIManager {
 
   setGeminiApiKey(key: string) {
     this.saveGeminiKey(key);
+    // 🔧 NEW: 統一routerの設定も更新  
+    this.updateUnifiedRouterConfig();
   }
 
   getGeminiApiKey(): string | null {
     return this.geminiApiKey;
+  }
+
+  /**
+   * 🔧 NEW: 統一されたAPI生成メソッド - 推奨
+   */
+  async generateMessageUnified(
+    systemPrompt: string,
+    userMessage: string,
+    conversationHistory: { role: "user" | "assistant"; content: string }[] = [],
+    options?: {
+      strategy?: APIProviderStrategy;
+      textFormatting?: "compact" | "readable" | "detailed";
+      temperature?: number;
+      maxTokens?: number;
+      topP?: number;
+    }
+  ): Promise<string> {
+    // 戦略の一時的な上書き
+    if (options?.strategy && options.strategy !== this.currentConfig.strategy) {
+      this.unifiedRouter.updateConfig({ strategy: options.strategy });
+    }
+
+    const request: UnifiedAPIRequest = {
+      systemPrompt,
+      userMessage,
+      conversationHistory,
+      options: {
+        temperature: options?.temperature,
+        maxTokens: options?.maxTokens,
+        topP: options?.topP,
+      },
+    };
+
+    try {
+      const result = await this.unifiedRouter.generateMessage(request);
+      
+      // テキスト整形
+      const formattingPreset = options?.textFormatting || "readable";
+      return formatMessageContent(result, formattingPreset);
+    } catch (error) {
+      console.error("Unified message generation failed:", error);
+      
+      // Legacy fallback
+      console.warn("Falling back to legacy generateMessage method");
+      return this.generateMessage(systemPrompt, userMessage, conversationHistory, options);
+    }
   }
 
   async generateMessage(

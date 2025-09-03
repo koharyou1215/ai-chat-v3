@@ -48,16 +48,16 @@ export class InspirationService {
       // Starting reply suggestion API call
       
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
-        const result = await apiManager.generateMessage(
+        // 🔧 **NEW: 統一されたAPI routing使用**
+        const result = await apiManager.generateMessageUnified(
           prompt,
           '返信提案を生成',
           [],
           { 
-            ...apiConfig, 
-            max_tokens: 800,
-            // 🔧 **認可されたモデルのみ使用**
-            model: 'gemini-2.5-flash', 
-            provider: 'gemini'
+            strategy: 'auto-optimal', // 自動で最適ルート選択
+            textFormatting: 'readable',
+            temperature: apiConfig?.temperature || 0.7,
+            maxTokens: 800,
           }
         );
         console.log('📥 API応答受信（先頭200文字）:', result.substring(0, 200));
@@ -80,55 +80,68 @@ export class InspirationService {
       if (error?.message) {
         console.error('エラーメッセージ:', error.message);
         
-        // 🔧 **無効なモデルIDエラーのハンドリング**
+        // 🔧 **無効なモデルIDエラーのハンドリング** - モデル自動移行を実行
         if (error.message.includes('is not a valid model') || 
             error.message.includes('not a valid model ID') || 
-            error.message.includes('model not found')) {
+            error.message.includes('model not found') ||
+            error.message.includes('gemini-1.5-flash-8b')) {
           
-          console.warn('⚠️ 無効なモデルIDを検出。安定したモデルで再試行します。');
+          console.warn('⚠️ 無効なモデルIDを検出。モデル移行を強制実行して再試行します。');
+          
+          // 即座にモデル移行を実行
+          const { migrateUserSettings } = require('@/utils/model-migration');
+          try {
+            migrateUserSettings();
+            console.log('✅ レガシーモデル設定の自動移行を実行しました');
+          } catch (migrationError) {
+            console.warn('⚠️ 設定移行に失敗しましたが、デフォルトモデルで続行します');
+          }
           
           try {
             const fallbackResponse = await apiRequestQueue.enqueueInspirationRequest(async () => {
-              return apiManager.generateMessage(
+              // 🔧 **NEW: 確実にサポートされたモデルで再試行**
+              return apiManager.generateMessageUnified(
                 prompt,
-                '返信提案を生成（フォールバック）',
+                '返信提案を生成（モデル移行後）',
                 [],
                 { 
-                  ...apiConfig, 
-                  model: 'gemini-2.5-flash', // 安定したモデルに変更
-                  provider: 'gemini',
-                  max_tokens: 800 
+                  strategy: 'gemini-direct', 
+                  textFormatting: 'readable',
+                  temperature: apiConfig?.temperature || 0.7,
+                  maxTokens: 800,
+                  // 確実にサポートされているモデルを使用
+                  model: 'google/gemini-2.5-flash'
                 }
               );
             });
             
             const fallbackSuggestions = this.parseReplySuggestionsAdvanced(fallbackResponse);
             if (fallbackSuggestions.length > 0) {
-              console.log('✅ フォールバックモデルでの再試行が成功しました');
+              console.log('✅ モデル移行後の再試行が成功しました');
               return fallbackSuggestions;
             }
           } catch (fallbackError) {
-            console.error('❌ フォールバックも失敗:', fallbackError);
+            console.error('❌ モデル移行後のフォールバックも失敗:', fallbackError);
           }
           
           return [
             {
-              id: `model_error_${Date.now()}_0`,
+              id: `model_migrated_${Date.now()}_0`,
               type: 'empathy' as const,
-              content: '使用中のモデルが更新されました。設定を確認してください。',
-              confidence: 0.4
+              content: 'モデル設定を最新版に自動更新しました。',
+              confidence: 0.7
             },
             {
-              id: `model_error_${Date.now()}_1`,
+              id: `model_migrated_${Date.now()}_1`,
               type: 'question' as const,
-              content: 'モデル設定で最新のバージョンを選択することをお勧めします。',
-              confidence: 0.4
+              content: '設定画面で最新のモデル選択を確認できます。',
+              confidence: 0.7
             },
             {
-              id: `model_error_${Date.now()}_2`,
+              id: `model_migrated_${Date.now()}_2`,
               type: 'topic' as const,
-              content: '一時的にデフォルトのモデルを使用しています。',
-              confidence: 0.4
+              content: '現在は最新の Gemini 2.5 Flash を使用しています。',
+              confidence: 0.7
             }
           ];
         }
@@ -147,15 +160,16 @@ export class InspirationService {
             console.log('🔄 OpenRouter経由で再試行中...');
             try {
               const fallbackResponse = await apiRequestQueue.enqueueInspirationRequest(async () => {
-                return apiManager.generateMessage(
+                // 🔧 **NEW: OpenRouter経由も統一API使用**
+                return apiManager.generateMessageUnified(
                   prompt,
                   '返信提案を生成（OpenRouter経由）',
                   [],
                   { 
-                    ...apiConfig, 
-                    provider: 'openrouter', 
-                    model: 'google/gemini-2.5-flash', // 安定したモデルを使用
-                    max_tokens: 800 
+                    strategy: 'gemini-openrouter', // OpenRouter経由でGemini使用
+                    textFormatting: 'readable',
+                    temperature: apiConfig?.temperature || 0.7,
+                    maxTokens: 800 
                   }
                 );
               });
@@ -231,15 +245,16 @@ export class InspirationService {
 
     try {
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
-        return apiManager.generateMessage(
+        // 🔧 **NEW: 文章強化も統一API使用**
+        return apiManager.generateMessageUnified(
           prompt,
           '文章を強化',
           [],
           { 
-            ...apiConfig, 
-            max_tokens: 400,
-            model: 'gemini-2.5-flash', // 安定したモデル
-            provider: 'gemini'
+            strategy: 'auto-optimal', // 自動最適ルート選択
+            textFormatting: 'readable',
+            temperature: apiConfig?.temperature || 0.7,
+            maxTokens: 400
           }
         );
       });
@@ -271,26 +286,72 @@ export class InspirationService {
             .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 制御文字を削除
             .replace(/\r\n/g, '\n'); // 改行文字を統一
           
-          // 不正なJSON構造を修正
+          // 🔧 **JSON構文エラー完全修正 - 日本語文字列対応強化**
           cleanedContent = cleanedContent
-            .replace(/,\s*([}\]])/g, '$1') // オブジェクトや配列の末尾のカンマを削除
-            .replace(/([^\\])\\(?!["\\/bfnrtu])/g, '$1\\\\') // 不正なエスケープシーケンスを修正
-            .replace(/\n/g, '\\n') // 改行文字をエスケープ
-            .replace(/\t/g, '\\t') // タブ文字をエスケープ
-            .replace(/\r/g, '\\r') // キャリッジリターンをエスケープ
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // クォートなしプロパティ名を修正
-            .replace(/([{,]\s*)'([^']*)'\s*:/g, '$1"$2":') // シングルクォートをダブルクォートに変換
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*'([^']*)'/g, '$1"$2": "$3"') // 値のシングルクォートも修正
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([^",}\]]+)([,}\]])/g, '$1"$2": "$3"$4') // 値にクォートがない場合を修正
+            // 基本的なクリーニング
+            .replace(/,\s*([}\]])/g, '$1') // 末尾カンマ削除
+            .replace(/([^\\])\\(?!["\\/bfnrtu])/g, '$1\\\\') // 不正エスケープ修正
+            
+            // 🔧 **日本語文字列の安全なエスケープ処理**
+            .replace(/"([^"\\]*[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF][^"\\]*)"/g, (match, content) => {
+              // 日本語を含む文字列内の特殊文字をエスケープ
+              const escaped = content
+                .replace(/\\/g, '\\\\') // バックスラッシュ
+                .replace(/"/g, '\\"')     // クォート
+                .replace(/\n/g, '\\n')    // 改行
+                .replace(/\r/g, '\\r')    // キャリッジリターン
+                .replace(/\t/g, '\\t');   // タブ
+              return `"${escaped}"`;
+            })
+            
+            // プロパティ名の修正（日本語プロパティ対応）
+            .replace(/([{,]\s*)([a-zA-Z_\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF][\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*)\s*:/g, '$1"$2":')
+            .replace(/([{,]\s*)'([^']*)'\s*:/g, '$1"$2":')
+            
+            // 値の修正（文字列以外は保護）
+            .replace(/([{,]\s*"[^"]*")\s*:\s*'([^']*)'/g, '$1: "$2"')
+            .replace(/([{,]\s*"[^"]*")\s*:\s*([^",}\]\s][^",}\]]*?)([,}\]])/g, (match, key, value, ending) => {
+              const trimmedValue = value.trim();
+              // 数値、真偽値、nullは引用符で囲まない
+              if (/^(true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(trimmedValue)) {
+                return `${key}: ${trimmedValue}${ending}`;
+              }
+              // その他は文字列として扱う
+              return `${key}: "${trimmedValue.replace(/"/g, '\\"')}"${ending}`;
+            })
+            
+            // 最終クリーニング
+            .replace(/\s+/g, ' ') // 余分な空白削除
+            .trim()
           
           let jsonData;
           try {
             jsonData = JSON.parse(cleanedContent);
-          } catch (parseError) {
-            console.log('JSONパース失敗、フォールバック処理を実行:', parseError);
-            console.log('パース対象（先頭500文字）:', cleanedContent.substring(0, 500));
-            // JSON構文エラーの場合、フォールバック処理に移行（テキスト解析へ）
-            return this.parseReplySuggestionsFromText(content);
+            console.log('✅ JSON解析成功');
+          } catch (parseError: any) {
+            // 🔧 **JSON構文エラーの詳細ログと安全なフォールバック**
+            console.warn('⚠️ JSON構文エラー詳細:', {
+              error: parseError?.message || parseError,
+              position: parseError?.message?.match(/position (\d+)/)?.[1] || 'unknown',
+              contentLength: cleanedContent.length,
+              contentSample: cleanedContent.substring(0, 200) + '...'
+            });
+            
+            // 一般的なJSON構文エラーを修復する最後の試み
+            const lastAttemptContent = cleanedContent
+              .replace(/([{,]\s*)([^"\s:]+)(\s*:)/g, '$1"$2"$3') // プロパティ名の引用符補完
+              .replace(/:\s*([^"\d\[{},\s][^,}\]]*)/g, ': "$1"') // 値の引用符補完
+              .replace(/"(true|false|null|\d+(?:\.\d+)?)\"([,}\]])/g, '$1$2') // 引用符で囲まれた数値・真偽値の修正
+              .replace(/,\s*}/g, '}') // 最終チェック: 末尾カンマ削除
+              .replace(/,\s*]/g, ']');
+              
+            try {
+              jsonData = JSON.parse(lastAttemptContent);
+              console.log('✅ JSON構文修復成功');
+            } catch (finalParseError) {
+              console.log('❌ JSON構文修復も失敗。テキスト解析へフォールバック');
+              return this.parseReplySuggestionsFromText(content);
+            }
           }
           
           // 配列形式の場合

@@ -73,12 +73,15 @@ Category selection criteria:
 `;
 
       console.log("[MemoryCard] Generating memory card analysis...");
-      const response = await apiManager.generateMessage(
+      // 🔧 UPDATED: 統一APIを使用してメモリーカード生成を最適化
+      const response = await apiManager.generateMessageUnified(
         analysisPrompt,
         "",
         [],
         {
-          max_tokens: 1024,
+          strategy: 'auto-optimal',
+          textFormatting: 'readable',
+          maxTokens: 1024,
           temperature: 0.3,
         }
       );

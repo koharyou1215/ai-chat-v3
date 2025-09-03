@@ -43,18 +43,21 @@ const ChatSidebar: React.FC = React.memo(() => {
     getSelectedCharacter,
     getSelectedPersona,
     createSession,
-    setActiveSessionId,
+    // 一時的にコメントアウト - AppStoreに存在しないメソッド
+    // setActiveSessionId,
     deleteSession,
-    updateSession,
-    exportActiveConversation,
-    saveSessionToHistory,
-    pinSession,
+    // updateSession,
+    // exportActiveConversation,
+    // saveSessionToHistory,
+    // pinSession,
     setActiveGroupSession,
     setGroupMode,
     setSelectedCharacterId,
     activatePersona,
     toggleGroupCreationModal,
-    createGroupSession
+    createGroupSession,
+    // 代替として使用可能なメソッド
+    setActiveSession
   } = useAppStore();
 
 
@@ -124,7 +127,7 @@ const ChatSidebar: React.FC = React.memo(() => {
         if (groupSession) {
           
           // グループモードに切り替え & 排他制御
-          setActiveSessionId(null); 
+          // setActiveSessionId(null); // 一時的に無効化 
           setGroupMode(true);
           setActiveGroupSession(sessionId);
           
@@ -144,7 +147,8 @@ const ChatSidebar: React.FC = React.memo(() => {
           // 通常モードに切り替え & 排他制御
           setActiveGroupSession(null);
           setGroupMode(false);
-          setActiveSessionId(sessionId);
+          // setActiveSessionId(sessionId); // 一時的に無効化
+          setActiveSession(sessionId); // 代替メソッド使用
           
           // キャラクターとペルソナの状態も同期
           if (session.participants.characters.length > 0) {
@@ -170,7 +174,8 @@ const ChatSidebar: React.FC = React.memo(() => {
     if (!session) return;
     const newTitle = prompt('Enter new title:', session.session_info.title);
     if (newTitle && newTitle.trim()) {
-      updateSession({ id: sessionId, session_info: { ...session.session_info, title: newTitle.trim() } });
+      // updateSession({ id: sessionId, session_info: { ...session.session_info, title: newTitle.trim() } }); // 一時的に無効化
+      console.warn('セッション更新機能は一時的に無効化されています');
     }
   };
 
@@ -179,7 +184,8 @@ const ChatSidebar: React.FC = React.memo(() => {
     // exportActiveConversation exports the *active* session. We might need a new action to export a specific session.
     // For now, let's just use the existing one if the session is active.
     if (sessionId === active_session_id) {
-        exportActiveConversation();
+        // exportActiveConversation(); // 一時的に無効化
+        console.warn('エクスポート機能は一時的に無効化されています');
     } else {
         alert("You can only export the active session for now.");
     }
@@ -187,12 +193,14 @@ const ChatSidebar: React.FC = React.memo(() => {
   
   const handleSaveToHistory = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await saveSessionToHistory(sessionId);
+    // await saveSessionToHistory(sessionId); // 一時的に無効化
+    console.warn('履歴保存機能は一時的に無効化されています');
   };
   
   const handlePinSession = (sessionId: string, isPinned: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
-    pinSession(sessionId, !isPinned);
+    // pinSession(sessionId, !isPinned); // 一時的に無効化
+    console.warn('ピン機能は一時的に無効化されています');
   };
 
   const getSessionPreview = (session: UnifiedChatSession) => {

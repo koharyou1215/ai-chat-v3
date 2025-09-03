@@ -31,9 +31,21 @@ import {
 import { useAppStore } from "@/store";
 import { cn } from "@/lib/utils";
 import { shallow } from "zustand/shallow";
+import { Character } from "@/types";
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
-export const MessageInput: React.FC = React.memo(() => {
+// MessageInput props interface
+interface MessageInputProps {
+  sessionId?: string;
+  character?: Character;
+  isGroupMode?: boolean;
+}
+
+export const MessageInput: React.FC<MessageInputProps> = React.memo(({ 
+  sessionId, 
+  character, 
+  isGroupMode = false 
+}) => {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);

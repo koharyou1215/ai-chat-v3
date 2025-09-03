@@ -8,6 +8,7 @@ import { StorageCleaner } from '@/utils/storage-cleaner';
 import { checkStorageUsage } from '@/utils/check-storage';
 import { AppearanceProvider } from '@/components/providers/AppearanceProvider';
 import { PreloadStrategies, BundleAnalysis } from '@/utils/dynamic-imports';
+import { initializeModelMigration } from '@/utils/model-migration';
 
 interface AppInitializerProps {
   children: ReactNode;
@@ -28,7 +29,6 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     selectedCharacterId,
     setSelectedCharacterId,
     effectSettings, // Add effect settings for preloading
-    loadStoreFromStorage, // Add store loading
   } = useAppStore();
 
   // データの読み込み（Safari対応：console.log削除）+ Performance optimization
@@ -37,6 +37,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       try {
         // Performance monitoring start
         const loadStartTime = performance.now();
+        
+        // 🔧 レガシーモデル名の自動移行（最優先で実行）
+        initializeModelMigration();
         
         // ストレージ状況を詳細に分析
         const storageInfo = StorageManager.getStorageInfo();
@@ -101,7 +104,6 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   }, [
     loadCharactersFromPublic, 
     loadPersonasFromPublic, 
-    loadStoreFromStorage,
     effectSettings
   ]);
 

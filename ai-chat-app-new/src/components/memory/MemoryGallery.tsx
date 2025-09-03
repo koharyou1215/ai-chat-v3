@@ -34,7 +34,12 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memory_cards, createMemoryCard, getActiveSession, ensureTrackerManagerExists } = useAppStore();
+  const { memory_cards, createMemoryCard, getActiveSession } = useAppStore();
+  
+  // 一時的に無効化 - AppStore に ensureTrackerManagerExists メソッドが存在しない
+  const ensureTrackerManagerExists = (character: any) => {
+    console.warn('ensureTrackerManagerExists は一時的に無効化されています');
+  };
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {

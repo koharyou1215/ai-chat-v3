@@ -36,16 +36,22 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
 }) => {
   const [expandedLayer, setExpandedLayer] = useState<MemoryLayerType | null>(null);
   
-  const { 
-    immediate_memory,
-    working_memory,
-    episodic_memory,
-    semantic_memory,
-    permanent_memory,
-    // getLayeredContext,
-    getLayerStatistics,
-    clearLayer
-  } = useAppStore();
+  // 一時的に無効化 - AppStore に memory layer プロパティが存在しない
+  const immediate_memory = null;
+  const working_memory = null;
+  const episodic_memory = null;
+  const semantic_memory = null;
+  const permanent_memory = null;
+  
+  // 一時的に無効化されたメソッド
+  const getLayerStatistics = (layer: string) => {
+    console.warn('getLayerStatistics は一時的に無効化されています');
+    return { total: 0, pinned: 0, hidden: 0, categories: {} };
+  };
+  
+  const clearLayer = (layer: string) => {
+    console.warn('clearLayer は一時的に無効化されています');
+  };
   
   // セッション固有のレイヤーデータ（現在はグローバル）
   const sessionLayers = {

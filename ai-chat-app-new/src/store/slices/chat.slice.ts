@@ -417,7 +417,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           : [...currentSession.messages];
 
         // プロンプトを構築
-        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+        const systemPrompt = await promptBuilderService.buildPrompt(
           currentSession.character,
           currentSession.persona,
           messages
@@ -426,7 +426,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         console.log("🤖 プロンプト構築完了");
 
         // ベースプロンプトでの最初の生成リクエスト（一部機能を制限）
-        const basePrompt = await promptBuilderService.buildBaseSystemPrompt(
+        const basePrompt = await promptBuilderService.buildSimplePrompt(
           currentSession.character,
           currentSession.persona
         );
@@ -574,7 +574,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         }
 
         // プロンプトを構築
-        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+        const systemPrompt = await promptBuilderService.buildPrompt(
           currentSession.character,
           currentSession.persona,
           currentSession.messages
@@ -920,7 +920,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         }
 
         // プロンプトを構築
-        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+        const systemPrompt = await promptBuilderService.buildPrompt(
           currentSession.character,
           currentSession.persona,
           previousMessages
@@ -1032,7 +1032,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           console.log("🤖 編集後のAI応答生成開始...");
 
           // プロンプトを構築
-          const systemPrompt = await promptBuilderService.buildSystemPrompt(
+          const systemPrompt = await promptBuilderService.buildPrompt(
             newSession.character,
             newSession.persona,
             messagesToKeep.slice(0, targetMessageIndex) // 編集されたメッセージより前のもの

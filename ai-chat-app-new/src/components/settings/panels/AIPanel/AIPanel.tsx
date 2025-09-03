@@ -5,11 +5,13 @@ import {
   SystemPrompts,
   APIConfig,
   APIProvider,
+  APIProviderStrategy,
 } from "@/types/core/settings.types";
 import { ModelSelector } from "./ModelSelector";
 import { APIKeyManager } from "./APIKeyManager";
 import { APIConfigPanel } from "./APIConfigPanel";
 import { PromptEditor } from "./PromptEditor";
+import { ProviderStrategySelector } from "./ProviderStrategySelector";
 
 interface AIPanelProps {
   systemPrompts: SystemPrompts;
@@ -123,6 +125,14 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           onOpenRouterApiKeyChange={setOpenRouterApiKey}
           onGeminiApiKeyChange={setGeminiApiKey}
           onUpdateAPIConfig={updateAPIConfig}
+        />
+
+        {/* 🔧 NEW: プロバイダー戦略選択 */}
+        <ProviderStrategySelector
+          apiConfig={apiConfig}
+          onUpdateAPIConfig={updateAPIConfig}
+          geminiApiKey={geminiApiKey}
+          openRouterApiKey={openRouterApiKey}
         />
       </div>
 

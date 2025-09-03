@@ -132,7 +132,7 @@ export const ModalImports = {
   settings: () =>
     DynamicImportManager.conditionalImport(
       true,
-      () => import('@/components/settings/SettingsModal').then(m => ({ default: m.SettingsModal })),
+      () => import('@/components/settings/SettingsModal'),
       'settings-modal'
     ),
 
@@ -146,7 +146,7 @@ export const ModalImports = {
   voiceSettings: () =>
     DynamicImportManager.conditionalImport(
       true,
-      () => import('@/components/voice/VoiceSettingsModal').then(m => ({ default: m.VoiceSettingsModal })),
+      () => import('@/components/voice/VoiceSettingsModal'),
       'voice-settings-modal'
     ),
 };

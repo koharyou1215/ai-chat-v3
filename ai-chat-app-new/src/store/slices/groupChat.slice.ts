@@ -821,16 +821,17 @@ ${
       const effectSettings = get().effectSettings || {};
       const textFormatting = effectSettings.textFormatting || "readable";
 
-      const aiResponse = await apiManager.generateMessage(
+      // 🔧 UPDATED: 統一APIを使用してグループチャットを最適化
+      const aiResponse = await apiManager.generateMessageUnified(
         systemPrompt,
         userMessage,
         englishConversationHistory,
         {
-          ...apiConfig,
-          openRouterApiKey, // OpenRouterのAPIキーを追加
-          geminiApiKey, // GeminiのAPIキーも追加
-          max_tokens: finalMaxTokens,
-          textFormatting, // 読みやすさ設定を追加
+          strategy: 'auto-optimal', // 自動最適ルート選択
+          textFormatting: textFormatting as "compact" | "readable" | "detailed",
+          temperature: apiConfig.temperature,
+          maxTokens: finalMaxTokens,
+          topP: apiConfig.top_p,
         }
       );
 

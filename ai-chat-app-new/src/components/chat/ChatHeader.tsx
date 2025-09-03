@@ -9,6 +9,7 @@ import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
 import { useTranslation, commonTexts } from '@/hooks/useLanguage';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
+import { Character } from '@/types';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -322,7 +323,22 @@ const ChatHeaderContent: React.FC = () => {
 };
 
 // メインのChatHeaderコンポーネント（SSR対応）
-export const ChatHeader: React.FC = () => {
+// ChatHeader props interface
+interface ChatHeaderProps {
+    character?: Character;
+    onBack?: () => void;
+    showModeSwitch?: boolean;
+    isGroupMode?: boolean;
+    onModeSwitch?: (isGroup: boolean) => void;
+}
+
+export const ChatHeader: React.FC<ChatHeaderProps> = ({ 
+    character, 
+    onBack, 
+    showModeSwitch, 
+    isGroupMode, 
+    onModeSwitch 
+}) => {
     return (
         <ClientOnlyProvider fallback={
             <div className="chat-header fixed top-0 left-0 right-0 z-[60] p-4 border-b border-purple-400/20 h-16 bg-slate-900/95 backdrop-blur-md">

@@ -32,7 +32,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   
   // 変数置換を適用したキャラクター情報
   const processedCharacter = useMemo(() => {
-    const variableContext = getVariableContext(useAppStore.getState);
+    const variableContext = getVariableContext(() => useAppStore.getState() as any);
     return replaceVariablesInCharacter(character, variableContext);
   }, [character]);
 

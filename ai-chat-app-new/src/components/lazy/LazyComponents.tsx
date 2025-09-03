@@ -37,9 +37,7 @@ export const PersonaDetailModal = lazy(() =>
 
 // Settings and configuration modals
 export const SettingsModal = lazy(() => 
-  import('../settings/SettingsModal').then(module => ({ 
-    default: module.SettingsModal 
-  }))
+  import('../settings/SettingsModal')
 );
 
 export const VoiceSettingsModal = lazy(() => 

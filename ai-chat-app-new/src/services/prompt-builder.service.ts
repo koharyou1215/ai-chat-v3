@@ -356,6 +356,16 @@ ${
     ? `Catchphrase: "${processedCharacter.catchphrase}"`
     : ""
 }
+${
+  processedCharacter.appearance
+    ? `Appearance: ${processedCharacter.appearance}`
+    : ""
+}
+${
+  processedCharacter.tags && processedCharacter.tags.length > 0
+    ? `Tags: ${processedCharacter.tags.join(", ")}`
+    : ""
+}
 
 ## Personality & Traits
 ${
@@ -448,6 +458,11 @@ ${
 ${
   processedCharacter.scenario
     ? `Current Scenario: ${processedCharacter.scenario}`
+    : ""
+}
+${
+  processedCharacter.first_message
+    ? `First Message: "${processedCharacter.first_message}"`
     : ""
 }
 </character_information>`;

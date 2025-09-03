@@ -194,14 +194,15 @@ ${allParticipantRoles}
 
       // ⚡ 高速化されたシナリオ生成（タイムアウト付き）
       let response = await Promise.race([
-        apiManager.generateMessage(
+        apiManager.generateMessageUnified(
           prompt,
           '',
           [],
-          { 
-            ...apiConfig,
-            max_tokens: 1200,  // より長い生成のため増やす
-            temperature: 0.8   // 創造的な生成のため温度を上げる
+          {
+            strategy: 'auto-optimal',
+            textFormatting: 'readable',
+            temperature: 0.8,
+            maxTokens: 1200
           }
         ),
         new Promise<never>((_, reject) => 
@@ -232,13 +233,15 @@ JSON:
   "background_context": "背景"
 }`;
 
-        response = await apiManager.generateMessage(
+        response = await apiManager.generateMessageUnified(
           '以下のJSONフォーマットを完成させてください。JSONのみで回答し、他の説明は一切不要です。',
           shorterPrompt,
           [],
-          { 
-            ...apiConfig,
-            max_tokens: 800
+          {
+            strategy: 'auto-optimal',
+            textFormatting: 'compact',
+            temperature: 0.7,
+            maxTokens: 800
           }
         );
         

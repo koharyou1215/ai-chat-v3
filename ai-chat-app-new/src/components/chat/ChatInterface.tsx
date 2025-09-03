@@ -357,8 +357,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
           <MessageBubble
             key={`${message.id || index}-${message.timestamp || Date.now()}`}
             message={message}
-            character={selectedCharacter}
+            selectedCharacter={selectedCharacter}
             isGroupMode={is_group_mode}
+            isLatest={index === messages.length - 1}
+            isGroupChat={is_group_mode}
           />
         ))}
         <div ref={messagesEndRef} />

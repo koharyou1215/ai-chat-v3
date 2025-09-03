@@ -81,8 +81,22 @@ export interface VoiceSettings {
 
 export type APIProvider = 'gemini' | 'openrouter';
 
+// 統一されたAPI provider戦略
+export type APIProviderStrategy = 
+  | 'gemini-direct'      // Gemini API直接使用
+  | 'gemini-openrouter'  // OpenRouter経由でGemini使用  
+  | 'openrouter-native'  // OpenRouter native models使用
+  | 'auto-optimal';      // 最適ルート自動選択
+
 export interface APIConfig {
+  // 🔧 NEW: 統一されたprovider戦略
+  strategy: APIProviderStrategy;
+  
+  // Legacy support (deprecated but maintained for compatibility)
   provider: APIProvider;
+  useDirectGeminiAPI?: boolean;
+  
+  // Model and generation settings
   model: string;
   temperature: number;
   max_tokens: number;
@@ -90,7 +104,11 @@ export interface APIConfig {
   frequency_penalty: number;
   presence_penalty: number;
   context_window: number;
-  useDirectGeminiAPI?: boolean; // Gemini APIを直接使用するか（falseの場合はOpenRouter経由）
+  
+  // 🔧 NEW: Performance optimization settings
+  enableSmartFallback: boolean;
+  fallbackDelayMs: number;
+  maxRetries: number;
 }
 
 export interface AISettings {

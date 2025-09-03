@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { AISettings, SystemPrompts, ChatSettings, VoiceSettings, ImageGenerationSettings, APIConfig, APIProvider } from '@/types/core/settings.types';
+import { AISettings, SystemPrompts, ChatSettings, VoiceSettings, ImageGenerationSettings, APIConfig, APIProvider, APIProviderStrategy } from '@/types/core/settings.types';
 import { apiManager } from '@/services/api-manager';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_JAILBREAK_PROMPT } from '@/constants/prompts';
 import { EmotionalIntelligenceFlags } from '@/types/core/emotional-intelligence.types';
@@ -294,7 +294,14 @@ export const createSettingsSlice: StateCreator<
   initialSettingsTab: 'effects',
   
   apiConfig: {
-    provider: 'gemini',
+    // 🔧 NEW: 統一されたprovider戦略
+    strategy: 'auto-optimal' as const,
+    
+    // Legacy compatibility
+    provider: 'gemini' as const,
+    useDirectGeminiAPI: true, // デフォルトはGemini API直接使用（従来の動作）
+    
+    // Model and generation settings
     model: 'google/gemini-2.5-flash',
     temperature: 0.7,
     max_tokens: 2048,
@@ -302,7 +309,11 @@ export const createSettingsSlice: StateCreator<
     frequency_penalty: 0.6,
     presence_penalty: 0.3,
     context_window: 20,
-    useDirectGeminiAPI: true, // デフォルトはGemini API直接使用（従来の動作）
+    
+    // 🔧 NEW: Performance optimization settings
+    enableSmartFallback: true,
+    fallbackDelayMs: 1000,
+    maxRetries: 2,
   },
   openRouterApiKey: undefined,
   geminiApiKey: undefined,

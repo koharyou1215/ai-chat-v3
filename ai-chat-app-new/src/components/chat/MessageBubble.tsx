@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence, TargetAndTransition } from 'framer-motion';
 import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, ChevronRight } from 'lucide-react';
-import { UnifiedMessage } from '@/types';
+import { UnifiedMessage, Character } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { replaceVariablesInMessage } from '@/utils/variable-replacer';
 import { RichMessage } from './RichMessage';
+import { MessageMenu } from './MessageMenu';
 
 // Lazy imports for heavy effect components
 import { 
@@ -32,15 +33,20 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
 interface MessageBubbleProps {
   message: UnifiedMessage;
   previousMessage?: UnifiedMessage;
-  isLatest: boolean;
+  isLatest?: boolean;
   isGroupChat?: boolean;
+  // ChatInterface.tsx から渡される追加プロパティ
+  selectedCharacter?: Character;
+  isGroupMode?: boolean;
 }
 
 const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({ 
   message, 
   previousMessage: _previousMessage,
-  isLatest,
-  isGroupChat = false
+  isLatest = false,
+  isGroupChat = false,
+  selectedCharacter,
+  isGroupMode = false
 }) => {
   // ローディング・再生状態
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -50,16 +56,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   // **安全な個別セレクター（無限ループ回避）**
   const characters = useAppStore(state => state.characters);
   const getSelectedPersona = useAppStore(state => state.getSelectedPersona);
-  const _deleteMessage = useAppStore(state => state.deleteMessage);
-  const regenerateLastMessage = useAppStore(state => state.regenerateLastMessage);
   const regenerateMessage = useAppStore(state => state.regenerateMessage);
+  const continueGeneration = useAppStore(state => state.continueGeneration);
+  const deleteSession = useAppStore(state => state.deleteSession);
   const is_generating = useAppStore(state => state.is_generating);
   const group_generating = useAppStore(state => state.group_generating);
   const trackerManagers = useAppStore(state => state.trackerManagers);
   const activeSessionId = useAppStore(state => state.active_session_id);
-  const rollbackSession = useAppStore(state => state.rollbackSession);
-  const deleteMessage = useAppStore(state => state.deleteMessage);
-  const continueLastMessage = useAppStore(state => state.continueLastMessage);
   const getSelectedCharacter = useAppStore(state => state.getSelectedCharacter);
   const editMessage = useAppStore(state => state.editMessage);
   // TODO: addMessageメソッドがChatSliceに定義されていないため一時的に無効化
@@ -211,8 +214,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       } else {
         if (regenerateMessage) {
           await regenerateMessage(message.id);
-        } else {
-          await regenerateLastMessage();
         }
       }
     } catch (error) {
@@ -220,7 +221,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     } finally {
       setIsRegenerating(false);
     }
-  }, [isAssistant, isGroupChat, active_group_session_id, regenerateLastGroupMessage, regenerateLastMessage, regenerateMessage, message.id]);
+  }, [isAssistant, isGroupChat, active_group_session_id, regenerateLastGroupMessage, regenerateMessage, message.id]);
 
   // メッセージアクション: 続きを生成
   const handleContinue = useCallback(async () => {
@@ -231,40 +232,41 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       if (isGroupChat && active_group_session_id) {
         await continueLastGroupMessage();
       } else {
-        await continueLastMessage();
+        await continueGeneration(activeSessionId || undefined);
       }
     } catch (error) {
       // 続きの生成に失敗した場合は静かに処理を終了
     } finally {
       setIsContinuing(false);
     }
-  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, continueLastGroupMessage, continueLastMessage]);
+  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, continueLastGroupMessage, continueGeneration, activeSessionId]);
 
-  // メッセージアクション: 削除
+  // メッセージアクション: 削除（セッション削除に変更）
   const handleDelete = useCallback(async () => {
-    if (!confirm('このメッセージを削除しますか？')) return;
+    if (!confirm('このセッションを削除しますか？')) return;
     
     try {
       if (isGroupChat && active_group_session_id) {
-        // グループメッセージ削除は未実装
-      } else {
-        deleteMessage(message.id);
+        // グループセッション削除は未実装
+      } else if (activeSessionId) {
+        deleteSession(activeSessionId);
       }
     } catch (error) {
-      // メッセージ削除に失敗した場合は静かに処理を終了
+      // セッション削除に失敗した場合は静かに処理を終了
     }
-  }, [isGroupChat, active_group_session_id, deleteMessage, message.id]);
+  }, [isGroupChat, active_group_session_id, deleteSession, activeSessionId]);
 
-  // メッセージアクション: ロールバック
+  // メッセージアクション: ロールバック（一時的に無効化）
   const handleRollback = useCallback(async () => {
-    if (!confirm('この地点まで会話をロールバックしますか？')) return;
+    if (!confirm('この機能は現在開発中です。')) return;
     
     try {
-      await rollbackSession(message.id);
+      // TODO: ロールバック機能を実装
+      console.log('ロールバック機能は未実装です:', message.id);
     } catch (error) {
       // ロールバックに失敗した場合は静かに処理を終了
     }
-  }, [rollbackSession, message.id]);
+  }, [message.id]);
 
   // テキスト選択イベント
   const handleTextSelection = useCallback(() => {
@@ -534,90 +536,25 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
             
             {/* 横メニューバー（ホバー時表示） */}
-            <AnimatePresence>
-              {showMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, x: isUser ? 10 : -10 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, x: isUser ? 10 : -10 }}
-                  transition={{ duration: 0.15 }}
-                  className={cn(
-                    "absolute z-10",
-                    "bg-slate-800/90 backdrop-blur-sm border border-white/20 rounded-lg",
-                    "shadow-lg p-1",
-                    isUser ? "-left-12" : "-right-12",
-                    // 位置を動的に調整
-                    menuPosition === 'top' ? 'top-0' :
-                    menuPosition === 'bottom' ? 'bottom-0' :
-                    'top-1/2 -translate-y-1/2'
-                  )}
-                >
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={handleCopy}
-                      className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
-                      title="コピー"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                    
-                    {/* ユーザーメッセージの編集機能 */}
-                    {isUser && (
-                      <button
-                        onClick={handleEdit}
-                        className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
-                        title="編集"
-                      >
-                        <Edit className="w-3 h-3" />
-                      </button>
-                    )}
-                    
-                    {/* アシスタントメッセージの音声機能 */}
-                    {isAssistant && voice.enabled && (
-                      <button
-                        onClick={handleSpeak}
-                        disabled={isSpeaking}
-                        className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
-                        title={isSpeaking ? "再生中" : "音声再生"}
-                      >
-                        {isSpeaking ? <Pause className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                      </button>
-                    )}
-                    
-                    {/* アシスタントメッセージの再生成・続き生成 */}
-                    {isAssistant && isLatest && !generateIsActive && (
-                      <>
-                        <button
-                          onClick={handleRegenerate}
-                          disabled={isRegenerating || generateIsActive}
-                          className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
-                          title="再生成"
-                        >
-                          <RefreshCw className={cn("w-3 h-3", isRegenerating && "animate-spin")} />
-                        </button>
-                        <button
-                          onClick={handleContinue}
-                          disabled={isContinuing || generateIsActive}
-                          className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
-                          title="続きを生成"
-                        >
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </>
-                    )}
-                    
-                    {/* ここまで戻るボタン */}
-                    <button
-                      onClick={handleRollback}
-                      className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
-                      title="ここまで戻る"
-                    >
-                      <CornerUpLeft className="w-3 h-3" />
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <MessageMenu
+              showMenu={showMenu}
+              isUser={isUser}
+              isAssistant={isAssistant}
+              isLatest={isLatest}
+              isSpeaking={isSpeaking}
+              isRegenerating={isRegenerating}
+              isContinuing={isContinuing}
+              generateIsActive={generateIsActive}
+              voiceEnabled={voice.enabled}
+              menuPosition={menuPosition}
+              onCopy={handleCopy}
+              onEdit={isUser ? handleEdit : undefined}
+              onSpeak={isAssistant && voice.enabled ? handleSpeak : undefined}
+              onRegenerate={isAssistant && isLatest && !generateIsActive ? handleRegenerate : undefined}
+              onContinue={isAssistant && isLatest && !generateIsActive ? handleContinue : undefined}
+              onDelete={handleDelete}
+              onRollback={handleRollback}
+            />
 
           </div>
 
