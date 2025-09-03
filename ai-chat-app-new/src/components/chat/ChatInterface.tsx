@@ -297,6 +297,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
     });
   } catch (_) {}
 
+  // フォールバック: セッションはあるが選択キャラが未解決の場合、セッションのキャラIDを同期
+  useEffect(() => {
+    try {
+      if (currentSession && !selectedCharacter) {
+        const cid = currentSession.character?.id as UUID | undefined;
+        if (cid) {
+          serverLog("chat:render:auto-select-character", { cid });
+          setSelectedCharacterId(cid);
+        }
+      }
+    } catch (_) {}
+  }, [currentSession, selectedCharacter, setSelectedCharacterId]);
+
   if (!currentSession || !selectedCharacter) {
     try {
       serverLog("chat:render:loading", {
