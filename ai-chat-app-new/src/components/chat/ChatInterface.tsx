@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { Character, UnifiedMessage, Persona, UUID } from "@/types";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, User } from "lucide-react";
 import { serverLog } from "@/utils/server-logger";
 // 一時対処: トラッカーUIが操作を阻害するため、読み込みを停止
+import { SettingsModal } from "@/components/lazy/LazyComponents";
+import { ModalLoadingFallback } from "@/components/lazy/LazyComponents";
 
 interface ChatInterfaceProps {
   onBack?: () => void;
@@ -33,6 +35,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
     isPersonasLoaded,
     createSession,
     setActiveSession,
+    showSettingsModal,
+    initialSettingsTab,
+    setShowSettingsModal,
   } = useAppStore();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -430,6 +435,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
           isGroupMode={is_group_mode}
         />
       </div>
+
+      {/* Settings Modal Mount */}
+      <Suspense fallback={<ModalLoadingFallback />}>
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          initialTab={initialSettingsTab}
+        />
+      </Suspense>
     </div>
   );
 };
