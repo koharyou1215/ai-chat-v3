@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback, Suspense } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  Suspense,
+} from "react";
 import { Character, UnifiedMessage, Persona, UUID } from "@/types";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";

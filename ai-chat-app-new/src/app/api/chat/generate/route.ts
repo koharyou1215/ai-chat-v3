@@ -44,10 +44,18 @@ export async function POST(request: Request) {
         if (resolved) {
           effectiveApiConfig.geminiApiKey = resolved;
           console.log(
-            `✅ Gemini API key loaded from ${serverEnvKey ? "server env" : headerKey ? "request header" : "public env"} (fallback)`
+            `✅ Gemini API key loaded from ${
+              serverEnvKey
+                ? "server env"
+                : headerKey
+                ? "request header"
+                : "public env"
+            } (fallback)`
           );
         } else {
-          console.error("❌ No Gemini API key found (client/header/environment)");
+          console.error(
+            "❌ No Gemini API key found (client/header/environment)"
+          );
           throw new Error("Gemini API キーが設定されていません");
         }
       }
@@ -64,7 +72,13 @@ export async function POST(request: Request) {
         if (resolved) {
           effectiveApiConfig.openRouterApiKey = resolved;
           console.log(
-            `✅ OpenRouter API key loaded from ${serverEnvKey ? "server env" : headerKey ? "request header" : "public env"} (fallback)`
+            `✅ OpenRouter API key loaded from ${
+              serverEnvKey
+                ? "server env"
+                : headerKey
+                ? "request header"
+                : "public env"
+            } (fallback)`
           );
         } else {
           console.error("❌ OpenRouter API key not provided");

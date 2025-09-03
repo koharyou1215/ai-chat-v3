@@ -82,7 +82,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
 
         // Performance monitoring end
         const loadEndTime = performance.now();
-        serverLog("init:completed", { ms: Number((loadEndTime - loadStartTime).toFixed(2)) });
+        serverLog("init:completed", {
+          ms: Number((loadEndTime - loadStartTime).toFixed(2)),
+        });
 
         // Preload critical components after successful data load
         PreloadStrategies.preloadCriticalComponents();
@@ -113,7 +115,12 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       const safePersonasSize = personas instanceof Map ? personas.size : 0;
       const flagsReady = isCharactersLoaded && isPersonasLoaded;
       const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
-      serverLog("session:auto:guard", { flagsReady, dataReady, safeCharactersSize, safePersonasSize });
+      serverLog("session:auto:guard", {
+        flagsReady,
+        dataReady,
+        safeCharactersSize,
+        safePersonasSize,
+      });
       if (!flagsReady && !dataReady) return;
 
       // 既にアクティブなセッションがある場合はスキップ
@@ -133,7 +140,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         ) {
           const selectedCharacter = characters.get(selectedCharacterId);
           if (selectedCharacter) {
-            serverLog("session:auto:create:selected", { character: selectedCharacter.name });
+            serverLog("session:auto:create:selected", {
+              character: selectedCharacter.name,
+            });
             await createSession(selectedCharacter, selectedPersona);
             return;
           }
@@ -142,7 +151,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         // フォールバック：最初のキャラクターを使用
         const firstCharacter = characters.values().next().value;
         if (firstCharacter && selectedPersona) {
-          serverLog("session:auto:create:first", { character: firstCharacter.name });
+          serverLog("session:auto:create:first", {
+            character: firstCharacter.name,
+          });
           await createSession(firstCharacter, selectedPersona);
           setSelectedCharacterId(firstCharacter.id);
         }

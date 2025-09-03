@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 // import { useRouter } from 'next/navigation'; // 일단 주석 처리
 import {
   Plus,
@@ -18,20 +18,22 @@ import {
   Pin,
   Save,
   Archive,
-} from 'lucide-react';
-import { useAppStore } from '@/store';
-import { shallow } from 'zustand/shallow';
-import { cn } from '@/lib/utils';
-import { UnifiedChatSession } from '@/types';
-import { GroupChatSession } from '@/types/core/group-chat.types';
+} from "lucide-react";
+import { useAppStore } from "@/store";
+import { shallow } from "zustand/shallow";
+import { cn } from "@/lib/utils";
+import { UnifiedChatSession } from "@/types";
+import { GroupChatSession } from "@/types/core/group-chat.types";
 
 const ChatSidebar: React.FC = React.memo(() => {
   // const router = useRouter(); // 일단 주석 처리
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  
+
   // Fixed Zustand selectors to prevent infinite loops
   const {
     active_session_id,
@@ -57,11 +59,9 @@ const ChatSidebar: React.FC = React.memo(() => {
     toggleGroupCreationModal,
     createGroupSession,
     // 代替として使用可能なメソッド
-    setActiveSession
+    setActiveSession,
   } = useAppStore();
 
-
-  
   const currentCharacter = getSelectedCharacter();
   const currentPersona = getSelectedPersona();
 
@@ -69,36 +69,51 @@ const ChatSidebar: React.FC = React.memo(() => {
   const allSessions = useMemo(() => {
     // Ensure sessions is a Map
     const sessionsMap = sessions instanceof Map ? sessions : new Map();
-    const regularSessions = Array.from(sessionsMap.values()).map(session => ({
+    const regularSessions = Array.from(sessionsMap.values()).map((session) => ({
       ...session,
-      type: 'individual' as const,
-      displayName: session.session_info.title || 'Untitled Chat',
-      isPinned: false // isPinnedプロパティは存在しないため、デフォルトでfalse
+      type: "individual" as const,
+      displayName: session.session_info.title || "Untitled Chat",
+      isPinned: false, // isPinnedプロパティは存在しないため、デフォルトでfalse
     }));
-    
+
     // Ensure groupSessions is a Map
-    const groupSessionsMap = groupSessions instanceof Map ? groupSessions : new Map();
-    const groupSessionsList = Array.from(groupSessionsMap.values()).map(groupSession => ({
-      ...groupSession,
-      type: 'group' as const,
-      displayName: groupSession.name,
-      session_info: { title: groupSession.name }, // 互換性のため
-      message_count: groupSession.message_count
-    }));
-    
+    const groupSessionsMap =
+      groupSessions instanceof Map ? groupSessions : new Map();
+    const groupSessionsList = Array.from(groupSessionsMap.values()).map(
+      (groupSession) => ({
+        ...groupSession,
+        type: "group" as const,
+        displayName: groupSession.name,
+        session_info: { title: groupSession.name }, // 互換性のため
+        message_count: groupSession.message_count,
+      })
+    );
+
     return [...regularSessions, ...groupSessionsList];
   }, [sessions, groupSessions]);
 
-  const filteredSessions = useMemo(() => 
-    allSessions
-    .filter(session => {
-      if (!searchQuery) return true;
-      const msgs = Array.isArray(session.messages) ? session.messages : [] as any[];
-      const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-      return session.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             lastMessage?.content?.toLowerCase()?.includes(searchQuery.toLowerCase());
-    })
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+  const filteredSessions = useMemo(
+    () =>
+      allSessions
+        .filter((session) => {
+          if (!searchQuery) return true;
+          const msgs = Array.isArray(session.messages)
+            ? session.messages
+            : ([] as any[]);
+          const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+          return (
+            session.displayName
+              ?.toLowerCase()
+              .includes(searchQuery.toLowerCase()) ||
+            lastMessage?.content
+              ?.toLowerCase()
+              ?.includes(searchQuery.toLowerCase())
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        ),
     [allSessions, searchQuery]
   );
 
@@ -117,21 +132,19 @@ const ChatSidebar: React.FC = React.memo(() => {
   };
 
   const handleSelectSession = (sessionId: string) => {
-    
     // セッションタイプを特定
-    const isGroupSession = sessionId.startsWith('group-');
-    
+    const isGroupSession = sessionId.startsWith("group-");
+
     if (isGroupSession) {
       // グループセッションの場合
       if (sessionId !== active_group_session_id || !is_group_mode) {
         const groupSession = groupSessions.get(sessionId);
         if (groupSession) {
-          
           // グループモードに切り替え & 排他制御
-          // setActiveSessionId(null); // 一時的に無効化 
+          // setActiveSessionId(null); // 一時的に無効化
           setGroupMode(true);
           setActiveGroupSession(sessionId);
-          
+
           // キャラクターとペルソナの状態も同期（グループの場合は最初のキャラクター）
           if (groupSession.characters.length > 0) {
             setSelectedCharacterId(groupSession.characters[0].id);
@@ -144,13 +157,12 @@ const ChatSidebar: React.FC = React.memo(() => {
       if (sessionId !== active_session_id || is_group_mode) {
         const session = sessions.get(sessionId);
         if (session) {
-          
           // 通常モードに切り替え & 排他制御
           setActiveGroupSession(null);
           setGroupMode(false);
           // setActiveSessionId(sessionId); // 一時的に無効化
           setActiveSession(sessionId); // 代替メソッド使用
-          
+
           // キャラクターとペルソナの状態も同期
           if (session.participants.characters.length > 0) {
             setSelectedCharacterId(session.participants.characters[0].id);
@@ -163,7 +175,7 @@ const ChatSidebar: React.FC = React.memo(() => {
 
   const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this chat session?')) {
+    if (confirm("Are you sure you want to delete this chat session?")) {
       deleteSession(sessionId);
       // Navigation logic might need adjustment based on app routing
     }
@@ -173,10 +185,10 @@ const ChatSidebar: React.FC = React.memo(() => {
     e.stopPropagation();
     const session = sessions.get(sessionId);
     if (!session) return;
-    const newTitle = prompt('Enter new title:', session.session_info.title);
+    const newTitle = prompt("Enter new title:", session.session_info.title);
     if (newTitle && newTitle.trim()) {
       // updateSession({ id: sessionId, session_info: { ...session.session_info, title: newTitle.trim() } }); // 一時的に無効化
-      console.warn('セッション更新機能は一時的に無効化されています');
+      console.warn("セッション更新機能は一時的に無効化されています");
     }
   };
 
@@ -185,30 +197,39 @@ const ChatSidebar: React.FC = React.memo(() => {
     // exportActiveConversation exports the *active* session. We might need a new action to export a specific session.
     // For now, let's just use the existing one if the session is active.
     if (sessionId === active_session_id) {
-        // exportActiveConversation(); // 一時的に無効化
-        console.warn('エクスポート機能は一時的に無効化されています');
+      // exportActiveConversation(); // 一時的に無効化
+      console.warn("エクスポート機能は一時的に無効化されています");
     } else {
-        alert("You can only export the active session for now.");
+      alert("You can only export the active session for now.");
     }
   };
-  
-  const handleSaveToHistory = async (sessionId: string, e: React.MouseEvent) => {
+
+  const handleSaveToHistory = async (
+    sessionId: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     // await saveSessionToHistory(sessionId); // 一時的に無効化
-    console.warn('履歴保存機能は一時的に無効化されています');
+    console.warn("履歴保存機能は一時的に無効化されています");
   };
-  
-  const handlePinSession = (sessionId: string, isPinned: boolean, e: React.MouseEvent) => {
+
+  const handlePinSession = (
+    sessionId: string,
+    isPinned: boolean,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     // pinSession(sessionId, !isPinned); // 一時的に無効化
-    console.warn('ピン機能は一時的に無効化されています');
+    console.warn("ピン機能は一時的に無効化されています");
   };
 
   const getSessionPreview = (session: UnifiedChatSession) => {
-    const msgs = Array.isArray(session.messages) ? session.messages : [] as any[];
+    const msgs = Array.isArray(session.messages)
+      ? session.messages
+      : ([] as any[]);
     const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-    if (!lastMessage) return 'No messages yet';
-    const content = lastMessage.content || '';
+    if (!lastMessage) return "No messages yet";
+    const content = lastMessage.content || "";
     return content.length > 50 ? `${content.substring(0, 50)}...` : content;
   };
 
@@ -224,10 +245,10 @@ const ChatSidebar: React.FC = React.memo(() => {
 
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > 50;
-    
+
     if (isLeftSwipe) {
       // 左スワイプでサイドバーを閉じる
       useAppStore.getState().toggleLeftSidebar();
@@ -244,24 +265,20 @@ const ChatSidebar: React.FC = React.memo(() => {
         "flex flex-col bg-slate-800 border-r border-purple-400/20 text-white overflow-hidden flex-shrink-0",
         "fixed md:relative top-0 left-0 z-[45] h-screen"
       )}
-      style={{ width: 320, height: 'calc(var(--vh, 1vh) * 100)' }}
+      style={{ width: 320, height: "calc(var(--vh, 1vh) * 100)" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+      onTouchEnd={handleTouchEnd}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-purple-400/20 flex-shrink-0">
-        <h2 className="text-lg font-semibold">
-          Chat History
-        </h2>
+        <h2 className="text-lg font-semibold">Chat History</h2>
         <div className="flex items-center gap-2">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleNewChat}
             className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            title="New Chat"
-          >
+            title="New Chat">
             <Plus size={16} />
           </motion.button>
           {/* モバイルでのみ閉じるボタンを表示 */}
@@ -270,8 +287,7 @@ const ChatSidebar: React.FC = React.memo(() => {
             whileTap={{ scale: 0.95 }}
             onClick={() => useAppStore.getState().toggleLeftSidebar()}
             className="p-2 text-white rounded-lg hover:bg-white/20 transition-colors"
-            title="Close Sidebar"
-          >
+            title="Close Sidebar">
             <X size={16} />
           </motion.button>
         </div>
@@ -324,11 +340,13 @@ const ChatSidebar: React.FC = React.memo(() => {
         </div>
       )}
 
-
       {/* Search */}
       <div className="p-4 border-b border-purple-400/20">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
           <input
             type="text"
             placeholder="Search chats..."
@@ -343,67 +361,76 @@ const ChatSidebar: React.FC = React.memo(() => {
       <div className="flex-1 overflow-y-auto">
         {filteredSessions.length === 0 ? (
           <div className="p-4 text-center text-slate-500">
-            {searchQuery ? 'No chats found' : 'No chat history yet'}
+            {searchQuery ? "No chats found" : "No chat history yet"}
           </div>
         ) : (
           <div className="space-y-1 p-2">
             {filteredSessions.map((session) => {
-              const isGroupSession = session.type === 'group';
-              const isActive = isGroupSession 
-                ? (session.id === active_group_session_id && is_group_mode)
-                : (session.id === active_session_id && !is_group_mode);
+              const isGroupSession = session.type === "group";
+              const isActive = isGroupSession
+                ? session.id === active_group_session_id && is_group_mode
+                : session.id === active_session_id && !is_group_mode;
               const messageCount = Array.isArray(session.messages)
                 ? session.messages.length
                 : (session as any).message_count ?? 0;
-              
+
               return (
                 <motion.div
                   key={session.id}
                   whileHover={{ scale: 1.02 }}
                   className={cn(
                     "relative group cursor-pointer rounded-lg p-3 transition-colors",
-                    isActive
-                      ? "bg-purple-500/20"
-                      : "hover:bg-white/5"
+                    isActive ? "bg-purple-500/20" : "hover:bg-white/5"
                   )}
-                  onClick={() => handleSelectSession(session.id)}
-                >
+                  onClick={() => handleSelectSession(session.id)}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {/* ピン留めアイコン */}
                         {false && ( // isPinnedプロパティは存在しないため、常にfalse
-                          <Pin size={12} className="text-yellow-400 flex-shrink-0" />
+                          <Pin
+                            size={12}
+                            className="text-yellow-400 flex-shrink-0"
+                          />
                         )}
                         {/* セッションタイプを示すアイコン */}
                         {isGroupSession ? (
-                          <Users size={12} className="text-purple-400 flex-shrink-0" />
+                          <Users
+                            size={12}
+                            className="text-purple-400 flex-shrink-0"
+                          />
                         ) : (
-                          <User size={12} className="text-blue-400 flex-shrink-0" />
+                          <User
+                            size={12}
+                            className="text-blue-400 flex-shrink-0"
+                          />
                         )}
-                        
-                        <h3 className={cn(
-                          "font-medium text-sm truncate",
-                           isActive ? "text-purple-300" : "text-white"
-                        )}>
+
+                        <h3
+                          className={cn(
+                            "font-medium text-sm truncate",
+                            isActive ? "text-purple-300" : "text-white"
+                          )}>
                           {session.displayName}
                         </h3>
-                        
+
                         {/* グループセッションの場合、参加者数を表示 */}
-                        {isGroupSession && 'active_character_ids' in session && (
-                          <span className="text-xs text-purple-300 bg-purple-500/20 px-1 py-0.5 rounded">
-                            {session.active_character_ids.size}人
-                          </span>
-                        )}
+                        {isGroupSession &&
+                          "active_character_ids" in session && (
+                            <span className="text-xs text-purple-300 bg-purple-500/20 px-1 py-0.5 rounded">
+                              {session.active_character_ids.size}人
+                            </span>
+                          )}
                       </div>
-                      
-                      <p className={cn(
-                        "text-xs truncate mb-2",
-                         isActive ? "text-slate-300" : "text-slate-400"
-                      )}>
+
+                      <p
+                        className={cn(
+                          "text-xs truncate mb-2",
+                          isActive ? "text-slate-300" : "text-slate-400"
+                        )}>
                         {getSessionPreview(session as UnifiedChatSession)}
                       </p>
-                      
+
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-3 text-slate-400">
                           <span className="flex items-center gap-1">
@@ -417,21 +444,22 @@ const ChatSidebar: React.FC = React.memo(() => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Session Actions */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedSessionId(selectedSessionId === session.id ? null : session.id);
+                          setSelectedSessionId(
+                            selectedSessionId === session.id ? null : session.id
+                          );
                         }}
                         className="p-1 hover:bg-white/20 rounded transition-colors"
-                        title="More actions"
-                      >
+                        title="More actions">
                         <MoreHorizontal size={14} />
                       </button>
                     </div>
-                    
+
                     {/* Actions Menu */}
                     <AnimatePresence>
                       {selectedSessionId === session.id && (
@@ -439,33 +467,31 @@ const ChatSidebar: React.FC = React.memo(() => {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-purple-400/20 py-1 min-w-32"
-                        >
+                          className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-purple-400/20 py-1 min-w-32">
                           <button
-                            onClick={(e) => handlePinSession(session.id, false, e)}
-                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
-                          >
+                            onClick={(e) =>
+                              handlePinSession(session.id, false, e)
+                            }
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2">
                             <Pin size={12} />
-                            {false ? 'Unpin' : 'Pin'} {/* isPinnedは常にfalse */}
+                            {false ? "Unpin" : "Pin"}{" "}
+                            {/* isPinnedは常にfalse */}
                           </button>
                           <button
                             onClick={(e) => handleSaveToHistory(session.id, e)}
-                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
-                          >
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2">
                             <Save size={12} />
                             Save to History
                           </button>
                           <button
                             onClick={(e) => handleRenameSession(session.id, e)}
-                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
-                          >
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2">
                             <Edit3 size={12} />
                             Rename
                           </button>
                           <button
                             onClick={(e) => handleExportSession(session.id, e)}
-                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
-                          >
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2">
                             <Download size={12} />
                             Export
                           </button>
@@ -475,8 +501,7 @@ const ChatSidebar: React.FC = React.memo(() => {
                               handleDeleteSession(session.id, e);
                               setSelectedSessionId(null);
                             }}
-                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-red-500/20 text-red-400 flex items-center gap-2"
-                          >
+                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-red-500/20 text-red-400 flex items-center gap-2">
                             <Trash2 size={12} />
                             Delete
                           </button>
@@ -494,7 +519,8 @@ const ChatSidebar: React.FC = React.memo(() => {
       {/* Footer */}
       <div className="p-4 border-t border-purple-400/20 flex-shrink-0">
         <div className="text-xs text-slate-400 text-center">
-          {sessions.size} individual • {groupSessions.size} groups • {sessions.size + groupSessions.size} total
+          {sessions.size} individual • {groupSessions.size} groups •{" "}
+          {sessions.size + groupSessions.size} total
         </div>
       </div>
     </motion.div>
