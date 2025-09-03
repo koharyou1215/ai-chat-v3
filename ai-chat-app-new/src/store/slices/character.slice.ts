@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { Character, UUID, TrackerDefinition } from '@/types';
+import type { TrackerCategory, TrackerType } from '@/types/core/tracker.types';
 import { AppStore } from '..';
 
 export interface CharacterSlice {
@@ -82,7 +83,22 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
   getSelectedCharacter: () => {
     const selectedId = get().selectedCharacterId;
     if (!selectedId) return null;
-    return get().characters.get(selectedId) || null;
+    const chars = get().characters as any;
+    // If characters has been persisted as a plain object/array, coerce it back to Map
+    if (!chars || typeof chars.get !== 'function') {
+      try {
+        const entries = Object.entries(chars || {});
+        const fallback = new Map(entries as unknown as [UUID, Character][]);
+        set({ characters: fallback as unknown as Map<UUID, Character> });
+        return fallback.get(selectedId) || null;
+      } catch (e) {
+        // If conversion fails, return null to avoid crashing the app
+        console.warn('character.slice: characters was not a Map; failed to coerce to Map.', e);
+        return null;
+      }
+    }
+
+    return chars.get(selectedId) || null;
   },
   setShowCharacterGallery: (show) => set({ showCharacterGallery: show }),
   
@@ -158,12 +174,12 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             personality: characterData.personality || '',
             external_personality: characterData.external_personality || '',
             internal_personality: characterData.internal_personality || '',
-            strengths: Array.isArray(characterData.strengths) ? characterData.strengths : (typeof characterData.strengths === 'string' ? characterData.strengths.split(',').map(s => s.trim()) : []),
-            weaknesses: Array.isArray(characterData.weaknesses) ? characterData.weaknesses : (typeof characterData.weaknesses === 'string' ? characterData.weaknesses.split(',').map(s => s.trim()) : []),
+            strengths: Array.isArray(characterData.strengths) ? characterData.strengths : (typeof characterData.strengths === 'string' ? characterData.strengths.split(',').map((s: string) => s.trim()) : []),
+            weaknesses: Array.isArray(characterData.weaknesses) ? characterData.weaknesses : (typeof characterData.weaknesses === 'string' ? characterData.weaknesses.split(',').map((s: string) => s.trim()) : []),
             
-            hobbies: Array.isArray(characterData.hobbies) ? characterData.hobbies : (typeof characterData.hobbies === 'string' ? characterData.hobbies.split(',').map(s => s.trim()) : []),
-            likes: Array.isArray(characterData.likes) ? characterData.likes : (typeof characterData.likes === 'string' ? characterData.likes.split(',').map(s => s.trim()) : []),
-            dislikes: Array.isArray(characterData.dislikes) ? characterData.dislikes : (typeof characterData.dislikes === 'string' ? characterData.dislikes.split(',').map(s => s.trim()) : []),
+            hobbies: Array.isArray(characterData.hobbies) ? characterData.hobbies : (typeof characterData.hobbies === 'string' ? characterData.hobbies.split(',').map((s: string) => s.trim()) : []),
+            likes: Array.isArray(characterData.likes) ? characterData.likes : (typeof characterData.likes === 'string' ? characterData.likes.split(',').map((s: string) => s.trim()) : []),
+            dislikes: Array.isArray(characterData.dislikes) ? characterData.dislikes : (typeof characterData.dislikes === 'string' ? characterData.dislikes.split(',').map((s: string) => s.trim()) : []),
             
             appearance: characterData.appearance || '',
             avatar_url: characterData.avatar_url,
@@ -172,7 +188,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             speaking_style: characterData.speaking_style || '',
             first_person: characterData.first_person || '私',
             second_person: characterData.second_person || 'あなた',
-            verbal_tics: Array.isArray(characterData.verbal_tics) ? characterData.verbal_tics : (typeof characterData.verbal_tics === 'string' ? characterData.verbal_tics.split(',').map(s => s.trim()) : []),
+            verbal_tics: Array.isArray(characterData.verbal_tics) ? characterData.verbal_tics : (typeof characterData.verbal_tics === 'string' ? characterData.verbal_tics.split(',').map((s: string) => s.trim()) : []),
 
             background: characterData.background || '',
             scenario: characterData.scenario || '',
@@ -180,7 +196,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             system_prompt: characterData.system_prompt || '',
             first_message: characterData.first_message || '',
             
-            tags: Array.isArray(characterData.tags) ? characterData.tags : (typeof characterData.tags === 'string' ? characterData.tags.split(',').map(s => s.trim()) : []),
+            tags: Array.isArray(characterData.tags) ? characterData.tags : (typeof characterData.tags === 'string' ? characterData.tags.split(',').map((s: string) => s.trim()) : []),
             trackers: Array.isArray(characterData.trackers) ? characterData.trackers.reduce((acc: TrackerDefinition[], t: Record<string, unknown>) => {
               if (!t || typeof t.name !== 'string' || typeof t.type !== 'string') {
                   // Skipping invalid tracker data
@@ -193,10 +209,10 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 updated_at: new Date().toISOString(),
                 version: 1,
                 name: t.name,
-                display_name: t.display_name,
-                description: t.description,
-                category: t.category,
-                type: t.type,
+                display_name: t.display_name as string | undefined,
+                description: t.description as string | undefined,
+                category: t.category as TrackerCategory | undefined,
+                type: t.type as TrackerType,
               };
 
               let isValid = true;
@@ -204,10 +220,10 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 case 'numeric':
                   definition.config = {
                     type: 'numeric',
-                    initial_value: t.initial_value,
-                    min_value: t.min_value,
-                    max_value: t.max_value,
-                    step: t.step || 1,
+                    initial_value: Number(t.initial_value) || 0,
+                    min_value: Number(t.min_value) || 0,
+                    max_value: Number(t.max_value) || 100,
+                    step: Number(t.step) || 1,
                   };
                   break;
                 case 'state':
@@ -220,13 +236,13 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 case 'boolean':
                   definition.config = {
                     type: 'boolean',
-                    initial_value: t.initial_boolean,
+                    initial_value: Boolean(t.initial_boolean),
                   };
                   break;
                 case 'text':
                   definition.config = {
                     type: 'text',
-                    initial_value: t.initial_text || '',
+                    initial_value: String(t.initial_text || ''),
                   };
                   break;
                 default:

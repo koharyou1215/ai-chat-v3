@@ -168,7 +168,7 @@ export class ScenarioGenerator {
 
     const prompt = `JSON形式でグループチャットシナリオを生成してください。
 
-参加者: ${persona.name}(${persona.occupation})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
+参加者: ${persona.name}(${persona.role})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
 リクエスト: ${userRequest || 'キャラクターの個性を活かしたシナリオ'}
 
 以下のJSON形式で回答（説明文は不要）:
@@ -218,7 +218,7 @@ ${allParticipantRoles}
         // より簡潔なプロンプトで再試行
         const shorterPrompt = `
 以下のユーザーとキャラクターでグループチャットシナリオをJSON形式で生成:
-ユーザー: ${persona.name}(${persona.occupation})
+ユーザー: ${persona.name}(${persona.role})
 キャラクター: ${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join(', ')}
 
 JSON:
@@ -303,7 +303,7 @@ JSON:
           const partialData = this.extractPartialScenarioData(response);
           if (partialData.title) {
             console.log('部分的なデータ抽出成功:', partialData);
-            return partialData;
+            return partialData as GeneratedScenario;
           }
         }
       } else {
@@ -313,7 +313,7 @@ JSON:
         const partialData = this.extractPartialScenarioData(response);
         if (partialData.title) {
           console.log('テキストからの部分抽出成功:', partialData);
-          return partialData;
+          return partialData as GeneratedScenario;
         }
       }
     } catch (error) {
@@ -373,7 +373,7 @@ JSON:
   /**
    * レスポンステキストから部分的なシナリオデータを抽出
    */
-  private extractPartialScenarioData(response: string): Partial<GeneratedScenario> {
+  private extractPartialScenarioData(response: string): GeneratedScenario | Partial<GeneratedScenario> {
     const result: Partial<GeneratedScenario> = {};
     
     // タイトルの抽出
@@ -475,7 +475,7 @@ JSON:
     
     // ペルソナがある場合は含める
     if (persona) {
-      characterRoles[persona.id] = `${persona.occupation || '参加者'}として積極的に参加する`;
+      characterRoles[persona.id] = `${persona.role || '参加者'}として積極的に参加する`;
     }
     
     characters.forEach(char => {

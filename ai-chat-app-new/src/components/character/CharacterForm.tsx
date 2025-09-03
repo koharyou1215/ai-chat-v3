@@ -694,14 +694,14 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                                 <label className="block text-sm font-medium text-slate-300 mb-2">NSFWペルソナ</label>
                                 <Textarea
                                     placeholder="成人向けシーンでのキャラクターの特徴..."
-                                    value={isCharacter(formData) ? formData.nsfw_profile?.persona_profile || '' : ''}
+                                    value={isCharacter(formData) ? formData.nsfw_profile?.persona || '' : ''}
                                     onChange={e => {
                                         if (isCharacter(formData)) {
                                             setFormData({
                                                 ...formData, 
                                                 nsfw_profile: {
                                                     ...formData.nsfw_profile,
-                                                    persona_profile: e.target.value
+                                                    persona: e.target.value
                                                 }
                                             });
                                         }

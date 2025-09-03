@@ -16,24 +16,46 @@ export interface PersonaSlice {
     loadPersonasFromPublic: () => Promise<void>;
 }
 
-export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = (set, get) => ({
+export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = (set, get) => {
+  // Zustand永続化が自動的にMap型を処理するため、シンプルな取得のみ
+  const ensurePersonasAreMap = (): Map<UUID, Persona> => {
+    const personas = get().personas;
+    if (personas instanceof Map) {
+      return personas;
+    }
+    
+    // オブジェクト形式の場合はMapに変換
+    try {
+      const entries = Object.entries(personas || {});
+      const convertedMap = new Map(entries as unknown as [UUID, Persona][]);
+      set({ personas: convertedMap });
+      return convertedMap;
+    } catch (error) {
+      console.warn('persona.slice: personas was not a Map; failed to coerce to Map.', error);
+      return new Map();
+    }
+  };
+
+  return ({
     personas: new Map(),
     activePersonaId: null,
     showPersonaGallery: false,
     isPersonasLoaded: false,
     addPersona: (persona) => {
-        set(state => ({
-            personas: new Map(state.personas).set(persona.id, persona)
-        }));
+        set(state => {
+            const personas = ensurePersonasAreMap();
+            personas.set(persona.id, persona);
+            return { personas };
+        });
     },
     updatePersona: (persona) => {
         set(state => {
-            const newPersonas = new Map(state.personas);
-            newPersonas.set(persona.id, {
+            const personas = ensurePersonasAreMap();
+            personas.set(persona.id, {
                 ...persona,
                 updated_at: new Date().toISOString(),
             });
-            return { personas: newPersonas };
+            return { personas };
         });
     },
     activatePersona: (personaId) => {
@@ -42,16 +64,17 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
     getActivePersona: () => {
         const activeId = get().activePersonaId;
         if (!activeId) return null;
-        return get().personas.get(activeId) || null;
+        const personas = ensurePersonasAreMap();
+        return personas.get(activeId) || null;
     },
     getSelectedPersona: () => {
         const activeId = get().activePersonaId;
-        const personas = get().personas;
+        const personas = ensurePersonasAreMap();
         
         console.log('🔍 [PersonaSlice] getSelectedPersona called:', {
             activePersonaId: activeId,
-            personasCount: personas.size,
-            personaIds: Array.from(personas.keys())
+            personasCount: personas instanceof Map ? personas.size : 0,
+            personaIds: personas instanceof Map ? Array.from(personas.keys()) : []
         });
         
         if (activeId) {
@@ -187,4 +210,5 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
             });
         }
     }
-});
+  });
+};

@@ -23,7 +23,7 @@ export class InspirationService {
     user: Persona,
     customPrompt?: string,
     isGroupMode: boolean = false,
-    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string }
   ): Promise<InspirationSuggestion[]> {
     
     const context = this.buildContext(recentMessages, isGroupMode);
@@ -45,14 +45,20 @@ export class InspirationService {
     }
 
     try {
-      console.log('📤 返信提案API呼び出し開始');
+      // Starting reply suggestion API call
       
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
         const result = await apiManager.generateMessage(
           prompt,
           '返信提案を生成',
           [],
-          { ...apiConfig, max_tokens: 800 }
+          { 
+            ...apiConfig, 
+            max_tokens: 800,
+            // 🔧 **認可されたモデルのみ使用**
+            model: 'gemini-2.5-flash', 
+            provider: 'gemini'
+          }
         );
         console.log('📥 API応答受信（先頭200文字）:', result.substring(0, 200));
         return result;
@@ -67,8 +73,131 @@ export class InspirationService {
       }
       
       return suggestions;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ 返信提案生成エラー:', error);
+      
+      // エラーメッセージの詳細をログ
+      if (error?.message) {
+        console.error('エラーメッセージ:', error.message);
+        
+        // 🔧 **無効なモデルIDエラーのハンドリング**
+        if (error.message.includes('is not a valid model') || 
+            error.message.includes('not a valid model ID') || 
+            error.message.includes('model not found')) {
+          
+          console.warn('⚠️ 無効なモデルIDを検出。安定したモデルで再試行します。');
+          
+          try {
+            const fallbackResponse = await apiRequestQueue.enqueueInspirationRequest(async () => {
+              return apiManager.generateMessage(
+                prompt,
+                '返信提案を生成（フォールバック）',
+                [],
+                { 
+                  ...apiConfig, 
+                  model: 'gemini-2.5-flash', // 安定したモデルに変更
+                  provider: 'gemini',
+                  max_tokens: 800 
+                }
+              );
+            });
+            
+            const fallbackSuggestions = this.parseReplySuggestionsAdvanced(fallbackResponse);
+            if (fallbackSuggestions.length > 0) {
+              console.log('✅ フォールバックモデルでの再試行が成功しました');
+              return fallbackSuggestions;
+            }
+          } catch (fallbackError) {
+            console.error('❌ フォールバックも失敗:', fallbackError);
+          }
+          
+          return [
+            {
+              id: `model_error_${Date.now()}_0`,
+              type: 'empathy' as const,
+              content: '使用中のモデルが更新されました。設定を確認してください。',
+              confidence: 0.4
+            },
+            {
+              id: `model_error_${Date.now()}_1`,
+              type: 'question' as const,
+              content: 'モデル設定で最新のバージョンを選択することをお勧めします。',
+              confidence: 0.4
+            },
+            {
+              id: `model_error_${Date.now()}_2`,
+              type: 'topic' as const,
+              content: '一時的にデフォルトのモデルを使用しています。',
+              confidence: 0.4
+            }
+          ];
+        }
+        
+        // レート制限やクォータエラーの場合
+        if (error.message.includes('Quota exceeded') || 
+            error.message.includes('Rate limit') || 
+            error.message.includes('429') || 
+            error.message.includes('Too many requests') || 
+            error.message.includes('requests per minute')) {
+          
+          console.warn('⚠️ Gemini API制限に達しました。フォールバック処理を実行します。');
+          
+          // OpenRouterキーが利用可能な場合、OpenRouter経由で再試行
+          if (apiConfig?.openRouterApiKey) {
+            console.log('🔄 OpenRouter経由で再試行中...');
+            try {
+              const fallbackResponse = await apiRequestQueue.enqueueInspirationRequest(async () => {
+                return apiManager.generateMessage(
+                  prompt,
+                  '返信提案を生成（OpenRouter経由）',
+                  [],
+                  { 
+                    ...apiConfig, 
+                    provider: 'openrouter', 
+                    model: 'google/gemini-2.5-flash', // 安定したモデルを使用
+                    max_tokens: 800 
+                  }
+                );
+              });
+              const fallbackSuggestions = this.parseReplySuggestionsAdvanced(fallbackResponse);
+              if (fallbackSuggestions.length > 0) {
+                console.log('✅ OpenRouter経由での再試行が成功しました');
+                return fallbackSuggestions;
+              }
+            } catch (fallbackError) {
+              console.warn('OpenRouter経由の再試行も失敗:', fallbackError);
+            }
+          }
+          
+          // エラー固有のフォールバック
+          return [
+            {
+              id: `quota_${Date.now()}_0`,
+              type: 'empathy' as const,
+              content: 'APIクォータ制限のため、一時的に利用できません。しばらく待ってお試しください。',
+              confidence: 0.4
+            },
+            {
+              id: `quota_${Date.now()}_1`,
+              type: 'question' as const,
+              content: '設定でOpenRouterキーを追加すると、より安定して利用できます。',
+              confidence: 0.4
+            },
+            {
+              id: `quota_${Date.now()}_2`,
+              type: 'topic' as const,
+              content: 'API制限の間は、手動で返信内容をお考えください。',
+              confidence: 0.4
+            }
+          ];
+        }
+        
+        // JSONパースエラーの場合
+        if (error.message.includes('JSON')) {
+          console.warn('⚠️ レスポンスの解析に失敗しました。');
+        }
+      }
+      
       return this.getFallbackSuggestions();
     }
   }
@@ -81,7 +210,7 @@ export class InspirationService {
     recentMessages: UnifiedMessage[],
     user: Persona,
     enhancePrompt?: string,
-    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string }
   ): Promise<string> {
     
     if (!inputText.trim()) {
@@ -106,7 +235,12 @@ export class InspirationService {
           prompt,
           '文章を強化',
           [],
-          { ...apiConfig, max_tokens: 400 }
+          { 
+            ...apiConfig, 
+            max_tokens: 400,
+            model: 'gemini-2.5-flash', // 安定したモデル
+            provider: 'gemini'
+          }
         );
       });
 
@@ -121,8 +255,102 @@ export class InspirationService {
    * 高度な返信提案パース（成功例から移植）
    */
   private parseReplySuggestionsAdvanced(content: string): InspirationSuggestion[] {
-    console.log('🔍 AI応答をパース中（先頭200文字）:', content.substring(0, 200));
+    // Parsing AI response
     
+    const suggestions: InspirationSuggestion[] = [];
+    const types: ('empathy' | 'question' | 'topic')[] = ['empathy', 'question', 'topic'];
+    
+    try {
+      // JSONレスポンスをパースする試み
+      if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+        try {
+          // コメントや余分な文字を削除してからパース
+          let cleanedContent = content.trim()
+            .replace(/^```json\s*/i, '') // ```json プレフィックスを削除
+            .replace(/```\s*$/i, '') // ``` サフィックスを削除
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 制御文字を削除
+            .replace(/\r\n/g, '\n'); // 改行文字を統一
+          
+          // 不正なJSON構造を修正
+          cleanedContent = cleanedContent
+            .replace(/,\s*([}\]])/g, '$1') // オブジェクトや配列の末尾のカンマを削除
+            .replace(/([^\\])\\(?!["\\/bfnrtu])/g, '$1\\\\') // 不正なエスケープシーケンスを修正
+            .replace(/\n/g, '\\n') // 改行文字をエスケープ
+            .replace(/\t/g, '\\t') // タブ文字をエスケープ
+            .replace(/\r/g, '\\r') // キャリッジリターンをエスケープ
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // クォートなしプロパティ名を修正
+            .replace(/([{,]\s*)'([^']*)'\s*:/g, '$1"$2":') // シングルクォートをダブルクォートに変換
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*'([^']*)'/g, '$1"$2": "$3"') // 値のシングルクォートも修正
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([^",}\]]+)([,}\]])/g, '$1"$2": "$3"$4') // 値にクォートがない場合を修正
+          
+          let jsonData;
+          try {
+            jsonData = JSON.parse(cleanedContent);
+          } catch (parseError) {
+            console.log('JSONパース失敗、フォールバック処理を実行:', parseError);
+            console.log('パース対象（先頭500文字）:', cleanedContent.substring(0, 500));
+            // JSON構文エラーの場合、フォールバック処理に移行（テキスト解析へ）
+            return this.parseReplySuggestionsFromText(content);
+          }
+          
+          // 配列形式の場合
+          if (Array.isArray(jsonData)) {
+            jsonData.forEach((item, index) => {
+              if (index < 3) {
+                const content = item.content || item.text || (typeof item === 'string' ? item : null);
+                if (content) {
+                  suggestions.push({
+                    id: `suggestion_${Date.now()}_${index}`,
+                    type: item.type || types[index] || 'topic',
+                    content: String(content).trim(),
+                    confidence: item.confidence || 0.8
+                  });
+                }
+              }
+            });
+            
+            if (suggestions.length > 0) {
+              // Extracted suggestions from JSON array
+              return suggestions;
+            }
+          }
+          
+          // オブジェクト形式の場合
+          if (jsonData.suggestions && Array.isArray(jsonData.suggestions)) {
+            jsonData.suggestions.forEach((item: any, index: number) => {
+              if (index < 3 && item) {
+                const content = item.content || item.text || (typeof item === 'string' ? item : null);
+                if (content && String(content).trim()) {
+                  suggestions.push({
+                    id: `suggestion_${Date.now()}_${index}`,
+                    type: item.type || types[index] || 'topic',
+                    content: String(content).trim(),
+                    confidence: item.confidence || 0.8
+                  });
+                }
+              }
+            });
+            
+            if (suggestions.length > 0) {
+              // Extracted suggestions from JSON object
+              return suggestions;
+            }
+          }
+        } catch (jsonError) {
+          console.log('JSONパース失敗、テキスト形式として処理:', jsonError);
+        }
+      }
+    } catch (error) {
+      console.log('JSONパース処理でエラー、テキスト形式として処理:', error);
+    }
+    
+    return this.parseReplySuggestionsFromText(content);
+  }
+
+  /**
+   * テキスト形式の返信提案パース
+   */
+  private parseReplySuggestionsFromText(content: string): InspirationSuggestion[] {
     const suggestions: InspirationSuggestion[] = [];
     const types: ('empathy' | 'question' | 'topic')[] = ['empathy', 'question', 'topic'];
     
@@ -142,7 +370,7 @@ export class InspirationService {
       .filter(text => text.length >= 10 && text.length <= 250);
     
     if (validNumberedSections.length > 0) {
-      console.log(`✅ 番号付きリストを検出: ${validNumberedSections.length}件`);
+      // Detected numbered list
       
       validNumberedSections.forEach((text, index) => {
         if (index < 3) {
@@ -163,7 +391,7 @@ export class InspirationService {
     const bracketMatches = [...content.matchAll(bracketPattern)];
     
     if (bracketMatches.length > 0) {
-      console.log(`✅ ブラケット形式を検出: ${bracketMatches.length}件`);
+      // Detected bracket format
       
       bracketMatches.forEach((match, index) => {
         if (index < 3) {
@@ -194,7 +422,7 @@ export class InspirationService {
       .filter(line => !line.includes('：') && !line.includes(':'));
     
     if (lines.length > 0) {
-      console.log(`✅ 改行区切りで検出: ${lines.length}件`);
+      // Detected line-separated format
       
       lines.slice(0, 3).forEach((text, index) => {
         suggestions.push({
@@ -206,7 +434,7 @@ export class InspirationService {
       });
     }
     
-    console.log(`📊 最終的に${suggestions.length}個の提案を抽出`);
+    // Extraction complete
     return suggestions;
   }
 
@@ -219,7 +447,7 @@ export class InspirationService {
     return recentMessages.map(msg => {
       if (isGroupMode) {
         const speaker = msg.role === 'user' 
-          ? (msg.user_name || 'ユーザー')
+          ? 'ユーザー'
           : (msg.character_name || 'キャラクター');
         return `${speaker}: ${msg.content}`;
       } else {
@@ -318,4 +546,17 @@ ${context}
       }
     ];
   }
+
+  // Export singleton instance
+  static getInstance(): InspirationService {
+    if (!InspirationService.instance) {
+      InspirationService.instance = new InspirationService();
+    }
+    return InspirationService.instance;
+  }
+
+  private static instance: InspirationService;
 }
+
+// Export default instance
+export const inspirationService = InspirationService.getInstance();

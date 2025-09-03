@@ -64,14 +64,18 @@ const ChatSidebar: React.FC = React.memo(() => {
 
   // 統合されたセッション一覧（通常セッション + グループセッション）
   const allSessions = useMemo(() => {
-    const regularSessions = Array.from(sessions.values()).map(session => ({
+    // Ensure sessions is a Map
+    const sessionsMap = sessions instanceof Map ? sessions : new Map();
+    const regularSessions = Array.from(sessionsMap.values()).map(session => ({
       ...session,
       type: 'individual' as const,
       displayName: session.session_info.title || 'Untitled Chat',
       isPinned: false // isPinnedプロパティは存在しないため、デフォルトでfalse
     }));
     
-    const groupSessionsList = Array.from(groupSessions.values()).map(groupSession => ({
+    // Ensure groupSessions is a Map
+    const groupSessionsMap = groupSessions instanceof Map ? groupSessions : new Map();
+    const groupSessionsList = Array.from(groupSessionsMap.values()).map(groupSession => ({
       ...groupSession,
       type: 'group' as const,
       displayName: groupSession.name,
@@ -385,7 +389,7 @@ const ChatSidebar: React.FC = React.memo(() => {
                         "text-xs truncate mb-2",
                          isActive ? "text-slate-300" : "text-slate-400"
                       )}>
-                        {getSessionPreview(session as any)}
+                        {getSessionPreview(session as UnifiedChatSession)}
                       </p>
                       
                       <div className="flex items-center justify-between text-xs">

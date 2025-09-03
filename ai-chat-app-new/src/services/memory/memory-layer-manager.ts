@@ -2,7 +2,8 @@
 // Hierarchical memory system based on cognitive science memory models
 
 // Removed unused import
-import { MemoryLayer } from '@/types/memory';
+import { MemoryLayer, Message } from '@/types/memory';
+import { UnifiedMessage } from '@/types';
 
 /**
  * 階層的メモリ管理
@@ -51,7 +52,7 @@ export class MemoryLayerManager {
   /**
    * メッセージを適切なレイヤーに追加
    */
-  addMessage(message: Message): void {
+  addUnifiedMessage(message: UnifiedMessage): void {
     // 即時記憶に追加
     this.addToLayer('immediate', message);
     
@@ -70,9 +71,16 @@ export class MemoryLayerManager {
   }
 
   /**
+   * メッセージを追加（後方互換性のためのエイリアス）
+   */
+  addMessage(message: UnifiedMessage): void {
+    this.addUnifiedMessage(message);
+  }
+
+  /**
    * レイヤーにメッセージを追加（保持ポリシーに従う）
    */
-  private addToLayer(layerName: string, message: Message): void {
+  private addToLayer(layerName: string, message: UnifiedMessage): void {
     const layer = this.layers.get(layerName);
     if (!layer) return;
 
@@ -98,14 +106,18 @@ export class MemoryLayerManager {
     // まず古すぎるメッセージを削除
     const cutoffTime = now - (layer.retentionDays * 24 * 60 * 60 * 1000);
     layer.messages = layer.messages.filter(
-      m => new Date(m.timestamp).getTime() > cutoffTime
+      m => {
+        const timestamp = 'timestamp' in m ? m.timestamp : ('created_at' in m ? m.created_at : undefined);
+        if (!timestamp) return false;
+        return new Date(timestamp).getTime() > cutoffTime;
+      }
     );
 
     // まだ容量超過の場合、関連性スコアで削除
     if (layer.messages.length > layer.capacity) {
       layer.messages.sort((a, b) => {
-        const scoreA = this.calculateRelevanceScore(a, now);
-        const scoreB = this.calculateRelevanceScore(b, now);
+        const scoreA = this.calculateRelevanceScore(a as UnifiedMessage, now);
+        const scoreB = this.calculateRelevanceScore(b as UnifiedMessage, now);
         return scoreB - scoreA;
       });
       layer.messages = layer.messages.slice(0, layer.capacity);
@@ -115,15 +127,17 @@ export class MemoryLayerManager {
   /**
    * 関連性スコアの計算（時間減衰を含む）
    */
-  private calculateRelevanceScore(message: Message, now: number): number {
-    const age = now - new Date(message.timestamp).getTime();
+  private calculateRelevanceScore(message: UnifiedMessage, now: number): number {
+    const timestamp = message.created_at || message.updated_at;
+    const age = now - new Date(timestamp).getTime();
     const ageInHours = age / (1000 * 60 * 60);
     
     // 時間減衰関数（指数関数的減衰）
     const timeDecay = Math.exp(-ageInHours / 24); // 24時間で約37%に減衰
     
     // 基本スコア（重要度 + 時間減衰）
-    const baseScore = (message.importance || 0.5) * timeDecay;
+    const importanceScore = message.memory?.importance?.score || 0.5;
+    const baseScore = importanceScore * timeDecay;
     
     return baseScore;
   }
@@ -131,47 +145,55 @@ export class MemoryLayerManager {
   /**
    * Working Memoryに追加すべきか判定
    */
-  private shouldAddToWorking(message: Message): boolean {
-    return (message.importance || 0) >= 0.4 || 
-           message.sender === 'user'; // ユーザー入力は常に保持
+  private shouldAddToWorking(message: UnifiedMessage): boolean {
+    const importanceScore = message.memory?.importance?.score || 0;
+    return importanceScore >= 0.4 || 
+           message.role === 'user'; // ユーザー入力は常に保持
   }
 
   /**
    * Episodic Memoryに追加すべきか判定
    */
-  private shouldAddToEpisodic(message: Message): boolean {
+  private shouldAddToEpisodic(message: UnifiedMessage): boolean {
     // 感情的な内容や特定のイベントを含む場合
-    const hasEmotionalContent = message.emotion !== undefined;
+    const hasEmotionalContent = message.expression?.emotion !== undefined;
+    const importanceScore = message.memory?.importance?.score || 0;
     
     return hasEmotionalContent || 
-           (message.importance || 0) >= 0.6;
+           importanceScore >= 0.6;
   }
 
   /**
    * Semantic Memoryに追加すべきか判定
    */
-  private shouldAddToSemantic(message: Message): boolean {
+  private shouldAddToSemantic(message: UnifiedMessage): boolean {
     // 事実や定義を含む場合（長いメッセージは知識的内容の可能性が高い）
     const hasFactualContent = message.content.length > 100;
+    const importanceScore = message.memory?.importance?.score || 0;
     
     return hasFactualContent || 
-           (message.importance || 0) >= 0.7;
+           importanceScore >= 0.7;
   }
 
   /**
    * 各レイヤーから関連メッセージを取得
    */
   getLayeredContext(_currentQuery: string): {
-    immediate: Message[];
-    working: Message[];
-    episodic: Message[];
-    semantic: Message[];
+    immediate: UnifiedMessage[];
+    working: UnifiedMessage[];
+    episodic: UnifiedMessage[];
+    semantic: UnifiedMessage[];
   } {
+    // MessageとUnifiedMessageの混在に対応
+    const convertMessages = (messages: (Message | UnifiedMessage)[]): UnifiedMessage[] => {
+      return messages.filter((msg): msg is UnifiedMessage => 'role' in msg);
+    };
+
     return {
-      immediate: this.layers.get('immediate')?.messages || [],
-      working: this.layers.get('working')?.messages || [],
-      episodic: this.layers.get('episodic')?.messages.slice(-5) || [],
-      semantic: this.layers.get('semantic')?.messages.slice(-3) || []
+      immediate: convertMessages(this.layers.get('immediate')?.messages || []),
+      working: convertMessages(this.layers.get('working')?.messages || []),
+      episodic: convertMessages(this.layers.get('episodic')?.messages.slice(-5) || []),
+      semantic: convertMessages(this.layers.get('semantic')?.messages.slice(-3) || [])
     };
   }
 
@@ -196,18 +218,22 @@ export class MemoryLayerManager {
   /**
    * 特定レイヤーのメッセージを取得
    */
-  getLayerMessages(layerName: string): Message[] {
-    return this.layers.get(layerName)?.messages || [];
+  getLayerUnifiedMessages(layerName: string): UnifiedMessage[] {
+    const layer = this.layers.get(layerName);
+    if (!layer) return [];
+    // Filter to only return UnifiedMessage types
+    return layer.messages.filter((m): m is UnifiedMessage => 'session_id' in m && 'role' in m);
   }
 
   /**
    * すべてのメッセージを取得（デバッグ用）
    */
-  getAllMessages(): Message[] {
-    const allMessages: Message[] = [];
+  getAllUnifiedMessages(): UnifiedMessage[] {
+    const allUnifiedMessages: UnifiedMessage[] = [];
     this.layers.forEach(layer => {
-      allMessages.push(...layer.messages);
+      const unifiedOnly = layer.messages.filter((m): m is UnifiedMessage => 'session_id' in m && 'role' in m);
+      allUnifiedMessages.push(...unifiedOnly);
     });
-    return Array.from(new Set(allMessages)); // 重複除去
+    return Array.from(new Set(allUnifiedMessages)); // 重複除去
   }
 }

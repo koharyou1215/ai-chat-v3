@@ -17,6 +17,8 @@ export interface Persona extends BaseEntity {
   color_theme?: string;
   is_active?: boolean;
   is_default?: boolean;
+  // 感情分析用プロパティ追加
+  preferences?: Record<string, any>;
 }
 
 export type PersonaInput = Omit<Persona, 'id' | 'created_at' | 'updated_at' | 'version'>;

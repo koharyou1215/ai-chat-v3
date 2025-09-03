@@ -9,7 +9,8 @@ import {
   EmotionalMemory,
   AnalysisQualitySettings
 } from '@/types/core/emotional-intelligence.types';
-import { UnifiedMessage, UUID } from '@/types/core/message.types';
+import { UnifiedMessage } from '@/types/core/message.types';
+import { UUID } from '@/types/core/base.types';
 import { Character } from '@/types/core/character.types';
 
 /**
@@ -313,7 +314,7 @@ export class GroupEmotionAnalyzer extends BaseEmotionAnalyzer {
           .sort(([, a], [, b]) => b - a)[0]?.[0] || 'neutral';
         
         const averageEmotion: EmotionalWeight = {
-          primaryEmotion: dominantEmotion,
+          primaryEmotion: dominantEmotion as 'joy' | 'sadness' | 'anger' | 'fear' | 'surprise' | 'disgust' | 'neutral' | 'love' | 'excitement' | 'anxiety',
           intensity: 0.6,
           confidence: 0.7,
           context: `Group window ${i + 1}`,

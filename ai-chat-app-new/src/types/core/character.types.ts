@@ -1,7 +1,7 @@
 // src/types/core/character.types.ts
 
 import { BaseEntity, Timestamp } from './base.types';
-import { TrackerDefinition } from './tracker.types';
+import { TrackerDefinition, SimpleTrackerDefinition } from './tracker.types';
 
 /**
  * 統合キャラクター型（JSONファイルと一致するフラット構造）
@@ -21,10 +21,14 @@ export interface Character extends BaseEntity {
   strengths: string[];
   weaknesses: string[];
   
+  // アイデンティティ（感情分析用）
+  identity?: string;
+  
   // 好み・趣味
   hobbies: string[];
   likes: string[];
   dislikes: string[];
+  preferences?: Record<string, any>; // 感情分析用
   
   // 外見・スタイル
   appearance: string;
@@ -35,6 +39,7 @@ export interface Character extends BaseEntity {
   
   // 会話スタイル
   speaking_style: string;
+  dialogue_style?: string; // 感情分析用
   first_person: string;
   second_person: string;
   verbal_tics: string[];
@@ -50,8 +55,8 @@ export interface Character extends BaseEntity {
   // メタデータ
   tags: string[];
   
-  // トラッカー定義
-  trackers: TrackerDefinition[];
+  // トラッカー定義（確定版準拠）
+  trackers: SimpleTrackerDefinition[];
   
   // NSFW設定（オプション）
   nsfw_profile?: NSFWProfile;
@@ -68,7 +73,7 @@ export interface Character extends BaseEntity {
 }
 
 export interface NSFWProfile {
-    persona_profile?: string;
+    persona?: string;
     libido_level?: string;
     situation?: string;
     mental_state?: string;

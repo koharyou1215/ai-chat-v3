@@ -49,6 +49,21 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       );
     }
 
+    // Markdownファイルを除外するフィルタ
+    filtered = filtered.filter(memory => {
+      const content = memory.original_content || '';
+      const summary = memory.summary || '';
+      const title = memory.title || '';
+      
+      // Markdownファイルの拡張子やMarkdown関連のキーワードを除外
+      return !content.toLowerCase().includes('.md') &&
+             !summary.toLowerCase().includes('.md') &&
+             !title.toLowerCase().includes('.md') &&
+             !content.toLowerCase().includes('markdown') &&
+             !summary.toLowerCase().includes('markdown') &&
+             !title.toLowerCase().includes('markdown');
+    });
+
     // 検索フィルタ
     if (searchTerm) {
       filtered = filtered.filter(memory =>

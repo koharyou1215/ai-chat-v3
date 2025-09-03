@@ -11,6 +11,8 @@ interface UseFilterAndSortProps<T, K extends keyof T> {
   sortOption: SortOption<K>;
   // ネストしたオブジェクトのキーを扱えるように、キーまたはキーへのパスを指定
   sortKeys?: { [key in string & K]?: (item: T) => string | number | Date };
+  // Markdownファイルを除外するかどうか
+  excludeMarkdown?: boolean;
 }
 
 export function useFilterAndSort<T, K extends keyof T>({
@@ -19,10 +21,20 @@ export function useFilterAndSort<T, K extends keyof T>({
   searchKeys,
   sortOption,
   sortKeys,
+  excludeMarkdown = false,
 }: UseFilterAndSortProps<T, K>) {
   const filteredAndSortedData = useMemo(() => {
     // 1. Filtering Logic
     const filtered = data.filter(item => {
+      // Markdownファイルを除外する処理
+      if (excludeMarkdown) {
+        // ファイル名やパスにMarkdownファイルの拡張子が含まれている場合は除外
+        const itemStr = JSON.stringify(item).toLowerCase();
+        if (itemStr.includes('.md') || itemStr.includes('markdown')) {
+          return false;
+        }
+      }
+      
       if (!searchTerm) return true;
       // searchKeysで指定された各キーの値を検索
       return searchKeys.some(key => {
@@ -75,7 +87,7 @@ export function useFilterAndSort<T, K extends keyof T>({
     });
 
     return sorted;
-  }, [data, searchTerm, searchKeys, sortOption, sortKeys]);
+  }, [data, searchTerm, searchKeys, sortOption, sortKeys, excludeMarkdown]);
 
   return filteredAndSortedData;
 }

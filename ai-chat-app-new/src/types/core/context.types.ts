@@ -25,6 +25,12 @@ export interface ConversationContext {
   current_topic: string;
   current_mood: MoodState;
   
+  // 感情分析用追加プロパティ
+  mood?: string;
+  topic?: string;
+  relationship_level?: number;
+  conversation_depth?: number;
+  
   // 直近のコンテキスト
   recent_messages: UnifiedMessage[];
   recent_topics: string[];

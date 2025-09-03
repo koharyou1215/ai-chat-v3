@@ -8,7 +8,7 @@ export interface MemorySlice {
   pinned_memories: MemoryCard[];
   
   // メモリーカードの作成・管理
-  createMemoryCard: (message_ids: UUID[], session_id: UUID, character_id?: UUID) => Promise<MemoryCard>;
+  createMemoryCard: (message_ids: UUID[], session_id: UUID, character_id?: UUID) => Promise<MemoryCard | null>;
   updateMemoryCard: (id: UUID, updates: Partial<MemoryCard>) => void;
   deleteMemoryCard: (id: UUID) => void;
   

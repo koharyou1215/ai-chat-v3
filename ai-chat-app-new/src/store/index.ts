@@ -1,26 +1,38 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { ChatSlice, createChatSlice } from './slices/chat.slice';
-import { GroupChatSlice, createGroupChatSlice } from './slices/groupChat.slice';
-import { CharacterSlice, createCharacterSlice } from './slices/character.slice';
-import { PersonaSlice, createPersonaSlice } from './slices/persona.slice';
-import { MemorySlice, createMemorySlice } from './slices/memory.slice';
-import { TrackerSlice, createTrackerSlice } from './slices/tracker.slice';
-import { apiManager, APIManager } from '@/services/api-manager';
-import { promptBuilderService, PromptBuilderService } from '@/services/prompt-builder.service';
-import { HistorySlice, createHistorySlice } from './slices/history.slice';
-import { SettingsSlice, createSettingsSlice } from './slices/settings.slice';
-import { SuggestionSlice, createSuggestionSlice } from './slices/suggestion.slice';
-import { UISlice, createUISlice } from './slices/ui.slice';
-import { TrackerManager } from '@/services/tracker/tracker-manager';
-import { StateCreator } from 'zustand';
-import { StorageCleaner } from '@/utils/storage-cleaner';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { ChatSlice, createChatSlice } from "./slices/chat.slice";
+import { GroupChatSlice, createGroupChatSlice } from "./slices/groupChat.slice";
+import { CharacterSlice, createCharacterSlice } from "./slices/character.slice";
+import { PersonaSlice, createPersonaSlice } from "./slices/persona.slice";
+import { MemorySlice, createMemorySlice } from "./slices/memory.slice";
+import { TrackerSlice, createTrackerSlice } from "./slices/tracker.slice";
+import { apiManager, APIManager } from "@/services/api-manager";
+import {
+  promptBuilderService,
+  PromptBuilderService,
+} from "@/services/prompt-builder.service";
+import { HistorySlice, createHistorySlice } from "./slices/history.slice";
+import { SettingsSlice, createSettingsSlice } from "./slices/settings.slice";
+import {
+  SuggestionSlice,
+  createSuggestionSlice,
+} from "./slices/suggestion.slice";
+import { UISlice, createUISlice } from "./slices/ui.slice";
+import { StateCreator } from "zustand";
 
-export type AppStore = ChatSlice & GroupChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
-  apiManager: APIManager;
-  promptBuilderService: PromptBuilderService;
-  [key: string]: unknown; // Add index signature for generic operations
-};
+export type AppStore = ChatSlice &
+  GroupChatSlice &
+  CharacterSlice &
+  PersonaSlice &
+  MemorySlice &
+  TrackerSlice &
+  HistorySlice &
+  SettingsSlice &
+  SuggestionSlice &
+  UISlice & {
+    apiManager: APIManager;
+    promptBuilderService: PromptBuilderService;
+  };
 
 const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   ...createChatSlice(...args),
@@ -32,270 +44,64 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   ...createHistorySlice(...args),
   ...createSettingsSlice(...args),
   ...createSuggestionSlice(...args),
-  ...createUISlice(...args), // 追加
+  ...createUISlice(...args),
   apiManager: apiManager,
   promptBuilderService: promptBuilderService,
 });
 
-// Safari互換性のため、persist なしでも動作するようにフォールバック
+/**
+ * 🔧 **Map型安全デシリアライザー**
+ * Zustand persistenceからのMap復元処理
+ */
+const deserializeMapField = (value: any): Map<any, any> | any => {
+  if (!value) return new Map();
+  
+  // 既にMapインスタンスの場合
+  if (value instanceof Map) {
+    return value;
+  }
+  
+  // 手動シリアライゼーション形式 { _type: 'map', value: [...] }
+  if (value && typeof value === 'object' && value._type === 'map' && Array.isArray(value.value)) {
+    try {
+      return new Map(value.value);
+    } catch (error) {
+      console.warn('Map deserialization failed:', error);
+      return new Map();
+    }
+  }
+  
+  // 平坦オブジェクト形式からMap復元
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    try {
+      return new Map(Object.entries(value));
+    } catch (error) {
+      console.warn('Object to Map conversion failed:', error);
+      return new Map();
+    }
+  }
+  
+  // その他の場合は空Map
+  return new Map();
+};
+
 const createStore = () => {
   try {
-    return create<AppStore>()(
-      persist(
-        combinedSlices,
-        {
-          name: 'ai-chat-v3-storage',
-          storage: createJSONStorage(() => ({
-        getItem: (name: string) => {
-          try {
-            // Safari互換性チェック
-            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
-            
-            // Safari でlocalStorageが無効な場合をハンドル
-            if (!window.localStorage) return null;
-            
-            const item = window.localStorage.getItem(name);
-            if (!item) {
-              return null;
-            }
-            
-            // JSONの基本的な検証
-            if (!item.startsWith('{') && !item.startsWith('[')) {
-              // Invalid JSON format in localStorage, clearing
-              localStorage.removeItem(name);
-              return null;
-            }
-            
-            // 設定関連のデバッグ情報と追加検証
-            if (name === 'ai-chat-v3-storage') {
-              try {
-                const parsed = JSON.parse(item);
-                if (!parsed || typeof parsed !== 'object') {
-                  // Invalid storage data structure, clearing
-                  localStorage.removeItem(name);
-                  return null;
-                }
-              } catch (parseErr) {
-                // Failed to parse stored settings, clearing corrupted data
-                localStorage.removeItem(name);
-                return null;
-              }
-            }
-            
-            return item;
-          } catch (error) {
-            console.error('Error reading from localStorage:', error);
-            return null;
-          }
-        },
-        setItem: (name: string, value: string) => {
-          try {
-            // Safari互換性チェック
-            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-            if (!window.localStorage) return;
-            
-            // サイズチェック - 5MB制限 (localStorage limit is typically 5-10MB)
-            const sizeInBytes = new Blob([value]).size;
-            const sizeInMB = sizeInBytes / (1024 * 1024);
-            
-            if (sizeInMB > 2) { // 2MB制限でより安全に
-              
-              // 古いセッションデータをクリーンアップ
-              try {
-                const parsed = JSON.parse(value);
-                if (parsed?.state?.sessions) {
-                  const sessions = parsed.state.sessions;
-                  if (sessions instanceof Map || (sessions._type === 'map' && sessions.value)) {
-                    const sessionEntries = sessions instanceof Map ? Array.from(sessions.entries()) : sessions.value;
-                    
-                    // セッション数を制限（最新の5セッションのみ保持）
-                    if (sessionEntries.length > 5) {
-                      const sortedSessions = sessionEntries
-                        .sort((a, b) => {
-                          const aTime = a[1]?.updatedAt || a[1]?.createdAt || 0;
-                          const bTime = b[1]?.updatedAt || b[1]?.createdAt || 0;
-                          return bTime - aTime;
-                        })
-                        .slice(0, 5);
-                      
-                      if (sessions instanceof Map) {
-                        parsed.state.sessions = new Map(sortedSessions);
-                      } else {
-                        parsed.state.sessions = { _type: 'map', value: sortedSessions };
-                      }
-                    }
-                  }
-                }
-                
-                // メモリカードもクリーンアップ（最新の50件のみ保持）
-                if (parsed?.state?.memoryCards && Array.isArray(parsed.state.memoryCards)) {
-                  if (parsed.state.memoryCards.length > 50) {
-                    parsed.state.memoryCards = parsed.state.memoryCards
-                      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-                      .slice(0, 50);
-                  }
-                }
-                
-                // グループセッションもクリーンアップ
-                if (parsed?.state?.groupSessions) {
-                  const groupSessions = parsed.state.groupSessions;
-                  if (groupSessions instanceof Map || (groupSessions._type === 'map' && groupSessions.value)) {
-                    const groupEntries = groupSessions instanceof Map ? Array.from(groupSessions.entries()) : groupSessions.value;
-                    if (groupEntries.length > 3) {
-                      const sortedGroups = groupEntries
-                        .sort((a, b) => {
-                          const aTime = a[1]?.updated_at || a[1]?.created_at || 0;
-                          const bTime = b[1]?.updated_at || b[1]?.created_at || 0;
-                          return bTime - aTime;
-                        })
-                        .slice(0, 3);
-                      
-                      if (groupSessions instanceof Map) {
-                        parsed.state.groupSessions = new Map(sortedGroups);
-                      } else {
-                        parsed.state.groupSessions = { _type: 'map', value: sortedGroups };
-                      }
-                    }
-                  }
-                }
-                
-                value = JSON.stringify(parsed);
-                const newSizeInMB = new Blob([value]).size / (1024 * 1024);
-              } catch (cleanupError) {
-                console.error('Failed to cleanup storage data:', cleanupError);
-              }
-            }
-            
-            // JSON形式の検証と保存前検証
-            try {
-              const parsed = JSON.parse(value);
-              if (!parsed || typeof parsed !== 'object') {
-                console.error('Invalid data structure, refusing to save:', name);
-                return;
-              }
-              
-              // 設定関連のデバッグ情報
-              if (name === 'ai-chat-v3-storage') {
-              }
-            } catch (parseErr) {
-              console.error('Invalid JSON value, refusing to save:', parseErr);
-              return;
-            }
-            
-            window.localStorage.setItem(name, value);
-            
-            // デバッグ: 保存直後に確認
-            const verification = window.localStorage.getItem(name);
-            if (!verification) {
-              console.error('❌ Data was not saved to localStorage despite no error!');
-            } else {
-              const verifySize = new Blob([verification]).size / (1024 * 1024);
-              if (Math.abs(verifySize - sizeInMB) > 0.01) {
-              }
-            }
-          } catch (error) {
-            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-              console.error('🚨 LocalStorage quota exceeded! Attempting emergency cleanup...');
-              
-              // StorageCleanerを使用して効率的なクリーンアップ
-              try {
-                StorageCleaner.cleanupLocalStorage();
-                
-                // 再試行
-                window.localStorage.setItem(name, value);
-              } catch (retryError) {
-                console.error('❌ Emergency cleanup failed, trying more aggressive cleanup:', retryError);
-                
-                // より激しいクリーンアップ
-                try {
-                  StorageCleaner.emergencyReset();
-                  window.localStorage.setItem(name, value);
-                } catch (finalError) {
-                  console.error('❌ All cleanup attempts failed:', finalError);
-                }
-              }
-            } else {
-              console.error('Error writing to localStorage:', error);
-            }
-          }
-        },
-        removeItem: (name: string) => {
-          try {
-            if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-            if (!window.localStorage) return;
-            window.localStorage.removeItem(name);
-          } catch (error) {
-            console.error('Error removing from localStorage:', error);
-          }
-        }
-      }), {
-        replacer: (key, value) => {
-          if (value instanceof Map) {
-            return { _type: 'map', value: Array.from(value.entries()) };
-          }
-          if (value instanceof Set) {
-            return { _type: 'set', value: Array.from(value.values()) };
-          }
-          if (value instanceof TrackerManager) {
-            return { _type: 'TrackerManager', value: { trackerSets: value.getTrackerSetsAsObject() } };
-          }
-          return value;
-        },
-        reviver: (key, value) => {
-            if (value && value._type === 'map') {
-                // Restore TrackerManager instances correctly
-                if (key === 'trackerManagers') {
-                    const restoredMap = new Map();
-                    for (const [k, v] of value.value) {
-                        const manager = new TrackerManager();
-                        if (v && v.value) { // Check if v.value exists
-                            manager.loadFromObject(v.value);
-                        }
-                        restoredMap.set(k, manager);
-                    }
-                    return restoredMap;
-                }
-                return new Map(value.value);
-            }
-            if (value && value._type === 'set') {
-                return new Set(value.value);
-            }
-            return value;
-        },
-      }),
-      version: 1, // 新しいバージョン番号
-      migrate: (persistedState: unknown, version: number) => {
-        if (version === 0) {
-          // version 0から1へのマイグレーション
-          // 今回は単純にcharactersのキャッシュをクリアする
-          const state = persistedState as Record<string, unknown>;
-          state.characters = new Map();
-          state.isCharactersLoaded = false;
-          return state;
-        }
-        return persistedState;
-      },
-      // Only persist state, not actions (functions)
-      // UI状態はハイドレーション問題を避けるため永続化しない
-      partialize: (state) => ({
-        // Chat sessions
+    const options: any = {
+      name: "ai-chat-v3-storage",
+      storage: typeof window === 'undefined' ? undefined : createJSONStorage(() => window.localStorage),
+      version: 1,
+      partialize: (state: AppStore) => ({
         sessions: state.sessions,
         active_session_id: state.active_session_id,
         trackerManagers: state.trackerManagers,
-        
-        // Group Chat sessions
         groupSessions: state.groupSessions,
         active_group_session_id: state.active_group_session_id,
         is_group_mode: state.is_group_mode,
-        // Note: showCharacterReselectionModal is not persisted (UI state)
-
-        // Characters and Personas
         characters: state.characters,
         selectedCharacterId: state.selectedCharacterId,
         personas: state.personas,
         activePersonaId: state.activePersonaId,
-        
-        // Settings - all settings for persistence
         apiConfig: state.apiConfig,
         openRouterApiKey: state.openRouterApiKey,
         geminiApiKey: state.geminiApiKey,
@@ -309,26 +115,58 @@ const createStore = () => {
         effectSettings: state.effectSettings,
         appearanceSettings: state.appearanceSettings,
         emotionalIntelligenceFlags: state.emotionalIntelligenceFlags,
-        
-        // Memory System
-        memories: state.memories,
-        memoryCards: state.memory_cards,
-        memoryLayers: state.memoryLayers,
-        
-        // Suggestion Data
+        memory_cards: state.memory_cards,
         suggestions: state.suggestions,
         suggestionData: state.suggestionData,
-        
-        // UI状態は永続化しない（ハイドレーション問題回避のため）
-        // isLeftSidebarOpen: false, // 常にfalseで初期化
-        // isRightPanelOpen: false, // 常にfalseで初期化
       }),
-    }
-  )
-    );
+      // 🔧 **カスタムデシリアライザー追加 - Map型復元**
+      onRehydrateStorage: (name: string) => {
+        return (state, error) => {
+          if (error) {
+            console.error('Store rehydration error:', error);
+            return;
+          }
+          
+          if (state) {
+            console.log('🔧 Store rehydration - Map型復元処理開始');
+            
+            // Map型フィールドの復元
+            if (state.sessions) {
+              state.sessions = deserializeMapField(state.sessions);
+              console.log('✅ sessions Map復元完了:', state.sessions instanceof Map ? state.sessions.size : 'failed');
+            }
+            
+            if (state.personas) {
+              state.personas = deserializeMapField(state.personas);
+              console.log('✅ personas Map復元完了:', state.personas instanceof Map ? state.personas.size : 'failed');
+            }
+            
+            if (state.characters) {
+              state.characters = deserializeMapField(state.characters);
+              console.log('✅ characters Map復元完了:', state.characters instanceof Map ? state.characters.size : 'failed');
+            }
+            
+            if (state.trackerManagers) {
+              state.trackerManagers = deserializeMapField(state.trackerManagers);
+              console.log('✅ trackerManagers Map復元完了:', state.trackerManagers instanceof Map ? state.trackerManagers.size : 'failed');
+            }
+            
+            if (state.groupSessions) {
+              state.groupSessions = deserializeMapField(state.groupSessions);
+              console.log('✅ groupSessions Map復元完了:', state.groupSessions instanceof Map ? state.groupSessions.size : 'failed');
+            }
+            
+            console.log('🔧 Store rehydration - Map型復元処理完了');
+          }
+        };
+      }
+    };
+
+    const useStore = create<AppStore>()(persist(combinedSlices, options as any));
+
+    return useStore;
   } catch (error) {
-    console.error('Failed to create persisted store, falling back to non-persistent store:', error);
-    // persistが失敗した場合は永続化なしで作成
+    console.error('Store creation failed, falling back to non-persistent store:', error);
     return create<AppStore>()(combinedSlices);
   }
 };

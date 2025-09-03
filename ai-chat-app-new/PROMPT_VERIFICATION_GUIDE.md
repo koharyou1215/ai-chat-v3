@@ -185,7 +185,7 @@ Background: [character.background]
 Current Scenario: [character.scenario]
 
 ## Special Context (NSFW Profile)
-Context Profile: [character.nsfw_profile.persona_profile]
+Context Profile: [character.nsfw_profile.persona]
 Libido Level: [character.nsfw_profile.libido_level]
 Preferences: [character.nsfw_profile.kinks]
 </character_information>

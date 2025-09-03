@@ -233,7 +233,9 @@ ${formattedMessages}
     if (this.summaryCache.size > maxCacheSize) {
       // 最も古いエントリを削除
       const firstKey = this.summaryCache.keys().next().value;
-      this.summaryCache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.summaryCache.delete(firstKey);
+      }
     }
   }
 

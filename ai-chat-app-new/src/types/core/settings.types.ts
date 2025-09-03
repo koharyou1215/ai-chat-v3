@@ -90,6 +90,7 @@ export interface APIConfig {
   frequency_penalty: number;
   presence_penalty: number;
   context_window: number;
+  useDirectGeminiAPI?: boolean; // Gemini APIを直接使用するか（falseの場合はOpenRouter経由）
 }
 
 export interface AISettings {
@@ -102,6 +103,7 @@ export interface AISettings {
   systemPrompts: SystemPrompts;
   enableSystemPrompt: boolean;
   enableJailbreakPrompt: boolean;
+  promptMode?: 'default' | 'custom' | 'both'; // Toggle between default, custom, or both prompts
   
   // Chat Settings
   chat: ChatSettings;

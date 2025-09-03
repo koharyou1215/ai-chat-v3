@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Lightbulb, Copy, Edit, Check, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 
 interface SuggestionModalProps {
   isOpen: boolean;
@@ -45,9 +46,17 @@ export const SuggestionModal: React.FC<SuggestionModalProps> = ({
     onClose();
   };
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // TODO: Add toast notification
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('コピーしました', {
+        duration: 2000,
+      });
+    } catch (error) {
+      toast.error('コピーに失敗しました', {
+        duration: 3000,
+      });
+    }
   };
 
   return (

@@ -87,7 +87,12 @@ export class VectorSearchService {
         }
       );
 
-      return response.results;
+      return response.results.map(result => ({
+        memory_item: { content: result.content, id: result.id } as any,
+        similarity_score: result.score,
+        relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+        match_type: 'semantic' as const
+      }));
     } catch (error) {
       console.error('Relevant memory search failed:', error);
       throw error;
@@ -114,7 +119,12 @@ export class VectorSearchService {
         }
       );
 
-      return response.results;
+      return response.results.map(result => ({
+        memory_item: { content: result.content, id: result.id } as any,
+        similarity_score: result.score,
+        relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+        match_type: 'semantic' as const
+      }));
     } catch (error) {
       console.error('Emotion-based memory search failed:', error);
       throw error;
@@ -139,7 +149,12 @@ export class VectorSearchService {
         }
       );
 
-      return response.results;
+      return response.results.map(result => ({
+        memory_item: { content: result.content, id: result.id } as any,
+        similarity_score: result.score,
+        relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+        match_type: 'semantic' as const
+      }));
     } catch (error) {
       console.error('Topic-based memory search failed:', error);
       throw error;
@@ -166,7 +181,12 @@ export class VectorSearchService {
         }
       );
 
-      return response.results;
+      return response.results.map(result => ({
+        memory_item: { content: result.content, id: result.id } as any,
+        similarity_score: result.score,
+        relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+        match_type: 'semantic' as const
+      }));
     } catch (error) {
       console.error('Time-based memory search failed:', error);
       throw error;
@@ -197,7 +217,12 @@ export class VectorSearchService {
         }
       );
 
-      return response.results;
+      return response.results.map(result => ({
+        memory_item: { content: result.content, id: result.id } as any,
+        similarity_score: result.score,
+        relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+        match_type: 'semantic' as const
+      }));
     } catch (error) {
       console.error('Multi-query memory search failed:', error);
       throw error;
@@ -227,7 +252,7 @@ export class VectorSearchService {
         session_id: sessionId
       });
 
-      return response;
+      return response as { matrix: number[][]; memory_ids: string[]; average_similarity: number; clusters: string[][]; };
     } catch (error) {
       console.error('Similarity matrix generation failed:', error);
       throw error;
@@ -258,7 +283,7 @@ export class VectorSearchService {
         num_clusters: numClusters
       });
 
-      return response;
+      return response as { clusters: { id: string; memories: string[]; centroid: number[]; coherence_score: number; representative_keywords: string[]; }[]; overall_coherence: number; };
     } catch (error) {
       console.error('Memory clustering failed:', error);
       throw error;
@@ -287,14 +312,14 @@ export class VectorSearchService {
       const response = await apiClient.post('/evaluate/search-quality', {
         query,
         results: results.map(r => ({
-          id: r.memory_id,
+          id: (r.memory_item as any).id || '',
           similarity_score: r.similarity_score,
-          content: r.content
+          content: (r.memory_item as any).content || ''
         })),
         user_feedback: userFeedback
       });
 
-      return response;
+      return response as { precision: number; recall: number; f1_score: number; user_satisfaction: number; improvement_suggestions: string[]; };
     } catch (error) {
       console.error('Search quality evaluation failed:', error);
       throw error;
@@ -321,7 +346,7 @@ export class VectorSearchService {
         training_data: trainingData
       });
 
-      return response;
+      return response as { model_updated: boolean; accuracy_improvement: number; new_accuracy: number; training_samples_processed: number; };
     } catch (error) {
       console.error('Search model update failed:', error);
       throw error;

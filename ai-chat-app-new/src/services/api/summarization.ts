@@ -1,13 +1,39 @@
 import { apiClient } from './api-client';
-import { 
-  SummarizationRequest, 
-  SummarizationResponse,
-  KeywordExtractionRequest,
-  KeywordExtractionResponse,
-  CategoryClassificationRequest,
-  CategoryClassificationResponse
-} from '@/types/api';
 import { UnifiedMessage, MemoryCategory, MemoryImportance } from '@/types';
+
+// Local type definitions for summarization API
+interface SummarizationRequest {
+  messages: UnifiedMessage[];
+  max_length?: number;
+  include_keywords?: boolean;
+}
+
+interface SummarizationResponse {
+  summary: string;
+  keywords?: string[];
+  main_topics?: string[];
+}
+
+interface KeywordExtractionRequest {
+  text: string;
+  max_keywords?: number;
+}
+
+interface KeywordExtractionResponse {
+  keywords: string[];
+  relevance_scores?: Record<string, number>;
+}
+
+interface CategoryClassificationRequest {
+  text: string;
+  categories?: string[];
+}
+
+interface CategoryClassificationResponse {
+  category: string;
+  confidence: number;
+  all_scores?: Record<string, number>;
+}
 
 export class SummarizationService {
   /**
@@ -96,7 +122,15 @@ export class SummarizationService {
         character_id: characterId
       });
 
-      return response;
+      return response as {
+        title: string;
+        summary: string;
+        keywords: string[];
+        category: MemoryCategory;
+        importance: MemoryImportance;
+        emotional_content: string[];
+        key_insights: string[];
+      };
     } catch (error) {
       console.error('Memory card generation failed:', error);
       throw error;
@@ -132,7 +166,18 @@ export class SummarizationService {
         session_id: sessionId
       });
 
-      return response;
+      return response as {
+        emotional_arc: string;
+        key_emotional_moments: {
+          timestamp: number;
+          emotion: string;
+          intensity: number;
+          trigger: string;
+        }[];
+        overall_mood_trend: 'improving' | 'declining' | 'stable' | 'fluctuating';
+        relationship_development: string;
+        emotional_resolution: string;
+      };
     } catch (error) {
       console.error('Emotional flow summarization failed:', error);
       throw error;
@@ -172,7 +217,22 @@ export class SummarizationService {
         session_id: sessionId
       });
 
-      return response;
+      return response as {
+        main_topics: {
+          topic: string;
+          importance: number;
+          discussion_depth: number;
+          related_keywords: string[];
+        }[];
+        topic_transitions: {
+          from_topic: string;
+          to_topic: string;
+          transition_reason: string;
+          timestamp: number;
+        }[];
+        overall_conversation_theme: string;
+        topic_coherence_score: number;
+      };
     } catch (error) {
       console.error('Topic summarization failed:', error);
       throw error;
@@ -215,7 +275,23 @@ export class SummarizationService {
         character_id: characterId
       });
 
-      return response;
+      return response as {
+        relationship_level_change: number;
+        trust_building_moments: {
+          timestamp: number;
+          action: string;
+          impact: number;
+        }[];
+        conflict_resolution: {
+          timestamp: number;
+          conflict_type: string;
+          resolution_method: string;
+          outcome: string;
+        }[];
+        shared_experiences: string[];
+        future_relationship_potential: number;
+        recommendations: string[];
+      };
     } catch (error) {
       console.error('Relationship development summarization failed:', error);
       throw error;
@@ -256,7 +332,23 @@ export class SummarizationService {
         session_id: sessionId
       });
 
-      return response;
+      return response as {
+        key_learnings: {
+          concept: string;
+          explanation: string;
+          examples: string[];
+          importance: number;
+        }[];
+        knowledge_gaps: string[];
+        learning_progress: {
+          topic: string;
+          initial_understanding: number;
+          current_understanding: number;
+          improvement: number;
+        }[];
+        suggested_next_steps: string[];
+        overall_learning_score: number;
+      };
     } catch (error) {
       console.error('Learning content summarization failed:', error);
       throw error;
@@ -290,7 +382,14 @@ export class SummarizationService {
         evaluation_criteria: criteria
       });
 
-      return response;
+      return response as {
+        overall_score: number;
+        coherence_score: number;
+        completeness_score: number;
+        conciseness_score: number;
+        accuracy_score: number;
+        improvement_suggestions: string[];
+      };
     } catch (error) {
       console.error('Summary quality evaluation failed:', error);
       throw error;
@@ -318,7 +417,12 @@ export class SummarizationService {
         training_data: trainingData
       });
 
-      return response;
+      return response as {
+        model_updated: boolean;
+        quality_improvement: number;
+        new_quality_score: number;
+        training_samples_processed: number;
+      };
     } catch (error) {
       console.error('Summarization model update failed:', error);
       throw error;
@@ -338,7 +442,7 @@ export class SummarizationService {
         styles
       });
 
-      return response.summaries;
+      return (response as { summaries: Record<string, string> }).summaries;
     } catch (error) {
       console.error('Multi-style summary generation failed:', error);
       throw error;

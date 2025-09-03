@@ -48,3 +48,74 @@ export interface ImageGenerationRequest {
   seed?: number;
   model?: string;
 }
+
+// メッセージ生成リクエスト型
+export interface MessageGenerationRequest {
+  message: string;
+  characterId?: string;
+  personaId?: string;
+  systemPrompt?: string;
+  context?: ConversationContext;
+  parameters?: AIParameters;
+}
+
+// 感情分析リクエスト型
+export interface EmotionAnalysisRequest {
+  message: string;
+  context?: string[];
+  characterId?: string;
+  sessionId?: string;
+  analysisType?: 'surface' | 'contextual' | 'deep' | 'multi_layer';
+}
+
+// 感情追跡リクエスト型
+export interface EmotionTrackingRequest {
+  messageId: string;
+  sessionId: string;
+  characterId?: string;
+  trackingMode?: 'continuous' | 'periodic' | 'triggered';
+}
+
+// 感情ベース応答リクエスト型
+export interface EmotionBasedResponseRequest {
+  baseMessage: string;
+  emotionalContext: {
+    current_emotion: string;
+    intensity: number;
+    triggers: string[];
+  };
+  characterId?: string;
+  responseStyle?: 'empathetic' | 'supportive' | 'analytical';
+}
+
+// 文脈分析リクエスト型
+export interface ContextAnalysisRequest {
+  messages: string[];
+  characters: Character[];
+  sessionId: string;
+  analysisDepth?: 'shallow' | 'medium' | 'deep';
+}
+
+// ベクトル検索リクエスト型
+export interface VectorSearchRequest {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  filters?: Record<string, any>;
+}
+
+// メモリインデックスリクエスト型
+export interface MemoryIndexRequest {
+  memories: Array<{
+    id: string;
+    content: string;
+    metadata?: Record<string, any>;
+  }>;
+  method?: 'add' | 'update' | 'remove';
+}
+
+// 類似度計算リクエスト型
+export interface SimilarityCalculationRequest {
+  vectors: number[][];
+  method?: 'cosine' | 'euclidean' | 'manhattan';
+}

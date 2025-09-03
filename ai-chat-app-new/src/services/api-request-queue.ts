@@ -16,6 +16,15 @@ interface QueuedRequest {
   reject: (error: unknown) => void;
 }
 
+// 🔧 **API Request Type - 追加**
+export interface APIRequest {
+  id: string;
+  type: string;
+  priority: number;
+  timestamp: number;
+  request: () => Promise<unknown>;
+}
+
 export class APIRequestQueue {
   private queue: QueuedRequest[] = [];
   private processing = false;
@@ -28,14 +37,56 @@ export class APIRequestQueue {
   /**
    * リクエストをキューに追加
    */
-  async enqueue<T>(
-    type: RequestType,
-    request: () => Promise<T>,
-    priority: RequestPriority = 'normal'
-  ): Promise<T> {
+  async addRequest(apiRequest: APIRequest): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const queuedRequest: QueuedRequest = {
-        id: `${type}-${Date.now()}-${Math.random()}`,
+        id: apiRequest.id,
+        type: this.mapPriorityToType(apiRequest.priority),
+        priority: this.mapNumberToPriority(apiRequest.priority),
+        request: apiRequest.request,
+        timestamp: apiRequest.timestamp,
+        resolve,
+        reject
+      };
+
+      this.queue.push(queuedRequest);
+      this.processQueue();
+    });
+  }
+
+  /**
+   * 数値優先度を文字列に変換
+   */
+  private mapNumberToPriority(priority: number): RequestPriority {
+    if (priority <= 1) return 'high';
+    if (priority <= 2) return 'normal';
+    return 'low';
+  }
+
+  /**
+   * 数値優先度をリクエストタイプに変換
+   */
+  private mapPriorityToType(priority: number): RequestType {
+    if (priority === 1) return 'chat';
+    if (priority === 2) return 'inspiration';
+    return 'other';
+  }
+
+  async enqueueRequest(
+    request: () => Promise<unknown>,
+    type: RequestType = 'other',
+    priority: RequestPriority = 'normal'
+  ): Promise<unknown> {
+    const requestId = crypto.randomUUID();
+    
+    // 重複チェック
+    if (this.pendingRequests.has(requestId)) {
+      throw new Error('Duplicate request detected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const queuedRequest: QueuedRequest = {
+        id: requestId,
         type,
         priority,
         request,
@@ -44,158 +95,119 @@ export class APIRequestQueue {
         reject
       };
 
-      // 優先度に基づいて挿入位置を決定
-      const insertIndex = this.findInsertPosition(queuedRequest);
-      this.queue.splice(insertIndex, 0, queuedRequest);
+      this.queue.push(queuedRequest);
+      this.pendingRequests.add(requestId);
 
-      console.log(`📋 Queued ${type} request (priority: ${priority}, queue length: ${this.queue.length})`);
+      // 優先度でソート
+      this.queue.sort((a, b) => {
+        const priorityOrder = { high: 3, normal: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      });
 
-      // 処理開始
       this.processQueue();
     });
   }
 
   /**
-   * チャット専用の高優先度リクエスト（重複防止機能付き）
+   * チャット専用のリクエストエンキュー
    */
-  async enqueueChatRequest<T>(request: () => Promise<T>, requestId?: string): Promise<T> {
-    // 重複チェック
-    if (requestId && this.pendingRequests.has(requestId)) {
-      console.log(`🚫 Duplicate chat request ignored: ${requestId}`);
-      throw new Error('Duplicate request detected');
-    }
-    
-    if (requestId) {
-      this.pendingRequests.add(requestId);
-    }
-
-    try {
-      const result = await this.enqueue('chat', async () => {
-        try {
-          return await request();
-        } finally {
-          if (requestId) {
-            this.pendingRequests.delete(requestId);
-          }
-        }
-      }, 'high');
-      
-      return result as T;
-    } catch (error) {
-      if (requestId) {
-        this.pendingRequests.delete(requestId);
-      }
-      throw error;
-    }
+  async enqueueChatRequest(request: () => Promise<unknown>): Promise<unknown> {
+    return this.enqueueRequest(request, 'chat', 'high');
   }
 
   /**
-   * インスピレーション専用のリクエスト
+   * インスピレーション専用のリクエストエンキュー
    */
-  async enqueueInspirationRequest<T>(request: () => Promise<T>): Promise<T> {
-    return this.enqueue('inspiration', request, 'normal');
+  async enqueueInspirationRequest(request: () => Promise<unknown>): Promise<unknown> {
+    return this.enqueueRequest(request, 'inspiration', 'normal');
   }
 
-  private findInsertPosition(newRequest: QueuedRequest): number {
-    const priorityOrder = { 'high': 0, 'normal': 1, 'low': 2 };
-    
-    for (let i = 0; i < this.queue.length; i++) {
-      const queuedPriority = priorityOrder[this.queue[i].priority];
-      const newPriority = priorityOrder[newRequest.priority];
-      
-      if (newPriority < queuedPriority) {
-        return i;
-      }
+  /**
+   * キューの処理
+   */
+  private async processQueue() {
+    if (this.processing || this.activeRequests >= this.maxConcurrent) {
+      return;
     }
-    
-    return this.queue.length;
-  }
 
-  private async processQueue(): Promise<void> {
-    if (this.processing) return;
+    const request = this.queue.shift();
+    if (!request) {
+      return;
+    }
+
     this.processing = true;
+    this.activeRequests++;
 
-    while (this.queue.length > 0 && this.activeRequests < this.maxConcurrent) {
-      const queuedRequest = this.queue.shift()!;
-      this.activeRequests++;
-
-      // レート制限を適用
+    try {
+      // レート制限のための遅延
       const timeSinceLastRequest = Date.now() - this.lastRequestTime;
       if (timeSinceLastRequest < this.minDelay) {
-        await new Promise(resolve => setTimeout(resolve, this.minDelay - timeSinceLastRequest));
+        await new Promise(resolve => 
+          setTimeout(resolve, this.minDelay - timeSinceLastRequest)
+        );
       }
 
-      console.log(`⚡ Processing ${queuedRequest.type} request (${this.activeRequests}/${this.maxConcurrent} active)`);
       this.lastRequestTime = Date.now();
 
-      // リクエストを非同期で実行
-      this.executeRequest(queuedRequest);
-    }
+      console.log(`🔄 Processing ${request.type} request (${request.id})`);
+      const result = await request.request();
+      request.resolve(result);
 
-    this.processing = false;
-  }
-
-  private async executeRequest(queuedRequest: QueuedRequest): Promise<void> {
-    const startTime = performance.now();
-    
-    try {
-      const result = await queuedRequest.request();
-      const duration = performance.now() - startTime;
+      console.log(`✅ Completed ${request.type} request (${request.id})`);
       
-      console.log(`✅ ${queuedRequest.type} request completed in ${duration.toFixed(1)}ms`);
-      queuedRequest.resolve(result);
     } catch (error) {
-      const duration = performance.now() - startTime;
-      
-      console.error(`❌ ${queuedRequest.type} request failed after ${duration.toFixed(1)}ms:`, error);
-      queuedRequest.reject(error);
+      console.error(`❌ Failed ${request.type} request (${request.id}):`, error);
+      request.reject(error);
     } finally {
       this.activeRequests--;
+      this.processing = false;
+      this.pendingRequests.delete(request.id);
       
-      // キューに残りがあれば再開
+      // 次のリクエストを処理
       if (this.queue.length > 0) {
-        setTimeout(() => this.processQueue(), 0);
+        setTimeout(() => this.processQueue(), 10);
       }
     }
   }
 
   /**
-   * キューの統計情報
+   * キューの状態を取得
    */
-  getStats() {
-    const typeCount = this.queue.reduce((acc, req) => {
-      acc[req.type] = (acc[req.type] || 0) + 1;
-      return acc;
-    }, {} as Record<RequestType, number>);
-
+  getQueueStatus() {
     return {
       queueLength: this.queue.length,
       activeRequests: this.activeRequests,
-      typeBreakdown: typeCount,
-      oldestRequestAge: this.queue.length > 0 ? Date.now() - this.queue[0].timestamp : 0
+      processing: this.processing,
+      pendingRequests: this.pendingRequests.size
     };
   }
 
   /**
-   * 緊急時のキュークリア
+   * キューをクリア
    */
-  clearQueue(): void {
-    const clearedRequests = this.queue.length;
-    this.queue.forEach(req => req.reject(new Error('Queue cleared')));
+  clearQueue() {
+    this.queue.forEach(request => {
+      request.reject(new Error('Queue cleared'));
+    });
     this.queue = [];
+    this.pendingRequests.clear();
+  }
+
+  /**
+   * 実行リクエストをキャンセル（実装は複雑なため、現在はログのみ）
+   */
+  async cancelRequest(requestId: string): Promise<boolean> {
+    const requestIndex = this.queue.findIndex(req => req.id === requestId);
+    if (requestIndex > -1) {
+      const cancelledRequest = this.queue.splice(requestIndex, 1)[0];
+      this.pendingRequests.delete(requestId);
+      cancelledRequest.reject(new Error('Request cancelled'));
+      return true;
+    }
     
-    console.log(`🧹 Cleared ${clearedRequests} queued requests`);
+    console.warn(`Request ${requestId} not found in queue`);
+    return false;
   }
 }
 
 export const apiRequestQueue = new APIRequestQueue();
-
-// デバッグ用: キュー統計を定期的にログ出力
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  setInterval(() => {
-    const stats = apiRequestQueue.getStats();
-    if (stats.queueLength > 0 || stats.activeRequests > 0) {
-      console.log('📊 API Queue Stats:', stats);
-    }
-  }, 5000);
-}

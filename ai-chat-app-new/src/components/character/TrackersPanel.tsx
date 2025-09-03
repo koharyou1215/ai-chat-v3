@@ -6,21 +6,19 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Character } from '@/types/core/character.types';
 import { Persona } from '@/types/core/persona.types';
-import { TrackerDefinition, TrackerConfig } from '@/types/core/tracker.types';
+import { TrackerDefinition, SimpleTrackerDefinition, TrackerConfig } from '@/types/core/tracker.types';
 
 // TrackerEditor component (existing one)
 const TrackerEditor: React.FC<{
-    tracker: TrackerDefinition;
-    onChange: (newConfig: TrackerConfig) => void;
+    tracker: SimpleTrackerDefinition;
+    onChange: (newTracker: Partial<SimpleTrackerDefinition>) => void;
 }> = ({ tracker, onChange }) => {
     
-    const config = tracker?.config; // Use optional chaining
-
-    if (!config) {
+    if (!tracker) {
         return <p className="text-sm text-slate-400">トラッカーの設定情報が見つかりません。</p>;
     }
 
-    switch(config.type) {
+    switch(tracker.type) {
         case 'numeric':
             return (
                 <div className="grid grid-cols-2 gap-4">
@@ -28,8 +26,8 @@ const TrackerEditor: React.FC<{
                         <label className="text-sm font-medium text-slate-300">最小値</label>
                         <input
                             type="number"
-                            value={config.min_value || 0}
-                            onChange={e => onChange({...config, min_value: parseInt(e.target.value) || 0})}
+                            value={tracker.min_value || 0}
+                            onChange={e => onChange({min_value: parseInt(e.target.value) || 0})}
                             className="w-full bg-slate-800/50 border-slate-600 text-white rounded-md p-2"
                         />
                     </div>
@@ -37,8 +35,8 @@ const TrackerEditor: React.FC<{
                         <label className="text-sm font-medium text-slate-300">最大値</label>
                         <input
                             type="number"
-                            value={config.max_value || 100}
-                            onChange={e => onChange({...config, max_value: parseInt(e.target.value) || 100})}
+                            value={tracker.max_value || 100}
+                            onChange={e => onChange({max_value: parseInt(e.target.value) || 100})}
                             className="w-full bg-slate-800/50 border-slate-600 text-white rounded-md p-2"
                         />
                     </div>
@@ -46,8 +44,8 @@ const TrackerEditor: React.FC<{
                         <label className="text-sm font-medium text-slate-300">初期値</label>
                         <input
                             type="number"
-                            value={config.initial_value || 0}
-                            onChange={e => onChange({...config, initial_value: parseInt(e.target.value) || 0})}
+                            value={tracker.initial_value || 0}
+                            onChange={e => onChange({initial_value: parseInt(e.target.value) || 0})}
                             className="w-full bg-slate-800/50 border-slate-600 text-white rounded-md p-2"
                         />
                     </div>
@@ -59,9 +57,9 @@ const TrackerEditor: React.FC<{
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">利用可能な状態</label>
                         <div className="flex flex-wrap gap-2">
-                            {config.possible_states?.map((state, idx) => (
+                            {tracker.possible_states?.map((state, idx) => (
                                 <span key={idx} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm">
-                                    {typeof state === 'string' ? state : state.label || state.id || 'Unknown'}
+                                    {state}
                                 </span>
                             ))}
                         </div>
@@ -70,8 +68,8 @@ const TrackerEditor: React.FC<{
                         <label className="text-sm font-medium text-slate-300">初期状態</label>
                         <input
                             type="text"
-                            value={config.initial_state || ''}
-                            onChange={e => onChange({...config, initial_state: e.target.value})}
+                            value={tracker.initial_state || ''}
+                            onChange={e => onChange({initial_state: e.target.value})}
                             className="w-full bg-slate-800/50 border-slate-600 text-white rounded-md p-2"
                             placeholder="初期状態を入力"
                         />
@@ -80,19 +78,6 @@ const TrackerEditor: React.FC<{
             )
         case 'boolean':
              return <p className="text-sm text-slate-400">ブール型トラッカーには追加設定はありません。</p>
-        case 'text':
-            return (
-                 <div className="space-y-2">
-                     <label className="text-sm font-medium text-slate-300">プレースホルダー</label>
-                     <input
-                         type="text"
-                         value={config.placeholder || ''}
-                         onChange={e => onChange({...config, placeholder: e.target.value})}
-                         className="w-full bg-slate-800/50 border-slate-600 text-white rounded-md p-2"
-                         placeholder="プレースホルダーテキスト"
-                     />
-                 </div>
-             )
         default:
             return <p className="text-sm text-slate-400">不明なトラッカータイプです。</p>
     }
@@ -121,7 +106,7 @@ export const TrackersPanel: React.FC<TrackersPanelProps> = ({
         </Button>
       </div>
       <div className="space-y-4">
-        {(mode === 'character' && formData ? (formData as Character).trackers : [])?.map((tracker: TrackerDefinition, index: number) => (
+        {(mode === 'character' && formData ? (formData as Character).trackers : [])?.map((tracker: SimpleTrackerDefinition, index: number) => (
           <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <div className="flex justify-between items-center cursor-pointer" onClick={() => setExpandedTracker(expandedTracker === index ? null : index)}>
               <span className="font-semibold text-white">{tracker.display_name}</span>
@@ -144,9 +129,9 @@ export const TrackersPanel: React.FC<TrackersPanelProps> = ({
               >
                 <TrackerEditor 
                   tracker={tracker} 
-                  onChange={(newConfig) => {
+                  onChange={(newTracker) => {
                     const newTrackers = [...(formData && mode === 'character' ? (formData as Character).trackers || [] : [])];
-                    newTrackers[index] = { ...newTrackers[index], config: newConfig };
+                    newTrackers[index] = { ...newTrackers[index], ...newTracker };
                     setFormData(prev => prev ? { ...prev, trackers: newTrackers } : null);
                   }}
                 />

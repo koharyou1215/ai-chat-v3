@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Storage Clear</title>
+</head>
+<body>
+    <h1>LocalStorage クリアツール</h1>
+    <button onclick="clearStorage()">LocalStorageをクリア</button>
+    <div id="result"></div>
+    
+    <script>
+        function clearStorage() {
+            try {
+                localStorage.removeItem('ai-chat-v3-storage');
+                document.getElementById('result').innerHTML = '✅ LocalStorageをクリアしました。ページをリロードしてください。';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '❌ エラー: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,1080 +1,1298 @@
-import { StateCreator } from 'zustand';
-import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
-// Removed unused imports
-import { apiRequestQueue } from '@/services/api-request-queue';
-import { promptValidator } from '@/utils/prompt-validator';
-import { promptBuilderService } from '@/services/prompt-builder.service';
-import { TrackerManager } from '@/services/tracker/tracker-manager';
-import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
-import { SoloEmotionAnalyzer } from '@/services/emotion/SoloEmotionAnalyzer';
-import { AppStore } from '..';
-import { 
-  generateSessionId, 
-  generateWelcomeMessageId, 
-  generateUserMessageId, 
-  generateAIMessageId 
-} from '@/utils/uuid';
-
-// 🧠 感情から絵文字への変換ヘルパー
-const getEmotionEmoji = (emotion: string): string => {
-  const emotionEmojiMap: Record<string, string> = {
-    'joy': '😊',
-    'sadness': '😢',
-    'anger': '😠',
-    'fear': '😨',
-    'surprise': '😲',
-    'disgust': '😖',
-    'neutral': '😐',
-    'love': '💕',
-    'excitement': '🤩',
-    'anxiety': '😰'
-  };
-  return emotionEmojiMap[emotion] || '😐';
-};
+import { StateCreator } from "zustand";
+import {
+  BaseMessage,
+  Character,
+  Persona,
+  Session,
+  UUID,
+  UnifiedMessage,
+  EmotionalIntelligenceFlags,
+  MessageRequest,
+  MemoryCard,
+} from "@/types";
+import { promptBuilderService } from "@/services/prompt-builder.service";
+import { generateSessionName } from "@/utils";
+import { APIManager, APIRequest, apiManager } from "@/services/api-manager";
+import { apiRequestQueue } from "@/services/api-request-queue";
+import { memoryLayerManager } from "@/services/memory/memory-layer-manager";
+import { soloEmotionAnalyzer } from "@/services/emotion/SoloEmotionAnalyzer";
+import { TrackerManager } from "@/services/tracker/tracker-manager";
+import { AppStore } from "..";
 
 export interface ChatSlice {
-  sessions: Map<UUID, UnifiedChatSession>;
-  trackerManagers: Map<UUID, TrackerManager>;
+  session: Session | null;
+  sessions: Map<UUID, Session>;
   active_session_id: UUID | null;
-  active_character_id: UUID | null;
   is_generating: boolean;
-  showSettingsModal: boolean;
-  currentInputText: string;
-  
+  last_message_id: UUID | null;
+  trackerManagers: Map<UUID, any>;
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
-  sendMessage: (content: string, imageUrl?: string) => Promise<void>;
-  regenerateLastMessage: () => Promise<void>;
-  continueLastMessage: () => Promise<void>; // 🆕 ソロチャット続きを生成機能を追加
-  deleteMessage: (message_id: UUID) => void;
-  clearActiveConversation: () => void;
-  exportActiveConversation: () => void;
-  rollbackSession: (message_id: UUID) => void; // 新しいアクションを追加
-  setShowSettingsModal: (show: boolean) => void;
-  setCurrentInputText: (text: string) => void;
-  
-  // 🚨 緊急修復機能
-  resetGeneratingState: () => void; // 生成状態を強制リセット
-  
-  // For Sidebar
-  setActiveSessionId: (sessionId: UUID | null) => void;
+  setActiveSession: (sessionId: UUID) => void;
+  getActiveSession: () => Session | null; // 追加: アクティブセッションを取得
+  addMessage: (message: UnifiedMessage) => void;
+  updateMessage: (messageId: UUID, updates: Partial<UnifiedMessage>) => void;
+  generateMessage: (content: string, sessionId?: UUID) => Promise<void>;
+  continueGeneration: (sessionId?: UUID) => Promise<void>;
+  updateSessionCharacters: (sessionId: UUID, characters: Character[]) => void;
+  clearSession: (sessionId?: UUID) => void;
+  loadSessions: () => Promise<void>;
   deleteSession: (sessionId: UUID) => void;
-  clearAllSessions: () => void;
-  updateSession: (session: Partial<UnifiedChatSession> & { id: UUID }) => void;
-
-  getActiveSession: () => UnifiedChatSession | null;
-  getSessionMessages: (session_id: UUID) => UnifiedMessage[];
-  
-  // 履歴管理
-  saveSessionToHistory: (session_id: UUID) => Promise<void>;
-  loadSessionFromHistory: (session_id: UUID) => Promise<void>;
-  pinSession: (session_id: UUID, isPinned: boolean) => void;
-  
-  // ヘルパー関数
-  ensureTrackerManagerExists: (character: Character) => void;
+  exportChatHistory: () => void;
+  importChatHistory: (file: File) => Promise<void>;
+  regenerateMessage: (messageId: UUID) => Promise<void>;
+  editMessage: (messageId: UUID, newContent: string) => Promise<void>;
+  saveSession: (sessionId: UUID) => Promise<void>;
+  toggleSessionPin: (sessionId: UUID) => Promise<void>;
+  duplicateSession: (sessionId: UUID) => Promise<UUID>;
+  getSuggestedResponses: (sessionId?: UUID) => Promise<string[]>;
+  // 今日のセッション機能
+  getTodaySessionsIds: () => UUID[];
+  getTodaySessionsCount: () => number;
+  getThisWeekSessionsCount: () => number;
+  getThisMonthSessionsCount: () => number;
 }
 
-export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, get) => ({
-  sessions: new Map(),
-  trackerManagers: new Map(),
-  active_session_id: null,
-  active_character_id: null,
-  is_generating: false,
-  showSettingsModal: false,
-  currentInputText: '',
-  
-  createSession: async (character, persona) => {
-    const sessionId = generateSessionId();
-    const newSession: UnifiedChatSession = {
-      id: sessionId,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      version: 1,
-      participants: {
-        user: persona,
-        characters: [character],
-        active_character_ids: new Set([character.id])
-      },
-      messages: [
-        {
-          id: generateWelcomeMessageId(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          version: 1,
-          session_id: sessionId,
-          role: 'assistant',
-          content: character.first_message || `こんにちは！${character.name}です。何かお手伝いできることはありますか？`,
-          character_id: character.id,
-          character_name: character.name,
-          character_avatar: character.avatar_url,
-          memory: {
-            importance: { score: 0.5, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0, ai_judgment: 0.5 } },
-            is_pinned: false,
-            is_bookmarked: false,
-            keywords: ['greeting', 'introduction'],
-            summary: '挨拶メッセージ'
-          },
-          expression: {
-            emotion: { primary: 'happy', intensity: 0.8, emoji: '😊' },
-            style: { font_weight: 'normal', text_color: '#ffffff' },
-            effects: []
-          },
-          edit_history: [],
-          regeneration_count: 0,
-          metadata: {},
-          is_deleted: false
-        }
-      ],
-      message_count: 1,
-      memory_system: {
-        immediate_memory: { messages: [], max_size: 3, retention_policy: 'fifo', last_accessed: '', access_count: 0 },
-        working_memory: { messages: [], max_size: 10, retention_policy: 'importance', last_accessed: '', access_count: 0 },
-        episodic_memory: { messages: [], max_size: 50, retention_policy: 'relevance', last_accessed: '', access_count: 0 },
-        semantic_memory: { messages: [], max_size: 200, retention_policy: 'importance', last_accessed: '', access_count: 0 },
-        permanent_memory: { pinned_messages: [], memory_cards: [], summaries: [] }
-      },
-      state_management: {
-        trackers: new Map(),
-        mood_state: { current: 'neutral', intensity: 0.5 }
-      },
-      context: {
-        current_topic: 'greeting',
-        // ... other context properties
-      },
-      session_info: {
-        title: `${character.name}との会話`,
-        description: '新しい会話セッション',
-        tags: ['new-conversation', character.name.toLowerCase()]
-      },
-      statistics: {
-        user_engagement: 0.8,
-        conversation_quality: 0.9
-      }
-    };
+/**
+ * セッション名の生成
+ */
+function generateUniqueSessionName(existingSessions: Session[]): string {
+  const today = new Date();
+  const dateString = today.toLocaleDateString("ja-JP");
+  const timeString = today.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-    // Create and initialize TrackerManager for this character (not session)
-    const existingTrackerManager = get().trackerManagers.get(character.id);
-    let trackerManager = existingTrackerManager;
-    
-    if (!trackerManager) {
-      // 新しいキャラクターの場合のみTrackerManagerを作成
-      trackerManager = new TrackerManager();
-      trackerManager.initializeTrackerSet(character.id, character.trackers);
-    } else {
-    }
+  const baseName = `チャット ${dateString} ${timeString}`;
 
-    set(state => ({
-      sessions: new Map(state.sessions).set(newSession.id, newSession),
-      trackerManagers: new Map(state.trackerManagers).set(character.id, trackerManager), // characterIdをキーに変更
-      active_session_id: newSession.id,
-    }));
+  // 重複チェック
+  let counter = 1;
+  let finalName = baseName;
+  while (existingSessions.some((session) => session.name === finalName)) {
+    finalName = `${baseName} (${counter})`;
+    counter++;
+  }
 
-    return newSession.id;
-  },
+  return finalName;
+}
 
-  sendMessage: async (content, imageUrl) => {
-    // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
-    const state = get();
-    if (state.is_group_mode && state.active_group_session_id) {
-      return await state.sendGroupMessage(content, imageUrl);
-    }
-    
-    const activeSessionId = state.active_session_id;
-    if (!activeSessionId) return;
-    const activeSession = state.sessions.get(activeSessionId);
-    if (!activeSession) return;
+export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
+  set,
+  get
+) => {
+  // セッション統計計算のヘルパー関数
+  const getSessionsByDateRange = (days: number): Session[] => {
+    const now = new Date();
+    const targetDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-    if (state.is_generating) {
-      return;
-    }
-    set({ is_generating: true });
-    
-    // 1. ユーザーメッセージを作成
-    const userMessage: UnifiedMessage = {
-      id: generateUserMessageId(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      version: 1,
-      session_id: activeSessionId,
-      is_deleted: false,
-      role: 'user',
-      content,
-      image_url: imageUrl,
-      memory: {
-        importance: { score: 0.7, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.8, ai_judgment: 0.6 } },
-        is_pinned: false,
-        is_bookmarked: false,
-        keywords: [],
-        summary: undefined
-      },
-      expression: {
-        emotion: { primary: 'neutral', intensity: 0.5, emoji: '😐' },
-        style: { font_weight: 'normal', text_color: '#ffffff' },
-        effects: []
-      },
-      edit_history: [],
-      regeneration_count: 0,
-      metadata: {}
-    };
-    
-    // 2. ユーザーメッセージを即座にUIに反映
-    const sessionWithUserMessage = {
-        ...activeSession,
-        messages: [...activeSession.messages, userMessage],
-        message_count: activeSession.message_count + 1,
-        updated_at: new Date().toISOString(),
-    };
-    set(state => ({
-        sessions: new Map(state.sessions).set(activeSessionId, sessionWithUserMessage)
-    }));
+    return Array.from(get().sessions.values()).filter((session) => {
+      const sessionDate = new Date(session.created_at);
+      return sessionDate >= targetDate;
+    });
+  };
 
-    // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
-    const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
-    if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
-      setTimeout(async () => {
-        try {
-          const soloAnalyzer = new SoloEmotionAnalyzer();
-          const conversationalContext = {
-            recentMessages: sessionWithUserMessage.messages.slice(-5),
-            messageCount: sessionWithUserMessage.message_count,
-            activeCharacters: activeSession.participants.characters,
-            sessionType: 'solo' as const,
-            sessionId: activeSessionId,
-            sessionDuration: Math.floor((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000),
-            conversationPhase: 'development' as const
-          };
-          
-          const emotionResult = await soloAnalyzer.analyzeSoloEmotion(
-            userMessage,
-            conversationalContext,
-            activeSession.participants.characters[0]?.id || '',
-            'default_user'
-          );
-          
-          // 感情分析結果をメッセージに反映
-          const updatedUserMessage = {
-            ...userMessage,
-            expression: {
-              emotion: {
-                primary: emotionResult.emotion.primaryEmotion,
-                intensity: emotionResult.emotion.intensity,
-                emoji: getEmotionEmoji(emotionResult.emotion.primaryEmotion)
-              },
-              style: { font_weight: 'normal' as const, text_color: '#ffffff' },
-              effects: []
-            }
-          };
-          
-          // セッションを更新（非同期）
-          set(state => {
-            const currentSession = state.sessions.get(activeSessionId);
-            if (currentSession) {
-              const messageIndex = currentSession.messages.findIndex(m => m.id === userMessage.id);
-              if (messageIndex !== -1) {
-                const updatedMessages = [...currentSession.messages];
-                updatedMessages[messageIndex] = updatedUserMessage;
-                const updatedSession = { ...currentSession, messages: updatedMessages };
-                return {
-                  sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
-                };
-              }
-            }
-            return state;
-          });
-          
-        } catch (error) {
-          // User emotion analysis failed, continuing without emotion data
-        }
-      }, 0);
-    }
+  return {
+    session: null,
+    sessions: new Map(),
+    active_session_id: null,
+    is_generating: false,
+    last_message_id: null,
+    trackerManagers: new Map(),
 
-    // 3. AI応答生成などの重い処理を非同期で実行
-    (async () => {
-      try {
-        const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
-        
-
-        // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
-        const { basePrompt, enhancePrompt } = await promptBuilderService.buildPromptProgressive(
-            sessionWithUserMessage,
-            content, 
-            trackerManager
-        );
-        
-
-        const apiConfig = get().apiConfig;
-        // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
-        const requestId = `${activeSessionId}-${Date.now()}`;
-        const response = await apiRequestQueue.enqueueChatRequest(async () => {
-          
-          // 🔍 デバッグ: プロンプト品質検証 (無効化)
-          // if (process.env.NODE_ENV === 'development') {
-          //   const character = activeSession.participants.characters[0];
-          //   const validation = promptValidator.validatePrompt(basePrompt, character?.name || 'Character');
-          //   console.log('🔍 Prompt Validation:', validation);
-          //   
-          //   if (validation.recommendation === 'critical') {
-          //     console.error('🚨 Critical prompt issues detected:', validation.issues);
-          //   } else if (validation.recommendation === 'warning') {
-          //     console.warn('⚠️ Prompt warnings:', validation.issues);
-          //   }
-          // }
-          
-          // 軽量版で最初のAPIリクエストを開始
-          const initialResponse = await fetch('/api/chat/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemPrompt: basePrompt, // 最初はベースプロンプトで開始
-              userMessage: content,
-              conversationHistory: (() => {
-                // 重複除去と履歴クリーンアップ
-                const recentMessages = activeSession.messages.slice(-10); // 多めに取得して重複除去後に5件に絞る
-                const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-                
-                for (const msg of recentMessages) {
-                  const historyEntry = { role: msg.role, content: msg.content };
-                  
-                  // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
-                  const isDuplicate = deduplicatedHistory.some(existing => 
-                    existing.role === historyEntry.role && 
-                    existing.content === historyEntry.content
-                  );
-                  
-                  if (!isDuplicate && historyEntry.content.trim()) {
-                    deduplicatedHistory.push(historyEntry);
-                  }
-                }
-                
-                // 最終的に最新5件のみ返す
-                return deduplicatedHistory.slice(-5);
-              })(),
-              textFormatting: state.effectSettings.textFormatting,
-              apiConfig: {
-                ...apiConfig,
-                openRouterApiKey: get().openRouterApiKey,
-                geminiApiKey: get().geminiApiKey
-              },
-              useEnhancedPrompt: false // フラグで制御
-            }),
-          });
-
-          // 重量版が準備できたら、完全版で再度APIリクエスト
-          try {
-            const fullPrompt = await enhancePrompt();
-            
-            // 完全版でAPIリクエスト
-            return fetch('/api/chat/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemPrompt: fullPrompt, // 完全版を使用
-                userMessage: content,
-                conversationHistory: (() => {
-                  // 重複除去と履歴クリーンアップ
-                  const recentMessages = activeSession.messages.slice(-10);
-                  const deduplicatedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-                  
-                  for (const msg of recentMessages) {
-                    const historyEntry = { role: msg.role, content: msg.content };
-                    
-                    const isDuplicate = deduplicatedHistory.some(existing => 
-                      existing.role === historyEntry.role && 
-                      existing.content === historyEntry.content
-                    );
-                    
-                    if (!isDuplicate && historyEntry.content.trim()) {
-                      deduplicatedHistory.push(historyEntry);
-                    }
-                  }
-                  
-                  return deduplicatedHistory.slice(-5);
-                })(),
-                textFormatting: state.effectSettings.textFormatting,
-                apiConfig: {
-                  ...apiConfig,
-                  openRouterApiKey: get().openRouterApiKey,
-                  geminiApiKey: get().geminiApiKey
-                },
-                useEnhancedPrompt: true // 完全版フラグ
-              }),
-            });
-          } catch (error) {
-            // Enhanced prompt failed, using base prompt
-            return initialResponse; // フォールバック
-          }
-        }, requestId);
-        
-        // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
-        enhancePrompt().then(enhancedPrompt => {
-          // 将来のリクエストで使用するためにキャッシュ可能
-        }).catch(err => {
-          // Enhanced prompt failed, not critical
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'API request failed');
-        }
-
-        const data = await response.json();
-        const aiResponseContent = data.response;
-        
-        // 🔍 デバッグ: 応答品質検証（メタ発言チェック）
-        // TEMPORARILY DISABLED: promptValidator may cause infinite loading
-        // if (process.env.NODE_ENV === 'development') {
-        //   const character = activeSession.participants.characters[0];
-        //   const responseCheck = promptValidator.checkResponseForMeta(aiResponseContent, character?.name || 'Character');
-        //   
-        //   if (responseCheck.hasMeta) {
-        //     console.warn('⚠️ Meta conversation detected:', responseCheck);
-        //     console.warn('🔍 Response content:', aiResponseContent.substring(0, 200) + '...');
-        //   } else {
-        //     console.log('✅ Response looks good - no meta conversation detected');
-        //   }
-        // }
-        
-        // 🧠 感情分析: AI応答 (同期処理 - UI表示前)
-        let aiEmotionExpression = {
-          emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' },
-          style: { font_weight: 'normal' as const, text_color: '#ffffff' },
-          effects: []
-        };
-        
-        if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
-          try {
-            const soloAnalyzer = new SoloEmotionAnalyzer();
-            const currentSession = get().sessions.get(activeSessionId);
-            if (currentSession) {
-              const conversationalContext = {
-                recentMessages: currentSession.messages.slice(-5),
-                messageCount: currentSession.message_count + 1,
-                activeCharacters: activeSession.participants.characters,
-                sessionType: 'solo' as const,
-                sessionId: activeSessionId,
-                sessionDuration: Math.floor((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000),
-                conversationPhase: 'development' as const
-              };
-              
-              // 一時的なAI応答メッセージを作成して分析
-              const tempAiMessage: UnifiedMessage = {
-                id: generateAIMessageId(),
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                version: 1,
-                session_id: activeSessionId,
-                is_deleted: false,
-                role: 'assistant',
-                content: aiResponseContent,
-                character_id: activeSession.participants.characters[0]?.id,
-                memory: { importance: { score: 0.6, factors: { emotional_weight: 0.4, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.7 } }, is_pinned: false, is_bookmarked: false, keywords: [], summary: undefined },
-                expression: { emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' }, style: { font_weight: 'normal', text_color: '#ffffff' }, effects: [] },
-                edit_history: [],
-                regeneration_count: 0,
-                metadata: {}
-              };
-              
-              const aiEmotionResult = await soloAnalyzer.analyzeSoloEmotion(
-                tempAiMessage,
-                conversationalContext,
-                activeSession.participants.characters[0]?.id || '',
-                'default_user'
-              );
-              
-              aiEmotionExpression = {
-                emotion: {
-                  primary: aiEmotionResult.emotion.primaryEmotion,
-                  intensity: aiEmotionResult.emotion.intensity,
-                  emoji: getEmotionEmoji(aiEmotionResult.emotion.primaryEmotion)
-                },
-                style: { font_weight: 'normal' as const, text_color: '#ffffff' },
-                effects: []
-              };
-              
-            }
-          } catch (error) {
-            // AI emotion analysis failed, continuing without emotion data
-          }
-        }
-
-        const aiResponse: UnifiedMessage = {
-            id: generateAIMessageId(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            version: 1,
-            session_id: activeSessionId,
-            is_deleted: false,
-            role: 'assistant',
-            content: aiResponseContent,
-            character_id: activeSession.participants.characters[0]?.id,
-            character_name: activeSession.participants.characters[0]?.name,
-            character_avatar: activeSession.participants.characters[0]?.avatar_url,
-            memory: {
-                importance: { score: 0.6, factors: { emotional_weight: 0.4, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.7 } },
-                is_pinned: false,
-                is_bookmarked: false,
-                keywords: ['response'],
-                summary: 'ユーザーの質問への回答'
-            },
-            expression: aiEmotionExpression,
-            edit_history: [],
-            regeneration_count: 0,
-            metadata: {}
-        };
-        
-        const finalSession = get().sessions.get(activeSessionId)!;
-        const sessionWithAiResponse = {
-            ...finalSession,
-            messages: [...finalSession.messages, aiResponse],
-            message_count: finalSession.message_count + 1,
-            updated_at: new Date().toISOString(),
-        };
-        set(state => ({
-            sessions: new Map(state.sessions).set(activeSessionId, sessionWithAiResponse),
-        }));
-
-        // パフォーマンス最適化: 後処理作業を完全にバックグラウンド化
-        // ⚡ パフォーマンス最適化: 後処理をバックグラウンドキューで処理しUIを完全非ブロッキング化
-        setTimeout(() => {
-          Promise.allSettled([
-            // 🧠 emotional_memory_enabled設定チェックを追加
-            get().emotionalIntelligenceFlags.emotional_memory_enabled ? autoMemoryManager.processNewMessage(
-              aiResponse,
-              activeSessionId,
-              activeSession.participants.characters[0]?.id,
-              get().createMemoryCard
-            ) : Promise.resolve(null),
-            // 🎯 autoTrackerUpdate設定チェックを追加
-            trackerManager && characterId && get().effectSettings.autoTrackerUpdate ? Promise.all([
-              trackerManager.analyzeMessageForTrackerUpdates(userMessage, characterId),
-              trackerManager.analyzeMessageForTrackerUpdates(aiResponse, characterId)
-            ]) : Promise.resolve([])
-          ]).then(results => {
-            const memoryResult = results[0];
-            const trackerResult = results[1];
-            
-            if (memoryResult.status === 'rejected') {
-              console.error('🧠 Auto-memory processing failed:', memoryResult.reason);
-            } else {
-            }
-            
-            if (trackerResult.status === 'rejected') {
-              console.error('🎯 Tracker analysis failed:', trackerResult.reason);
-            } else if (trackerResult.status === 'fulfilled' && trackerResult.value) {
-              const allUpdates = trackerResult.value.flat();
-            }
-            
-          }).catch(error => {
-            console.error('⚠️ Background processing error:', error);
-          });
-        }, 0); // 次のEvent Loopで実行しUIをブロックしない
-
-      } catch (error) {
-        console.error('AI応答生成エラー:', error);
-        // TODO: UIにエラーメッセージを表示
-      } finally {
-        set({ is_generating: false });
-      }
-    })();
-  },
-
-  regenerateLastMessage: async () => {
-    set({ is_generating: true });
-    try {
-      const activeSessionId = get().active_session_id;
-      if (!activeSessionId) {
-        return;
-      }
-      
-      const session = get().sessions.get(activeSessionId);
-      // C案：より堅牢なチェック
-      if (!session || session.messages.length < 2) {
-        return;
-      }
-
-      // 最後のAIメッセージとその直前のユーザーメッセージを見つける
-      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
-      if (lastAiMessageIndex <= 0) { // Should be at least the second message
-        return;
-      }
-
-      const lastUserMessage = session.messages[lastAiMessageIndex - 1];
-      if (!lastUserMessage || lastUserMessage.role !== 'user' || lastUserMessage.is_deleted) {
-        return;
-      }
-
-      const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
-
-      const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
-      
-      // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
-      const regeneratePrompt = `以下のメッセージに対して、キャラクターとして応答してください。前回とは異なる角度や表現で、新鮮で創造的な応答を生成してください。
-
-ユーザーメッセージ: "${lastUserMessage.content}"`;
-
-      let systemPrompt = await promptBuilderService.buildPrompt(
-        { ...session, messages: messagesForPrompt },
-        regeneratePrompt,
-        trackerManager
-      );
-      
-      // 再生成専用の指示を追加
-      const regenerateInstruction = `
-<regenerate_instruction>
-**重要**: これは再生成リクエストです。
-- 前回の応答とは全く異なるアプローチで応答してください
-- 新しい視点、感情、表現を使用してください  
-- 同じパターンや言い回しを避けてください
-- キャラクターの別の面を表現してください
-- 創造性と多様性を重視してください
-</regenerate_instruction>
-`;
-      systemPrompt += regenerateInstruction;
-
-      const conversationHistory = messagesForPrompt
-        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .slice(-10)
-        .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
-
-      const apiConfig = get().apiConfig;
-      // C案：temperatureをより大きく上げ、seedを追加して多様性を確保
-      const regenerationApiConfig = {
-        ...apiConfig,
-        temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.3), // 上昇幅を0.3に増加
-        seed: Math.floor(Math.random() * 1000000), // B案：ランダムなseedを追加
-        openRouterApiKey: get().openRouterApiKey,
-        geminiApiKey: get().geminiApiKey
-      };
-
-      const response = await fetch('/api/chat/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              systemPrompt,
-              userMessage: lastUserMessage.content,
-              conversationHistory,
-              textFormatting: get().effectSettings.textFormatting,
-              apiConfig: regenerationApiConfig
-          }),
+    createSession: async (character, persona) => {
+      console.log("🔍 createSession called with:", {
+        characterId: character.id,
+        characterName: character.name,
+        personaId: persona.id,
+        personaName: persona.name,
       });
 
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'API request failed during regeneration');
-      }
+      const sessionId = crypto.randomUUID();
+      const existingSessions = Array.from(get().sessions.values());
 
-      const data = await response.json();
-      const aiResponseContent = data.response;
-      
-      const newAiMessage: UnifiedMessage = {
-        ...session.messages[lastAiMessageIndex],
-        id: generateAIMessageId(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        content: aiResponseContent,
-        regeneration_count: (session.messages[lastAiMessageIndex].regeneration_count || 0) + 1,
-      };
-
-      const newMessages = [...session.messages];
-      newMessages[lastAiMessageIndex] = newAiMessage;
-
-      set(_state => {
-        const updatedSession = {
-          ...session,
-          messages: newMessages,
-          updated_at: new Date().toISOString(),
-        };
-        return {
-          sessions: new Map(_state.sessions).set(session.id, updatedSession)
-        };
-      });
-    } catch (error) {
-        console.error("Regeneration failed:", error);
-    } finally {
-        set({ is_generating: false });
-    }
-  },
-
-  // 🆕 ソロチャット続きを生成機能
-  continueLastMessage: async () => {
-    set({ is_generating: true });
-    try {
-      const activeSessionId = get().active_session_id;
-      if (!activeSessionId) {
-        return;
-      }
-      
-      const session = get().sessions.get(activeSessionId);
-      if (!session || session.messages.length === 0) {
-        return;
-      }
-
-      // 最後のAIメッセージを見つける
-      const lastAiMessageIndex = session.messages.findLastIndex(m => m.role === 'assistant' && !m.is_deleted);
-      if (lastAiMessageIndex === -1) {
-        return;
-      }
-
-      const lastAiMessage = session.messages[lastAiMessageIndex];
-      const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
-      
-      // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
-      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
-      
-      let systemPrompt = await promptBuilderService.buildPrompt(
-        session,
-        continuePrompt,
-        trackerManager
-      );
-
-      const { apiManager } = await import('@/services/api-manager');
-      
-      const conversationHistory = session.messages
-        .filter(m => !m.is_deleted)
-        .slice(-10) // 最新10件の履歴を使用
-        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-
-      const apiConfig = get().apiConfig || {};
-      const openRouterApiKey = get().openRouterApiKey;
-      const geminiApiKey = get().geminiApiKey;
-
-      const aiResponse = await apiManager.generateMessage(
-        systemPrompt,
-        continuePrompt,
-        conversationHistory,
-        { ...apiConfig, openRouterApiKey, geminiApiKey }
-      );
-
-      // 新しい続きメッセージを作成
-      const newContinuationMessage: UnifiedMessage = {
-        id: generateAIMessageId(),
+      const newSession: Session = {
+        id: sessionId,
+        name: generateUniqueSessionName(existingSessions),
+        character,
+        persona,
+        messages: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
-        session_id: activeSessionId,
-        role: 'assistant',
-        content: aiResponse,
-        character_id: session.participants.characters[0]?.id,
-        memory: {
-          importance: { score: 0.6, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.7 } },
-          is_pinned: false,
-          is_bookmarked: false,
-          keywords: [],
+        memory_layer: {
+          immediate_memory: [],
+          working_memory: [],
+          episodic_memory: [],
+          semantic_memory: [],
+          permanent_memory: [],
         },
-        expression: {
-          emotion: { primary: 'neutral', intensity: 0.6, emoji: '💬' },
-          style: { font_weight: 'normal', text_color: '#ffffff' },
-          effects: []
-        },
-        edit_history: [],
-        regeneration_count: 0,
-        is_deleted: false,
-        metadata: { 
-          is_continuation: true,
-          continuation_of: lastAiMessage.id,
-          continuation_count: (typeof (lastAiMessage.metadata as any)?.continuation_count === 'number' ? (lastAiMessage.metadata as any).continuation_count : 0) + 1
-        }
+        is_pinned: false,
       };
 
-      // セッションにメッセージを追加
-      set(state => {
-        const currentSession = state.sessions.get(activeSessionId);
-        if (!currentSession) return state;
+      console.log("🆕 新しいセッション作成:", {
+        id: newSession.id,
+        name: newSession.name,
+        characterId: newSession.character.id,
+        personaId: newSession.persona.id,
+      });
 
-        const updatedMessages = [...currentSession.messages, newContinuationMessage];
-        const updatedSession = {
-          ...currentSession,
-          messages: updatedMessages,
-          message_count: updatedMessages.length,
-          updated_at: new Date().toISOString(),
-        };
-        
+      // 🎯 キャラクターのトラッカーマネージャーを初期化
+      const trackerManager = new TrackerManager();
+      if (character.trackers && character.trackers.length > 0) {
+        console.log(
+          "🎯 トラッカーマネージャー初期化開始:",
+          character.trackers.length,
+          "個のトラッカー"
+        );
+        trackerManager.initializeTrackerSet(character.id, character.trackers);
+      }
+
+      set((state) => {
+        const newSessions = new Map(state.sessions);
+        newSessions.set(sessionId, newSession);
+
+        const newTrackerManagers = new Map(state.trackerManagers);
+        newTrackerManagers.set(sessionId, trackerManager);
+
         return {
-          sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+          sessions: newSessions,
+          session: newSession,
+          active_session_id: sessionId,
+          last_message_id: null,
+          trackerManagers: newTrackerManagers,
         };
       });
 
-    } catch (error) {
-        console.error("Continue failed:", error);
-    } finally {
-        set({ is_generating: false });
-    }
-  },
+      console.log("✅ セッション作成完了:", sessionId);
+      return sessionId;
+    },
 
-  rollbackSession: (message_id) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-
-    const session = get().sessions.get(activeSessionId);
-    if (!session) return;
-
-    const messageIndex = session.messages.findIndex(m => m.id === message_id);
-    if (messageIndex === -1) {
-      console.error('Rollback failed: message not found');
-      return;
-    }
-
-    // 1. チャット履歴を切り詰める
-    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
-    
-    const updatedSession = {
-      ...session,
-      messages: rollbackMessages,
-      message_count: rollbackMessages.length,
-      updated_at: new Date().toISOString(),
-    };
-
-    set(state => ({
-      sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
-    }));
-
-    // 2. ConversationManagerのキャッシュをクリア
-    promptBuilderService.clearManagerCache(activeSessionId);
-
-    // 3. トラッカーをリセット
-    const characterId = session.participants.characters[0]?.id;
-    if (characterId) {
-      const trackerManager = get().trackerManagers.get(characterId);
-      if (trackerManager) {
-        // 全てのトラッカーを初期値にリセット
-        trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
-      }
-    }
-    
-  },
-
-  deleteMessage: (message_id) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-    
-    const activeSession = get().sessions.get(activeSessionId);
-    if(activeSession) {
-        const updatedMessages = activeSession.messages.filter(msg => msg.id !== message_id);
-        const updatedSession = { 
-            ...activeSession, 
-            messages: updatedMessages,
-            message_count: updatedMessages.length,
-            updated_at: new Date().toISOString()
-        };
-        set(_state => ({
-            sessions: new Map(_state.sessions).set(activeSessionId, updatedSession)
-        }));
-    }
-  },
-
-  getActiveSession: () => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return null;
-    return get().sessions.get(activeSessionId) || null;
-  },
-
-  getSessionMessages: (session_id) => {
-    return get().sessions.get(session_id)?.messages || [];
-  },
-
-  clearActiveConversation: () => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-    
-    const activeSession = get().sessions.get(activeSessionId);
-    if (activeSession) {
-      // 挨拶メッセージのみ残して他のメッセージをクリア
-      const greetingMessage = activeSession.messages[0];
-      const clearedSession = {
-        ...activeSession,
-        messages: [greetingMessage],
-        message_count: 1,
-        updated_at: new Date().toISOString(),
-      };
-      
-      set(_state => ({
-        sessions: new Map(_state.sessions).set(activeSessionId, clearedSession)
-      }));
-    }
-  },
-
-  exportActiveConversation: () => {
-    const activeSession = get().getActiveSession();
-    if (!activeSession) return;
-    
-    const exportData = {
-      session_id: activeSession.id,
-      title: activeSession.session_info.title,
-      created_at: activeSession.created_at,
-      character: activeSession.participants.characters[0]?.name,
-      messages: activeSession.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.created_at,
-        character: msg.character_name
-      }))
-    };
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `conversation-${activeSession.session_info.title}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  },
-
-  setShowSettingsModal: (show) => {
-    set({ showSettingsModal: show });
-  },
-
-  setCurrentInputText: (text) => {
-    set({ currentInputText: text });
-  },
-
-  // 🚨 緊急修復機能: 生成状態を強制リセット
-  resetGeneratingState: () => {
-    set({ is_generating: false });
-  },
-
-  // For Sidebar
-  setActiveSessionId: (sessionId) => {
-    if (sessionId) {
+    setActiveSession: (sessionId) => {
+      console.log("🔍 setActiveSession called with sessionId:", sessionId);
       const session = get().sessions.get(sessionId);
       if (session) {
-        // セッションのキャラクターのトラッカーマネージャーが存在しない場合は初期化
-        const trackerManagers = get().trackerManagers;
-        // 一つのセッションには一つのトラッカーマネージャー（複数キャラクター対応）
-        if (!trackerManagers.has(sessionId)) {
-          const trackerManager = new TrackerManager();
-          // 各キャラクターのトラッカーを初期化
-          session.participants.characters.forEach(character => {
-            trackerManager.initializeTrackerSet(character.id, character.trackers);
-          });
-          trackerManagers.set(sessionId, trackerManager);
-        }
-        
-        // TrackerManagersを更新
-        set(_state => ({
-          trackerManagers: new Map(trackerManagers),
-          active_session_id: sessionId
-        }));
+        console.log("✅ セッションが見つかりました:", {
+          sessionId,
+          sessionName: session.name,
+          messageCount: session.messages.length,
+        });
+        set({
+          session,
+          active_session_id: sessionId,
+          last_message_id:
+            session.messages.length > 0
+              ? session.messages[session.messages.length - 1].id
+              : null,
+        });
       } else {
-        set({ active_session_id: sessionId });
+        console.error("❌ セッションが見つかりません:", sessionId);
+        set({
+          session: null,
+          active_session_id: null,
+          last_message_id: null,
+        });
       }
-    } else {
-      set({ active_session_id: sessionId });
-    }
-  },
-  deleteSession: (sessionId) => {
-    set(state => {
-      const newSessions = new Map(state.sessions);
-      newSessions.delete(sessionId);
-      
-      let newActiveSessionId = state.active_session_id;
-      // If the deleted session was the active one, switch to another session
-      if (state.active_session_id === sessionId) {
-        newActiveSessionId = newSessions.keys().next().value || null;
+    },
+
+    getActiveSession: () => {
+      const { active_session_id, sessions } = get();
+      if (!active_session_id) return null;
+      return sessions.get(active_session_id) || null;
+    },
+
+    addMessage: (message) => {
+      const { session, sessions, active_session_id } = get();
+
+      if (!session || !active_session_id) {
+        console.error("❌ アクティブなセッションがありません");
+        return;
       }
 
-      return { 
-        sessions: newSessions,
-        active_session_id: newActiveSessionId
+      const updatedSession = {
+        ...session,
+        messages: [...session.messages, message],
+        updated_at: new Date().toISOString(),
       };
-    });
-  },
-  
-  clearAllSessions: () => {
-    set(() => ({
-      sessions: new Map(),
-      active_session_id: null,
-      trackerManagers: new Map()
-    }));
-  },
-  updateSession: (session) => {
-    set(_state => {
-      const targetSession = _state.sessions.get(session.id);
-      if (targetSession) {
-        const updatedSession = { ...targetSession, ...session };
-        const newSessions = new Map(_state.sessions).set(session.id, updatedSession);
-        return { sessions: newSessions };
+
+      const newSessions = new Map(sessions);
+      newSessions.set(active_session_id, updatedSession);
+
+      set({
+        session: updatedSession,
+        sessions: newSessions,
+        last_message_id: message.id,
+      });
+
+      console.log(`✅ メッセージ追加: ${message.content.slice(0, 50)}...`);
+    },
+
+    updateMessage: (messageId, updates) => {
+      const { session, sessions, active_session_id } = get();
+
+      if (!session || !active_session_id) {
+        console.error("❌ アクティブなセッションがありません");
+        return;
       }
-      return _state;
-    });
-  },
 
-  // 履歴管理: セッションを履歴として保存
-  saveSessionToHistory: async (session_id) => {
-    const session = get().sessions.get(session_id);
-    if (!session) return;
-    
-    try {
-      const response = await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(session)
-      });
-      
-      if (!response.ok) throw new Error('Failed to save history');
-    } catch (error) {
-      console.error('Error saving session to history:', error);
-    }
-  },
-  
-  // 履歴管理: 履歴からセッションを読み込み
-  loadSessionFromHistory: async (session_id) => {
-    try {
-      const response = await fetch(`/data/history/${session_id}.json`);
-      if (!response.ok) throw new Error('History not found');
-      
-      const sessionData = await response.json();
-      
-      set(state => ({
-        sessions: new Map(state.sessions).set(session_id, sessionData),
-        active_session_id: session_id
-      }));
-      
-    } catch (error) {
-      console.error('Error loading session from history:', error);
-    }
-  },
-  
-  // 履歴管理: セッションのピン留め
-  pinSession: (session_id, isPinned) => {
-    set(state => {
-      const session = state.sessions.get(session_id);
-      if (!session) return state;
-      
-      const updatedSession = { ...session, isPinned };
-      const newSessions = new Map(state.sessions).set(session_id, updatedSession);
-      
-      // APIに更新を送信
-      fetch('/api/history', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: session_id, updates: { isPinned } })
-      }).catch(error => {
-        // Storage initialization failed, not critical
-      });
-      
-      return { sessions: newSessions };
-    });
-  },
+      const updatedMessages = session.messages.map((msg) =>
+        msg.id === messageId ? { ...msg, ...updates } : msg
+      );
 
-  // ヘルパー関数: トラッカーマネージャーの存在を確保
-  ensureTrackerManagerExists: (character) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-    
-    const trackerManagers = get().trackerManagers;
-    if (!trackerManagers.has(activeSessionId)) {
-      const trackerManager = new TrackerManager();
-      trackerManager.initializeTrackerSet(character.id, character.trackers);
-      trackerManagers.set(activeSessionId, trackerManager);
-      
-      set(_state => ({
-        trackerManagers: new Map(trackerManagers)
-      }));
-      
-    }
-  },
-});
+      const updatedSession = {
+        ...session,
+        messages: updatedMessages,
+        updated_at: new Date().toISOString(),
+      };
+
+      const newSessions = new Map(sessions);
+      newSessions.set(active_session_id, updatedSession);
+
+      set({
+        session: updatedSession,
+        sessions: newSessions,
+      });
+
+      console.log(`✅ メッセージ更新: ${messageId}`);
+    },
+
+    generateMessage: async (content, sessionId) => {
+      console.log("🤖 メッセージ生成開始:", {
+        content: content.slice(0, 50),
+        sessionId,
+      });
+
+      const currentSession = sessionId
+        ? get().sessions.get(sessionId)
+        : get().session;
+      const currentSessionId = sessionId || get().active_session_id;
+
+      if (!currentSession || !currentSessionId) {
+        console.error("❌ セッションが見つかりません");
+        return;
+      }
+
+      try {
+        // 生成状態を設定
+        set({ is_generating: true });
+
+        // ユーザーメッセージの重複追加を防止（直前にUI側で追加された場合）
+        const lastMsg =
+          currentSession.messages[currentSession.messages.length - 1];
+        let userMessageId = crypto.randomUUID();
+        if (
+          !(lastMsg && lastMsg.sender === "user" && lastMsg.content === content)
+        ) {
+          const userMessage: UnifiedMessage = {
+            id: userMessageId,
+            content,
+            sender: "user",
+            timestamp: new Date().toISOString(),
+            type: "text",
+            persona: currentSession.persona,
+          };
+          // 💾 ストア更新（UI側で先に追加していない時のみ）
+          get().addMessage(userMessage);
+        } else {
+          // 直前のユーザーメッセージを使う
+          userMessageId = lastMsg.id;
+        }
+
+        // 💾 感情分析を無効化して即座に保存
+        const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
+        if (!emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+          // 感情分析が無効の場合のみ即座に保存
+          console.log("💾 感情分析無効時の即座保存");
+        }
+
+        // 💾 ユーザーメッセージ保存のためのジョブを後で実行
+        setTimeout(async () => {
+          try {
+            console.log("💾 ユーザーメッセージの保存処理開始");
+
+            // 💾 手動保存でMap型を適切に処理
+            const currentState = get();
+            const serializedState = {
+              state: {
+                sessions:
+                  currentState.sessions instanceof Map
+                    ? {
+                        _type: "map",
+                        value: Array.from(currentState.sessions.entries()),
+                      }
+                    : currentState.sessions,
+                active_session_id: currentState.active_session_id,
+                trackerManagers:
+                  currentState.trackerManagers instanceof Map
+                    ? {
+                        _type: "map",
+                        value: Array.from(
+                          currentState.trackerManagers.entries()
+                        ),
+                      }
+                    : currentState.trackerManagers,
+                groupSessions: currentState.groupSessions,
+                active_group_session_id: currentState.active_group_session_id,
+                is_group_mode: currentState.is_group_mode,
+                characters: currentState.characters,
+                selectedCharacterId: currentState.selectedCharacterId,
+                personas:
+                  currentState.personas instanceof Map
+                    ? {
+                        _type: "map",
+                        value: Array.from(currentState.personas.entries()),
+                      }
+                    : currentState.personas,
+                activePersonaId: currentState.activePersonaId,
+                apiConfig: currentState.apiConfig,
+                memory_cards: currentState.memory_cards,
+                effectSettings: currentState.effectSettings,
+                emotionalIntelligenceFlags:
+                  currentState.emotionalIntelligenceFlags,
+              },
+              version: 1,
+            };
+
+            localStorage.setItem(
+              "ai-chat-v3-storage",
+              JSON.stringify(serializedState)
+            );
+            console.log(
+              "💾 ユーザーメッセージがローカルストレージに保存されました"
+            );
+          } catch (error) {
+            console.error("❗ ユーザーメッセージの保存に失敗:", error);
+          }
+        }, 50); // 50ms後に実行
+
+        // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
+        if (get().emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+          setTimeout(async () => {
+            try {
+              console.log("🧠 感情分析開始...");
+              const currentSession = get().session;
+              if (currentSession) {
+                const emotionData = await soloEmotionAnalyzer.analyzeMessage(
+                  content,
+                  currentSession.character,
+                  currentSession.persona
+                );
+
+                if (emotionData) {
+                  console.log("🧠 感情分析完了:", emotionData);
+
+                  // 感情分析結果をメッセージに追加
+                  get().updateMessage(userMessageId, {
+                    emotion_analysis: emotionData,
+                  });
+                }
+              }
+            } catch (error) {
+              console.warn("🧠 感情分析でエラーが発生:", error);
+            }
+          }, 100);
+        }
+
+        // API生成リクエスト作成
+        const requestId = crypto.randomUUID();
+        // プロンプト用メッセージ（UI側で直前に追加済みなら重複させない）
+        const lastForPrompt =
+          currentSession.messages[currentSession.messages.length - 1];
+        const appendUser = !(
+          lastForPrompt &&
+          lastForPrompt.sender === "user" &&
+          lastForPrompt.content === content
+        );
+        const messages = appendUser
+          ? [
+              ...currentSession.messages,
+              {
+                id: userMessageId,
+                content,
+                sender: "user",
+                timestamp: new Date().toISOString(),
+                type: "text",
+                persona: currentSession.persona,
+              } as any,
+            ]
+          : [...currentSession.messages];
+
+        // プロンプトを構築
+        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+          currentSession.character,
+          currentSession.persona,
+          messages
+        );
+
+        console.log("🤖 プロンプト構築完了");
+
+        // ベースプロンプトでの最初の生成リクエスト（一部機能を制限）
+        const basePrompt = await promptBuilderService.buildBaseSystemPrompt(
+          currentSession.character,
+          currentSession.persona
+        );
+
+        console.log("🤖 API生成リクエスト開始...");
+
+        // API生成リクエスト
+        const request: APIRequest = {
+          id: requestId,
+          type: "chat",
+          priority: 1,
+          timestamp: Date.now(),
+          request: async () => {
+            console.log("🤖 API実際のリクエスト処理開始");
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemPrompt: basePrompt, // 最初はベースプロンプトで開始
+                userMessage: content,
+                sessionId: currentSessionId,
+                characterId: currentSession.character.id,
+                personaId: currentSession.persona.id,
+                conversation: messages.map((msg, index) => ({
+                  role: msg.sender === "user" ? "user" : "assistant",
+                  content: msg.content,
+                  message_id: msg.id,
+                  timestamp: msg.timestamp,
+                  index,
+                })),
+              }),
+            });
+
+            console.log("🤖 APIレスポンス受信");
+
+            if (!response.ok) {
+              throw new Error(`チャット API エラー: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("🤖 AIレスポンス:", data.message?.slice(0, 100));
+
+            // AIメッセージを追加
+            const aiMessage: UnifiedMessage = {
+              id: crypto.randomUUID(),
+              content:
+                data.message ||
+                "申し訳ございませんが、応答を生成できませんでした。",
+              sender: "ai",
+              timestamp: new Date().toISOString(),
+              type: "text",
+              character: currentSession.character,
+            };
+
+            get().addMessage(aiMessage);
+
+            // 🤖 パフォーマンス最適化: フル機能での再生成をバックグラウンドで実行
+            setTimeout(async () => {
+              try {
+                console.log("🤖 フル機能での再生成開始...");
+                const fullResponse = await fetch("/api/chat", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    systemPrompt: systemPrompt, // 完全版を使用
+                    userMessage: content,
+                    sessionId: currentSessionId,
+                    characterId: currentSession.character.id,
+                    personaId: currentSession.persona.id,
+                    conversation: [...messages, aiMessage].map(
+                      (msg, index) => ({
+                        role: msg.sender === "user" ? "user" : "assistant",
+                        content: msg.content,
+                        message_id: msg.id,
+                        timestamp: msg.timestamp,
+                        index,
+                      })
+                    ),
+                    enhancedMode: true, // フル機能モードを示すフラグ
+                  }),
+                });
+
+                if (fullResponse.ok) {
+                  const fullData = await fullResponse.json();
+                  console.log(
+                    "🤖 フル機能レスポンス受信:",
+                    fullData.message?.slice(0, 100)
+                  );
+
+                  // メッセージ内容を更新（より豊富な内容に置き換え）
+                  if (
+                    fullData.message &&
+                    fullData.message !== aiMessage.content
+                  ) {
+                    get().updateMessage(aiMessage.id, {
+                      content: fullData.message,
+                    });
+                    console.log("🤖 フル機能でのメッセージ更新完了");
+                  }
+                }
+              } catch (fullError) {
+                console.warn(
+                  "🤖 フル機能での再生成はスキップされました:",
+                  fullError
+                );
+              }
+            }, 2000); // 2秒後に実行
+
+            // セッション更新通知
+            console.log("✅ メッセージ生成完了");
+          },
+        };
+
+        await apiRequestQueue.addRequest(request);
+      } catch (error) {
+        console.error("❌ メッセージ生成エラー:", error);
+        set({ is_generating: false });
+      } finally {
+        set({ is_generating: false });
+      }
+    },
+
+    continueGeneration: async (sessionId) => {
+      console.log("🔄 生成続行開始...", sessionId);
+
+      const currentSession = sessionId
+        ? get().sessions.get(sessionId)
+        : get().session;
+      const currentSessionId = sessionId || get().active_session_id;
+
+      if (!currentSession || !currentSessionId) {
+        console.error("❌ セッションが見つかりません");
+        return;
+      }
+
+      try {
+        set({ is_generating: true });
+
+        const lastUserMessage = [...currentSession.messages]
+          .reverse()
+          .find((msg) => msg.sender === "user");
+        if (!lastUserMessage) {
+          console.error("❌ ユーザーメッセージが見つかりません");
+          return;
+        }
+
+        // プロンプトを構築
+        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+          currentSession.character,
+          currentSession.persona,
+          currentSession.messages
+        );
+
+        console.log("🔄 続行リクエスト開始...");
+
+        const continuePrompt = "先ほどの回答を引き続きお願いします。";
+
+        const requestId = crypto.randomUUID();
+        const request: APIRequest = {
+          id: requestId,
+          type: "continue",
+          priority: 1,
+          timestamp: Date.now(),
+          request: async () => {
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemPrompt,
+                userMessage: continuePrompt,
+                sessionId: currentSessionId,
+                characterId: currentSession.character.id,
+                personaId: currentSession.persona.id,
+                conversation: currentSession.messages.map((msg, index) => ({
+                  role: msg.sender === "user" ? "user" : "assistant",
+                  content: msg.content,
+                  message_id: msg.id,
+                  timestamp: msg.timestamp,
+                  index,
+                })),
+                continueGeneration: true,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`続行生成 API エラー: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // 新しいAIメッセージを追加
+            const aiMessage: UnifiedMessage = {
+              id: crypto.randomUUID(),
+              content: data.message || "続行に失敗しました。",
+              sender: "ai",
+              timestamp: new Date().toISOString(),
+              type: "text",
+              character: currentSession.character,
+            };
+
+            get().addMessage(aiMessage);
+            console.log("✅ 生成続行完了");
+          },
+        };
+
+        await apiRequestQueue.addRequest(request);
+      } catch (error) {
+        console.error("❌ 生成続行エラー:", error);
+      } finally {
+        set({ is_generating: false });
+      }
+    },
+
+    updateSessionCharacters: (sessionId, characters) => {
+      const sessions = get().sessions;
+      const targetSession = sessions.get(sessionId);
+
+      if (!targetSession) {
+        console.error("❌ セッションが見つかりません:", sessionId);
+        return;
+      }
+
+      // 最初のキャラクターをメインキャラクターとして設定
+      const mainCharacter = characters[0];
+      if (!mainCharacter) {
+        console.error("❌ キャラクターが指定されていません");
+        return;
+      }
+
+      const updatedSession = {
+        ...targetSession,
+        character: mainCharacter,
+        updated_at: new Date().toISOString(),
+      };
+
+      const newSessions = new Map(sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      set({
+        sessions: newSessions,
+        session:
+          get().active_session_id === sessionId
+            ? updatedSession
+            : get().session,
+      });
+
+      console.log("✅ セッションキャラクター更新:", mainCharacter.name);
+    },
+
+    clearSession: (sessionId) => {
+      const targetSessionId = sessionId || get().active_session_id;
+      const sessions = get().sessions;
+      const targetSession = sessions.get(targetSessionId!);
+
+      if (!targetSession) {
+        console.error("❌ セッションが見つかりません:", targetSessionId);
+        return;
+      }
+
+      const clearedSession = {
+        ...targetSession,
+        messages: [],
+        updated_at: new Date().toISOString(),
+      };
+
+      const newSessions = new Map(sessions);
+      newSessions.set(targetSessionId!, clearedSession);
+
+      set({
+        sessions: newSessions,
+        session:
+          get().active_session_id === targetSessionId
+            ? clearedSession
+            : get().session,
+      });
+
+      console.log("🗑️ セッションクリア完了:", targetSessionId);
+    },
+
+    loadSessions: async () => {
+      console.log("📁 セッション読み込み開始...");
+
+      try {
+        const response = await fetch("/api/sessions");
+        if (!response.ok) {
+          console.error("❌ セッション一覧取得失敗:", response.status);
+          return;
+        }
+
+        const sessionsData = await response.json();
+        console.log("📁 セッションデータ受信:", sessionsData.length);
+
+        const sessionsMap = new Map<UUID, Session>();
+
+        for (const sessionData of sessionsData) {
+          const session: Session = {
+            id: sessionData.id,
+            name: sessionData.name || "無名セッション",
+            character: sessionData.character,
+            persona: sessionData.persona,
+            messages: sessionData.messages || [],
+            created_at: sessionData.created_at,
+            updated_at: sessionData.updated_at || sessionData.created_at,
+            version: sessionData.version || 1,
+            memory_layer: sessionData.memory_layer || {
+              immediate_memory: [],
+              working_memory: [],
+              episodic_memory: [],
+              semantic_memory: [],
+              permanent_memory: [],
+            },
+            is_pinned: sessionData.is_pinned || false,
+          };
+
+          sessionsMap.set(session.id, session);
+        }
+
+        set({ sessions: sessionsMap });
+        console.log("✅ セッション読み込み完了:", sessionsMap.size);
+      } catch (error) {
+        console.error("❌ セッション読み込みエラー:", error);
+      }
+    },
+
+    deleteSession: async (sessionId) => {
+      console.log("🗑️ セッション削除開始:", sessionId);
+
+      const sessions = get().sessions;
+      const targetSession = sessions.get(sessionId);
+
+      if (!targetSession) {
+        console.error("❌ 削除対象セッションが見つかりません:", sessionId);
+        return;
+      }
+
+      try {
+        // サーバーから削除
+        const response = await fetch(`/api/sessions/${sessionId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          console.error("❌ サーバーセッション削除失敗:", response.status);
+          // ローカルからは削除を続行
+        }
+
+        // ローカルストアから削除
+        const newSessions = new Map(sessions);
+        newSessions.delete(sessionId);
+
+        const isActive = get().active_session_id === sessionId;
+
+        set({
+          sessions: newSessions,
+          session: isActive ? null : get().session,
+          active_session_id: isActive ? null : get().active_session_id,
+        });
+
+        console.log("✅ セッション削除完了:", sessionId);
+      } catch (error) {
+        console.error("❌ セッション削除エラー:", error);
+      }
+    },
+
+    exportChatHistory: () => {
+      console.log("📤 チャット履歴エクスポート開始...");
+
+      try {
+        const sessions = get().sessions;
+        const sessionsArray = Array.from(sessions.values());
+
+        const exportData = {
+          version: 1,
+          exported_at: new Date().toISOString(),
+          sessions: sessionsArray,
+          total_sessions: sessionsArray.length,
+          total_messages: sessionsArray.reduce(
+            (sum, session) => sum + session.messages.length,
+            0
+          ),
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+          type: "application/json",
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `chat-history-${
+          new Date().toISOString().split("T")[0]
+        }.json`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+        console.log("✅ エクスポート完了");
+      } catch (error) {
+        console.error("❌ エクスポートエラー:", error);
+      }
+    },
+
+    importChatHistory: async (file: File) => {
+      console.log("📥 チャット履歴インポート開始...", file.name);
+
+      try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+
+        if (!importData.sessions || !Array.isArray(importData.sessions)) {
+          throw new Error("無効なファイル形式です");
+        }
+
+        const sessionsMap = new Map<UUID, Session>();
+
+        for (const sessionData of importData.sessions) {
+          const session: Session = {
+            id: sessionData.id || crypto.randomUUID(),
+            name: sessionData.name || "インポートされたセッション",
+            character: sessionData.character,
+            persona: sessionData.persona,
+            messages: sessionData.messages || [],
+            created_at: sessionData.created_at || new Date().toISOString(),
+            updated_at: sessionData.updated_at || new Date().toISOString(),
+            version: sessionData.version || 1,
+            memory_layer: sessionData.memory_layer || {
+              immediate_memory: [],
+              working_memory: [],
+              episodic_memory: [],
+              semantic_memory: [],
+              permanent_memory: [],
+            },
+            is_pinned: sessionData.is_pinned || false,
+          };
+
+          sessionsMap.set(session.id, session);
+        }
+
+        // 既存セッションに追加
+        const existingSessions = get().sessions;
+        const mergedSessions = new Map([...existingSessions, ...sessionsMap]);
+
+        set({ sessions: mergedSessions });
+        console.log("✅ インポート完了:", sessionsMap.size, "個のセッション");
+      } catch (error) {
+        console.error("❌ インポートエラー:", error);
+        throw error;
+      }
+    },
+
+    regenerateMessage: async (messageId) => {
+      console.log("🔄 メッセージ再生成開始:", messageId);
+
+      const currentSession = get().session;
+      const currentSessionId = get().active_session_id;
+
+      if (!currentSession || !currentSessionId) {
+        console.error("❌ アクティブなセッションがありません");
+        return;
+      }
+
+      const targetMessageIndex = currentSession.messages.findIndex(
+        (msg) => msg.id === messageId
+      );
+      if (targetMessageIndex === -1) {
+        console.error("❌ 対象メッセージが見つかりません:", messageId);
+        return;
+      }
+
+      const targetMessage = currentSession.messages[targetMessageIndex];
+      if (targetMessage.sender !== "ai") {
+        console.error("❌ AIメッセージではありません");
+        return;
+      }
+
+      try {
+        set({ is_generating: true });
+
+        // 対象メッセージより前のメッセージのみを使用
+        const previousMessages = currentSession.messages.slice(
+          0,
+          targetMessageIndex
+        );
+
+        // 直前のユーザーメッセージを取得
+        const lastUserMessage = [...previousMessages]
+          .reverse()
+          .find((msg) => msg.sender === "user");
+        if (!lastUserMessage) {
+          console.error("❌ ユーザーメッセージが見つかりません");
+          return;
+        }
+
+        // プロンプトを構築
+        const systemPrompt = await promptBuilderService.buildSystemPrompt(
+          currentSession.character,
+          currentSession.persona,
+          previousMessages
+        );
+
+        const requestId = crypto.randomUUID();
+        const request: APIRequest = {
+          id: requestId,
+          type: "regenerate",
+          priority: 1,
+          timestamp: Date.now(),
+          request: async () => {
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemPrompt,
+                userMessage: lastUserMessage.content,
+                sessionId: currentSessionId,
+                characterId: currentSession.character.id,
+                personaId: currentSession.persona.id,
+                conversation: previousMessages.map((msg, index) => ({
+                  role: msg.sender === "user" ? "user" : "assistant",
+                  content: msg.content,
+                  message_id: msg.id,
+                  timestamp: msg.timestamp,
+                  index,
+                })),
+                regenerate: true,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`再生成 API エラー: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // メッセージ内容を更新
+            get().updateMessage(messageId, {
+              content: data.message || "再生成に失敗しました。",
+              timestamp: new Date().toISOString(),
+            });
+
+            console.log("✅ メッセージ再生成完了");
+          },
+        };
+
+        await apiRequestQueue.addRequest(request);
+      } catch (error) {
+        console.error("❌ メッセージ再生成エラー:", error);
+      } finally {
+        set({ is_generating: false });
+      }
+    },
+
+    editMessage: async (messageId, newContent) => {
+      console.log("✏️ メッセージ編集開始:", messageId, newContent.slice(0, 50));
+
+      const currentSession = get().session;
+      const currentSessionId = get().active_session_id;
+
+      if (!currentSession || !currentSessionId) {
+        console.error("❌ アクティブなセッションがありません");
+        return;
+      }
+
+      const targetMessageIndex = currentSession.messages.findIndex(
+        (msg) => msg.id === messageId
+      );
+      if (targetMessageIndex === -1) {
+        console.error("❌ 対象メッセージが見つかりません:", messageId);
+        return;
+      }
+
+      try {
+        set({ is_generating: true });
+
+        // メッセージ内容を更新
+        get().updateMessage(messageId, {
+          content: newContent,
+          timestamp: new Date().toISOString(),
+        });
+
+        // 編集されたメッセージ以降のAIメッセージを削除
+        const updatedSession = get().session!;
+        const messagesToKeep = updatedSession.messages.slice(
+          0,
+          targetMessageIndex + 1
+        );
+
+        const newSession = {
+          ...updatedSession,
+          messages: messagesToKeep,
+          updated_at: new Date().toISOString(),
+        };
+
+        const newSessions = new Map(get().sessions);
+        newSessions.set(currentSessionId, newSession);
+
+        set({
+          session: newSession,
+          sessions: newSessions,
+        });
+
+        // 編集後のメッセージがユーザーメッセージの場合、新しいAI応答を生成
+        const editedMessage = messagesToKeep[targetMessageIndex];
+        if (editedMessage.sender === "user") {
+          console.log("🤖 編集後のAI応答生成開始...");
+
+          // プロンプトを構築
+          const systemPrompt = await promptBuilderService.buildSystemPrompt(
+            newSession.character,
+            newSession.persona,
+            messagesToKeep.slice(0, targetMessageIndex) // 編集されたメッセージより前のもの
+          );
+
+          const requestId = crypto.randomUUID();
+          const request: APIRequest = {
+            id: requestId,
+            type: "edit_response",
+            priority: 1,
+            timestamp: Date.now(),
+            request: async () => {
+              const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  message: newContent,
+                  systemPrompt,
+                  sessionId: currentSessionId,
+                  characterId: newSession.character.id,
+                  personaId: newSession.persona.id,
+                  conversation: messagesToKeep.map((msg, index) => ({
+                    role: msg.sender === "user" ? "user" : "assistant",
+                    content: msg.content,
+                    message_id: msg.id,
+                    timestamp: msg.timestamp,
+                    index,
+                  })),
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`編集応答 API エラー: ${response.status}`);
+              }
+
+              const data = await response.json();
+
+              // 新しいAIメッセージを追加
+              const aiMessage: UnifiedMessage = {
+                id: crypto.randomUUID(),
+                content: data.message || "応答の生成に失敗しました。",
+                sender: "ai",
+                timestamp: new Date().toISOString(),
+                type: "text",
+                character: newSession.character,
+              };
+
+              get().addMessage(aiMessage);
+              console.log("✅ 編集後の応答生成完了");
+            },
+          };
+
+          await apiRequestQueue.addRequest(request);
+        }
+      } catch (error) {
+        console.error("❌ メッセージ編集エラー:", error);
+      } finally {
+        set({ is_generating: false });
+      }
+    },
+
+    saveSession: async (sessionId) => {
+      console.log("💾 セッション保存開始:", sessionId);
+
+      const session = get().sessions.get(sessionId);
+      if (!session) {
+        console.error("❌ 保存対象セッションが見つかりません:", sessionId);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(session),
+        });
+
+        if (!response.ok) {
+          console.error("❌ セッション保存失敗:", response.status);
+          return;
+        }
+
+        console.log("✅ セッション保存完了:", sessionId);
+      } catch (error) {
+        console.error("❌ セッション保存エラー:", error);
+      }
+    },
+
+    toggleSessionPin: async (sessionId) => {
+      console.log("📌 セッションピン状態切替:", sessionId);
+
+      const sessions = get().sessions;
+      const targetSession = sessions.get(sessionId);
+
+      if (!targetSession) {
+        console.error("❌ 対象セッションが見つかりません:", sessionId);
+        return;
+      }
+
+      const isPinned = !targetSession.is_pinned;
+
+      try {
+        // サーバー更新
+        await fetch("/api/sessions/pin", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: sessionId, updates: { isPinned } }),
+        }).catch((error) => {
+          // Storage initialization failed, not critical
+          console.warn("❌ サーバーピン状態更新失敗:", error);
+        });
+
+        // ローカル更新
+        const updatedSession = {
+          ...targetSession,
+          is_pinned: isPinned,
+          updated_at: new Date().toISOString(),
+        };
+
+        const newSessions = new Map(sessions);
+        newSessions.set(sessionId, updatedSession);
+
+        set({
+          sessions: newSessions,
+          session:
+            get().active_session_id === sessionId
+              ? updatedSession
+              : get().session,
+        });
+
+        console.log("✅ ピン状態切替完了:", sessionId, isPinned);
+      } catch (error) {
+        console.error("❌ ピン状態切替エラー:", error);
+      }
+    },
+
+    duplicateSession: async (sessionId) => {
+      console.log("📋 セッション複製開始:", sessionId);
+
+      const sessions = get().sessions;
+      const sourceSession = sessions.get(sessionId);
+
+      if (!sourceSession) {
+        console.error("❌ 複製元セッションが見つかりません:", sessionId);
+        return sessionId; // 元のIDを返す
+      }
+
+      try {
+        const newSessionId = crypto.randomUUID();
+        const duplicatedSession: Session = {
+          ...sourceSession,
+          id: newSessionId,
+          name: `${sourceSession.name} (複製)`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_pinned: false, // 複製時はピン解除
+        };
+
+        const newSessions = new Map(sessions);
+        newSessions.set(newSessionId, duplicatedSession);
+
+        set({
+          sessions: newSessions,
+          session: duplicatedSession,
+          active_session_id: newSessionId,
+        });
+
+        console.log("✅ セッション複製完了:", newSessionId);
+        return newSessionId;
+      } catch (error) {
+        console.error("❌ セッション複製エラー:", error);
+        return sessionId; // エラー時は元のIDを返す
+      }
+    },
+
+    getSuggestedResponses: async (sessionId) => {
+      console.log("💡 提案応答取得開始:", sessionId);
+
+      const currentSession = sessionId
+        ? get().sessions.get(sessionId)
+        : get().session;
+
+      if (!currentSession || currentSession.messages.length === 0) {
+        console.log("💡 セッションまたはメッセージがありません");
+        return [];
+      }
+
+      try {
+        const lastMessage =
+          currentSession.messages[currentSession.messages.length - 1];
+
+        if (lastMessage.sender !== "ai") {
+          console.log("💡 最後のメッセージがAIメッセージではありません");
+          return [];
+        }
+
+        // メッセージ履歴から文脈を作成
+        const context = currentSession.messages
+          .slice(-5) // 最後の5メッセージ
+          .map(
+            (msg) =>
+              `${
+                msg.sender === "user"
+                  ? "ユーザー"
+                  : currentSession.character.name
+              }: ${msg.content}`
+          )
+          .join("\n");
+
+        const requestId = crypto.randomUUID();
+        const request: APIRequest = {
+          id: requestId,
+          type: "suggestions",
+          priority: 2,
+          timestamp: Date.now(),
+          request: async () => {
+            const response = await fetch("/api/suggestions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                context,
+                character: currentSession.character,
+                persona: currentSession.persona,
+                lastMessage: lastMessage.content,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`提案応答 API エラー: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("💡 提案応答取得完了:", data.suggestions?.length);
+
+            return data.suggestions || [];
+          },
+        };
+
+        return await apiRequestQueue.addRequest(request);
+      } catch (error) {
+        console.error("❌ 提案応答取得エラー:", error);
+        return [];
+      }
+    },
+
+    // 今日のセッション統計
+    getTodaySessionsIds: () => {
+      return getSessionsByDateRange(1).map((session) => session.id);
+    },
+
+    getTodaySessionsCount: () => {
+      return getSessionsByDateRange(1).length;
+    },
+
+    getThisWeekSessionsCount: () => {
+      return getSessionsByDateRange(7).length;
+    },
+
+    getThisMonthSessionsCount: () => {
+      return getSessionsByDateRange(30).length;
+    },
+  };
+};

@@ -3,6 +3,8 @@
 import { BaseEntity, SoftDeletable, WithMetadata, UUID, Timestamp } from './base.types';
 import { EmotionState } from './expression.types';
 import { MemoryImportance } from './memory.types';
+import { Character } from './character.types';
+import { Persona } from './persona.types';
 
 // Voice data type definition
 export interface VoiceData {
@@ -30,6 +32,15 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
   content: string;
   image_url?: string;
   
+  // 🔧 **後方互換性 - ChatInterface用の追加プロパティ**
+  sender?: 'user' | 'ai' | 'assistant'; // ChatInterface互換
+  type?: 'text' | 'image' | 'system'; // メッセージタイプ
+  persona?: Persona; // ペルソナ情報
+  character?: Character; // キャラクター情報
+  
+  // 感情分析用タイムスタンプ（後方互換性）
+  timestamp?: number | string;
+  
   // キャラクター関連
   character_id?: UUID;
   character_name?: string;
@@ -52,6 +63,15 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
     style: MessageStyle;
     effects: MessageEffect[];
     voice?: VoiceData;
+  };
+  
+  // 🔧 **感情分析結果 - 拡張**
+  emotion_analysis?: {
+    primary_emotion: string;
+    intensity: number;
+    confidence: number;
+    detected_patterns: string[];
+    suggested_responses?: string[];
   };
   
   // 状態変更関連
@@ -131,3 +151,21 @@ export interface MessageEditEntry {
   edit_reason?: string;
 }
 
+// 🔧 **API Request Types - 追加**
+export interface MessageRequest {
+  sessionId: UUID;
+  content: string;
+  characterId: UUID;
+  personaId: UUID;
+  conversation: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    message_id: string;
+    timestamp: string;
+    index: number;
+  }>;
+  systemPrompt?: string;
+  enhancedMode?: boolean;
+  continueGeneration?: boolean;
+  regenerate?: boolean;
+}

@@ -94,7 +94,7 @@ export class VectorStore {
     }
 
     // 重要度が低いメッセージは embedding をスキップ（コスト最適化）
-    if (message.importance !== undefined && message.importance < 0.3) {
+    if (message.memory?.importance?.score !== undefined && message.memory.importance.score < 0.3) {
       this.messages.set(message.id, message);
       return;
     }
@@ -102,7 +102,8 @@ export class VectorStore {
     // ベクトル化とインデックス追加
     const embedding = await this.embed(message.content);
     this.embeddings.set(message.id, embedding);
-    this.messages.set(message.id, { ...message, embedding });
+    // embeddingは別で管理、メッセージには含めない
+    this.messages.set(message.id, message);
 
     // FAISSインデックスに追加
     // 実際: await this.pythonBridge.addToIndex(message.id, embedding);
@@ -129,7 +130,7 @@ export class VectorStore {
       newMessages.forEach((message, i) => {
         const embedding = embeddings[i];
         this.embeddings.set(message.id, embedding);
-        this.messages.set(message.id, { ...message, embedding });
+        this.messages.set(message.id, message);
       });
 
       // FAISSインデックスに追加（実装時）
@@ -140,7 +141,7 @@ export class VectorStore {
       newMessages.forEach(message => {
         const embedding = this.createFallbackEmbedding(message.content);
         this.embeddings.set(message.id, embedding);
-        this.messages.set(message.id, { ...message, embedding });
+        this.messages.set(message.id, message);
       });
     }
   }
@@ -279,13 +280,15 @@ export class VectorStore {
     // 古いメッセージを削除（重要度とピン留めを考慮）
     const sortedMessages = Array.from(this.messages.values())
       .sort((a, b) => {
-        // 重要度優先
-        if (a.importance !== b.importance) {
-          return (b.importance || 0) - (a.importance || 0);
+        // 重要度優先（UnifiedMessageの場合はmemory.importanceを使用）
+        const aImportance = a.memory?.importance?.score || 0;
+        const bImportance = b.memory?.importance?.score || 0;
+        if (aImportance !== bImportance) {
+          return bImportance - aImportance;
         }
         // タイムスタンプで比較
-        return new Date(b.timestamp).getTime() - 
-               new Date(a.timestamp).getTime();
+        return new Date(b.timestamp || b.created_at).getTime() - 
+               new Date(a.timestamp || a.created_at).getTime();
       });
 
     // 削除対象を決定

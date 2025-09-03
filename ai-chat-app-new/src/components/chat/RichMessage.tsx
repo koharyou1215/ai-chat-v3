@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, Suspense, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, ExternalLink, Image as ImageIcon, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store';
 
 // Lazy import for heavy markdown processing
 const MarkdownRenderer = React.lazy(() => 
@@ -23,15 +24,72 @@ interface RichMessageProps {
   role: 'user' | 'assistant';
   isExpanded?: boolean;
   onToggleExpanded?: () => void;
+  isLatest?: boolean;
 }
 
 export const RichMessage: React.FC<RichMessageProps> = React.memo(({
   content,
   role,
   isExpanded = false,
-  onToggleExpanded
+  onToggleExpanded,
+  isLatest = false
 }) => {
   const [showPreview, setShowPreview] = useState(false);
+  const [typewriterText, setTypewriterText] = useState('');
+  const [typewriterComplete, setTypewriterComplete] = useState(false);
+  const [hasStartedTyping, setHasStartedTyping] = useState(false);
+  const effectSettings = useAppStore(state => state.effectSettings);
+  
+  // タイプライターエフェクト（改善版）
+  useEffect(() => {
+    if (!effectSettings.typewriterEffect || role !== 'assistant' || !isLatest) {
+      setTypewriterText(content);
+      setTypewriterComplete(true);
+      return;
+    }
+    
+    // 新しいメッセージが来た時のみタイプライター開始
+    if (content && !hasStartedTyping) {
+      setHasStartedTyping(true);
+      setTypewriterText('');
+      setTypewriterComplete(false);
+      
+      let currentIndex = 0;
+      const speed = Math.max(5, 50 - (effectSettings.typewriterIntensity || 70) * 0.4); // より滑らかな速度調整
+      
+      const interval = setInterval(() => {
+        if (currentIndex < content.length) {
+          // 複数文字ずつ表示してより滑らかに
+          const step = Math.min(3, content.length - currentIndex);
+          setTypewriterText(content.substring(0, currentIndex + step));
+          currentIndex += step;
+        } else {
+          setTypewriterComplete(true);
+          clearInterval(interval);
+        }
+      }, speed);
+      
+      return () => clearInterval(interval);
+    } else if (hasStartedTyping && content.length > typewriterText.length) {
+      // コンテンツが追加された場合
+      const remainingContent = content.substring(typewriterText.length);
+      let currentIndex = 0;
+      const speed = Math.max(5, 50 - (effectSettings.typewriterIntensity || 70) * 0.4);
+      
+      const interval = setInterval(() => {
+        if (currentIndex < remainingContent.length) {
+          const step = Math.min(3, remainingContent.length - currentIndex);
+          setTypewriterText(typewriterText + remainingContent.substring(0, currentIndex + step));
+          currentIndex += step;
+        } else {
+          setTypewriterComplete(true);
+          clearInterval(interval);
+        }
+      }, speed);
+      
+      return () => clearInterval(interval);
+    }
+  }, [content, effectSettings.typewriterEffect, effectSettings.typewriterIntensity, role, isLatest, hasStartedTyping, typewriterText]);
 
   // Performance optimization: Detect content types early
   const contentAnalysis = useMemo(() => {
@@ -66,11 +124,15 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(({
 
   // Truncate content for performance if too long
   const displayContent = useMemo(() => {
+    const baseContent = effectSettings.typewriterEffect && role === 'assistant' && isLatest && !typewriterComplete
+      ? typewriterText
+      : content;
+    
     if (!isExpanded && contentAnalysis.isLong) {
-      return content.slice(0, 500) + '...';
+      return baseContent.slice(0, 500) + '...';
     }
-    return content;
-  }, [content, isExpanded, contentAnalysis.isLong]);
+    return baseContent;
+  }, [content, typewriterText, isExpanded, contentAnalysis.isLong, effectSettings.typewriterEffect, role, isLatest, typewriterComplete]);
 
   const handleImageClick = (imageUrl: string) => {
     setShowPreview(true);
@@ -87,8 +149,14 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(({
             <MarkdownRenderer content={displayContent} />
           </Suspense>
         ) : (
+          // typewriter 用に高さの変動を抑えるスタイルを付与
           <div className="whitespace-pre-wrap break-words">
-            {displayContent}
+            <div style={{ minHeight: '3rem' }} className="inline-block align-top">
+              {displayContent}
+              {effectSettings.typewriterEffect && role === 'assistant' && isLatest && !typewriterComplete && (
+                <span className="inline-block w-2 h-5 ml-1 bg-white/70 animate-pulse" />
+              )}
+            </div>
           </div>
         )}
       </div>

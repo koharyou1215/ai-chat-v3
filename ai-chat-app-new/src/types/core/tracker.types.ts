@@ -164,6 +164,30 @@ export interface TrackerChangeIndicator {
 }
 
 /**
+ * 確定版のシンプルトラッカー定義（キャラクター型確定版準拠）
+ */
+export interface SimpleTrackerDefinition {
+  name: string;
+  display_name: string;
+  type: 'numeric' | 'state' | 'boolean';
+  description: string;
+  category: string;
+  persistent: boolean;
+  
+  // numeric型用
+  initial_value?: number;
+  max_value?: number; 
+  min_value?: number;
+  
+  // state型用
+  initial_state?: string;
+  possible_states?: string[];
+  
+  // boolean型用
+  initial_boolean?: boolean;
+}
+
+/**
  * レガシーサポート用の定義
  */
 export interface LegacyTrackerDefinition {
@@ -209,6 +233,12 @@ export interface TrackerValue {
   text: string;
   composite: Record<string, unknown>;
 }
+
+/**
+ * 実際のトラッカー更新で使用される単純値型
+ * TrackerDisplayなどのUIコンポーネントから渡される値
+ */
+export type SimpleTrackerValue = string | number | boolean;
 
 export interface TrackerUpdate {
   tracker_id: UUID;

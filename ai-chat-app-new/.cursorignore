@@ -1,0 +1,42 @@
+# ドキュメントファイル
+*.md
+*.txt
+*.pdf
+*.docx
+
+# 画像・動画ファイル
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.mp4
+*.avi
+*.mov
+
+# 設定・ログファイル
+*.log
+*.env
+*.env.*
+*.sample
+*.example
+
+# 特定のフォルダー
+/docs/
+/public/uploads/
+/public/avatars/
+/public/characters/
+/public/personas/
+/certificates/
+/claudedocs/
+/old_docs/
+/test-results/
+/playwright-report/
+
+# その他の不要ファイル
+*.bat
+*.sh
+desktop.ini
+.DS_Store
+nul

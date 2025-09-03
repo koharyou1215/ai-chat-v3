@@ -20,7 +20,7 @@ export class AutoMemoryManager {
     message: UnifiedMessage,
     sessionId: string,
     characterId?: string,
-    createMemoryCardFn?: (messageIds: string[], sessionId: string, characterId?: string) => Promise<MemoryCard>
+    createMemoryCardFn?: (messageIds: string[], sessionId: string, characterId?: string) => Promise<MemoryCard | null>
   ): Promise<void> {
     this.messageBuffer.push(message);
     
@@ -44,14 +44,16 @@ export class AutoMemoryManager {
         const relevantMessages = this.extractRelevantMessages(this.messageBuffer);
         const messageIds = relevantMessages.map(msg => msg.id);
         
-        await createMemoryCardFn(messageIds, sessionId, characterId);
-        this.memoryCount++;
-        console.log(`🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`);
-        console.log(`📋 Relevant messages: ${relevantMessages.map(m => m.content.substring(0, 30) + '...').join(' | ')}`);
-        
-        // 処理済みマーク
-        this.lastProcessedMessageId = message.id;
-        this.lastMemoryCreated = now; // 作成時刻を記録
+        const memoryCard = await createMemoryCardFn(messageIds, sessionId, characterId);
+        if (memoryCard) {
+          this.memoryCount++;
+          console.log(`🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`);
+          console.log(`📋 Relevant messages: ${relevantMessages.map(m => m.content.substring(0, 30) + '...').join(' | ')}`);
+          
+          // 処理済みマーク
+          this.lastProcessedMessageId = message.id;
+          this.lastMemoryCreated = now; // 作成時刻を記録
+        }
       } catch (error) {
         console.error('Failed to auto-create memory card:', error);
       }

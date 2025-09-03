@@ -15,7 +15,7 @@ import {
   Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TrackerDefinition, NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
+import { TrackerDefinition, SimpleTrackerDefinition, NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
 import { useAppStore } from '@/store';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 
@@ -74,7 +74,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
       console.log(`[TrackerDisplay] Character trackers:`, character.trackers.map(t => ({ 
         name: t.name, 
         current_value: (t as any).current_value,
-        config: t.config 
+        type: t.type,
+        display_name: t.display_name 
       })));
       
       // Create a new tracker manager and initialize it
@@ -290,8 +291,8 @@ const TrackerItem: React.FC<{
 }> = ({ tracker, onUpdate, hasRecentChange = false, previousValue }) => {
 
   const renderTracker = () => {
-    // 新しいフォーマット（直接typeフィールド）と古いフォーマット（config.type）の両方をサポート
-    const trackerType = tracker.type || tracker.config?.type;
+    // SimpleTrackerDefinition の直接 type フィールドを使用
+    const trackerType = tracker.type;
     switch (trackerType) {
       case 'numeric':
         return <NumericTracker tracker={tracker} onUpdate={onUpdate} hasRecentChange={hasRecentChange} previousValue={previousValue} />;
@@ -326,7 +327,7 @@ const TrackerItem: React.FC<{
               exit={{ opacity: 0, scale: 0.8 }}
               className="flex items-center"
             >
-              {tracker.config?.type === 'numeric' && typeof tracker.current_value === 'number' && typeof previousValue === 'number' && tracker.current_value > previousValue ? (
+              {tracker.type === 'numeric' && typeof tracker.current_value === 'number' && typeof previousValue === 'number' && tracker.current_value > previousValue ? (
                 <TrendingUp size={12} className="text-green-400" />
               ) : (
                 <TrendingDown size={12} className="text-red-400" />
@@ -353,14 +354,14 @@ const NumericTracker: React.FC<{
   previousValue?: string | number | boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
-  const config = tracker.config as NumericTrackerConfig;
-  const initialValue = (tracker as any).initial_value || config?.initial_value || 0;
+  const simpleTracker = tracker as SimpleTrackerDefinition;
+  const initialValue = simpleTracker.initial_value || 0;
   const value = typeof tracker.current_value === 'number' ? tracker.current_value : initialValue;
-  const minValue = (tracker as any).min_value || config?.min_value || 0;
-  const maxValue = (tracker as any).max_value || config?.max_value || 100;
-  const step = config?.step || 1;
-  const unit = config?.unit || '';
-  const displayType = config?.display_type || 'number';
+  const minValue = simpleTracker.min_value || 0;
+  const maxValue = simpleTracker.max_value || 100;
+  const step = 1;
+  const unit = '';
+  const displayType = 'number';
   const progress = ((value - minValue) / (maxValue - minValue)) * 100;
 
   return (
@@ -469,9 +470,9 @@ const StateTracker: React.FC<{
   hasRecentChange?: boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
-  const config = tracker.config as StateTrackerConfig;
-  const possibleStates = (tracker as any).possible_states || config?.possible_states || [];
-  const initialState = (tracker as any).initial_state || config?.initial_state || possibleStates[0]?.id;
+  const simpleTracker = tracker as SimpleTrackerDefinition;
+  const possibleStates = simpleTracker.possible_states || [];
+  const initialState = simpleTracker.initial_state || possibleStates[0] || '';
   const value = (tracker.current_value as string) || initialState;
   
   return (
@@ -545,13 +546,13 @@ const BooleanTracker: React.FC<{
   hasRecentChange?: boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
   // 新旧フォーマット対応
-  const config = tracker.config as BooleanTrackerConfig;
-  const initialBoolean = (tracker as any).initial_boolean !== undefined ? (tracker as any).initial_boolean : config?.initial_value || false;
+  const simpleTracker = tracker as SimpleTrackerDefinition;
+  const initialBoolean = simpleTracker.initial_boolean !== undefined ? simpleTracker.initial_boolean : false;
   const value = typeof tracker.current_value === 'boolean' ? tracker.current_value : initialBoolean;
-  const trueLabel = config?.true_label || 'はい';
-  const falseLabel = config?.false_label || 'いいえ';
-  const trueColor = config?.true_color || '#10b981';
-  const falseColor = config?.false_color || '#6b7280';
+  const trueLabel = 'はい';
+  const falseLabel = 'いいえ';
+  const trueColor = '#10b981';
+  const falseColor = '#6b7280';
   
   return (
     <motion.button
@@ -598,11 +599,10 @@ const TextTracker: React.FC<{
   onUpdate: (name: string, value: string | number | boolean) => void;
   hasRecentChange?: boolean;
 }> = ({ tracker, onUpdate, hasRecentChange = false }) => {
-  const config = tracker.config as TextTrackerConfig;
-  const [text, setText] = useState(typeof tracker.current_value === 'string' ? tracker.current_value : config.initial_value || '');
+  const [text, setText] = useState(typeof tracker.current_value === 'string' ? tracker.current_value : '');
   const currentLength = text.length;
-  const lengthProgress = config.max_length ? (currentLength / config.max_length) * 100 : 0;
-  const placeholder = config.placeholder || 'テキストを入力...';
+  const lengthProgress = 0;
+  const placeholder = 'テキストを入力...';
 
   useEffect(() => {
     setText(tracker.current_value as string || '');
@@ -620,13 +620,13 @@ const TextTracker: React.FC<{
         animate={hasRecentChange ? { scale: [1, 1.02, 1] } : {}}
         className="relative"
       >
-        {config.multiline ? (
+        {false ? (
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={handleBlur}
             placeholder={placeholder}
-            maxLength={config.max_length}
+            maxLength={undefined}
             rows={3}
             className={cn(
               "w-full px-3 py-2 text-sm rounded-lg border transition-all duration-300 resize-none",
@@ -644,7 +644,7 @@ const TextTracker: React.FC<{
             onChange={(e) => setText(e.target.value)}
             onBlur={handleBlur}
             placeholder={placeholder}
-            maxLength={config.max_length}
+            maxLength={undefined}
             className={cn(
               "w-full px-3 py-2 text-sm rounded-lg border transition-all duration-300",
               hasRecentChange 
@@ -665,7 +665,7 @@ const TextTracker: React.FC<{
         )}
       </motion.div>
       
-      {config.max_length && (
+      {false && (
         <div className="flex items-center justify-between text-xs">
           <div className="flex-1 bg-black/30 backdrop-blur-sm rounded-full h-1 mr-2 border border-white/20">
             <motion.div
@@ -682,7 +682,7 @@ const TextTracker: React.FC<{
             "font-medium",
             lengthProgress > 90 ? "text-red-400" : "text-gray-400"
           )}>
-            {currentLength}/{config.max_length}
+            {currentLength}/無制限
           </span>
         </div>
       )}

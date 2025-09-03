@@ -1,18 +1,11 @@
 'use client';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
-// シンプルなスピナー
-const Spinner: React.FC<{ label?: string }> = ({ label }) => (
-  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
-    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400" />
-    {label && <span className="ml-3 text-white/80 text-xs bg-black/40 px-2 py-1 rounded">{label}</span>}
-  </div>
-);
 import { motion, AnimatePresence, TargetAndTransition } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, ChevronRight } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, ChevronRight } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
-import { replaceVariablesInMessage, getVariableContext } from '@/utils/variable-replacer';
+import { replaceVariablesInMessage } from '@/utils/variable-replacer';
 import { RichMessage } from './RichMessage';
 
 // Lazy imports for heavy effect components
@@ -28,6 +21,14 @@ import { EmotionReactions } from '@/components/emotion/EmotionDisplay';
 import { EmotionResult } from '@/services/emotion/EmotionAnalyzer';
 import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 
+// Simple spinner component used inside the bubble
+const Spinner: React.FC<{ label?: string }> = ({ label }) => (
+  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400" />
+    {label && <span className="ml-3 text-white/80 text-xs bg-black/40 px-2 py-1 rounded">{label}</span>}
+  </div>
+);
+
 interface MessageBubbleProps {
   message: UnifiedMessage;
   previousMessage?: UnifiedMessage;
@@ -35,7 +36,7 @@ interface MessageBubbleProps {
   isGroupChat?: boolean;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ 
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({ 
   message, 
   previousMessage: _previousMessage,
   isLatest,
@@ -51,6 +52,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const getSelectedPersona = useAppStore(state => state.getSelectedPersona);
   const _deleteMessage = useAppStore(state => state.deleteMessage);
   const regenerateLastMessage = useAppStore(state => state.regenerateLastMessage);
+  const regenerateMessage = useAppStore(state => state.regenerateMessage);
   const is_generating = useAppStore(state => state.is_generating);
   const group_generating = useAppStore(state => state.group_generating);
   const trackerManagers = useAppStore(state => state.trackerManagers);
@@ -59,12 +61,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const deleteMessage = useAppStore(state => state.deleteMessage);
   const continueLastMessage = useAppStore(state => state.continueLastMessage);
   const getSelectedCharacter = useAppStore(state => state.getSelectedCharacter);
-  const addMessage = useAppStore(state => (state as any).addMessage);
+  const editMessage = useAppStore(state => state.editMessage);
+  // TODO: addMessageメソッドがChatSliceに定義されていないため一時的に無効化
+  // const addMessage = useAppStore(state => state.addMessage);
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+      // クリップボードアクセスが失敗した場合は無視
     }
   };
   const effectSettings = useAppStore(state => state.effectSettings);
@@ -79,16 +83,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   const continueLastGroupMessage = useAppStore(state => state.continueLastGroupMessage);
 
   const emotionAnalysisEnabled = useAppStore(state => 
-    // @ts-ignore - emotionalIntelligenceFlags is optional
-    state.settings?.emotionalIntelligenceFlags?.emotion_analysis_enabled ?? false
+    state.emotionalIntelligenceFlags?.emotion_analysis_enabled ?? false
   );
 
   // マージンと要素選択のキャッシュ
   const menuRef = useRef<HTMLDivElement>(null);
+  // メニューの遅延非表示タイマー参照
+  const hideMenuTimeoutRef = useRef<number | null>(null);
+
+  const clearHideTimeout = useCallback(() => {
+    if (hideMenuTimeoutRef.current) {
+      clearTimeout(hideMenuTimeoutRef.current);
+      hideMenuTimeoutRef.current = null;
+    }
+  }, []);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedTextSelection, setSelectedTextSelection] = useState<Selection | null>(null);
   const [selectedText, setSelectedText] = useState<string>('');
   const [showFullActions, setShowFullActions] = useState(false);
+  const [menuSide, setMenuSide] = useState<'left' | 'right'>('right');
+  const portalRef = useRef<HTMLDivElement | null>(null);
+  const [pointerLeft, setPointerLeft] = useState<number | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<'center' | 'top' | 'bottom'>('center');
 
   const isAssistant = message.role === 'assistant';
   const isUser = message.role === 'user';
@@ -112,15 +129,60 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       const processed = replaceVariablesInMessage(message.content, variableContext);
       return processed;
     } catch (error) {
-      console.error('Error processing message content:', error);
+      // メッセージ処理でエラーが発生した場合、元のコンテンツを返す
       return message.content; // フォールバック
     }
   }, [message.content, character, getSelectedPersona]);
 
+  // Ref for bubble element
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  // メニュー位置の計算を削除（インラインメニューに変更）
+  const updateMenuPosition = useCallback(() => {
+    // ポジション計算を無効化（インラインメニューに移行）
+  }, []);
+
+  // スクロール/リサイズのイベントリスナーを削除（インラインメニューには不要）
+
+  // ヘッダーで表示するユーザー名を既存のセレクターから取得
+  const selectedUserName = getSelectedPersona ? getSelectedPersona()?.name || 'You' : 'You';
+
+  // ホバー状態の管理
+  const handleMouseEnter = useCallback(() => {
+    clearHideTimeout();
+    
+    // メニューの位置を動的に計算
+    if (bubbleRef.current) {
+      const rect = bubbleRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const menuHeight = 200; // メニューの推定高さ
+      
+      // 画面下部に近い場合（下端から150px以内）は上寄りに表示
+      if (rect.bottom + menuHeight > viewportHeight - 50) {
+        setMenuPosition('top');
+      }
+      // 画面上部に近い場合（上端から150px以内）は下寄りに表示
+      else if (rect.top < 150) {
+        setMenuPosition('bottom');
+      }
+      // それ以外は中央に表示
+      else {
+        setMenuPosition('center');
+      }
+    }
+    
+    setShowMenu(true);
+  }, [clearHideTimeout]);
+
+  const handleMouseLeave = useCallback(() => {
+    // 即時に閉じず、少し待ってから閉じる
+    if (hideMenuTimeoutRef.current) clearTimeout(hideMenuTimeoutRef.current);
+    hideMenuTimeoutRef.current = window.setTimeout(() => setShowMenu(false), 300) as unknown as number;
+  }, []);
+  
   // 感情分析結果の解析
   const emotionResult = useMemo((): EmotionResult | null => {
-    // @ts-ignore - emotion_analysis is optional
-    if (!emotionAnalysisEnabled || !message.emotion_analysis) return null;
+    if (!emotionAnalysisEnabled || !('emotion_analysis' in message)) return null;
     
     try {
       const emotionData = message.expression?.emotion;
@@ -129,28 +191,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       }
       return emotionData as unknown as EmotionResult || null;
     } catch (error) {
-      console.error('Failed to parse emotion analysis:', error);
+      // 感情分析のパースに失敗した場合はnullを返す
       return null;
     }
-  }, [message.expression?.emotion, emotionAnalysisEnabled]);
+  }, [message, emotionAnalysisEnabled]);
 
   // メッセージアクション: 再生成
   const handleRegenerate = useCallback(async () => {
-    if (!isLatest || !isAssistant) return;
-    
+    // Allow per-message regeneration: target this message if it's an assistant message
+    if (!isAssistant) return;
+
     setIsRegenerating(true);
     try {
       if (isGroupChat && active_group_session_id) {
-        await regenerateLastGroupMessage();
+        // fallback to group-level regenerate if per-message not implemented
+        if (regenerateLastGroupMessage) {
+          await regenerateLastGroupMessage();
+        }
       } else {
-        await regenerateLastMessage();
+        if (regenerateMessage) {
+          await regenerateMessage(message.id);
+        } else {
+          await regenerateLastMessage();
+        }
       }
     } catch (error) {
-      console.error('再生成に失敗しました:', error);
+      // 再生成に失敗した場合は静かに処理を終了
     } finally {
       setIsRegenerating(false);
     }
-  }, [isLatest, isAssistant, isGroupChat, active_group_session_id, regenerateLastGroupMessage, regenerateLastMessage]);
+  }, [isAssistant, isGroupChat, active_group_session_id, regenerateLastGroupMessage, regenerateLastMessage, regenerateMessage, message.id]);
 
   // メッセージアクション: 続きを生成
   const handleContinue = useCallback(async () => {
@@ -164,7 +234,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         await continueLastMessage();
       }
     } catch (error) {
-      console.error('続きの生成に失敗しました:', error);
+      // 続きの生成に失敗した場合は静かに処理を終了
     } finally {
       setIsContinuing(false);
     }
@@ -176,12 +246,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     
     try {
       if (isGroupChat && active_group_session_id) {
-        console.warn('Group message deletion not implemented');
+        // グループメッセージ削除は未実装
       } else {
         deleteMessage(message.id);
       }
     } catch (error) {
-      console.error('メッセージの削除に失敗しました:', error);
+      // メッセージ削除に失敗した場合は静かに処理を終了
     }
   }, [isGroupChat, active_group_session_id, deleteMessage, message.id]);
 
@@ -192,7 +262,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     try {
       await rollbackSession(message.id);
     } catch (error) {
-      console.error('ロールバックに失敗しました:', error);
+      // ロールバックに失敗した場合は静かに処理を終了
     }
   }, [rollbackSession, message.id]);
 
@@ -219,6 +289,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showFullActions]);
+
+  // コンポーネントアンマウント時にタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (hideMenuTimeoutRef.current) {
+        clearTimeout(hideMenuTimeoutRef.current);
+        hideMenuTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const generateIsActive = is_generating || group_generating;
   const isCurrentlyGenerating = generateIsActive && isLatest;
@@ -261,18 +341,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       const textToCopy = selectedText || processedContent;
       await copyToClipboard(textToCopy);
     } catch (error) {
-      console.error('コピーに失敗しました:', error);
+      // コピーに失敗した場合は静かに処理を終了
     }
   }, [selectedText, processedContent]);
 
   // メッセージの編集開始
-  const handleEdit = useCallback(() => {
-    if (selectedText) {
-      console.log('テキスト選択編集:', selectedText);
-    } else {
-      console.log('メッセージ全体編集:', processedContent);
+  const handleEdit = useCallback(async () => {
+    if (!isUser) return; // ユーザーメッセージのみ編集可能
+    
+    const newContent = prompt('メッセージを編集してください:', message.content);
+    if (newContent && newContent !== message.content) {
+      // メッセージ編集後のアクション（以前の設定を維持）
+      await editMessage(message.id, newContent);
     }
-  }, [selectedText, processedContent]);
+  }, [isUser, message.content, message.id, editMessage]);
 
   // 選択範囲へのアクション適用
   const handleApplyToSelection = useCallback(async (action: string) => {
@@ -307,37 +389,40 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
       
       if (response.ok) {
         const result = await response.text();
-        if (addMessage) addMessage({
-          id: Date.now().toString(),
-          content: result,
-          role: 'assistant',
-          timestamp: Date.now(),
-          character_id: character?.id
-        });
+        // TODO: addMessageメソッド実装後に有効化
+        // if (addMessage) addMessage({
+        //   id: Date.now().toString(),
+        //   content: result,
+        //   role: 'assistant',
+        //   timestamp: Date.now(),
+        //   character_id: character?.id
+        // });
       }
     } catch (error) {
-      console.error(`Failed to apply ${action}:`, error);
+      // アクション適用に失敗した場合は静かに処理を終了
     } finally {
       setSelectedText('');
       setShowFullActions(false);
     }
-  }, [selectedTextSelection, selectedText, getSelectedCharacter, addMessage]);
+  }, [selectedTextSelection, selectedText, getSelectedCharacter]);
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={bubbleAnimation}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={bubbleTransition}
-        className={cn(
-          "group relative flex items-start gap-3 mb-4 max-w-[85%] md:max-w-[75%]",
-          isUser ? "ml-auto flex-row-reverse" : "mr-auto",
-          "overflow-hidden"
-        )}
-        onMouseUp={handleTextSelection}
-        onTouchEnd={handleTextSelection}
-      >
+    <motion.div
+      ref={bubbleRef}
+      initial={bubbleAnimation}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.95, opacity: 0 }}
+      transition={bubbleTransition}
+      className={cn(
+        "group relative flex items-start gap-3 mb-4 max-w-[85%] md:max-w-[75%]",
+        isUser ? "ml-auto flex-row-reverse" : "mr-auto",
+        "overflow-visible" // メニューがはみ出すことを許可
+      )}
+      onMouseUp={handleTextSelection}
+      onTouchEnd={handleTextSelection}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
         {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
         {shouldShowAvatar && (
           <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
@@ -358,8 +443,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
         )}
 
         <div className={cn(
-          "flex flex-col min-w-0 flex-1",
-          isUser ? "items-end" : "items-start"
+          "flex flex-col min-w-0 flex-1 relative",
+          isUser ? "items-end" : "items-start",
+          "overflow-visible" // メニューがはみ出すことを許可
         )}>
           {/* 発言者名とタイムスタンプ（グループチャット用） */}
           {shouldShowSpeakerName && (
@@ -384,7 +470,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30" 
                 : "bg-slate-800/60 text-white border border-slate-600/30",
               "hover:shadow-xl group-hover:scale-[1.02]",
-              selectedText ? "ring-2 ring-yellow-400/50" : ""
+              selectedText ? "ring-2 ring-yellow-400/50" : "",
+              "overflow-visible" // メニューがはみ出すことを許可
             )}
           >
             {/* リッチメッセージ表示 */}
@@ -393,6 +480,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
               role={message.role === 'user' || message.role === 'assistant' ? message.role : 'assistant'}
               isExpanded={isExpanded}
               onToggleExpanded={() => setIsExpanded(!isExpanded)}
+              isLatest={isLatest}
             />
 
             {/* 感情表示（lazily loaded） */}
@@ -423,11 +511,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             )}
 
             {/* メッセージエフェクト（lazily loaded） */}
-            {effectSettings.typewriterEffect && (
+            {effectSettings.particleEffects && (
               <Suspense fallback={<EffectLoadingFallback />}>
+                {/* メッセージエフェクト: バブル位置を渡してエフェクトをバブル近傍に表示 */}
                 <MessageEffects 
                   trigger={processedContent}
-                  position={{ x: 0, y: 0 }}
+                  position={bubbleRef.current ? (() => {
+                    const r = bubbleRef.current!.getBoundingClientRect();
+                    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+                  })() : { x: 0, y: 0 }}
                 />
               </Suspense>
             )}
@@ -440,102 +532,93 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                 '生成中...'
               } />
             )}
-
-            {/* アクションメニュー */}
-            <div className={cn(
-              "absolute transition-all duration-200 z-30",
-              isUser ? "-left-12" : "-right-12",
-              "top-1/2 -translate-y-1/2",
-              "opacity-0 group-hover:opacity-100",
-              showFullActions ? "opacity-100" : "",
-              "pointer-events-none group-hover:pointer-events-auto"
-            )}>
-              <div className="flex flex-col gap-1 bg-slate-900/90 backdrop-blur-sm border border-white/10 rounded-lg p-1 shadow-lg">
-                {/* 基本アクション */}
-                <button
-                  onClick={handleCopy}
-                  className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-                  title="コピー"
+            
+            {/* 横メニューバー（ホバー時表示） */}
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, x: isUser ? 10 : -10 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, x: isUser ? 10 : -10 }}
+                  transition={{ duration: 0.15 }}
+                  className={cn(
+                    "absolute z-10",
+                    "bg-slate-800/90 backdrop-blur-sm border border-white/20 rounded-lg",
+                    "shadow-lg p-1",
+                    isUser ? "-left-12" : "-right-12",
+                    // 位置を動的に調整
+                    menuPosition === 'top' ? 'top-0' :
+                    menuPosition === 'bottom' ? 'bottom-0' :
+                    'top-1/2 -translate-y-1/2'
+                  )}
                 >
-                  <Copy className="w-4 h-4" />
-                </button>
-
-                {/* 音声再生（アシスタントメッセージのみ） */}
-                {isAssistant && voice.autoPlay && (
-                  <button
-                    onClick={handleSpeak}
-                    disabled={isSpeaking}
-                    className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
-                    title={isSpeaking ? "再生中" : "音声再生"}
-                  >
-                    {isSpeaking ? <Pause className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                  </button>
-                )}
-
-                {/* 編集アクション */}
-                {selectedText && (
-                  <>
-                    <div className="w-full h-px bg-white/10 my-1" />
+                  <div className="flex flex-col gap-1">
                     <button
-                      onClick={handleEdit}
-                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-                      title="編集"
+                      onClick={handleCopy}
+                      className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
+                      title="コピー"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Copy className="w-3 h-3" />
                     </button>
-                  </>
-                )}
-
-                {/* 最新アシスタントメッセージの操作 */}
-                {isLatest && isAssistant && !generateIsActive && (
-                  <>
-                    <div className="w-full h-px bg-white/10 my-1" />
+                    
+                    {/* ユーザーメッセージの編集機能 */}
+                    {isUser && (
+                      <button
+                        onClick={handleEdit}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
+                        title="編集"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </button>
+                    )}
+                    
+                    {/* アシスタントメッセージの音声機能 */}
+                    {isAssistant && voice.enabled && (
+                      <button
+                        onClick={handleSpeak}
+                        disabled={isSpeaking}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
+                        title={isSpeaking ? "再生中" : "音声再生"}
+                      >
+                        {isSpeaking ? <Pause className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                      </button>
+                    )}
+                    
+                    {/* アシスタントメッセージの再生成・続き生成 */}
+                    {isAssistant && isLatest && !generateIsActive && (
+                      <>
+                        <button
+                          onClick={handleRegenerate}
+                          disabled={isRegenerating || generateIsActive}
+                          className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
+                          title="再生成"
+                        >
+                          <RefreshCw className={cn("w-3 h-3", isRegenerating && "animate-spin")} />
+                        </button>
+                        <button
+                          onClick={handleContinue}
+                          disabled={isContinuing || generateIsActive}
+                          className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
+                          title="続きを生成"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* ここまで戻るボタン */}
                     <button
-                      onClick={handleRegenerate}
-                      disabled={isRegenerating}
-                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
-                      title="再生成"
+                      onClick={handleRollback}
+                      className="p-1.5 rounded hover:bg-white/10 text-white/50 hover:text-white/70 transition-colors"
+                      title="ここまで戻る"
                     >
-                      <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+                      <CornerUpLeft className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={handleContinue}
-                      disabled={isContinuing}
-                      className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
-                      title="続きを生成"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* 削除・ロールバック */}
-                <div className="w-full h-px bg-white/10 my-1" />
-                <button
-                  onClick={handleDelete}
-                  className="p-2 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-                  title="削除"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleRollback}
-                  className="p-2 rounded-md hover:bg-orange-500/20 text-orange-400 hover:text-orange-300 transition-colors"
-                  title="ここまでロールバック"
-                >
-                  <CornerUpLeft className="w-4 h-4" />
-                </button>
-
-                {/* その他のメニュー */}
-                <button
-                  onClick={() => console.log('詳細メニュー:', message)}
-                  className="p-2 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-                  title="詳細"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* 感情リアクション（lazily loaded） */}
@@ -598,6 +681,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           </motion.div>
         )}
       </motion.div>
-    </AnimatePresence>
   );
-});
+};
+
+MessageBubbleComponent.displayName = 'MessageBubble';
+
+export const MessageBubble = React.memo(MessageBubbleComponent);

@@ -137,8 +137,10 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
       version: 1,
       definition_id,
       session_id,
-      character_id,
+      character_id: character_id || '',
       current_value: initial_value,
+      history: [],
+      last_updated: new Date().toISOString(),
       metadata: {}
     };
     
@@ -200,9 +202,10 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
         const instance = get().tracker_instances.get(instance_id);
         if (instance?.character_id) {
           // キャラクタースライスから保存機能を呼び出す
-          const store = get() as Record<string, unknown>; // AppStoreにアクセス
+          const store = get() as any; // AppStoreにアクセス
           if (store.characters && store.saveCharacterToFile) {
-            const character = store.characters.get(instance.character_id);
+            const charactersMap = store.characters as Map<string, any>;
+            const character = charactersMap.get(instance.character_id);
             if (character) {
               console.log(`🔄 Auto-saving character ${character.name} after tracker update`);
               await store.saveCharacterToFile(character);

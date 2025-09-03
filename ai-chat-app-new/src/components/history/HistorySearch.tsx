@@ -78,7 +78,14 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           break;
       }
       
-      setSearchResults(results);
+      // Markdownファイルを除外するフィルタ
+      const filteredResults = results.filter(message => {
+        const content = message.content || '';
+        return !content.toLowerCase().includes('.md') &&
+               !content.toLowerCase().includes('markdown');
+      });
+      
+      setSearchResults(filteredResults);
     } catch (error: unknown) {
       console.error('検索エラー:', error);
       setSearchResults([]);

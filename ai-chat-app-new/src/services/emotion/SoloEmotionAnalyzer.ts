@@ -220,8 +220,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
       this.memoryOptimizationInterval = null;
     }
     
-    // 基底クラスのクリーンアップも実行
-    super.dispose && super.dispose();
+    // 基底クラスのクリーンアップは不要（disposeメソッドが存在しない）
     
     console.log('🧠👤 Solo Emotion Analyzer disposed');
   }
@@ -491,7 +490,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   }
 
   private calculateTrustChange(emotion: EmotionalWeight, impact: number): number {
-    if (emotion.primaryEmotion === 'trust') return impact * 0.1;
+    if (emotion.primaryEmotion === 'love') return impact * 0.1; // trustの代わりにloveを使用
     if (['anger', 'fear'].includes(emotion.primaryEmotion)) return impact * -0.05;
     return impact * 0.02;
   }
@@ -568,6 +567,33 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   getCharacterRelationship(userId: string, characterId: UUID): RelationshipProfile | null {
     return this.characterRelationships.get(`${userId}_${characterId}`) || null;
   }
+
+  /**
+   * レガシー互換性のためのメッセージ分析メソッド
+   * 既存コードとの互換性を保つために追加
+   */
+  async analyzeMessage(
+    content: string, 
+    character: any, 
+    persona: any
+  ) {
+    const message = {
+      id: crypto.randomUUID(),
+      content,
+      sender: 'user' as const,
+      timestamp: new Date().toISOString(),
+      type: 'text' as const,
+      persona
+    };
+
+    const context = {
+      conversationPhase: 'ongoing' as const,
+      emotionalIntensity: 0.5,
+      topicSensitivity: 0.3
+    };
+
+    return await this.analyzeSoloEmotion(message, context, character.id);
+  }
 }
 
 // ======================== ソロチャット専用型定義 ========================
@@ -637,3 +663,17 @@ interface EmotionalTendencies {
   excitementLevel: number;
   formalityLevel: number;
 }
+
+// ======================== デフォルトインスタンス ========================
+
+/**
+ * デフォルトのソロ感情分析インスタンス
+ * - シングルトンパターンで効率的な利用
+ * - 高品質設定で初期化済み
+ */
+export const soloEmotionAnalyzer = new SoloEmotionAnalyzer({
+  accuracy: 'high',
+  contextWindow: 15,
+  analysisLayers: ['surface', 'contextual', 'emotional'],
+  confidenceThreshold: 0.7
+});

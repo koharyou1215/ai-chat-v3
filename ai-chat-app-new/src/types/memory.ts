@@ -28,7 +28,7 @@ export interface Message {
 
 
 export interface SearchResult {
-  message: Message;
+  message: Message | UnifiedMessage;
   similarity: number;
   relevance: number;
 }
@@ -39,7 +39,7 @@ export interface MemoryLayer {
   capacity: number;
   retentionDays: number;
   compressionRatio: number;
-  messages: Message[];
+  messages: (Message | UnifiedMessage)[];
 }
 
 export interface MemoryConfig {

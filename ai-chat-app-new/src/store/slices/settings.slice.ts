@@ -55,6 +55,10 @@ export interface EffectSettings {
   autoTrackerUpdate: boolean;
   showTrackers: boolean;
   
+  // メモリー・トラッカー機能の有効/無効（パフォーマンステスト用）
+  enableMemoryCards: boolean;
+  enableTrackers: boolean;
+  
   // パフォーマンス
   effectQuality: 'low' | 'medium' | 'high';
   animationSpeed: number;
@@ -117,6 +121,7 @@ export interface SettingsSlice extends AISettings {
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
+  promptMode: 'default' | 'custom' | 'both';
   // Actions
   updateLanguageSettings: (settings: Partial<LanguageSettings>) => void;
   updateEffectSettings: (settings: Partial<EffectSettings>) => void;
@@ -126,6 +131,7 @@ export interface SettingsSlice extends AISettings {
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
+  setPromptMode: (mode: 'default' | 'custom' | 'both') => void;
   updateChatSettings: (settings: Partial<ChatSettings>) => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   updateImageGenerationSettings: (settings: Partial<ImageGenerationSettings>) => void;
@@ -161,13 +167,13 @@ export const createSettingsSlice: StateCreator<
     currency: 'JPY',
   },
 
-  // Effect settings - デフォルトはオフ（ユーザー要求通り）
+  // Effect settings - デフォルトを有効に変更
   effectSettings: {
     // メッセージエフェクト
-    colorfulBubbles: false,
-    fontEffects: false,
-    particleEffects: false,
-    typewriterEffect: false,
+    colorfulBubbles: true,
+    fontEffects: true,
+    particleEffects: false, // パフォーマンスのため無効
+    typewriterEffect: true,
     
     // エフェクト強度設定 (0-100) - 標準値を50に設定
     colorfulBubblesIntensity: 50,
@@ -202,6 +208,10 @@ export const createSettingsSlice: StateCreator<
     // トラッカー
     autoTrackerUpdate: true, // 🎯 デフォルトを有効に変更（永続化問題対策）
     showTrackers: true,
+    
+    // メモリー・トラッカー機能の有効/無効（パフォーマンステスト用）
+    enableMemoryCards: true,  // デフォルトは有効
+    enableTrackers: true,     // デフォルトは有効
     
     // パフォーマンス
     effectQuality: 'medium',
@@ -292,6 +302,7 @@ export const createSettingsSlice: StateCreator<
     frequency_penalty: 0.6,
     presence_penalty: 0.3,
     context_window: 20,
+    useDirectGeminiAPI: true, // デフォルトはGemini API直接使用（従来の動作）
   },
   openRouterApiKey: undefined,
   geminiApiKey: undefined,
@@ -304,6 +315,7 @@ export const createSettingsSlice: StateCreator<
   },
   enableSystemPrompt: true,
   enableJailbreakPrompt: false,
+  promptMode: 'both' as const, // Default to 'both' for backward compatibility
 
   chat: {
     bubbleTransparency: 20,
@@ -408,6 +420,7 @@ export const createSettingsSlice: StateCreator<
   
   setEnableSystemPrompt: (enable) => set({ enableSystemPrompt: enable }),
   setEnableJailbreakPrompt: (enable) => set({ enableJailbreakPrompt: enable }),
+  setPromptMode: (mode) => set({ promptMode: mode }),
   
   updateChatSettings: (settings) =>
     set((state) => ({ chat: { ...state.chat, ...settings } })),

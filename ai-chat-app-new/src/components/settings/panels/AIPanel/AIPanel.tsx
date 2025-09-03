@@ -1,0 +1,159 @@
+"use client";
+
+import React, { useState } from "react";
+import {
+  SystemPrompts,
+  APIConfig,
+  APIProvider,
+} from "@/types/core/settings.types";
+import { ModelSelector } from "./ModelSelector";
+import { APIKeyManager } from "./APIKeyManager";
+import { APIConfigPanel } from "./APIConfigPanel";
+import { PromptEditor } from "./PromptEditor";
+
+interface AIPanelProps {
+  systemPrompts: SystemPrompts;
+  enableSystemPrompt: boolean;
+  enableJailbreakPrompt: boolean;
+  promptMode: "default" | "custom" | "both";
+  apiConfig: APIConfig;
+  openRouterApiKey: string;
+  geminiApiKey: string;
+  showSystemPrompt: boolean;
+  showJailbreakPrompt: boolean;
+  showReplySuggestionPrompt: boolean;
+  showTextEnhancementPrompt: boolean;
+  onUpdateSystemPrompts: (prompts: SystemPrompts) => void;
+  onSetEnableSystemPrompt: (enable: boolean) => void;
+  onSetEnableJailbreakPrompt: (enable: boolean) => void;
+  onSetPromptMode: (mode: "default" | "custom" | "both") => void;
+  onSetTemperature: (temp: number) => void;
+  onSetMaxTokens: (tokens: number) => void;
+  onSetTopP: (topP: number) => void;
+  onToggleSystemPrompt: () => void;
+  onToggleJailbreakPrompt: () => void;
+  updateAPIConfig: (updates: Partial<APIConfig>) => void;
+  onToggleReplySuggestionPrompt: () => void;
+  onToggleTextEnhancementPrompt: () => void;
+  setAPIModel: (model: string) => void;
+  setAPIProvider: (provider: APIProvider) => void;
+  setOpenRouterApiKey: (key: string) => void;
+  setGeminiApiKey: (key: string) => void;
+}
+
+/**
+ * AI設定パネル（統合版）
+ * モデル選択、APIキー管理、パラメータ設定、プロンプト管理を統合
+ *
+ * 旧3,324行ファイルから抽出・モジュール化されたコンポーネント
+ * - ModelSelector: モデル選択UI
+ * - APIKeyManager: APIキー管理UI
+ * - APIConfigPanel: AI生成パラメータ調整UI
+ * - PromptEditor: プロンプト管理UI
+ */
+export const AIPanel: React.FC<AIPanelProps> = ({
+  systemPrompts,
+  enableSystemPrompt,
+  enableJailbreakPrompt,
+  promptMode,
+  apiConfig,
+  openRouterApiKey,
+  geminiApiKey,
+  showSystemPrompt,
+  showJailbreakPrompt,
+  showReplySuggestionPrompt,
+  showTextEnhancementPrompt,
+  onUpdateSystemPrompts,
+  onSetEnableSystemPrompt,
+  onSetEnableJailbreakPrompt,
+  onSetPromptMode,
+  onSetTemperature,
+  onSetMaxTokens,
+  onSetTopP,
+  onToggleSystemPrompt,
+  onToggleJailbreakPrompt,
+  updateAPIConfig,
+  onToggleReplySuggestionPrompt,
+  onToggleTextEnhancementPrompt,
+  setAPIModel,
+  setAPIProvider,
+  setOpenRouterApiKey,
+  setGeminiApiKey,
+}) => {
+  // apiConfig がなければ何も表示しない
+  if (!apiConfig) {
+    return null;
+  }
+
+  const handleModelChange = (modelId: string) => {
+    // ローカル/グローバル双方で安全に更新
+    const provider: APIProvider = modelId.includes("gemini")
+      ? "gemini"
+      : "openrouter";
+    updateAPIConfig({ model: modelId, provider });
+    try {
+      setAPIModel(modelId);
+      setAPIProvider(provider);
+    } catch {
+      // no-op: 親からのno-op実装でも動作するように
+    }
+  };
+
+  const handleSavePrompts = () => {
+    console.log("Saving custom prompts:", systemPrompts);
+  };
+
+  return (
+    <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+      {/* API設定セクション */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium text-white">API設定</h4>
+
+        {/* モデル選択 */}
+        <ModelSelector
+          apiConfig={apiConfig}
+          onModelChange={handleModelChange}
+        />
+
+        {/* APIキー管理 */}
+        <APIKeyManager
+          apiConfig={apiConfig}
+          openRouterApiKey={openRouterApiKey}
+          geminiApiKey={geminiApiKey}
+          onOpenRouterApiKeyChange={setOpenRouterApiKey}
+          onGeminiApiKeyChange={setGeminiApiKey}
+          onUpdateAPIConfig={updateAPIConfig}
+        />
+      </div>
+
+      {/* API設定パラメータ */}
+      <APIConfigPanel
+        apiConfig={apiConfig}
+        onSetTemperature={onSetTemperature}
+        onSetMaxTokens={onSetMaxTokens}
+        onSetTopP={onSetTopP}
+      />
+
+      {/* プロンプト管理 */}
+      <PromptEditor
+        systemPrompts={systemPrompts}
+        enableSystemPrompt={enableSystemPrompt}
+        enableJailbreakPrompt={enableJailbreakPrompt}
+        promptMode={promptMode}
+        showSystemPrompt={showSystemPrompt}
+        showJailbreakPrompt={showJailbreakPrompt}
+        showReplySuggestionPrompt={showReplySuggestionPrompt}
+        showTextEnhancementPrompt={showTextEnhancementPrompt}
+        onUpdateSystemPrompts={onUpdateSystemPrompts}
+        onSetEnableSystemPrompt={onSetEnableSystemPrompt}
+        onSetEnableJailbreakPrompt={onSetEnableJailbreakPrompt}
+        onSetPromptMode={onSetPromptMode}
+        onToggleSystemPrompt={onToggleSystemPrompt}
+        onToggleJailbreakPrompt={onToggleJailbreakPrompt}
+        onToggleReplySuggestionPrompt={onToggleReplySuggestionPrompt}
+        onToggleTextEnhancementPrompt={onToggleTextEnhancementPrompt}
+        onSavePrompts={handleSavePrompts}
+      />
+    </div>
+  );
+};

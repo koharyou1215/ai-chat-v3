@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useAppStore } from '@/store';
 
 interface MessageEffectsProps {
   trigger: string;
@@ -13,9 +13,9 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
   trigger,
   position
 }) => {
-  const { settings } = useEffectSettings();
+  const settings = useAppStore(state => state.effectSettings);
   const [effects, setEffects] = useState<Array<{ id: string; type?: string; delay?: number; x?: number; y?: number; angle?: number; distance?: number }>>([]);
-  const timeoutsRef = React.useRef<NodeJS.Timeout[]>([]);
+  const timeoutsRef = React.useRef<number[]>([]);
 
   useEffect(() => {
     if (!settings.particleEffects || !trigger || effects.length > 0) return;
@@ -41,7 +41,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
   // コンポーネントアンマウント時のクリーンアップ
   React.useEffect(() => {
     return () => {
-      timeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      timeoutsRef.current.forEach(timeoutId => window.clearTimeout(timeoutId));
       timeoutsRef.current = [];
     };
   }, []);
@@ -55,9 +55,9 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     }));
 
     setEffects(prev => [...prev, ...hearts]);
-    const timeoutId = setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       setEffects(prev => prev.filter(e => !hearts.find(h => h.id === e.id)));
-    }, 2500);
+    }, 2500) as unknown as number;
     timeoutsRef.current.push(timeoutId);
   };
 
@@ -70,9 +70,10 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     }));
 
     setEffects(prev => [...prev, ...sparkles]);
-    setTimeout(() => {
+    const t1 = window.setTimeout(() => {
       setEffects(prev => prev.filter(e => !sparkles.find(s => s.id === e.id)));
-    }, 1800);
+    }, 1800) as unknown as number;
+    timeoutsRef.current.push(t1);
   };
 
   const createStarBurst = () => {
@@ -83,23 +84,26 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     }));
 
     setEffects(prev => [...prev, ...stars]);
-    setTimeout(() => {
+    const t2 = window.setTimeout(() => {
       setEffects(prev => prev.filter(e => !stars.find(s => s.id === e.id)));
-    }, 1200);
+    }, 1200) as unknown as number;
+    timeoutsRef.current.push(t2);
   };
 
   const createConfetti = () => {
     setEffects(prev => [...prev, { id: `confetti-${Date.now()}`, type: 'confetti' }]);
-    setTimeout(() => {
+    const t3 = window.setTimeout(() => {
       setEffects(prev => prev.filter(e => !e.id.startsWith('confetti')));
-    }, 2000);
+    }, 2000) as unknown as number;
+    timeoutsRef.current.push(t3);
   };
 
   const createRainbow = () => {
     setEffects(prev => [...prev, { id: `rainbow-${Date.now()}`, type: 'rainbow' }]);
-    setTimeout(() => {
+    const t4 = window.setTimeout(() => {
       setEffects(prev => prev.filter(e => !e.id.startsWith('rainbow')));
-    }, 3000);
+    }, 3000) as unknown as number;
+    timeoutsRef.current.push(t4);
   };
 
   return (

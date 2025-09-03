@@ -57,3 +57,102 @@ export interface ImageGenerationResponse {
   seed: number;
   metadata?: Record<string, unknown>;
 }
+
+// メッセージ生成応答型
+export interface MessageGenerationResponse {
+  content: string;
+  characterId?: string;
+  messageId: string;
+  timestamp: string;
+  metadata?: {
+    model: string;
+    usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
+    finish_reason: string;
+  };
+}
+
+// 感情分析応答型
+export interface EmotionAnalysisResponse {
+  emotion_analysis: {
+    primary_emotion: string;
+    intensity: number;
+    confidence: number;
+    context: string;
+    triggers: string[];
+  };
+  multi_layer?: {
+    surface: Record<string, number>;
+    contextual: Record<string, number>;
+    deep: Record<string, number>;
+  };
+  processing_time_ms: number;
+}
+
+// 感情追跡応答型
+export interface EmotionTrackingResponse {
+  change_detected: boolean;
+  change_type: 'stable' | 'improvement' | 'deterioration';
+  intensity: number;
+  triggers: string[];
+  suggestions: string[];
+}
+
+// 感情ベース応答応答型
+export interface EmotionBasedResponseResponse {
+  strategy: string;
+  approach: 'direct' | 'indirect' | 'gradual';
+  key_phrases: string[];
+  topics_to_avoid: string[];
+  topics_to_emphasize: string[];
+  expected_outcome: string;
+}
+
+// 文脈分析応答型
+export interface ContextAnalysisResponse {
+  context_summary: string;
+  mood: string;
+  topic: string;
+  relationship_level: number;
+  conversation_depth: number;
+  key_insights: string[];
+  recommendations: string[];
+}
+
+// ベクトル検索応答型
+export interface VectorSearchResponse {
+  results: Array<{
+    id: string;
+    content: string;
+    score: number;
+    metadata?: Record<string, any>;
+  }>;
+  totalCount: number;
+  processingTime: number;
+}
+
+// メモリインデックス応答型
+export interface MemoryIndexResponse {
+  indexed: number;
+  failed: number;
+  errors?: string[];
+  processingTime: number;
+}
+
+// 類似度計算応答型
+export interface SimilarityCalculationResponse {
+  matrix: number[][];
+  clusters?: Array<{
+    id: string;
+    members: string[];
+    centroid: number[];
+  }>;
+  statistics?: {
+    mean: number;
+    median: number;
+    stdDev: number;
+  };
+}
