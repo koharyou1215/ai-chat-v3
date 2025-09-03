@@ -189,8 +189,11 @@ export class PromptBuilderService {
     const startTime = performance.now();
 
     // 1. 最小限のベースプロンプトを即座に構築 (50-100ms)
-    const character = (session as any).participants?.characters?.[0] ?? (session as any).character;
-    const user = (session as any).participants?.user ?? (session as any).persona;
+    const character =
+      (session as any).participants?.characters?.[0] ??
+      (session as any).character;
+    const user =
+      (session as any).participants?.user ?? (session as any).persona;
 
     // 🚨 緊急デバッグ：キャラクター情報の確認
     console.log(
@@ -586,9 +589,16 @@ ${trackerInfo}
    * 軽量モデル用: シンプルなプロンプトを生成（パフォーマンス最適化）
    */
   public async buildSimplePrompt(
-    session: UnifiedChatSession,
-    userInput: string
+    sessionOrCharacter: UnifiedChatSession | Character,
+    userInputOrPersona?: string | Persona,
+    maybeMessages?: UnifiedMessage[]
   ): Promise<string> {
+    // 互換入力: (character, persona) 形式をサポート
+    const session: any =
+      (sessionOrCharacter as any).participants || (sessionOrCharacter as any).character || Array.isArray((sessionOrCharacter as any).messages)
+        ? sessionOrCharacter
+        : { character: sessionOrCharacter as Character, persona: userInputOrPersona as Persona, messages: Array.isArray(maybeMessages) ? maybeMessages : [] };
+
     const character = (session as any).participants?.characters?.[0] ?? (session as any).character;
     const user = (session as any).participants?.user ?? (session as any).persona;
 
@@ -612,7 +622,7 @@ Recent conversation:
 `;
 
     // 最新5件のメッセージのみを含める（軽量化）
-    const allMsgs = Array.isArray(session.messages) ? session.messages : [];
+    const allMsgs = Array.isArray((session as any).messages) ? (session as any).messages : [];
     const recentMessages = allMsgs.slice(-5);
     for (const msg of recentMessages) {
       if (msg.role === "user" || msg.role === "assistant") {
@@ -624,7 +634,7 @@ Recent conversation:
       }
     }
 
-    prompt += `\nUser: ${userInput}\n${character?.name || "Assistant"}:`;
+    prompt += `\nUser: \n${character?.name || "Assistant"}:`;
 
     return prompt;
   }
@@ -705,19 +715,26 @@ Recent conversation:
   }
 
   public async buildPrompt(
-    session: UnifiedChatSession,
-    userInput: string,
-    trackerManager?: TrackerManager
+    sessionOrCharacter: UnifiedChatSession | Character,
+    userInputOrPersona?: string | Persona,
+    trackerOrMessages?: TrackerManager | UnifiedMessage[]
   ): Promise<string> {
     const startTime = performance.now();
 
     try {
+      // 互換入力: (character, persona, messages) 形式をサポート
+      const isCompat = (sessionOrCharacter as any).participants === undefined && (sessionOrCharacter as any).character === undefined;
+      const compatMessages = Array.isArray(trackerOrMessages) ? (trackerOrMessages as UnifiedMessage[]) : [];
+      const session: any = isCompat
+        ? { id: 'compat-session', character: sessionOrCharacter as Character, persona: userInputOrPersona as Persona, messages: compatMessages }
+        : sessionOrCharacter;
+
       // 最適化されたConversationManager取得
       const allMsgs = Array.isArray(session.messages) ? session.messages : [];
       const conversationManager = await this.getOrCreateManager(
-        session.id,
+        session.id || 'compat-session',
         allMsgs,
-        trackerManager
+        (trackerOrMessages as TrackerManager) // 互換時はTrackerManagerでないが、getOrCreateManager側で未使用でも安全
       );
 
       // システム設定を取得（キャッシュしたいがリアクティブなため毎回取得）
@@ -739,7 +756,7 @@ Recent conversation:
       );
 
       const prompt = await conversationManager.generatePrompt(
-        userInput,
+        "", // 互換モードではユーザ入力は別で送られるため空文字
         (session as any).participants?.characters?.[0] ?? (session as any).character,
         userPersona as any, // Type compatibility fix
         systemSettings
@@ -752,7 +769,7 @@ Recent conversation:
       const logLevel = totalDuration > 500 ? "warn" : "log";
       console[logLevel](
         `📊 Prompt built in ${totalDuration.toFixed(1)}ms ` +
-          `(session: ${session.id}, messages: ${allMsgs.length}, ` +
+          `(session: ${session.id || 'compat-session'}, messages: ${allMsgs.length}, ` +
           `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
           `generation: ${promptDuration.toFixed(1)}ms)`
       );
