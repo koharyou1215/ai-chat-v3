@@ -478,15 +478,28 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           timestamp: Date.now(),
           request: async () => {
             console.log("🤖 API実際のリクエスト処理開始");
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            const cfg = get().apiConfig;
+            const orKey = (get() as any).openRouterApiKey as string | undefined;
+            const gmKey = (get() as any).geminiApiKey as string | undefined;
+            if (orKey) headers["x-openrouter-api-key"] = orKey;
+            if (gmKey) headers["x-gemini-api-key"] = gmKey;
+
             const response = await fetch("/api/chat/generate", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers,
               body: JSON.stringify({
                 systemPrompt: basePrompt, // 最初はベースプロンプトで開始
                 userMessage: content,
                 sessionId: currentSessionId,
                 characterId: currentSession.character.id,
                 personaId: currentSession.persona.id,
+                apiConfig: {
+                  provider: cfg.provider,
+                  model: cfg.model,
+                  useDirectGeminiAPI: cfg.useDirectGeminiAPI,
+                  strategy: cfg.strategy,
+                },
                 conversation: messages.map((msg, index) => ({
                   role: msg.sender === "user" ? "user" : "assistant",
                   content: msg.content,
@@ -504,13 +517,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             }
 
             const data = await response.json();
-            console.log("🤖 AIレスポンス:", (data.response || data.message)?.slice(0, 100));
+            console.log(
+              "🤖 AIレスポンス:",
+              (data.response || data.message)?.slice(0, 100)
+            );
 
             // AIメッセージを追加
             const aiMessage: UnifiedMessage = {
               id: crypto.randomUUID(),
               content:
-                data.response || data.message ||
+                data.response ||
+                data.message ||
                 "申し訳ございませんが、応答を生成できませんでした。",
               sender: "ai",
               timestamp: new Date().toISOString(),
@@ -524,15 +541,24 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             setTimeout(async () => {
               try {
                 console.log("🤖 フル機能での再生成開始...");
+                const headers2: Record<string, string> = { "Content-Type": "application/json" };
+                if (orKey) headers2["x-openrouter-api-key"] = orKey;
+                if (gmKey) headers2["x-gemini-api-key"] = gmKey;
                 const fullResponse = await fetch("/api/chat/generate", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: headers2,
                   body: JSON.stringify({
                     systemPrompt: systemPrompt, // 完全版を使用
                     userMessage: content,
                     sessionId: currentSessionId,
                     characterId: currentSession.character.id,
                     personaId: currentSession.persona.id,
+                    apiConfig: {
+                      provider: cfg.provider,
+                      model: cfg.model,
+                      useDirectGeminiAPI: cfg.useDirectGeminiAPI,
+                      strategy: cfg.strategy,
+                    },
                     conversation: [...messages, aiMessage].map(
                       (msg, index) => ({
                         role: msg.sender === "user" ? "user" : "assistant",
@@ -998,7 +1024,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
 
             // メッセージ内容を更新
             get().updateMessage(messageId, {
-              content: data.response || data.message || "再生成に失敗しました。",
+              content:
+                data.response || data.message || "再生成に失敗しました。",
               timestamp: new Date().toISOString(),
             });
 
@@ -1110,7 +1137,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               // 新しいAIメッセージを追加
               const aiMessage: UnifiedMessage = {
                 id: crypto.randomUUID(),
-                content: data.response || data.message || "応答の生成に失敗しました。",
+                content:
+                  data.response || data.message || "応答の生成に失敗しました。",
                 sender: "ai",
                 timestamp: new Date().toISOString(),
                 type: "text",

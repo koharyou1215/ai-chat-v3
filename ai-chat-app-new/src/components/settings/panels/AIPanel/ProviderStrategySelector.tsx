@@ -60,12 +60,26 @@ export const ProviderStrategySelector: React.FC<ProviderStrategySelectorProps> =
   ];
 
   const handleStrategyChange = (strategy: APIProviderStrategy) => {
-    onUpdateAPIConfig({ 
+    const updates: Partial<APIConfig> = {
       strategy,
       // Smart fallback と delay の自動設定
       enableSmartFallback: strategy === 'auto-optimal',
       fallbackDelayMs: strategy === 'auto-optimal' ? 1000 : 2000,
-    });
+    };
+
+    // 戦略に応じて provider と useDirectGeminiAPI を自動調整
+    if (strategy === 'openrouter-native') {
+      updates.provider = 'openrouter';
+      updates.useDirectGeminiAPI = false;
+    } else if (strategy === 'gemini-direct') {
+      updates.provider = 'gemini';
+      updates.useDirectGeminiAPI = true;
+    } else if (strategy === 'gemini-openrouter') {
+      updates.provider = 'gemini';
+      updates.useDirectGeminiAPI = false;
+    }
+
+    onUpdateAPIConfig(updates);
   };
 
   const currentStrategy = apiConfig.strategy || 'auto-optimal';

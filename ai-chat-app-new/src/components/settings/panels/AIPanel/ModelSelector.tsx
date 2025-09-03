@@ -77,19 +77,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           <option value="moonshotai/kimi-k2">Kimi K2</option>
         </optgroup>
       </select>
-      {isGemini ? (
-        <p className="text-xs text-blue-400 mt-1">
-          Gemini APIを使用します。APIキーは{" "}
-          <code className="bg-gray-700 px-1 rounded">
-            gemini-api-key.txt
-          </code>{" "}
-          から読み込まれます。
-        </p>
-      ) : (
-        <p className="text-xs text-purple-400 mt-1">
-          OpenRouter APIを使用します。
-        </p>
-      )}
+      <p className="text-xs mt-1 text-gray-400">
+        {isGemini
+          ? "Gemini APIを使用します。設定からキーを入力できます。"
+          : "OpenRouter APIを使用します。設定からキーを入力できます。"}
+      </p>
     </div>
   );
 };

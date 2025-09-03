@@ -120,53 +120,11 @@ export class GeminiClient {
   }
 
   private async loadApiKeyFromFile(): Promise<string> {
-    try {
-      // 環境変数を最初に確認（サーバーサイド優先）
-      const apiKey =
-        process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (apiKey) {
-        // Gemini API Key loaded from environment variable
-        return apiKey;
-      }
-
-      // ブラウザ環境では環境変数のみ使用
-      if (typeof window !== "undefined") {
-        throw new Error(
-          "GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数が設定されていません（ブラウザ環境）"
-        );
-      }
-
-      // サーバー環境でのファイル読み込み（フォールバック）
-      if (typeof window === "undefined") {
-        try {
-          const fs = await import("fs");
-          const path = await import("path");
-          const keyPath = path.default.join(
-            process.cwd(),
-            "gemini-api-key.txt"
-          );
-          const fileApiKey = fs.default.readFileSync(keyPath, "utf-8").trim();
-
-          if (!fileApiKey) {
-            throw new Error("GeminiAPIキーが空です");
-          }
-
-          console.log("Gemini API Key loaded from file");
-          return fileApiKey;
-        } catch (fileError) {
-          console.error("ファイルからの読み込みも失敗:", fileError);
-          throw new Error(
-            "GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数またはgemini-api-key.txtファイルが必要です"
-          );
-        }
-      }
-      
-      // This should never be reached, but TypeScript needs it
-      throw new Error("API key could not be loaded");
-    } catch (error) {
-      console.error("GeminiAPIキーの読み込みに失敗:", error);
-      throw error;
-    }
+    // セキュリティのため、ファイルからの読み込みフォールバックは廃止
+    // 環境変数のみを許可
+    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) return apiKey;
+    throw new Error("GEMINI_API_KEY が設定されていません");
   }
 
   async generateMessage(
