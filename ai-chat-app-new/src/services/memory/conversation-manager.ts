@@ -483,16 +483,25 @@ export class ConversationManager {
 
     // 6. Tracker Information (Enhanced)
     if (processedCharacter && this.trackerManager) {
-        // 詳細トラッカー情報を使用してキャラクター設定反映を強化
-        const detailedTrackerInfo = this.trackerManager.getDetailedTrackersForPrompt(processedCharacter.id);
-        if (detailedTrackerInfo) {
+        const anyManager: any = this.trackerManager as any;
+        const hasDetailed = typeof anyManager.getDetailedTrackersForPrompt === 'function';
+        const hasBasic = typeof anyManager.getTrackersForPrompt === 'function';
+
+        if (hasDetailed) {
+          const detailedTrackerInfo = anyManager.getDetailedTrackersForPrompt(processedCharacter.id);
+          if (detailedTrackerInfo) {
             prompt += `${detailedTrackerInfo}\n\n`;
-        } else {
-            // フォールバック：基本版を使用
-            const basicTrackerInfo = this.trackerManager.getTrackersForPrompt(processedCharacter.id);
+          } else if (hasBasic) {
+            const basicTrackerInfo = anyManager.getTrackersForPrompt(processedCharacter.id);
             if (basicTrackerInfo) {
-                prompt += `${basicTrackerInfo}\n\n`;
+              prompt += `${basicTrackerInfo}\n\n`;
             }
+          }
+        } else if (hasBasic) {
+          const basicTrackerInfo = anyManager.getTrackersForPrompt(processedCharacter.id);
+          if (basicTrackerInfo) {
+            prompt += `${basicTrackerInfo}\n\n`;
+          }
         }
     }
     
@@ -859,17 +868,24 @@ export class ConversationManager {
    */
   private async getPinnedMemoryCards(): Promise<MemoryCard[]> {
     try {
-      // グローバルストアからピン留めメモリーカードを取得
-      // 本来はDIで注入するべきだが、ここでは直接参照
       const { useAppStore } = await import('@/store');
       const store = useAppStore.getState();
-      
-      if (!store.memory_cards) return [];
-      
-      return Array.from(store.memory_cards.values())
-        .filter(card => card.is_pinned)
-        .sort((a, b) => b.importance.score - a.importance.score)
-        .slice(0, 5); // 最大5件
+      const raw = (store as any).memory_cards;
+      if (!raw) return [];
+
+      let cardsArray: MemoryCard[] = [];
+      if (raw instanceof Map) {
+        cardsArray = Array.from(raw.values());
+      } else if (Array.isArray(raw)) {
+        cardsArray = raw as MemoryCard[];
+      } else if (typeof raw === 'object') {
+        cardsArray = Object.values(raw) as MemoryCard[];
+      }
+
+      return cardsArray
+        .filter(card => !!card && (card as any).is_pinned)
+        .sort((a, b) => (b.importance?.score || 0) - (a.importance?.score || 0))
+        .slice(0, 5);
     } catch (error) {
       console.error('Failed to get pinned memory cards:', error);
       return [];
@@ -884,33 +900,39 @@ export class ConversationManager {
     try {
       const { useAppStore } = await import('@/store');
       const store = useAppStore.getState();
-      
-      if (!store.memory_cards) return [];
-      
-      const cards = Array.from(store.memory_cards.values())
-        .filter(card => !card.is_hidden); // 非表示カードは除外
-      
-      // スマートな関連度計算
-      const relevantCards = cards.map(card => {
-        const relevanceScore = this.calculateSmartMemoryCardRelevance(card, userInput, character);
-        return { card, relevanceScore };
-      })
-      .filter(item => item.relevanceScore > 0.2) // 閾値を0.2に下げて包括性向上
-      .sort((a, b) => {
-        // 関連度 > 重要度 > 作成日時の順でソート
-        if (Math.abs(a.relevanceScore - b.relevanceScore) > 0.1) {
-          return b.relevanceScore - a.relevanceScore;
-        }
-        if (Math.abs(a.card.importance.score - b.card.importance.score) > 0.1) {
-          return b.card.importance.score - a.card.importance.score;
-        }
-        return new Date(b.card.created_at).getTime() - new Date(a.card.created_at).getTime();
-      })
-      .slice(0, 8) // 最大8件に増やして重要な情報の見落としを防止
-      .map(item => item.card);
-      
+      const raw = (store as any).memory_cards;
+      if (!raw) return [];
+
+      let cards: MemoryCard[] = [];
+      if (raw instanceof Map) {
+        cards = Array.from(raw.values());
+      } else if (Array.isArray(raw)) {
+        cards = raw as MemoryCard[];
+      } else if (typeof raw === 'object') {
+        cards = Object.values(raw) as MemoryCard[];
+      }
+
+      cards = cards.filter(card => !!card && !(card as any).is_hidden);
+
+      const relevantCards = cards
+        .map(card => ({ card, relevanceScore: this.calculateSmartMemoryCardRelevance(card, userInput, character) }))
+        .filter(item => item.relevanceScore > 0.2)
+        .sort((a, b) => {
+          if (Math.abs(a.relevanceScore - b.relevanceScore) > 0.1) {
+            return b.relevanceScore - a.relevanceScore;
+          }
+          const ai = a.card.importance?.score || 0;
+          const bi = b.card.importance?.score || 0;
+          if (Math.abs(ai - bi) > 0.1) {
+            return bi - ai;
+          }
+          return new Date(b.card.created_at).getTime() - new Date(a.card.created_at).getTime();
+        })
+        .slice(0, 8)
+        .map(item => item.card);
+
       console.log(`📋 Found ${relevantCards.length} relevant memory cards for: "${userInput.substring(0, 30)}..."`);
-      
+
       return relevantCards;
     } catch (error) {
       console.error('Failed to get relevant memory cards:', error);
