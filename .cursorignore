@@ -1,0 +1,42 @@
+# ドキュメントファイル
+*.md
+*.txt
+*.pdf
+*.docx
+
+# 画像・動画ファイル
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.mp4
+*.avi
+*.mov
+
+# 設定・ログファイル
+*.log
+*.env
+*.env.*
+*.sample
+*.example
+
+# 特定のフォルダー
+/docs/
+/old_docs/
+/ai-chat-app-new/docs/
+/ai-chat-app-new/old_docs/
+/ai-chat-app-new/claudedocs/
+/ai-chat-app-new/test-results/
+/ai-chat-app-new/playwright-report/
+
+# その他の不要ファイル
+*.bat
+*.sh
+desktop.ini
+.DS_Store
+nul
+
+# AI関連のファイル
+.specstory/
