@@ -147,7 +147,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
         const safeCharactersSize =
           characters instanceof Map ? characters.size : 0;
         const safePersonasSize = personas instanceof Map ? personas.size : 0;
-        serverLog("chat:init:guard", { flagsReady, dataReady, safeCharactersSize, safePersonasSize });
+        const flagsReady = isCharactersLoaded && isPersonasLoaded;
+        const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+        serverLog("chat:init:guard", {
+          flagsReady,
+          dataReady,
+          safeCharactersSize,
+          safePersonasSize,
+        });
 
         if (!flagsReady && !dataReady) {
           console.log("⏳ データ読み込み未完了 - 次の機会に初期化を試行", {
