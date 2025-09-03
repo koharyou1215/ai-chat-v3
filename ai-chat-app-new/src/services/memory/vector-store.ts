@@ -44,11 +44,25 @@ export class VectorStore {
       });
       
       if (!response.ok) {
-        throw new Error(`Embedding API failed: ${response.status}`);
+        // フォールバックに切り替え（埋め込みエラーでは止めない）
+        console.warn(`Embedding API failed: ${response.status}. Using fallback embedding.`);
+        return this.createFallbackEmbedding(text);
       }
       
-      const data = await response.json();
-      return data.embedding;
+      // JSONパースも安全に
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.warn('Embedding API returned non-JSON. Using fallback.');
+        return this.createFallbackEmbedding(text);
+      }
+      
+      if (!data || !Array.isArray(data.embedding)) {
+        console.warn('Embedding API malformed payload. Using fallback.');
+        return this.createFallbackEmbedding(text);
+      }
+      return data.embedding as number[];
     } catch (error) {
       console.error('Embedding error:', error);
       // フォールバック: より品質の高いハッシュベースのベクトル

@@ -192,7 +192,6 @@ export async function POST(request: Request) {
         errMsg.includes("quota") ||
         errMsg.includes("rate limit") ||
         errMsg.includes("resource_exhausted") ||
-        errMsg.includes("User not found") ||
         errMsg.includes("ENOTFOUND") ||
         errMsg.includes("ECONNREFUSED") ||
         errMsg.includes("Failed to fetch");
@@ -210,6 +209,7 @@ export async function POST(request: Request) {
             : "(メッセージ)";
         aiResponseContent = `【ローカル簡易応答】\n現在APIにアクセスできないため、仮の返答で対応しています。\n\n- 入力: "${safeUser}"\n- 状態: 通信エラー/利用制限\n\nこのままテストは可能です。後で設定画面からAPIキーを入力すると、本来のAI応答に切り替わります。`;
       } else {
+        // キー不正や権限エラー等はフォールバックせずにそのまま返す
         throw e;
       }
     }
