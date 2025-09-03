@@ -147,13 +147,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
           characters instanceof Map ? characters.size : 0;
         const safePersonasSize = personas instanceof Map ? personas.size : 0;
 
-        if (
-          !isCharactersLoaded ||
-          !isPersonasLoaded ||
-          safeCharactersSize === 0 ||
-          safePersonasSize === 0
-        ) {
-          console.log("⏳ データ読み込み未完了 - 次の機会に初期化を試行");
+        const flagsReady = isCharactersLoaded && isPersonasLoaded;
+        const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+
+        if (!flagsReady && !dataReady) {
+          console.log("⏳ データ読み込み未完了 - 次の機会に初期化を試行", {
+            flagsReady,
+            dataReady,
+            safeCharactersSize,
+            safePersonasSize,
+          });
           setInitializationAttempts((prev) => prev + 1);
           return;
         }
@@ -279,9 +282,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
           <p className="text-gray-600 dark:text-gray-400">
-            {!isCharactersLoaded || !isPersonasLoaded
-              ? "データを読み込み中..."
-              : "セッションを初期化中..."}
+            {(() => {
+              const safeCharactersSize =
+                characters instanceof Map ? characters.size : 0;
+              const safePersonasSize = personas instanceof Map ? personas.size : 0;
+              const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+              return !isCharactersLoaded && !isPersonasLoaded && !dataReady
+                ? "データを読み込み中..."
+                : "セッションを初期化中...";
+            })()}
           </p>
           <p className="text-sm text-gray-500">
             試行 {initializationAttempts + 1}/{maxInitializationAttempts}

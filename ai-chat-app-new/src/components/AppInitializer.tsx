@@ -110,8 +110,12 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   // セッション自動作成ロジック（パフォーマンス最適化版）
   useEffect(() => {
     const createInitialSession = async () => {
-      // 読み込み完了を待つ
-      if (!isCharactersLoaded || !isPersonasLoaded) return;
+      // 読み込み完了を待つ（フラグ OR 実データサイズ）
+      const safeCharactersSize = characters instanceof Map ? characters.size : 0;
+      const safePersonasSize = personas instanceof Map ? personas.size : 0;
+      const flagsReady = isCharactersLoaded && isPersonasLoaded;
+      const dataReady = safeCharactersSize > 0 && safePersonasSize > 0;
+      if (!flagsReady && !dataReady) return;
       
       // 既にアクティブなセッションがある場合はスキップ
       if (active_session_id && sessions.has(active_session_id)) {
@@ -154,6 +158,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     sessions, 
     selectedCharacterId, 
     characters, 
+    personas,
     getSelectedPersona, 
     createSession, 
     setSelectedCharacterId
