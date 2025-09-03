@@ -163,6 +163,37 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         };
       });
 
+      // 初回AIメッセージ（キャラクターのfirst_message）を追加
+      try {
+        const first = character.first_message && String(character.first_message).trim().length > 0
+          ? String(character.first_message)
+          : `こんにちは、${character.name}です。はじめまして！`;
+        const welcomeMessage: UnifiedMessage = {
+          id: crypto.randomUUID(),
+          content: first,
+          sender: "ai",
+          timestamp: new Date().toISOString(),
+          type: "text",
+          persona,
+          character,
+        } as unknown as UnifiedMessage;
+
+        const { sessions } = get();
+        const current = sessions.get(sessionId);
+        if (current) {
+          const updated = {
+            ...current,
+            messages: [...current.messages, welcomeMessage],
+            updated_at: new Date().toISOString(),
+          };
+          const updatedSessions = new Map(sessions);
+          updatedSessions.set(sessionId, updated);
+          set({ session: updated, sessions: updatedSessions, last_message_id: welcomeMessage.id });
+        }
+      } catch (e) {
+        console.warn("初回AIメッセージの追加に失敗しました", e);
+      }
+
       console.log("✅ セッション作成完了:", sessionId);
       return sessionId;
     },

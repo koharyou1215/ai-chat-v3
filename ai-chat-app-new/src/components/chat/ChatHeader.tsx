@@ -213,12 +213,15 @@ const ChatHeaderContent: React.FC = () => {
                             <h1 className="text-white drop-shadow-lg text-xs md:text-sm font-medium truncate">{character?.name || 'AI Assistant'}</h1>
                             {!is_group_mode && session && (
                                 <p className="text-white drop-shadow-lg/50 text-xs truncate">
-                                    {t({
-                                        ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(session.message_count) : `${session.message_count} メッセージ`,
-                                        en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(session.message_count) : `${session.message_count} messages`,
-                                        zh: typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(session.message_count) : `${session.message_count} 消息`,
-                                        ko: typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(session.message_count) : `${session.message_count} 메시지`
-                                    })}
+                                    {(() => {
+                                        const count = Array.isArray(session.messages) ? session.messages.length : (session as any).message_count ?? 0;
+                                        return t({
+                                            ja: typeof commonTexts.messageCount.ja === 'function' ? commonTexts.messageCount.ja(count) : `${count} メッセージ`,
+                                            en: typeof commonTexts.messageCount.en === 'function' ? commonTexts.messageCount.en(count) : `${count} messages`,
+                                            zh: typeof commonTexts.messageCount.zh === 'function' ? commonTexts.messageCount.zh(count) : `${count} 消息`,
+                                            ko: typeof commonTexts.messageCount.ko === 'function' ? commonTexts.messageCount.ko(count) : `${count} 메시지`
+                                        });
+                                    })()}
                                 </p>
                             )}
                         </div>
