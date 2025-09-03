@@ -32,6 +32,7 @@ import { useAppStore } from "@/store";
 import { cn } from "@/lib/utils";
 import { shallow } from "zustand/shallow";
 import { Character } from "@/types";
+import { serverLog } from "@/utils/server-logger";
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
 // MessageInput props interface
@@ -194,6 +195,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
         return;
       }
       const userText = currentInputText;
+      serverLog("ui:send:start", { sessionId: session.id, preview: (userText || "").slice(0, 50) });
       // ローカル反映
       const tempId = crypto.randomUUID();
       useAppStore.getState().addMessage({
@@ -210,6 +212,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
 
       // 生成はバックグラウンドで実行（失敗してもUIは残る）
       setTimeout(() => {
+        serverLog("ui:send:queued", { sessionId: session.id });
         generateMessage(userText).catch(() => {});
       }, 0);
     } finally {
