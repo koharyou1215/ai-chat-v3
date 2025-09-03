@@ -165,9 +165,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
 
       // 初回AIメッセージ（キャラクターのfirst_message）を追加
       try {
-        const first = character.first_message && String(character.first_message).trim().length > 0
-          ? String(character.first_message)
-          : `こんにちは、${character.name}です。はじめまして！`;
+        const first =
+          character.first_message &&
+          String(character.first_message).trim().length > 0
+            ? String(character.first_message)
+            : `こんにちは、${character.name}です。はじめまして！`;
         const welcomeMessage: UnifiedMessage = {
           id: crypto.randomUUID(),
           content: first,
@@ -188,7 +190,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           };
           const updatedSessions = new Map(sessions);
           updatedSessions.set(sessionId, updated);
-          set({ session: updated, sessions: updatedSessions, last_message_id: welcomeMessage.id });
+          set({
+            session: updated,
+            sessions: updatedSessions,
+            last_message_id: welcomeMessage.id,
+          });
         }
       } catch (e) {
         console.warn("初回AIメッセージの追加に失敗しました", e);
@@ -472,7 +478,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           timestamp: Date.now(),
           request: async () => {
             console.log("🤖 API実際のリクエスト処理開始");
-            const response = await fetch("/api/chat", {
+            const response = await fetch("/api/chat/generate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -498,13 +504,13 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             }
 
             const data = await response.json();
-            console.log("🤖 AIレスポンス:", data.message?.slice(0, 100));
+            console.log("🤖 AIレスポンス:", (data.response || data.message)?.slice(0, 100));
 
             // AIメッセージを追加
             const aiMessage: UnifiedMessage = {
               id: crypto.randomUUID(),
               content:
-                data.message ||
+                data.response || data.message ||
                 "申し訳ございませんが、応答を生成できませんでした。",
               sender: "ai",
               timestamp: new Date().toISOString(),
@@ -518,7 +524,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             setTimeout(async () => {
               try {
                 console.log("🤖 フル機能での再生成開始...");
-                const fullResponse = await fetch("/api/chat", {
+                const fullResponse = await fetch("/api/chat/generate", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -622,7 +628,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           priority: 1,
           timestamp: Date.now(),
           request: async () => {
-            const response = await fetch("/api/chat", {
+            const response = await fetch("/api/chat/generate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -651,7 +657,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             // 新しいAIメッセージを追加
             const aiMessage: UnifiedMessage = {
               id: crypto.randomUUID(),
-              content: data.message || "続行に失敗しました。",
+              content: data.response || data.message || "続行に失敗しました。",
               sender: "ai",
               timestamp: new Date().toISOString(),
               type: "text",
@@ -964,7 +970,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           priority: 1,
           timestamp: Date.now(),
           request: async () => {
-            const response = await fetch("/api/chat", {
+            const response = await fetch("/api/chat/generate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -992,7 +998,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
 
             // メッセージ内容を更新
             get().updateMessage(messageId, {
-              content: data.message || "再生成に失敗しました。",
+              content: data.response || data.message || "再生成に失敗しました。",
               timestamp: new Date().toISOString(),
             });
 
@@ -1076,7 +1082,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             priority: 1,
             timestamp: Date.now(),
             request: async () => {
-              const response = await fetch("/api/chat", {
+              const response = await fetch("/api/chat/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1104,7 +1110,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               // 新しいAIメッセージを追加
               const aiMessage: UnifiedMessage = {
                 id: crypto.randomUUID(),
-                content: data.message || "応答の生成に失敗しました。",
+                content: data.response || data.message || "応答の生成に失敗しました。",
                 sender: "ai",
                 timestamp: new Date().toISOString(),
                 type: "text",

@@ -21,11 +21,12 @@ export async function POST(request: Request) {
     console.log('🔧 Applying API configuration:', apiConfig);
     
     // 環境変数から API キーを取得
-    const effectiveApiConfig = { ...apiConfig };
+    const effectiveApiConfig: any = { ...(apiConfig || {}) };
+    const provider = (apiConfig && apiConfig.provider) || process.env.NEXT_PUBLIC_DEFAULT_PROVIDER || 'gemini';
     
-    if (apiConfig.provider === 'gemini') {
+    if (provider === 'gemini') {
       // フロントエンドから送られてくる API キーを最優先で使用
-      if (apiConfig.geminiApiKey) {
+      if (apiConfig?.geminiApiKey) {
         effectiveApiConfig.geminiApiKey = apiConfig.geminiApiKey;
         console.log('✅ Gemini API key provided from client');
       } else {
@@ -39,9 +40,9 @@ export async function POST(request: Request) {
           throw new Error('Gemini API キーが設定されていません');
         }
       }
-    } else if (apiConfig.provider === 'openrouter') {
+    } else if (provider === 'openrouter') {
       // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
-      if (!apiConfig.openRouterApiKey) {
+      if (!apiConfig?.openRouterApiKey) {
         console.error('❌ OpenRouter API key not provided');
         throw new Error('OpenRouter API キーが設定されていません');
       }
