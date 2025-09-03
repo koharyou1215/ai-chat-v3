@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SystemPrompts,
   APIConfig,
@@ -12,6 +12,7 @@ import { APIKeyManager } from "./APIKeyManager";
 import { APIConfigPanel } from "./APIConfigPanel";
 import { PromptEditor } from "./PromptEditor";
 import { ProviderStrategySelector } from "./ProviderStrategySelector";
+import { apiManager } from "@/services/api-manager";
 
 interface AIPanelProps {
   systemPrompts: SystemPrompts;
@@ -86,6 +87,22 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   if (!apiConfig) {
     return null;
   }
+
+  // 🔄 UI再表示時に保存済みキーを自動読込してZustandに同期
+  useEffect(() => {
+    try {
+      const savedOR = apiManager.getOpenRouterApiKey?.();
+      if (!openRouterApiKey && savedOR) {
+        setOpenRouterApiKey(savedOR);
+      }
+      const savedGem = apiManager.getGeminiApiKey?.();
+      if (!geminiApiKey && savedGem) {
+        setGeminiApiKey(savedGem);
+      }
+    } catch {}
+    // open時に一度同期すれば十分
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleModelChange = (modelId: string) => {
     // ローカル/グローバル双方で安全に更新
