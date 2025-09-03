@@ -43,6 +43,11 @@ export class PromptBuilderService {
   ): Promise<ConversationManager> {
     const startTime = performance.now();
 
+    // 安全なメッセージ配列に強制変換
+    const safeMessages: UnifiedMessage[] = Array.isArray(messages)
+      ? messages
+      : [];
+
     let manager = PromptBuilderService.managerCache.get(sessionId);
     const lastProcessed =
       PromptBuilderService.lastProcessedCount.get(sessionId) || 0;
@@ -50,15 +55,15 @@ export class PromptBuilderService {
     if (!manager) {
       // 初期化: メッセージ数を制限（最新20件 + 重要なもの）
       console.log(
-        `🆕 Creating ConversationManager for session: ${sessionId} (${messages.length} messages)`
+        `🆕 Creating ConversationManager for session: ${sessionId} (${safeMessages.length} messages)`
       );
 
       // パフォーマンス最適化: 最新20件を取得し、それ以前は重要なものだけ
-      const recentMessages = messages.slice(-20);
-      const olderImportantMessages = messages
+      const recentMessages = safeMessages.slice(-20);
+      const olderImportantMessages = safeMessages
         .slice(0, -20)
         .filter(
-          (msg) => msg.memory.importance.score >= 0.7 || msg.memory.is_pinned
+          (msg) => msg.memory?.importance?.score >= 0.7 || msg.memory?.is_pinned
         )
         .slice(-10); // 古い重要メッセージも最大10件に制限
 
@@ -66,25 +71,25 @@ export class PromptBuilderService {
 
       manager = new ConversationManager(messagesToProcess, trackerManager);
       PromptBuilderService.managerCache.set(sessionId, manager);
-      PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
+      PromptBuilderService.lastProcessedCount.set(sessionId, safeMessages.length);
 
       const duration = performance.now() - startTime;
       console.log(
         `✅ Manager created in ${duration.toFixed(1)}ms (processed ${
           messagesToProcess.length
-        } of ${messages.length} messages)`
+        } of ${safeMessages.length} messages)`
       );
       return manager;
     }
 
     // 増分更新: 新しいメッセージのみ処理
-    const newMessages = messages.slice(lastProcessed);
+    const newMessages = safeMessages.slice(lastProcessed);
     if (newMessages.length > 0) {
       console.log(`🔄 Processing ${newMessages.length} new messages`);
 
       // 重要なメッセージのみフィルタリング
       const importantMessages = newMessages.filter(
-        (msg) => msg.memory.importance.score >= 0.5 || msg.role === "user"
+        (msg) => msg.memory?.importance?.score >= 0.5 || msg.role === "user"
       );
 
       if (importantMessages.length > 0) {
@@ -96,7 +101,7 @@ export class PromptBuilderService {
             ...currentMessages
               .filter(
                 (msg) =>
-                  msg.memory.importance.score >= 0.7 || msg.memory.is_pinned
+                  msg.memory?.importance?.score >= 0.7 || msg.memory?.is_pinned
               )
               .slice(0, 10),
             ...currentMessages.slice(-15),
@@ -112,7 +117,10 @@ export class PromptBuilderService {
       }
 
       // 処理済みメッセージ数を更新
-      PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
+      PromptBuilderService.lastProcessedCount.set(
+        sessionId,
+        safeMessages.length
+      );
     }
 
     const duration = performance.now() - startTime;
@@ -561,14 +569,15 @@ Recent conversation:
 `;
 
     // 最新5件のメッセージのみを含める（軽量化）
-    const recentMessages = session.messages.slice(-5);
+    const allMsgs = Array.isArray(session.messages) ? session.messages : [];
+    const recentMessages = allMsgs.slice(-5);
     for (const msg of recentMessages) {
       if (msg.role === "user" || msg.role === "assistant") {
         const speaker =
           msg.role === "user"
             ? user?.name || "User"
             : character?.name || "Assistant";
-        prompt += `${speaker}: ${msg.content.substring(0, 200)}\n`;
+        prompt += `${speaker}: ${String(msg.content).substring(0, 200)}\n`;
       }
     }
 
@@ -586,9 +595,10 @@ Recent conversation:
   ): Promise<string> {
     try {
       // ConversationManagerを使って履歴情報のみを取得
+      const allMsgs = Array.isArray(session.messages) ? session.messages : [];
       const conversationManager = await this.getOrCreateManager(
         session.id,
-        session.messages,
+        allMsgs,
         trackerManager
       );
 
@@ -596,7 +606,7 @@ Recent conversation:
       let historyPrompt = "";
 
       // 会話履歴
-      const recentMessages = session.messages.slice(-5);
+      const recentMessages = allMsgs.slice(-5);
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
         recentMessages.forEach((msg) => {
@@ -660,9 +670,10 @@ Recent conversation:
 
     try {
       // 最適化されたConversationManager取得
+      const allMsgs = Array.isArray(session.messages) ? session.messages : [];
       const conversationManager = await this.getOrCreateManager(
         session.id,
-        session.messages,
+        allMsgs,
         trackerManager
       );
 
@@ -698,7 +709,7 @@ Recent conversation:
       const logLevel = totalDuration > 500 ? "warn" : "log";
       console[logLevel](
         `📊 Prompt built in ${totalDuration.toFixed(1)}ms ` +
-          `(session: ${session.id}, messages: ${session.messages.length}, ` +
+          `(session: ${session.id}, messages: ${allMsgs.length}, ` +
           `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
           `generation: ${promptDuration.toFixed(1)}ms)`
       );
