@@ -287,7 +287,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
       ? characters.get(selectedCharacterId)
       : null;
 
+  // 追加トレース: レンダー条件の可視化
+  try {
+    serverLog("chat:render:state", {
+      hasSession: !!currentSession,
+      hasSelectedCharacter: !!selectedCharacter,
+      active_session_id,
+      selectedCharacterId,
+    });
+  } catch (_) {}
+
   if (!currentSession || !selectedCharacter) {
+    try {
+      serverLog("chat:render:loading", {
+        reason: !currentSession ? "no-session" : "no-selected-character",
+      });
+    } catch (_) {}
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -350,6 +365,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
       </div>
     );
   }
+
+  try {
+    serverLog("chat:render:main", {
+      sessionId: currentSession?.id,
+      characterId: selectedCharacter?.id,
+    });
+  } catch (_) {}
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
