@@ -93,9 +93,10 @@ const ChatSidebar: React.FC = React.memo(() => {
     allSessions
     .filter(session => {
       if (!searchQuery) return true;
-      const lastMessage = session.messages[session.messages.length - 1];
+      const msgs = Array.isArray(session.messages) ? session.messages : [] as any[];
+      const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1] : null;
       return session.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase());
+             lastMessage?.content?.toLowerCase()?.includes(searchQuery.toLowerCase());
     })
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
     [allSessions, searchQuery]
@@ -204,9 +205,10 @@ const ChatSidebar: React.FC = React.memo(() => {
   };
 
   const getSessionPreview = (session: UnifiedChatSession) => {
-    const lastMessage = session.messages[session.messages.length - 1];
+    const msgs = Array.isArray(session.messages) ? session.messages : [] as any[];
+    const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1] : null;
     if (!lastMessage) return 'No messages yet';
-    const content = lastMessage.content;
+    const content = lastMessage.content || '';
     return content.length > 50 ? `${content.substring(0, 50)}...` : content;
   };
 
@@ -350,7 +352,9 @@ const ChatSidebar: React.FC = React.memo(() => {
               const isActive = isGroupSession 
                 ? (session.id === active_group_session_id && is_group_mode)
                 : (session.id === active_session_id && !is_group_mode);
-              const messageCount = session.messages.length;
+              const messageCount = Array.isArray(session.messages)
+                ? session.messages.length
+                : (session as any).message_count ?? 0;
               
               return (
                 <motion.div
