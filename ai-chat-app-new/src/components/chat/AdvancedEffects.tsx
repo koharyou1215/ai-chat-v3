@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useAppStore } from '@/store';
 import { ClientOnly } from '@/components/utils/ClientOnly';
 
 class Particle {
@@ -66,7 +66,7 @@ class Particle {
  * WebGLを使用した立体的なメッセージ表示
  */
 export const HologramMessage: React.FC<{ text: string }> = ({ text: _text }) => {
-  const { settings } = useEffectSettings();
+  const settings = useAppStore(state => state.effectSettings);
   
   // 3D機能は無効化されているため、軽量版を表示
   if (!settings.hologramMessages) return null;
@@ -111,7 +111,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   text, 
   trigger 
 }) => {
-  const { settings } = useEffectSettings();
+  const settings = useAppStore(state => state.effectSettings);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationRef = useRef<number>(0);
@@ -200,7 +200,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
 export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({ 
   children 
 }) => {
-  const { settings } = useEffectSettings();
+  const settings = useAppStore(state => state.effectSettings);
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
 

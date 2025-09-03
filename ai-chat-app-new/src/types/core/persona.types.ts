@@ -19,6 +19,13 @@ export interface Persona extends BaseEntity {
   is_default?: boolean;
   // 感情分析用プロパティ追加
   preferences?: Record<string, any>;
+  // NSFW settings (from SuperClaude compatibility)
+  nsfw_persona?: {
+    consent_level?: string;
+    preferred_scenarios?: string[];
+    kinks?: string[];
+    limits?: string[];
+  };
 }
 
 export type PersonaInput = Omit<Persona, 'id' | 'created_at' | 'updated_at' | 'version'>;

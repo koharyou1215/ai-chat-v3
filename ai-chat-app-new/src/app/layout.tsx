@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { EffectSettingsProvider } from "@/contexts/EffectSettingsContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { StorageInitializer } from "@/components/utils/StorageInitializer";
 
@@ -40,9 +39,7 @@ export default function RootLayout({
         
         <ErrorBoundary>
           <StorageInitializer />
-          <EffectSettingsProvider>
-            {children}
-          </EffectSettingsProvider>
+          {children}
         </ErrorBoundary>
       </body>
     </html>
