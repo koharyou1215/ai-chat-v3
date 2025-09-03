@@ -71,7 +71,10 @@ export class PromptBuilderService {
 
       manager = new ConversationManager(messagesToProcess, trackerManager);
       PromptBuilderService.managerCache.set(sessionId, manager);
-      PromptBuilderService.lastProcessedCount.set(sessionId, safeMessages.length);
+      PromptBuilderService.lastProcessedCount.set(
+        sessionId,
+        safeMessages.length
+      );
 
       const duration = performance.now() - startTime;
       console.log(
@@ -186,8 +189,8 @@ export class PromptBuilderService {
     const startTime = performance.now();
 
     // 1. 最小限のベースプロンプトを即座に構築 (50-100ms)
-    const character = session.participants.characters[0];
-    const user = session.participants.user;
+    const character = (session as any).participants?.characters?.[0] ?? (session as any).character;
+    const user = (session as any).participants?.user ?? (session as any).persona;
 
     // 🚨 緊急デバッグ：キャラクター情報の確認
     console.log(
@@ -259,7 +262,7 @@ export class PromptBuilderService {
       systemPrompts: store.systemPrompts,
       enableSystemPrompt: store.enableSystemPrompt,
       enableJailbreakPrompt: store.enableJailbreakPrompt,
-      promptMode: store.promptMode || 'both', // Get prompt mode, default to 'both' for backward compatibility
+      promptMode: store.promptMode || "both", // Get prompt mode, default to 'both' for backward compatibility
     };
 
     if (!character) {
@@ -300,18 +303,24 @@ ${systemSettings.systemPrompts.jailbreak}
     let systemInstructions = "";
 
     // デバッグログ：プロンプトモードの確認
-    console.log('🎯 [PromptBuilder] Prompt Mode:', systemSettings.promptMode);
-    console.log('🎯 [PromptBuilder] Enable System Prompt:', systemSettings.enableSystemPrompt);
-    console.log('🎯 [PromptBuilder] Custom System Prompt exists:', !!systemSettings.systemPrompts?.system);
+    console.log("🎯 [PromptBuilder] Prompt Mode:", systemSettings.promptMode);
+    console.log(
+      "🎯 [PromptBuilder] Enable System Prompt:",
+      systemSettings.enableSystemPrompt
+    );
+    console.log(
+      "🎯 [PromptBuilder] Custom System Prompt exists:",
+      !!systemSettings.systemPrompts?.system
+    );
 
     switch (systemSettings.promptMode) {
-      case 'default':
+      case "default":
         // Use only default system prompt
         systemInstructions = DEFAULT_SYSTEM_PROMPT;
-        console.log('📝 [PromptBuilder] Using DEFAULT prompt only');
+        console.log("📝 [PromptBuilder] Using DEFAULT prompt only");
         break;
-      
-      case 'custom':
+
+      case "custom":
         // Use only custom system prompt if available
         if (
           systemSettings.enableSystemPrompt &&
@@ -319,15 +328,17 @@ ${systemSettings.systemPrompts.jailbreak}
           systemSettings.systemPrompts.system.trim() !== ""
         ) {
           systemInstructions = systemSettings.systemPrompts.system;
-          console.log('📝 [PromptBuilder] Using CUSTOM prompt only');
+          console.log("📝 [PromptBuilder] Using CUSTOM prompt only");
         } else {
           // Fallback to default if custom is empty
           systemInstructions = DEFAULT_SYSTEM_PROMPT;
-          console.log('📝 [PromptBuilder] Custom prompt empty, falling back to DEFAULT');
+          console.log(
+            "📝 [PromptBuilder] Custom prompt empty, falling back to DEFAULT"
+          );
         }
         break;
-      
-      case 'both':
+
+      case "both":
       default:
         // Use both default and custom (backward compatibility)
         systemInstructions = DEFAULT_SYSTEM_PROMPT;
@@ -339,9 +350,13 @@ ${systemSettings.systemPrompts.jailbreak}
           systemInstructions +=
             "\n\n## CUSTOM INSTRUCTIONS\n" +
             systemSettings.systemPrompts.system;
-          console.log('📝 [PromptBuilder] Using BOTH default and custom prompts');
+          console.log(
+            "📝 [PromptBuilder] Using BOTH default and custom prompts"
+          );
         } else {
-          console.log('📝 [PromptBuilder] Using DEFAULT prompt only (custom not available)');
+          console.log(
+            "📝 [PromptBuilder] Using DEFAULT prompt only (custom not available)"
+          );
         }
         break;
     }
@@ -483,20 +498,48 @@ ${
 Name: ${user.name || userName}
 ${user.description ? `Description: ${user.description}` : ""}
 ${user.role ? `Role: ${user.role}` : ""}
-${user.traits && user.traits.length > 0 ? `
-Traits: ${user.traits.join(", ")}` : ""}
-${user.likes && user.likes.length > 0 ? `
-Likes: ${user.likes.join(", ")}` : ""}
-${user.dislikes && user.dislikes.length > 0 ? `
-Dislikes: ${user.dislikes.join(", ")}` : ""}
-${user.speaking_style ? `
-Speaking Style: ${user.speaking_style}` : ""}
-${user.personality ? `
-Personality: ${user.personality}` : ""}
-${user.background ? `
-Background: ${user.background}` : ""}
-${user.other_settings ? `
-Other Settings: ${user.other_settings}` : ""}
+${
+  user.traits && user.traits.length > 0
+    ? `
+Traits: ${user.traits.join(", ")}`
+    : ""
+}
+${
+  user.likes && user.likes.length > 0
+    ? `
+Likes: ${user.likes.join(", ")}`
+    : ""
+}
+${
+  user.dislikes && user.dislikes.length > 0
+    ? `
+Dislikes: ${user.dislikes.join(", ")}`
+    : ""
+}
+${
+  user.speaking_style
+    ? `
+Speaking Style: ${user.speaking_style}`
+    : ""
+}
+${
+  user.personality
+    ? `
+Personality: ${user.personality}`
+    : ""
+}
+${
+  user.background
+    ? `
+Background: ${user.background}`
+    : ""
+}
+${
+  user.other_settings
+    ? `
+Other Settings: ${user.other_settings}`
+    : ""
+}
 </persona_information>`;
     }
 
@@ -546,8 +589,8 @@ ${trackerInfo}
     session: UnifiedChatSession,
     userInput: string
   ): Promise<string> {
-    const character = session.participants.characters[0];
-    const user = session.participants.user;
+    const character = (session as any).participants?.characters?.[0] ?? (session as any).character;
+    const user = (session as any).participants?.user ?? (session as any).persona;
 
     // グループチャットと同様のコンパクトなプロンプトを生成
     let prompt = `You are ${character?.name || "AI Assistant"}.
@@ -687,17 +730,17 @@ Recent conversation:
 
       const promptStartTime = performance.now();
       // ConversationManagerを使ってプロンプトを生成
-      const userPersona = session.participants.user;
+      const userPersona = (session as any).participants?.user ?? (session as any).persona;
       console.log(
         "👤 [PromptBuilder] User persona being passed:",
         userPersona
-          ? `${userPersona.name} (${userPersona.description})`
+          ? `${userPersona.name} (${userPersona?.description || ""})`
           : "null/undefined"
       );
 
       const prompt = await conversationManager.generatePrompt(
         userInput,
-        session.participants.characters[0],
+        (session as any).participants?.characters?.[0] ?? (session as any).character,
         userPersona as any, // Type compatibility fix
         systemSettings
       );
