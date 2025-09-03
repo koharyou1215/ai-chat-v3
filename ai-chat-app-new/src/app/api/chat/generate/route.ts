@@ -47,12 +47,20 @@ export async function POST(request: Request) {
         }
       }
     } else if (provider === "openrouter") {
-      // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
-      if (!apiConfig?.openRouterApiKey) {
-        console.error("❌ OpenRouter API key not provided");
-        throw new Error("OpenRouter API キーが設定されていません");
+      // OpenRouter の場合、フロントエンド優先。無い場合は環境変数から読込
+      if (apiConfig?.openRouterApiKey) {
+        effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
+        console.log("✅ OpenRouter API key provided from client");
+      } else {
+        const openRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        if (openRouterKey) {
+          effectiveApiConfig.openRouterApiKey = openRouterKey;
+          console.log("✅ OpenRouter API key loaded from environment (fallback)");
+        } else {
+          console.error("❌ OpenRouter API key not provided");
+          throw new Error("OpenRouter API キーが設定されていません");
+        }
       }
-      console.log("✅ OpenRouter API key provided from client");
     }
 
     // このルートは使用されていないため、ログ出力を無効化
@@ -154,7 +162,7 @@ export async function POST(request: Request) {
       );
     } catch (e: any) {
       // オフライン/レート制限などで失敗した場合の簡易フォールバック
-      const errMsg = (e && e.message) ? String(e.message) : "";
+      const errMsg = e && e.message ? String(e.message) : "";
       const isQuotaOrOffline =
         errMsg.includes("Quota") ||
         errMsg.includes("quota") ||
@@ -166,12 +174,16 @@ export async function POST(request: Request) {
         errMsg.includes("Failed to fetch");
 
       if (isQuotaOrOffline) {
-        console.warn("⚠️ Using local fallback response due to API issue:", errMsg);
+        console.warn(
+          "⚠️ Using local fallback response due to API issue:",
+          errMsg
+        );
 
         // 簡易応答テンプレート（読みやすい日本語）
-        const safeUser = (typeof userMessage === "string" && userMessage.trim().length > 0)
-          ? userMessage.trim().slice(0, 200)
-          : "(メッセージ)";
+        const safeUser =
+          typeof userMessage === "string" && userMessage.trim().length > 0
+            ? userMessage.trim().slice(0, 200)
+            : "(メッセージ)";
         aiResponseContent = `【ローカル簡易応答】\n現在APIにアクセスできないため、仮の返答で対応しています。\n\n- 入力: "${safeUser}"\n- 状態: 通信エラー/利用制限\n\nこのままテストは可能です。後で設定画面からAPIキーを入力すると、本来のAI応答に切り替わります。`;
       } else {
         throw e;
