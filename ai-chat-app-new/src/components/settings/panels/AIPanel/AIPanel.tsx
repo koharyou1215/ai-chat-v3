@@ -105,16 +105,31 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   }, []);
 
   const handleModelChange = (modelId: string) => {
-    // ローカル/グローバル双方で安全に更新
-    const provider: APIProvider = modelId.includes("gemini")
-      ? "gemini"
-      : "openrouter";
-    updateAPIConfig({ model: modelId, provider });
+    // 戦略優先でproviderを決定（"google/gemini-*" でもOpenRouter経由を許可）
+    let nextProvider: APIProvider = apiConfig.provider;
+    const strategy = apiConfig.strategy || 'auto-optimal';
+    if (strategy === 'openrouter-native' || strategy === 'gemini-openrouter') {
+      nextProvider = 'openrouter';
+    } else if (strategy === 'gemini-direct') {
+      nextProvider = 'gemini';
+    } else {
+      // auto-optimal: キーの有無で自動判定
+      const hasOR = !!openRouterApiKey;
+      const hasGem = !!geminiApiKey;
+      if (modelId.startsWith('google/')) {
+        // Geminiモデル: OpenRouterキーがあればOpenRouter優先、無ければGemini
+        nextProvider = hasOR ? 'openrouter' : 'gemini';
+      } else {
+        nextProvider = 'openrouter';
+      }
+    }
+
+    updateAPIConfig({ model: modelId, provider: nextProvider });
     try {
       setAPIModel(modelId);
-      setAPIProvider(provider);
+      setAPIProvider(nextProvider);
     } catch {
-      // no-op: 親からのno-op実装でも動作するように
+      // no-op
     }
   };
 

@@ -87,6 +87,14 @@ export async function POST(request: Request) {
       }
     }
 
+    // リクエストのオリジンを OpenRouter の Referer に反映（許可ドメイン対策）
+    try {
+      const origin = (request.headers.get("origin") || request.headers.get("x-forwarded-host") || "").toString();
+      if (origin) {
+        process.env.NEXT_PUBLIC_APP_URL = origin.startsWith("http") ? origin : `https://${origin}`;
+      }
+    } catch {}
+
     // このルートは使用されていないため、ログ出力を無効化
     // 実際のAPI呼び出しはAPIManagerが処理
 
