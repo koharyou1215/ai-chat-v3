@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, User } from "lucide-react";
 import { serverLog } from "@/utils/server-logger";
 // 一時対処: トラッカーUIが操作を阻害するため、読み込みを停止
+import ChatSidebar from "./ChatSidebar";
 import { SettingsModal } from "@/components/lazy/LazyComponents";
 import { ModalLoadingFallback } from "@/components/lazy/LazyComponents";
+import { CharacterGalleryModal, PersonaGalleryModal } from "@/components/lazy/LazyComponents";
 
 interface ChatInterfaceProps {
   onBack?: () => void;
@@ -41,6 +43,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
     isPersonasLoaded,
     createSession,
     setActiveSession,
+    isLeftSidebarOpen,
+    isRightPanelOpen,
     showSettingsModal,
     initialSettingsTab,
     setShowSettingsModal,
@@ -399,6 +403,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
+      {isLeftSidebarOpen && <ChatSidebar />}
       {/* Header */}
       <ChatHeader
         character={selectedCharacter}
@@ -449,6 +454,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBack }) => {
           onClose={() => setShowSettingsModal(false)}
           initialTab={initialSettingsTab}
         />
+        <CharacterGalleryModal />
+        <PersonaGalleryModal />
       </Suspense>
     </div>
   );
