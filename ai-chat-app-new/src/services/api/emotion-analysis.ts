@@ -92,7 +92,13 @@ export class EmotionAnalysisService {
         context
       });
 
-      return response;
+      return response as {
+        change_detected: boolean;
+        change_type: 'improvement' | 'deterioration' | 'stable';
+        intensity: number;
+        triggers: string[];
+        suggestions: string[];
+      };
     } catch (error) {
       console.error('Emotion change detection failed:', error);
       throw error;
@@ -118,7 +124,13 @@ export class EmotionAnalysisService {
         time_window: timeWindow
       });
 
-      return response;
+      return response as {
+        stability_score: number;
+        volatility_index: number;
+        dominant_emotions: string[];
+        stability_trend: 'improving' | 'declining' | 'stable';
+        recommendations: string[];
+      };
     } catch (error) {
       console.error('Emotional stability evaluation failed:', error);
       throw error;
@@ -157,7 +169,14 @@ export class EmotionAnalysisService {
         conversation_context: conversationContext
       });
 
-      return response;
+      return response as {
+        strategy: string;
+        approach: 'direct' | 'indirect' | 'gradual';
+        key_phrases: string[];
+        topics_to_avoid: string[];
+        topics_to_emphasize: string[];
+        expected_outcome: string;
+      };
     } catch (error) {
       console.error('Emotional strategy suggestion failed:', error);
       throw error;
@@ -190,7 +209,12 @@ export class EmotionAnalysisService {
         }
       });
 
-      return response;
+      return response as {
+        empathy_score: number;
+        emotional_alignment: number;
+        response_appropriateness: number;
+        improvement_suggestions: string[];
+      };
     } catch (error) {
       console.error('Empathy level measurement failed:', error);
       throw error;
@@ -218,7 +242,12 @@ export class EmotionAnalysisService {
         training_data: trainingData
       });
 
-      return response;
+      return response as {
+        model_updated: boolean;
+        accuracy_improvement: number;
+        new_accuracy: number;
+        training_samples_processed: number;
+      };
     } catch (error) {
       console.error('Emotion prediction model update failed:', error);
       throw error;
@@ -243,7 +272,12 @@ export class EmotionAnalysisService {
         actual_emotions: actualEmotions
       });
 
-      return response;
+      return response as {
+        overall_accuracy: number;
+        per_emotion_accuracy: Record<string, number>;
+        confusion_matrix: Record<string, Record<string, number>>;
+        improvement_areas: string[];
+      };
     } catch (error) {
       console.error('Analysis accuracy evaluation failed:', error);
       throw error;

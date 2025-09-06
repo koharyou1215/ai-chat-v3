@@ -101,39 +101,15 @@ export class MessageGenerationService {
     context: ConversationContext
   ): Promise<MessageGenerationResponse> {
     const request: MessageGenerationRequest = {
-      user_message: userMessage,
-      character: {
-        id: character.id,
-        name: character.identity.name,
-        personality: character.personality,
-        dialogue_style: character.dialogue_style,
-        background: character.background,
-        preferences: character.preferences
-      },
-      persona: {
-        id: persona.id,
-        name: persona.name,
-        personality: persona.personality,
-        preferences: persona.preferences
-      },
-      conversation_history: conversationHistory.map(msg => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp,
-        metadata: msg.metadata
-      })),
-      context: {
-        mood: context.mood,
-        topic: context.topic,
-        relationship_level: context.relationship_level,
-        conversation_depth: context.conversation_depth
-      },
-      generation_options: {
-        max_length: 500,
+      message: userMessage,
+      characterId: character.id,
+      personaId: persona.id,
+      context: context,
+      parameters: {
+        model: 'auto',
         temperature: 0.8,
-        include_emotion: true,
-        include_memory_references: true
+        max_tokens: 500,
+        top_p: 0.9
       }
     };
 
@@ -156,12 +132,10 @@ export class MessageGenerationService {
       // 並行して感情分析とメッセージ生成を実行
       const [emotionResponse, messageResponse] = await Promise.all([
         this.analyzeEmotion({
-          text: userMessage,
-          context: {
-            conversation_history: conversationHistory.slice(-5),
-            character_personality: character.personality,
-            user_personality: persona.personality
-          }
+          message: userMessage,
+          context: conversationHistory.slice(-5).map(msg => msg.content),
+          characterId: character.id,
+          sessionId: 'temp-session'
         }),
         this.generateCharacterMessage(
           userMessage,
@@ -169,11 +143,24 @@ export class MessageGenerationService {
           persona,
           conversationHistory,
           {
+            session_id: 'temp-session',
+            current_emotion: { primary: 'neutral', intensity: 0.5 },
+            current_topic: 'general',
+            current_mood: { type: 'neutral', intensity: 0.5, stability: 0.8 },
+            recent_messages: [],
+            recent_topics: [],
+            recent_emotions: [],
+            relevant_memories: [],
+            pinned_memories: [],
+            next_likely_topics: [],
+            suggested_responses: [],
+            context_quality: 0.8,
+            coherence_score: 0.8,
             mood: 'neutral',
             topic: 'general',
             relationship_level: 0.5,
-            conversation_depth: 'medium'
-          }
+            conversation_depth: 0.5
+          } as ConversationContext
         )
       ]);
 
@@ -206,7 +193,11 @@ export class MessageGenerationService {
         persona: persona
       });
 
-      return response;
+      return response as {
+        suggested_topics: string[];
+        predicted_mood_change: string;
+        relationship_impact: number;
+      };
     } catch (error) {
       console.error('Conversation flow prediction failed:', error);
       throw error;
@@ -237,7 +228,12 @@ export class MessageGenerationService {
         }
       });
 
-      return response;
+      return response as {
+        quality_score: number;
+        coherence_score: number;
+        character_alignment_score: number;
+        suggestions: string[];
+      };
     } catch (error) {
       console.error('Message quality evaluation failed:', error);
       throw error;

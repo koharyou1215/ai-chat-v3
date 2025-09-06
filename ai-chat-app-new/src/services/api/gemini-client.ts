@@ -124,6 +124,8 @@ export class GeminiClient {
           throw new Error('GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数またはgemini-api-key.txtファイルが必要です');
         }
       }
+      
+      throw new Error('GEMINI_API_KEY または NEXT_PUBLIC_GEMINI_API_KEY 環境変数またはgemini-api-key.txtファイルが必要です');
     } catch (error) {
       console.error('GeminiAPIキーの読み込みに失敗:', error);
       throw error;

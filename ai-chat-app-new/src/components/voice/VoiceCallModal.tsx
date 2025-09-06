@@ -238,7 +238,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         break;
 
       case 'transcription':
-        setTranscription(message.text);
+        setTranscription(message.text || '');
         setLastMessage('');
         
         // Add user message to chat history

@@ -21,14 +21,14 @@ export class SimpleAPIManagerV2 {
   constructor() {
     // デフォルト設定
     this.currentConfig = {
-      provider: 'gemini',
-      model: 'gemini-2.5-flash',
+      provider: "gemini",
+      model: "gemini-2.5-flash",
       temperature: 0.7,
       max_tokens: 2048,
       top_p: 0.9,
       frequency_penalty: 0,
       presence_penalty: 0,
-      context_window: 32000
+      context_window: 32000,
     };
     // 環境変数またはローカルストレージからAPIキーを読み込み
     this.loadApiKeys();
@@ -40,20 +40,51 @@ export class SimpleAPIManagerV2 {
   private loadApiKeys() {
     if (typeof window !== "undefined") {
       try {
-        // 既存のAPIManagerと同じキー名を使用
+        // 方法1: 既存のAPIManagerと同じキー名を使用
         const savedData = localStorage.getItem("ai-chat-v3-storage");
+        console.log(
+          "🔍 ローカルストレージデータ:",
+          savedData ? "存在" : "なし"
+        );
+
         if (savedData) {
           const parsed = JSON.parse(savedData);
+          console.log("🔍 パースされたデータ構造:", {
+            hasState: !!parsed?.state,
+            stateKeys: parsed?.state ? Object.keys(parsed.state) : [],
+            geminiKey: parsed?.state?.geminiApiKey ? "設定済み" : "未設定",
+            openRouterKey: parsed?.state?.openRouterApiKey
+              ? "設定済み"
+              : "未設定",
+          });
+
           this.geminiApiKey = parsed?.state?.geminiApiKey || null;
           this.openRouterApiKey = parsed?.state?.openRouterApiKey || null;
           this.useDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI || false;
-
-          console.log("🔑 APIキー読み込み:", {
-            gemini: this.geminiApiKey ? "設定済み" : "未設定",
-            openRouter: this.openRouterApiKey ? "設定済み" : "未設定",
-            useDirectGeminiAPI: this.useDirectGeminiAPI,
-          });
         }
+
+        // 方法2: 個別のlocalStorageキーからも読み込み（フォールバック）
+        if (!this.geminiApiKey) {
+          const geminiKey = localStorage.getItem("gemini_api_key");
+          if (geminiKey) {
+            this.geminiApiKey = geminiKey;
+            console.log("🔑 個別キーからGemini APIキーを読み込み");
+          }
+        }
+
+        if (!this.openRouterApiKey) {
+          const openRouterKey = localStorage.getItem("openrouter_api_key");
+          if (openRouterKey) {
+            this.openRouterApiKey = openRouterKey;
+            console.log("🔑 個別キーからOpenRouter APIキーを読み込み");
+          }
+        }
+
+        console.log("🔑 APIキー読み込み結果:", {
+          gemini: this.geminiApiKey ? "設定済み" : "未設定",
+          openRouter: this.openRouterApiKey ? "設定済み" : "未設定",
+          useDirectGeminiAPI: this.useDirectGeminiAPI,
+        });
       } catch (error) {
         console.warn("APIキーの読み込みに失敗:", error);
       }
@@ -66,6 +97,12 @@ export class SimpleAPIManagerV2 {
       this.openRouterApiKey ||
       process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
       null;
+
+    console.log("🔑 最終的なAPIキー状態:", {
+      gemini: this.geminiApiKey ? "設定済み" : "未設定",
+      openRouter: this.openRouterApiKey ? "設定済み" : "未設定",
+      useDirectGeminiAPI: this.useDirectGeminiAPI,
+    });
   }
 
   /**
@@ -74,23 +111,30 @@ export class SimpleAPIManagerV2 {
   private safeJsonParse(text: string): any {
     try {
       // 制御文字を除去
-      const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
       return JSON.parse(sanitized);
     } catch (error) {
-      console.error('🚨 JSON Parse Error:', error);
-      
+      console.error("🚨 JSON Parse Error:", error);
+
       // 不正なJSONから有効な部分を抽出
       const jsonMatch = text.match(/\{.*\}/s);
       if (jsonMatch) {
         try {
-          const sanitized = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+          const sanitized = jsonMatch[0].replace(
+            /[\u0000-\u001F\u007F-\u009F]/g,
+            ""
+          );
           return JSON.parse(sanitized);
         } catch (secondError) {
-          console.error('🚨 Second JSON parse attempt failed:', secondError);
+          console.error("🚨 Second JSON parse attempt failed:", secondError);
         }
       }
-      
-      throw new Error(`JSON解析エラー: ${error instanceof Error ? error.message : String(error)}`);
+
+      throw new Error(
+        `JSON解析エラー: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
@@ -99,6 +143,7 @@ export class SimpleAPIManagerV2 {
    */
   setGeminiApiKey(key: string) {
     this.geminiApiKey = key;
+    console.log("🔑 Gemini APIキー更新:", key ? "設定済み" : "未設定");
     if (typeof window !== "undefined") {
       localStorage.setItem("gemini_api_key", key);
     }
@@ -106,6 +151,7 @@ export class SimpleAPIManagerV2 {
 
   setOpenRouterApiKey(key: string) {
     this.openRouterApiKey = key;
+    console.log("🔑 OpenRouter APIキー更新:", key ? "設定済み" : "未設定");
     if (typeof window !== "undefined") {
       localStorage.setItem("openrouter_api_key", key);
     }
@@ -116,10 +162,10 @@ export class SimpleAPIManagerV2 {
    */
   setAPIConfig(config: Partial<APIConfig>) {
     this.currentConfig = { ...this.currentConfig, ...config };
-    console.log('🔧 API設定更新:', this.currentConfig);
+    console.log("🔧 API設定更新:", this.currentConfig);
   }
 
-  setAPIProvider(provider: APIConfig['provider']) {
+  setAPIProvider(provider: APIConfig["provider"]) {
     this.currentConfig.provider = provider;
   }
 
@@ -141,7 +187,7 @@ export class SimpleAPIManagerV2 {
 
   setUseDirectGeminiAPI(enabled: boolean) {
     this.useDirectGeminiAPI = enabled;
-    console.log('🔧 Gemini API直接使用フラグ:', enabled);
+    console.log("🔧 Gemini API直接使用フラグ:", enabled);
   }
 
   getCurrentConfig(): APIConfig {
@@ -220,11 +266,14 @@ export class SimpleAPIManagerV2 {
             this.openRouterApiKey = newOpenRouterKey;
             console.log("🔄 OpenRouter APIキーを更新しました");
           }
-          
+
           // useDirectGeminiAPIフラグも更新
           if (newUseDirectGeminiAPI !== undefined) {
             this.useDirectGeminiAPI = newUseDirectGeminiAPI;
-            console.log("🔄 Gemini API直接使用フラグ:", this.useDirectGeminiAPI);
+            console.log(
+              "🔄 Gemini API直接使用フラグ:",
+              this.useDirectGeminiAPI
+            );
           }
         }
       } catch (error) {
@@ -238,14 +287,14 @@ export class SimpleAPIManagerV2 {
    */
   private isGeminiModel(model: string): boolean {
     const allowedModels = [
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-light',
-      'gemini-2.5-pro',
-      'google/gemini-2.5-flash',
-      'google/gemini-2.5-flash-light',
-      'google/gemini-2.5-pro'
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-light",
+      "gemini-2.5-pro",
+      "google/gemini-2.5-flash",
+      "google/gemini-2.5-flash-light",
+      "google/gemini-2.5-pro",
     ];
-    
+
     return allowedModels.includes(model);
   }
 
@@ -281,7 +330,7 @@ export class SimpleAPIManagerV2 {
     const response = await geminiClient.generateMessage(messages, {
       temperature: options?.temperature || 0.7,
       maxTokens: options?.max_tokens || 2048,
-      topP: options?.top_p || 0.9
+      topP: options?.top_p || 0.9,
     });
 
     return formatMessageContent(response, "readable");
@@ -402,7 +451,7 @@ export class SimpleAPIManagerV2 {
         models: [
           { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
           { id: "gemini-2.5-flash-light", name: "Gemini 2.5 Flash Light" },
-          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" }
+          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
         ],
       },
       {

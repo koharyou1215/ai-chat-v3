@@ -785,7 +785,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 `;
       systemPrompt += continueInstruction;
 
-      const { apiManager } = await import('@/services/api-manager');
+      const { simpleAPIManagerV2: apiManager } = await import('@/services/simple-api-manager-v2');
       
       const conversationHistory = session.messages
         .filter(m => !m.is_deleted)

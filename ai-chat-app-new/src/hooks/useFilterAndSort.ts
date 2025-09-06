@@ -52,7 +52,7 @@ export function useFilterAndSort<T, K extends keyof T>({
       if (field && sortKeys && field in sortKeys) {
         valA = sortKeys[field as keyof typeof sortKeys]!(a);
         valB = sortKeys[field as keyof typeof sortKeys]!(b);
-      } else if (field && field in a) {
+      } else if (field && field in (a as Record<string, unknown>)) {
         // デフォルトの動作：オブジェクトのプロパティを直接参照
         valA = (a as any)[field];
         valB = (b as any)[field];

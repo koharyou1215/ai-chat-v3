@@ -48,8 +48,8 @@ export class APIClient {
         
         throw new APIError(
           response.status,
-          errorData.message || `HTTP error! status: ${response.status}`,
-          errorData.details
+          (errorData as any).message || `HTTP error! status: ${response.status}`,
+          (errorData as any).details
         );
       }
 
@@ -189,7 +189,7 @@ export class APIClient {
   }
 
   async synthesizeVoicevox(text: string, speakerId: number, settings: unknown): Promise<ArrayBuffer> {
-    return this.post('/api/voice/voicevox/synthesize', { text, speakerId, settings }, { responseType: 'arraybuffer' });
+    return this.post('/api/voice/voicevox/synthesize', { text, speakerId, settings });
   }
 }
 

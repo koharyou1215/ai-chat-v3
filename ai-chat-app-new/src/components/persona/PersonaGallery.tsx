@@ -59,10 +59,9 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
     searchKeys: ['name', 'traits'],
     sortOption: sortOption as any,
     sortKeys: {
-      created_at: (p: Persona) => p.created_at ? new Date(p.created_at).getTime() : 0,
       updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
       name: (p: Persona) => p.name || '',
-    },
+    } as { [key: string]: (item: Persona) => string | number | Date },
   });
 
   const sortOptions: { value: SortOption; label: string }[] = [

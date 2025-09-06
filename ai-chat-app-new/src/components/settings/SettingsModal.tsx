@@ -284,7 +284,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAPIProvider={setAPIProvider}
                     setOpenRouterApiKey={setOpenRouterApiKey}
                     setGeminiApiKey={setGeminiApiKey}
-                    useDirectGeminiAPI={useDirectGeminiAPI}
+                    useDirectGeminiAPI={useDirectGeminiAPI ?? false}
                     setUseDirectGeminiAPI={setUseDirectGeminiAPI}
                   />
                 )}
@@ -832,7 +832,7 @@ const AIPanel: React.FC<{
                   value={localOpenRouterApiKey}
                   onChange={(e) => handleApiKeyChange(e.target.value)}
                   className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                  placeholder="sk-or-..."
+                  placeholder="OpenRouterのAPIキーを入力してください"
                 />
                 <button
                   onClick={() => setShowApiKey(!showApiKey)}
