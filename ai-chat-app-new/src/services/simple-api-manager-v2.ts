@@ -213,7 +213,8 @@ export class SimpleAPIManagerV2 {
     // 🔧 リアルタイムでAPIキーを取得（Zustandストアから）
     this.refreshApiKeys();
 
-    const model = options?.model || "gemini-2.5-flash";
+    const rawModel = options?.model || "gemini-2.5-flash";
+    const model = this.validateAndCleanModel(rawModel);
 
     console.log(`🚀 [SimpleAPIManagerV2] Generating with model: ${model}`);
     console.log(`🔑 [SimpleAPIManagerV2] API Keys status:`, {
@@ -291,19 +292,60 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
+   * モデル名を検証・正規化する
+   */
+  private validateAndCleanModel(model: string): string {
+    console.log(`🧹 Model validation - Input: ${model}`);
+    
+    // Step 1: Remove invalid prefixes and suffixes
+    let cleanModel = model
+      .replace(/^google\//, '') // Remove google/ prefix
+      .replace(/-8b$/, '')      // Remove invalid -8b suffix
+      .replace(/-light$/, '-flash-light'); // Fix light variant naming
+    
+    console.log(`🧹 After cleaning: ${cleanModel}`);
+    
+    // Step 2: Map old model names to new ones (1.5 -> 2.5)
+    const modelMapping: { [key: string]: string } = {
+      'gemini-1.5-flash': 'gemini-2.5-flash',
+      'gemini-1.5-flash-light': 'gemini-2.5-flash-light', 
+      'gemini-1.5-pro': 'gemini-2.5-pro'
+    };
+    
+    if (modelMapping[cleanModel]) {
+      console.log(`🔄 Model mapping: ${cleanModel} -> ${modelMapping[cleanModel]}`);
+      cleanModel = modelMapping[cleanModel];
+    }
+    
+    // Step 3: Validate against allowed models
+    const allowedGeminiModels = [
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-light',
+      'gemini-2.5-pro'
+    ];
+    
+    // If it's supposed to be a Gemini model but invalid, default to flash
+    if (model.includes('gemini') && !allowedGeminiModels.includes(cleanModel)) {
+      console.warn(`❌ Invalid Gemini model: ${model} -> defaulting to gemini-2.5-flash`);
+      cleanModel = 'gemini-2.5-flash';
+    }
+    
+    console.log(`✅ Final validated model: ${cleanModel}`);
+    return cleanModel;
+  }
+
+  /**
    * Geminiモデルかどうかの判定（許可された3つのみ）
    */
   private isGeminiModel(model: string): boolean {
+    const cleanModel = this.validateAndCleanModel(model);
     const allowedModels = [
       "gemini-2.5-flash",
       "gemini-2.5-flash-light",
       "gemini-2.5-pro",
-      "google/gemini-2.5-flash",
-      "google/gemini-2.5-flash-light",
-      "google/gemini-2.5-pro",
     ];
 
-    return allowedModels.includes(model);
+    return allowedModels.includes(cleanModel);
   }
 
   /**
@@ -360,7 +402,16 @@ export class SimpleAPIManagerV2 {
       );
     }
 
-    console.log(`🌐 Using OpenRouter with model: ${model}`);
+    // 🚨 CRITICAL: Validate model before sending to OpenRouter
+    const validatedModel = this.validateAndCleanModel(model);
+    
+    // For Gemini models via OpenRouter, add the google/ prefix if needed
+    let openRouterModel = validatedModel;
+    if (this.isGeminiModel(validatedModel) && !validatedModel.startsWith('google/')) {
+      openRouterModel = `google/${validatedModel}`;
+    }
+    
+    console.log(`🌐 Using OpenRouter with model: ${model} -> ${openRouterModel}`);
 
     const messages = [
       { role: "system" as const, content: systemPrompt },
@@ -380,7 +431,7 @@ export class SimpleAPIManagerV2 {
           "X-Title": "AI Chat V3",
         },
         body: JSON.stringify({
-          model: model,
+          model: openRouterModel,
           messages,
           temperature: options?.temperature || 0.7,
           max_tokens: options?.max_tokens || 2048,
@@ -391,12 +442,33 @@ export class SimpleAPIManagerV2 {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`🚨 OpenRouter API Error (${response.status}):`, errorText);
+      
+      // Better error messages for common issues
+      if (response.status === 400 && errorText.includes('not a valid model')) {
+        throw new Error(`選択されたモデル "${openRouterModel}" は利用できません。設定画面で有効なモデルを選択してください。`);
+      } else if (response.status === 429) {
+        throw new Error('API使用制限に達しました。しばらく待ってから再試行してください。');
+      } else if (response.status === 401) {
+        throw new Error('OpenRouter APIキーが無効です。設定画面で正しいAPIキーを入力してください。');
+      }
+      
       throw new Error(
         `OpenRouter API error (${response.status}): ${errorText}`
       );
     }
 
-    const data = await response.json();
+    // 🛡️ Safe JSON parsing
+    let data;
+    try {
+      const responseText = await response.text();
+      console.log('🔍 OpenRouter Response (first 200 chars):', responseText.substring(0, 200));
+      data = JSON.parse(responseText);
+    } catch (jsonError) {
+      console.error('❌ JSON Parse Error:', jsonError);
+      console.error('❌ Invalid JSON Response:', await response.text());
+      throw new Error('OpenRouterからの応答を解析できませんでした。APIの応答形式に問題があります。');
+    }
     
     // デバッグ情報を追加
     console.log('🔍 OpenRouter Response:', {
@@ -416,13 +488,14 @@ export class SimpleAPIManagerV2 {
     
     if (!content || content.trim() === '') {
       console.error('❌ OpenRouter空レスポンス:', {
-        model,
+        originalModel: model,
+        validatedModel: openRouterModel,
         messageCount: messages.length,
         systemPromptLength: systemPrompt.length,
         userMessageLength: userMessage.length,
         response: data
       });
-      throw new Error(`OpenRouterからの応答が空です。モデル: ${model}`);
+      throw new Error(`OpenRouterからの応答が空です。モデル: ${openRouterModel} (元: ${model})`);
     }
 
     return formatMessageContent(content, "readable");
@@ -438,7 +511,8 @@ export class SimpleAPIManagerV2 {
     onChunk: (chunk: string) => void,
     options?: Partial<APIConfig>
   ): Promise<string> {
-    const model = options?.model || "gemini-2.5-flash";
+    const rawModel = options?.model || "gemini-2.5-flash";
+    const model = this.validateAndCleanModel(rawModel);
 
     if (this.isGeminiModel(model)) {
       // Geminiストリーミング

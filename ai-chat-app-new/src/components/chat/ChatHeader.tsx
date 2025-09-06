@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PanelLeft, UserCircle, Bot, Phone, Users, Brain, Settings, ChevronDown } from 'lucide-react';
+import { PanelLeft, UserCircle, Bot, Phone, Users, Brain, Settings, ChevronDown, Sliders } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { GroupChatMode as _GroupChatMode } from '@/types/core/group-chat.types';
@@ -9,6 +9,7 @@ import { VoiceCallInterface } from '../voice/VoiceCallInterface';
 import { VoiceCallModal } from '../voice/VoiceCallModal';
 import { useTranslation, commonTexts } from '@/hooks/useLanguage';
 import { ClientOnlyProvider } from '../ClientOnlyProvider';
+import { QuickSettingsPanel } from '../settings/QuickSettingsPanel';
 
 // モデル名を短縮表示する関数
 const getModelDisplayName = (modelId: string): string => {
@@ -62,6 +63,7 @@ const getModelDisplayName = (modelId: string): string => {
 const ChatHeaderContent: React.FC = () => {
     const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
     const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
+    const [isQuickSettingsOpen, setIsQuickSettingsOpen] = useState(false);
     const { t } = useTranslation();
     
     const { 
@@ -256,6 +258,20 @@ const ChatHeaderContent: React.FC = () => {
             
             {/* Right side - model selector, voice call button and brain tracker */}
             <div className="flex items-center gap-1 flex-shrink-0">
+                {/* クイック設定ボタン */}
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsQuickSettingsOpen(!isQuickSettingsOpen)}
+                    className={cn(
+                        "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation flex-shrink-0",
+                        isQuickSettingsOpen ? "bg-purple-500/20 text-purple-300" : "hover:bg-white/20 text-white drop-shadow-lg"
+                    )}
+                    title="クイック設定"
+                >
+                    <Sliders className="w-5 h-5 md:w-5 md:h-5" />
+                </motion.button>
+                
                 {/* 音声通話ボタン */}
                 <motion.button
                     whileHover={{ scale: 1.1 }}
@@ -316,6 +332,12 @@ const ChatHeaderContent: React.FC = () => {
                 characterId={character?.id}
                 isOpen={isVoiceCallModalOpen}
                 onClose={() => setIsVoiceCallModalOpen(false)}
+            />
+            
+            {/* クイック設定パネル */}
+            <QuickSettingsPanel
+                isOpen={isQuickSettingsOpen}
+                onClose={() => setIsQuickSettingsOpen(false)}
             />
         </div>
     );

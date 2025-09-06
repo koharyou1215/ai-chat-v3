@@ -64,14 +64,36 @@ const ChatSidebar: React.FC = React.memo(() => {
 
   // 統合されたセッション一覧（通常セッション + グループセッション）
   const allSessions = useMemo(() => {
-    const regularSessions = Array.from(sessions.values()).map(session => ({
+    // sessionsがMapでない場合の対処（シリアライズされたオブジェクトも考慮）
+    let sessionsMap: Map<string, any>;
+    if (sessions instanceof Map) {
+      sessionsMap = sessions;
+    } else if (sessions && typeof sessions === 'object' && (sessions as any)._type === 'map' && Array.isArray((sessions as any).value)) {
+      // シリアライズされたMap形式の場合
+      sessionsMap = new Map((sessions as any).value);
+    } else {
+      sessionsMap = new Map();
+    }
+    
+    const regularSessions = Array.from(sessionsMap.values()).map(session => ({
       ...session,
       type: 'individual' as const,
       displayName: session.session_info.title || 'Untitled Chat',
       isPinned: false // isPinnedプロパティは存在しないため、デフォルトでfalse
     }));
     
-    const groupSessionsList = Array.from(groupSessions.values()).map(groupSession => ({
+    // groupSessionsがMapでない場合の対処（シリアライズされたオブジェクトも考慮）
+    let groupSessionsMap: Map<string, any>;
+    if (groupSessions instanceof Map) {
+      groupSessionsMap = groupSessions;
+    } else if (groupSessions && typeof groupSessions === 'object' && (groupSessions as any)._type === 'map' && Array.isArray((groupSessions as any).value)) {
+      // シリアライズされたMap形式の場合
+      groupSessionsMap = new Map((groupSessions as any).value);
+    } else {
+      groupSessionsMap = new Map();
+    }
+    
+    const groupSessionsList = Array.from(groupSessionsMap.values()).map(groupSession => ({
       ...groupSession,
       type: 'group' as const,
       displayName: groupSession.name,

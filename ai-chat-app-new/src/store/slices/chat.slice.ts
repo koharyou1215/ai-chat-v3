@@ -345,6 +345,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         const apiConfig = get().apiConfig;
         // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
         const requestId = `${activeSessionId}-${Date.now()}`;
+        const modelName = apiConfig.model || 'gemini-2.5-flash';
         const response = await apiRequestQueue.enqueueChatRequest(async () => {
           
           // 🔍 デバッグ: プロンプト品質検証 (無効化)
@@ -447,7 +448,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             // Enhanced prompt failed, using base prompt
             return initialResponse; // フォールバック
           }
-        }, requestId);
+        }, requestId, modelName);
         
         // バックグラウンドで拡張プロンプトを処理（将来の最適化用）
         enhancePrompt().then(enhancedPrompt => {

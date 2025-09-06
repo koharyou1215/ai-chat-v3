@@ -1,7 +1,7 @@
 {
   "id": "貴族令嬢",
-  "created_at": "2025-08-28T10:46:42.531Z",
-  "updated_at": "2025-08-28T10:46:42.531Z",
+  "created_at": "2025-09-06T18:20:30.710Z",
+  "updated_at": "2025-09-06T18:20:30.710Z",
   "version": 1,
   "name": "エマ・リシュリー",
   "age": "22歳",
@@ -61,8 +61,8 @@
   "trackers": [
     {
       "id": "favorability",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "favorability",
       "display_name": "侮蔑度",
@@ -71,7 +71,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 100,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -79,8 +79,8 @@
     },
     {
       "id": "pride_level",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "pride_level",
       "display_name": "プライド",
@@ -89,7 +89,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 100,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -97,8 +97,8 @@
     },
     {
       "id": "drug_effect",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "drug_effect",
       "display_name": "媚薬効果",
@@ -107,7 +107,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 80,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -115,8 +115,8 @@
     },
     {
       "id": "arousal_level",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "arousal_level",
       "display_name": "身体の反応",
@@ -125,7 +125,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 75,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -133,8 +133,8 @@
     },
     {
       "id": "physical_restraint",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "physical_restraint",
       "display_name": "拘束状態",
@@ -143,31 +143,14 @@
       "type": "state",
       "config": {
         "type": "state",
-        "initial_state": "椅子に固く拘束",
-        "possible_states": [
-          {
-            "id": "椅子に固く拘束",
-            "label": "椅子に固く拘束"
-          },
-          {
-            "id": "腕の拘束が緩む",
-            "label": "腕の拘束が緩む"
-          },
-          {
-            "id": "脚の拘束が緩む",
-            "label": "脚の拘束が緩む"
-          },
-          {
-            "id": "解放",
-            "label": "解放"
-          }
-        ]
+        "initial_state": "解放",
+        "possible_states": []
       }
     },
     {
       "id": "is_blindfolded",
-      "created_at": "2025-08-28T10:46:42.531Z",
-      "updated_at": "2025-08-28T10:46:42.531Z",
+      "created_at": "2025-09-06T18:20:30.710Z",
+      "updated_at": "2025-09-06T18:20:30.710Z",
       "version": 1,
       "name": "is_blindfolded",
       "display_name": "視界",
@@ -176,7 +159,7 @@
       "type": "boolean",
       "config": {
         "type": "boolean",
-        "initial_value": true
+        "initial_value": false
       }
     }
   ],
@@ -195,7 +178,7 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-08-28T10:46:42.531Z",
+    "last_used": "2025-09-06T18:20:30.710Z",
     "favorite_count": 0,
     "average_session_length": 0
   }

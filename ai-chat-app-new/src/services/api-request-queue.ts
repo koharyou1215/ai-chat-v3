@@ -24,6 +24,8 @@ export class APIRequestQueue {
   private lastRequestTime = 0;
   private minDelay = 100; // 最小遅延（ms）
   private pendingRequests = new Set<string>(); // 重複防止用
+  private modelLastUsedTime = new Map<string, number>(); // モデルごとの最終使用時刻
+  private modelMinDelay = 1000; // 同一モデル連続使用時の最小遅延（1秒）
 
   /**
    * リクエストをキューに追加
@@ -58,7 +60,7 @@ export class APIRequestQueue {
   /**
    * チャット専用の高優先度リクエスト（重複防止機能付き）
    */
-  async enqueueChatRequest<T>(request: () => Promise<T>, requestId?: string): Promise<T> {
+  async enqueueChatRequest<T>(request: () => Promise<T>, requestId?: string, modelName?: string): Promise<T> {
     // 重複チェック
     if (requestId && this.pendingRequests.has(requestId)) {
       console.log(`🚫 Duplicate chat request ignored: ${requestId}`);
@@ -67,6 +69,20 @@ export class APIRequestQueue {
     
     if (requestId) {
       this.pendingRequests.add(requestId);
+    }
+
+    // 同一モデルの連続使用をチェック
+    if (modelName) {
+      const lastUsed = this.modelLastUsedTime.get(modelName) || 0;
+      const timeSinceLastUse = Date.now() - lastUsed;
+      
+      if (timeSinceLastUse < this.modelMinDelay) {
+        const waitTime = this.modelMinDelay - timeSinceLastUse;
+        console.log(`⏳ モデル ${modelName} のレート制限: ${waitTime}ms 待機`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      this.modelLastUsedTime.set(modelName, Date.now());
     }
 
     try {
