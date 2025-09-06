@@ -18,9 +18,8 @@ const getModelDisplayName = (modelId: string): string => {
     if (modelId.startsWith('google/')) {
         const modelName = modelId.replace('google/', '');
         if (modelName.includes('gemini-2.5-pro')) return 'Gemini 2.5 Pro';
+        if (modelName.includes('gemini-2.5-flash-light')) return 'Gemini 2.5 Flash Light';
         if (modelName.includes('gemini-2.5-flash')) return 'Gemini 2.5 Flash';
-        if (modelName.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
-        if (modelName.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
         return 'Gemini';
     }
     
@@ -33,9 +32,8 @@ const getModelDisplayName = (modelId: string): string => {
     
     // Gemini直接指定の場合（プレフィックスなし）
     if (modelId.includes('gemini-2.5-pro')) return 'Gemini 2.5 Pro';
+    if (modelId.includes('gemini-2.5-flash-light')) return 'Gemini 2.5 Flash Light';
     if (modelId.includes('gemini-2.5-flash')) return 'Gemini 2.5 Flash';
-    if (modelId.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
-    if (modelId.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
     
     if (modelId.startsWith('x-ai/')) {
         if (modelId.includes('grok-code-fast-1')) return 'Grok Code';

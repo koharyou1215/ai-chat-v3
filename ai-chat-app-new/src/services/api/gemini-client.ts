@@ -228,71 +228,10 @@ export class GeminiClient {
       return candidate.content.parts[0].text;
     } catch (error) {
       console.error('Gemini message generation failed:', error);
-      
-      // OpenRouter経由でGeminiを試行
-      try {
-        console.log('🔄 Attempting fallback via OpenRouter...');
-        return await this.generateViaOpenRouter(messages, options);
-      } catch (fallbackError) {
-        console.error('OpenRouter fallback also failed:', fallbackError);
-        throw error; // 元のエラーを投げる
-      }
+      throw error; // エラーをそのまま投げる（フォールバックなし）
     }
   }
 
-  // OpenRouter経由でGeminiを呼び出す
-  private async generateViaOpenRouter(
-    messages: GeminiMessage[],
-    options?: {
-      temperature?: number;
-      maxTokens?: number;
-      topP?: number;
-      topK?: number;
-    }
-  ): Promise<string> {
-    if (!this.openRouterApiKey) {
-      throw new Error('OpenRouter API key not found for fallback. Please set OpenRouter API key.');
-    }
-
-    // GeminiメッセージをOpenRouter形式に変換
-    const openRouterMessages = messages.map(msg => ({
-      role: msg.role === 'model' ? 'assistant' : msg.role,
-      content: msg.parts[0].text
-    }));
-
-    // モデル名の修正（-8bサフィックスを削除）
-    let openRouterModel = 'google/gemini-2.5-pro';
-    if (this.model.includes('gemini-1.5-flash')) {
-      openRouterModel = 'google/gemini-1.5-flash';
-    } else if (this.model.includes('gemini-2.5-flash')) {
-      openRouterModel = 'google/gemini-2.5-flash';
-    }
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.openRouterApiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.VERCEL_URL || 'http://localhost:3000',
-        'X-Title': 'AI Chat V3'
-      },
-      body: JSON.stringify({
-        model: openRouterModel,
-        messages: openRouterMessages,
-        temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 2048,
-        top_p: options?.topP ?? 0.9,
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`OpenRouter API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-  }
 
   async generateMessageStream(
     messages: GeminiMessage[],
@@ -408,12 +347,11 @@ export class GeminiClient {
   }
 
   getAvailableModels(): string[] {
+    // 3つのモデルのみをサポート
     return [
       'gemini-2.5-pro',
-      'gemini-2.5-flash', 
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-      'gemini-1.0-pro'
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-light'
     ];
   }
 

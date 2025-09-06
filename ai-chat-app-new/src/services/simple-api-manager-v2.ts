@@ -145,10 +145,19 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
-   * Geminiモデルかどうかの判定
+   * Geminiモデルかどうかの判定（許可された3つのみ）
    */
   private isGeminiModel(model: string): boolean {
-    return model.includes("gemini") || model.startsWith("google/");
+    const allowedModels = [
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-light',
+      'gemini-2.5-pro',
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-flash-light',
+      'google/gemini-2.5-pro'
+    ];
+    
+    return allowedModels.includes(model);
   }
 
   /**
@@ -305,9 +314,8 @@ export class SimpleAPIManagerV2 {
         provider: "Gemini (Direct)",
         models: [
           { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-          { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
-          { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
+          { id: "gemini-2.5-flash-light", name: "Gemini 2.5 Flash Light" },
+          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" }
         ],
       },
       {
