@@ -95,3 +95,48 @@ export interface ContextAnalysisRequest {
   sessionId: string;
   analysisDepth?: 'shallow' | 'medium' | 'deep';
 }
+
+// ベクトル検索リクエスト型
+export interface VectorSearchRequest {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  filters?: Record<string, any>;
+}
+
+// メモリインデックスリクエスト型
+export interface MemoryIndexRequest {
+  memories: Array<{
+    id: string;
+    content: string;
+    metadata?: Record<string, any>;
+  }>;
+  method?: 'add' | 'update' | 'remove';
+}
+
+// 類似度計算リクエスト型
+export interface SimilarityCalculationRequest {
+  vectors: number[][];
+  method?: 'cosine' | 'euclidean' | 'manhattan';
+}
+
+// 要約リクエスト型
+export interface SummarizationRequest {
+  content: string;
+  type?: 'general' | 'emotional' | 'topical' | 'relational' | 'learning';
+  length?: 'short' | 'medium' | 'long';
+}
+
+// キーワード抽出リクエスト型
+export interface KeywordExtractionRequest {
+  content: string;
+  limit?: number;
+  method?: 'frequency' | 'tfidf' | 'semantic';
+}
+
+// カテゴリ分類リクエスト型
+export interface CategoryClassificationRequest {
+  content: string;
+  categories?: string[];
+  confidence_threshold?: number;
+}

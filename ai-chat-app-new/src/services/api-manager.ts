@@ -286,8 +286,13 @@ export class APIManager {
       textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
-    // Geminiモデル名からプレフィックスを除去
-    const geminiModel = options.model.replace('google/', '');
+    // Geminiモデル名からプレフィックスを除去し、無効なサフィックスも修正
+    let geminiModel = options.model.replace('google/', '');
+    // -8bサフィックスを削除（無効なモデル名の修正）
+    if (geminiModel.includes('-8b')) {
+      geminiModel = geminiModel.replace('-8b', '');
+      console.warn(`Invalid model suffix detected, corrected: ${options.model} -> ${geminiModel}`);
+    }
     geminiClient.setModel(geminiModel);
     
     // APIキーが設定されている場合は優先して使用
@@ -330,8 +335,13 @@ export class APIManager {
       textFormatting?: 'compact' | 'readable' | 'detailed';
     }
   ): Promise<string> {
-    // Geminiモデル名からプレフィックスを除去
-    const geminiModel = options.model.replace('google/', '');
+    // Geminiモデル名からプレフィックスを除去し、無効なサフィックスも修正
+    let geminiModel = options.model.replace('google/', '');
+    // -8bサフィックスを削除（無効なモデル名の修正）
+    if (geminiModel.includes('-8b')) {
+      geminiModel = geminiModel.replace('-8b', '');
+      console.warn(`Invalid model suffix detected, corrected: ${options.model} -> ${geminiModel}`);
+    }
     geminiClient.setModel(geminiModel);
     
     // APIキーが設定されている場合は優先して使用

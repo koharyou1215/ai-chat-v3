@@ -121,3 +121,64 @@ export interface ContextAnalysisResponse {
   key_insights: string[];
   recommendations: string[];
 }
+
+// ベクトル検索応答型
+export interface VectorSearchResponse {
+  results: Array<{
+    id: string;
+    content: string;
+    score: number;
+    metadata?: Record<string, any>;
+  }>;
+  total_results: number;
+  processing_time_ms: number;
+}
+
+// メモリインデックス応答型
+export interface MemoryIndexResponse {
+  indexed: number;
+  updated: number;
+  removed: number;
+  total_memories: number;
+  processing_time_ms: number;
+}
+
+// 類似度計算応答型
+export interface SimilarityCalculationResponse {
+  matrix: number[][];
+  memory_ids: string[];
+  average_similarity: number;
+  clusters: string[][];
+}
+
+// 要約応答型
+export interface SummarizationResponse {
+  title: string;
+  summary: string;
+  keywords: string[];
+  category: string;
+  importance: string;
+  emotional_content: string[];
+  key_insights: string[];
+}
+
+// キーワード抽出応答型
+export interface KeywordExtractionResponse {
+  keywords: Array<{
+    word: string;
+    score: number;
+    frequency: number;
+  }>;
+  processing_time_ms: number;
+}
+
+// カテゴリ分類応答型
+export interface CategoryClassificationResponse {
+  category: string;
+  confidence: number;
+  alternative_categories: Array<{
+    category: string;
+    confidence: number;
+  }>;
+  processing_time_ms: number;
+}

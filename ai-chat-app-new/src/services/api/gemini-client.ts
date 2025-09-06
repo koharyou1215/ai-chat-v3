@@ -260,6 +260,14 @@ export class GeminiClient {
       content: msg.parts[0].text
     }));
 
+    // モデル名の修正（-8bサフィックスを削除）
+    let openRouterModel = 'google/gemini-2.5-pro';
+    if (this.model.includes('gemini-1.5-flash')) {
+      openRouterModel = 'google/gemini-1.5-flash';
+    } else if (this.model.includes('gemini-2.5-flash')) {
+      openRouterModel = 'google/gemini-2.5-flash';
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -269,7 +277,7 @@ export class GeminiClient {
         'X-Title': 'AI Chat V3'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro', // OpenRouter経由でGemini
+        model: openRouterModel,
         messages: openRouterMessages,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? 2048,
