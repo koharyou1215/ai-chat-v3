@@ -46,13 +46,14 @@ export class InspirationService {
 
     try {
       console.log('📤 返信提案API呼び出し開始');
+      console.log(`📊 返信提案 max_tokens: ${apiConfig?.max_tokens || 2048} (設定値を使用)`);
       
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
         const result = await simpleAPIManagerV2.generateMessage(
           prompt,
           '返信提案を生成',
           [],
-          { ...apiConfig, max_tokens: 800 }
+          { ...apiConfig }  // 設定のmax_tokensをそのまま使用
         );
         console.log('📥 API応答受信（先頭200文字）:', result.substring(0, 200));
         return result;
@@ -108,9 +109,13 @@ export class InspirationService {
         apiConfig
       });
       
-      // プロンプトを大幅に短縮してトークン制限を回避（500文字まで）
-      const truncatedPrompt = prompt.length > 500 ? 
-        `文章強化: "${inputText}"\n${user.name}らしく拡張。` : 
+      // 設定のmax_tokensを使用（デフォルトは2048）
+      const maxTokens = apiConfig?.max_tokens || 2048;
+      console.log(`📊 文章強化 max_tokens: ${maxTokens} (設定値を使用)`);
+      
+      // プロンプトは入力が長い場合のみ短縮
+      const truncatedPrompt = prompt.length > 4000 ? 
+        prompt.substring(0, 4000) + '...\n\n強化対象: "' + inputText + '"' : 
         prompt;
       
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
@@ -118,7 +123,7 @@ export class InspirationService {
           truncatedPrompt,
           '文章を強化',
           [],
-          { ...apiConfig, max_tokens: 200 }  // トークン数も大幅削減
+          { ...apiConfig }  // 設定のmax_tokensをそのまま使用
         );
       });
 
