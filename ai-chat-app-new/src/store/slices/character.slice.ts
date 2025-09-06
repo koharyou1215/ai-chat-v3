@@ -65,7 +65,15 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     });
   },
   selectCharacter: (characterId) => {
-    const character = get().characters.get(characterId);
+    const characters = get().characters;
+    let character;
+    // Map型かオブジェクト型かを確認して対応
+    if (characters instanceof Map) {
+      character = characters.get(characterId);
+    } else if (typeof characters === 'object' && characters) {
+      character = (characters as any)[characterId];
+    }
+    
     const persona = get().getSelectedPersona();
     if (character && persona) {
         get().createSession(character, persona);
@@ -82,7 +90,15 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
   getSelectedCharacter: () => {
     const selectedId = get().selectedCharacterId;
     if (!selectedId) return null;
-    return get().characters.get(selectedId) || null;
+    const characters = get().characters;
+    // Map型かオブジェクト型かを確認して対応
+    if (characters instanceof Map) {
+      return characters.get(selectedId) || null;
+    } else if (typeof characters === 'object' && characters) {
+      // オブジェクトとして扱う（永続化後の場合）
+      return (characters as any)[selectedId] || null;
+    }
+    return null;
   },
   setShowCharacterGallery: (show) => set({ showCharacterGallery: show }),
   

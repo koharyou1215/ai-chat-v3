@@ -100,6 +100,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setOpenRouterApiKey,
     geminiApiKey,
     setGeminiApiKey,
+    useDirectGeminiAPI,
+    setUseDirectGeminiAPI,
     setAPIModel,
     setAPIProvider,
     effectSettings,
@@ -750,9 +752,35 @@ const AIPanel: React.FC<{
           )}
         </div>
 
+        {/* Gemini API直接使用トグル */}
+        {isGemini && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-300">Gemini APIを直接使用</label>
+              <button
+                onClick={() => setUseDirectGeminiAPI(!useDirectGeminiAPI)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  useDirectGeminiAPI ? 'bg-purple-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    useDirectGeminiAPI ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              {useDirectGeminiAPI 
+                ? '🔥 ON: Gemini APIを直接使用します（高速）' 
+                : '🌐 OFF: OpenRouter経由でGeminiを使用します'}
+            </p>
+          </div>
+        )}
+
         {/* Gemini APIキー入力 */}
         <AnimatePresence>
-          {isGemini && (
+          {isGemini && useDirectGeminiAPI && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}

@@ -134,6 +134,7 @@ export interface SettingsSlice extends AISettings {
   setAPIModel: (model: string) => void;
   setOpenRouterApiKey: (key: string) => void;
   setGeminiApiKey: (key: string) => void;
+  setUseDirectGeminiAPI: (enabled: boolean) => void;
   setTemperature: (temp: number) => void;
   resetSystemPrompts: () => void;
   setMaxTokens: (tokens: number) => void;
@@ -295,6 +296,7 @@ export const createSettingsSlice: StateCreator<
   },
   openRouterApiKey: undefined,
   geminiApiKey: undefined,
+  useDirectGeminiAPI: false, // デフォルトはOFF（OpenRouter経由）
 
   systemPrompts: {
     system: '',
@@ -447,6 +449,11 @@ export const createSettingsSlice: StateCreator<
   setGeminiApiKey: (key) => {
     set({ geminiApiKey: key });
     apiManager.setGeminiApiKey(key);
+  },
+  
+  setUseDirectGeminiAPI: (enabled) => {
+    set({ useDirectGeminiAPI: enabled });
+    console.log(`Gemini API Direct Mode: ${enabled ? 'ON' : 'OFF'}`);
   },
   
   setTemperature: (temp) => {

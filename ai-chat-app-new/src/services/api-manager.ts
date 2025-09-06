@@ -159,7 +159,7 @@ export class APIManager {
     systemPrompt: string,
     userMessage: string,
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
-    options?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string; textFormatting?: 'compact' | 'readable' | 'detailed' }
+    options?: Partial<APIConfig> & { openRouterApiKey?: string; geminiApiKey?: string; useDirectGeminiAPI?: boolean; textFormatting?: 'compact' | 'readable' | 'detailed' }
   ): Promise<string> {
     const config = { ...this.currentConfig, ...options };
     const { provider, model, temperature, max_tokens, top_p } = config;
@@ -205,12 +205,32 @@ export class APIManager {
     }
 
     try {
-      if (provider === 'gemini') {
+      // useDirectGeminiAPIがtrueかつGeminiモデルの場合、Gemini APIを直接使用
+      const isGeminiModel = model.includes('gemini-2.5');
+      if (options?.useDirectGeminiAPI && isGeminiModel && this.geminiApiKey) {
+        console.log('🔥 Using Direct Gemini API (Toggle ON)');
         return await this.generateWithGemini(systemPrompt, userMessage, conversationHistory, {
           model,
           temperature,
           maxTokens: max_tokens,
           topP: top_p,
+          textFormatting: options?.textFormatting
+        });
+      }
+      
+      // 通常のプロバイダー分岐
+      if (provider === 'gemini' && !options?.useDirectGeminiAPI) {
+        // useDirectGeminiAPIがOFFの場合、OpenRouter経由でGeminiを使用
+        console.log('🌐 Using Gemini via OpenRouter (Toggle OFF)');
+        if (!this.openRouterApiKey) {
+          throw new Error('OpenRouter APIキーが設定されていません');
+        }
+        return await this.generateWithOpenRouter(systemPrompt, userMessage, conversationHistory, {
+          model: `google/${model}`, // OpenRouter用にプレフィックス追加
+          temperature,
+          maxTokens: max_tokens,
+          topP: top_p,
+          apiKey: this.openRouterApiKey,
           textFormatting: options?.textFormatting
         });
       } else if (provider === 'openrouter') {

@@ -755,12 +755,13 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const apiConfig = get().apiConfig || {};
       const openRouterApiKey = get().openRouterApiKey;
       const geminiApiKey = get().geminiApiKey;
+      const useDirectGeminiAPI = get().useDirectGeminiAPI;
 
       const aiResponse = await apiManager.generateMessage(
         systemPrompt,
         continuePrompt,
         conversationHistory,
-        { ...apiConfig, openRouterApiKey, geminiApiKey }
+        { ...apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI }
       );
 
       // 新しい続きメッセージを作成

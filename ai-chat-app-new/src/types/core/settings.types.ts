@@ -97,6 +97,7 @@ export interface AISettings {
   apiConfig: APIConfig;
   openRouterApiKey?: string;
   geminiApiKey?: string;
+  useDirectGeminiAPI?: boolean; // Gemini API直接使用のON/OFF
   
   // System Prompts
   systemPrompts: SystemPrompts;
