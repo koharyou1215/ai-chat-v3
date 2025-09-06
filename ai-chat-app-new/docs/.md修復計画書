@@ -1,0 +1,234 @@
+とりあえず履歴の、ただ要約したバージョンと今回の失敗を踏まえ、注意点を追加したバージョンです。僕が見ても何のことだかさっぱりなんですけど、大丈夫ですか?
+
+---
+コード修復のための最適化手順書
+この手順は、提供された履歴に基づき、「① 重大なバグ修正 → ② ロジックの簡素化・リファクタリング → ③ 新機能追加 → ④ 根本的な設計問題の解決」 という流れで構成されています。
+
+フェーズ1: 致命的なAPIエラーと型システムの修正
+目的: アプリケーションのビルドを成功させ、中核機能であるGemini APIを正常に動作させる。
+
+バックアップから必須の型定義を移植
+
+課題: 現在のコードには、新しいAPI機能に必要な型定義が不足しており、多数のTypeScriptエラーが発生している。
+
+手順:
+
+バックアップブランチ (backup/broken-state-2025-09-06) から、src/types/api/requests.types.ts と src/types/api/responses.types.ts に、不足しているインターフェース（VectorSearchRequest, MemoryIndexRequest など）をコピーして追加する。
+
+新しいAPIマネージャーの導入
+
+課題: 古いAPIルーティングロジックが複雑で、エラーの原因となっている。
+
+手順:
+
+バックアップから src/services/simple-api-manager-v2.ts ファイルを現在のプロジェクトにコピーし、移植する。
+
+Gemini APIモデル名の検証不備を修正
+
+課題: localStorage 等から不正なモデル名 (...-8b など) が渡された際にAPIエラーでアプリが停止する。
+
+手順:
+
+src/services/api/gemini-client.ts と src/services/api-manager.ts の2つのファイルに、モデル名をAPIに渡す直前で検証し、不正なサフィックス (-8b など) を自動的に除去するロジックを追加する。
+
+動作確認とコミット
+
+npm run build を実行し、ビルドが成功することを確認する。
+
+この時点での安定版をGitにコミットする。 (コミットメッセージ例: fix: Stabilize build by fixing API model validation and porting types)
+
+フェーズ2: APIロジックの簡素化とモデル制限
+目的: エラーの原因となりやすい複雑なロジックを排除し、コードの保守性を向上させる。
+
+OpenRouterへのフォールバック機能を完全に削除
+
+課題: APIエラー時に自動で代替ルート（OpenRouter）に切り替えるフォールバック機能は、根本的なエラーを隠蔽し、デバッグを困難にする。
+
+手順:
+
+src/services/api/gemini-client.ts から generateViaOpenRouter メソッドおよび関連する try-catch ブロックをすべて削除する。エラーが発生した場合は、そのままスローするように修正する。
+
+サポートするGeminiモデルを3つに厳格化
+
+課題: 古いモデルや非対応モデルの存在が、将来的なエラーの原因となる。
+
+手順:
+
+gemini-client.ts の getAvailableModels() メソッドを修正し、gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-light の3つのみを返すようにする。
+
+simple-api-manager-v2.ts や ChatHeader.tsx など、コード内に存在する古いモデル (1.5系, 1.0系) への参照をすべて削除する。
+
+動作確認とコミット
+
+npm run build を実行し、ビルドが成功することを確認する。
+
+変更をGitにコミットする。 (コミットメッセージ例: refactor: Remove API fallback and restrict to 3 supported Gemini models)
+
+フェーズ3: プロンプト送信ロジックの修正
+目的: アプリケーションのコアロジックであるシステムプロンプトの送信方法を仕様通りに修正する。
+
+システムプロンプトを毎回送信するように修正
+
+課題: システムプロンプトが会話の最初のターンでしか送信されず、AIの応答の一貫性が損なわれている。
+
+手順:
+
+src/services/api/gemini-client.ts 内の formatMessagesForGemini メソッドを修正。会話履歴の有無にかかわらず、毎回ユーザーメッセージの先頭にシステムプロンプトを結合するロジックに変更する。
+
+コミット
+
+変更をGitにコミットする。 (コミットメッセージ例: fix: Ensure system prompt is sent with every message)
+
+フェーズ4: 機能実装とそれに伴うバグ修正
+目的: ユーザーの要求に応じた新機能を追加し、その過程で発生したランタイムエラーを修正する。
+
+「Gemini API直接使用」トグル機能の実装
+
+課題: Gemini APIを直接利用するか、OpenRouter経由で利用するかをユーザーが選択できるようにしたい。
+
+手順:
+
+型定義: src/types/core/settings.types.ts に useDirectGeminiAPI?: boolean; を追加。
+
+状態管理(Zustand): src/store/slices/settings.slice.ts に useDirectGeminiAPI の状態とセッターを追加。デフォルトは false (OpenRouter経由) に設定。
+
+APIロジック: src/services/api-manager.ts の generateMessage メソッドに分岐ロジックを追加。useDirectGeminiAPI が true の場合は直接Geminiを呼び出し、false の場合はOpenRouterを呼び出す。
+
+UI: src/components/settings/SettingsModal.tsx にトグルスイッチを追加。
+
+連携: chat.slice.ts から apiManager.generateMessage を呼び出す際に useDirectGeminiAPI の値を渡すように修正。
+
+インスピレーション機能が現在のモデル設定を使用するように修正
+
+課題: インスピレーション機能が、新しく追加した「直接/OpenRouter経由」の設定を反映していない。
+
+手順:
+
+src/store/slices/suggestion.slice.ts 内のインスピレーション関連の関数（generateSuggestions, enhanceTextなど）で apiManager を呼び出す際に、useDirectGeminiAPI フラグを渡すように修正する。
+
+根本的なバグの修正: Map オブジェクトの永続化問題
+
+課題: TypeError: ... .get is not a function や TypeError: object is not iterable といったエラーが頻発。これは、Zustandの永続化機能が Map オブジェクトを localStorage に保存する際にプレーンな Object に変換してしまい、Map のメソッド (.get, .hasなど) が失われることが原因。
+
+手順（最重要）:
+
+安全なアクセサ関数を作成: src/store/slices/chat.slice.ts 内に、引数が Map でも Object でもうまく動作するヘルパー関数 getSessionSafely と getTrackerManagerSafely を作成する。
+
+安全なMap生成関数を作成: 同じファイルに、Map または Object から安全に新しい Map を作成するヘルパー関数 createMapSafely を作成する。
+
+コードの置換: プロジェクト全体で、永続化される Map オブジェクト（sessions, characters, trackerManagers）に対して .get(), .has(), new Map() を直接呼び出している箇所を、すべて作成したヘルパー関数経由の呼び出しに置き換える。
+
+動作確認とコミット
+
+npm run dev でアプリを起動し、リロードしてもエラーが発生しないことを確認する。
+
+ここまでの変更をすべてGitにコミットする。 (コミットメッセージ例: feat: Implement Direct API toggle and fix state persistence issues)
+
+この手順に従うことで、行き当たりばったりの修正ではなく、根本原因を特定し、段階的に安定性を高めながら修復作業を進めることができます。
+
+---
+最終版】コード修復のための最適化手順書 (失敗からの教訓反映版)
+この手順は、成功と失敗の両方の履歴から導き出された、最も安全で効率的な修復戦略です。
+
+修復作業の三原則（最重要）
+履歴外の修正は絶対にしない: Hydration Mismatch のような一見関係ありそうなエラーが表示されても、元の成功履歴にないファイルの修正（特にUIコンポーネント）は絶対に行わない。これは今回失敗した最大の原因です。
+
+バグの「パターン」を理解する: ... is not a function というエラーは、ほぼ全てMapオブジェクトの永続化問題です。個別に対応せず、パターンとして一括で修正します。
+
+APIマネージャーの移行を徹底する: apiManager から simpleAPIManagerV2 への移行は、中途半端に行うと速度低下やエラーの原因になります。関連する箇所を一度にすべて置き換えます。
+
+フェーズ1: 根本的な状態永続化問題の完全解決
+目的: アプリケーション全体で頻発する ... is not a function エラーを根絶する。
+
+Mapオブジェクト安全化ヘルパーの作成
+
+課題: localStorage から復元された Map が Object に変わり、メソッド呼び出しでクラッシュする。
+
+手順:
+
+src/store/slices/chat.slice.ts に、以前の手順書で作成した3つのヘルパー関数 (getSessionSafely, getTrackerManagerSafely, createMapSafely) を実装する。
+
+影響範囲の全ファイルに安全化を適用
+
+課題: この問題は sessions だけでなく、characters, trackerManagers, memory_cards にも影響する。
+
+手順:
+
+以下のファイル/機能で、Mapオブジェクトを直接操作している箇所を、すべてヘルパー関数経由の呼び出しに置き換える。
+
+chat.slice.ts: sessions と trackerManagers の .get(), .has(), new Map() をすべて置換。
+
+character.slice.ts: characters の .get() を置換。
+
+conversation-manager.ts: memory_cards の .values() を、Object.values() も考慮した安全なコードに置換。
+
+AppInitializer.tsx: sessions.has() のチェックを安全な形式に置換。
+
+フェーズ2: APIマネージャーの完全な移行
+目的: アプリケーションの速度低下とAPIキーエラーの原因である、古いapiManagerの参照を完全に排除する。
+
+プロジェクト全体でapiManagerの使用箇所を検索
+
+IDEの検索機能で apiManager.generateMessage を検索し、すべての使用箇所をリストアップする。
+
+simpleAPIManagerV2への一括置換
+
+課題: インスピレーション機能、メモリーカード生成、チャットAPIルートなど、多くの場所で古いapiManagerが使われている。
+
+手順:
+
+以下のファイルを含む、すべてのAPI呼び出し箇所を simpleAPIManagerV2 を使うように修正する。
+
+src/services/inspiration-service.ts
+
+src/services/memory/memory-card-generator.ts
+
+src/store/slices/chat.slice.ts (続きを生成、再生成など)
+
+src/app/api/chat/generate/route.ts ( 最重要：メインのチャット送信処理 )
+
+注意: apiManager はAPIキーの設定管理ではまだ使われているため、ファイルごと削除するのではなく、API生成（generateMessageなど）の呼び出しのみを置き換える。
+
+フェーズ3: 必須ロジックの修正と機能実装
+目的: 以前の成功履歴で実施した、アプリケーションの正しい動作に必要な残りの修正を適用する。
+
+致命的なAPIエラーと型システムの修正 (以前の手順書のフェーズ1)
+
+バックアップから必須の型定義 (VectorSearchRequest等)を src/types/api/ に移植する。
+
+Gemini APIモデル名の不正なサフィックス (-8b) を除去するロジックを gemini-client.ts に追加する。
+
+APIロジックの簡素化とモデル制限 (以前の手順書のフェーズ2)
+
+gemini-client.ts からAPIフォールバック機能 (generateViaOpenRouter) を完全に削除する。
+
+サポートするGeminiモデルを3つ (2.5-pro, 2.5-flash, 2.5-flash-light) に厳格化する。
+
+プロンプト送信ロジックの修正 (以前の手順書のフェーズ3)
+
+gemini-client.ts を修正し、システムプロンプトが毎回のメッセージで送信されるようにする。
+
+「Gemini API直接使用」トグル機能の実装 (以前の手順書のフェーズ4)
+
+型定義、Zustandストア、APIロジック、UIコンポーネントに必要な変更を加え、トグル機能を実装する。
+
+フェーズ4: 無視すべきエラーと避けるべきこと
+目的: 今回の失敗を繰り返し、デバッグの迷路に陥るのを防ぐ。
+
+無視するエラー:
+
+Error: Hydration failed... (Hydration Mismatch)
+
+理由: サーバーとクライアントのHTMLが違うという警告。多くの場合、ブラウザ拡張機能が原因であり、アプリの致命的なバグではない。このエラーを修正しようとすると、より深刻なバグを生む可能性が高い。
+
+対処: 完全に無視する。
+
+絶対に触らないファイル:
+
+src/components/providers/AppearanceProvider.tsx
+
+理由: 今回の失敗の直接的な原因。このファイルを安易に修正すると、Rendered more hooks... というReactの致命的なエラーを引き起こす。
+
+対処: 絶対に修正しない。
+
+この改訂版手順書に従うことで、前回の失敗を回避し、よりスムーズかつ確実にアプリケーションを安定状態に復旧できるはずです。
