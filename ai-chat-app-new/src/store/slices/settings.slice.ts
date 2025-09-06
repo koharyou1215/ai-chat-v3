@@ -298,14 +298,15 @@ export const createSettingsSlice: StateCreator<
   geminiApiKey: undefined,
   useDirectGeminiAPI: false, // デフォルトはOFF（OpenRouter経由）
 
+  // システムプロンプトは空文字列で初期化（永続化時に維持される）
   systemPrompts: {
-    system: '',
-    jailbreak: '',
+    system: '',  // ユーザーがカスタムプロンプトを設定したら永続化
+    jailbreak: '',  // ユーザーがカスタムプロンプトを設定したら永続化
     replySuggestion: '',
     textEnhancement: ''
   },
-  enableSystemPrompt: true,
-  enableJailbreakPrompt: false,
+  enableSystemPrompt: false,  // デフォルトはfalse（明示的に有効化が必要）
+  enableJailbreakPrompt: false,  // デフォルトはfalse（明示的に有効化が必要）
 
   chat: {
     bubbleTransparency: 20,
@@ -403,13 +404,23 @@ export const createSettingsSlice: StateCreator<
   updateSystemPrompts: (prompts) => {
     set((state) => {
       const updatedPrompts = { ...state.systemPrompts, ...prompts };
+      console.log('🔧 Updating system prompts:', {
+        hasSystem: !!updatedPrompts.system,
+        hasJailbreak: !!updatedPrompts.jailbreak
+      });
       // Zustandの自動永続化に任せる（強制永続化を削除）
       return { systemPrompts: updatedPrompts };
     });
   },
   
-  setEnableSystemPrompt: (enable) => set({ enableSystemPrompt: enable }),
-  setEnableJailbreakPrompt: (enable) => set({ enableJailbreakPrompt: enable }),
+  setEnableSystemPrompt: (enable) => {
+    console.log('🔧 Setting enableSystemPrompt:', enable);
+    set({ enableSystemPrompt: enable });
+  },
+  setEnableJailbreakPrompt: (enable) => {
+    console.log('🔧 Setting enableJailbreakPrompt:', enable);
+    set({ enableJailbreakPrompt: enable });
+  },
   
   updateChatSettings: (settings) =>
     set((state) => ({ chat: { ...state.chat, ...settings } })),

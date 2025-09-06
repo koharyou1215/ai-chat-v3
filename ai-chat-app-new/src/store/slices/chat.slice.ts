@@ -73,7 +73,41 @@ export interface ChatSlice {
   ensureTrackerManagerExists: (character: Character) => void;
 }
 
-export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, get) => ({
+export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, get) => {
+  // Helper function to safely get session from Map or Object
+  const getSessionSafely = (sessions: any, sessionId: string): UnifiedChatSession | undefined => {
+    if (!sessions || !sessionId) return undefined;
+    if (sessions instanceof Map) {
+      return sessions.get(sessionId);
+    } else if (typeof sessions === 'object') {
+      return sessions[sessionId];
+    }
+    return undefined;
+  };
+
+  // Helper function to safely get tracker manager from Map or Object
+  const getTrackerManagerSafely = (trackerManagers: any, key: string): TrackerManager | undefined => {
+    if (!trackerManagers || !key) return undefined;
+    if (trackerManagers instanceof Map) {
+      return trackerManagers.get(key);
+    } else if (typeof trackerManagers === 'object') {
+      return trackerManagers[key];
+    }
+    return undefined;
+  };
+
+  // Helper function to create a new Map from either Map or Object
+  const createMapSafely = (data: any): Map<string, any> => {
+    if (!data) return new Map();
+    if (data instanceof Map) {
+      return new Map(data);
+    } else if (typeof data === 'object') {
+      return new Map(Object.entries(data));
+    }
+    return new Map();
+  };
+
+  return {
   sessions: new Map(),
   trackerManagers: new Map(),
   active_session_id: null,
@@ -152,7 +186,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     };
 
     // Create and initialize TrackerManager for this character (not session)
-    const existingTrackerManager = get().trackerManagers.get(character.id);
+    const existingTrackerManager = getTrackerManagerSafely(get().trackerManagers, character.id);
     let trackerManager = existingTrackerManager;
     
     if (!trackerManager) {
@@ -162,11 +196,16 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     } else {
     }
 
-    set(state => ({
-      sessions: new Map(state.sessions).set(newSession.id, newSession),
-      trackerManagers: new Map(state.trackerManagers).set(character.id, trackerManager), // characterIdをキーに変更
-      active_session_id: newSession.id,
-    }));
+    set(state => {
+      const newSessions = createMapSafely(state.sessions).set(newSession.id, newSession);
+      const newTrackerManagers = createMapSafely(state.trackerManagers).set(character.id, trackerManager);
+      
+      return {
+        sessions: newSessions,
+        trackerManagers: newTrackerManagers,
+        active_session_id: newSession.id,
+      };
+    });
 
     return newSession.id;
   },
@@ -180,7 +219,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     
     const activeSessionId = state.active_session_id;
     if (!activeSessionId) return;
-    const activeSession = state.sessions.get(activeSessionId);
+    const activeSession = getSessionSafely(state.sessions, activeSessionId);
     if (!activeSession) return;
 
     if (state.is_generating) {
@@ -224,7 +263,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         updated_at: new Date().toISOString(),
     };
     set(state => ({
-        sessions: new Map(state.sessions).set(activeSessionId, sessionWithUserMessage)
+        sessions: createMapSafely(state.sessions).set(activeSessionId, sessionWithUserMessage)
     }));
 
     // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
@@ -266,7 +305,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           
           // セッションを更新（非同期）
           set(state => {
-            const currentSession = state.sessions.get(activeSessionId);
+            const currentSession = getSessionSafely(state.sessions, activeSessionId);
             if (currentSession) {
               const messageIndex = currentSession.messages.findIndex(m => m.id === userMessage.id);
               if (messageIndex !== -1) {
@@ -274,7 +313,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
                 updatedMessages[messageIndex] = updatedUserMessage;
                 const updatedSession = { ...currentSession, messages: updatedMessages };
                 return {
-                  sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+                  sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
                 };
               }
             }
@@ -291,7 +330,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     (async () => {
       try {
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+        const trackerManager = characterId ? getTrackerManagerSafely(get().trackerManagers, characterId) : null;
         
 
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
@@ -448,7 +487,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
           try {
             const soloAnalyzer = new SoloEmotionAnalyzer();
-            const currentSession = get().sessions.get(activeSessionId);
+            const currentSession = getSessionSafely(get().sessions, activeSessionId);
             if (currentSession) {
               const conversationalContext = {
                 recentMessages: currentSession.messages.slice(-5),
@@ -526,7 +565,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             metadata: {}
         };
         
-        const finalSession = get().sessions.get(activeSessionId)!;
+        const finalSession = getSessionSafely(get().sessions, activeSessionId)!;
         const sessionWithAiResponse = {
             ...finalSession,
             messages: [...finalSession.messages, aiResponse],
@@ -534,7 +573,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             updated_at: new Date().toISOString(),
         };
         set(state => ({
-            sessions: new Map(state.sessions).set(activeSessionId, sessionWithAiResponse),
+            sessions: createMapSafely(state.sessions).set(activeSessionId, sessionWithAiResponse),
         }));
 
         // パフォーマンス最適化: 後処理作業を完全にバックグラウンド化
@@ -590,7 +629,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         return;
       }
       
-      const session = get().sessions.get(activeSessionId);
+      const session = getSessionSafely(get().sessions, activeSessionId);
       // C案：より堅牢なチェック
       if (!session || session.messages.length < 2) {
         return;
@@ -610,7 +649,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+      const trackerManager = characterId ? getTrackerManagerSafely(get().trackerManagers, characterId) : null;
       
       // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
       const regeneratePrompt = `以下のメッセージに対して、キャラクターとして応答してください。前回とは異なる角度や表現で、新鮮で創造的な応答を生成してください。
@@ -690,7 +729,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           updated_at: new Date().toISOString(),
         };
         return {
-          sessions: new Map(_state.sessions).set(session.id, updatedSession)
+          sessions: createMapSafely(_state.sessions).set(session.id, updatedSession)
         };
       });
     } catch (error) {
@@ -709,7 +748,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         return;
       }
       
-      const session = get().sessions.get(activeSessionId);
+      const session = getSessionSafely(get().sessions, activeSessionId);
       if (!session || session.messages.length === 0) {
         return;
       }
@@ -722,7 +761,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
       const lastAiMessage = session.messages[lastAiMessageIndex];
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId ? get().trackerManagers.get(characterId) : null;
+      const trackerManager = characterId ? getTrackerManagerSafely(get().trackerManagers, characterId) : null;
       
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
       const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。\n\n重要: あなたは指定されたキャラクターとして応答してください。ユーザーの行動や発言を勝手に出力してはいけません。キャラクターの視点から、キャラクターのセリフや行動のみを出力してください。`;
@@ -797,7 +836,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
       // セッションにメッセージを追加
       set(state => {
-        const currentSession = state.sessions.get(activeSessionId);
+        const currentSession = getSessionSafely(state.sessions, activeSessionId);
         if (!currentSession) return state;
 
         const updatedMessages = [...currentSession.messages, newContinuationMessage];
@@ -809,7 +848,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         };
         
         return {
-          sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+          sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
         };
       });
 
@@ -824,7 +863,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
 
-    const session = get().sessions.get(activeSessionId);
+    const session = getSessionSafely(get().sessions, activeSessionId);
     if (!session) return;
 
     const messageIndex = session.messages.findIndex(m => m.id === message_id);
@@ -844,7 +883,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     };
 
     set(state => ({
-      sessions: new Map(state.sessions).set(activeSessionId, updatedSession)
+      sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
     }));
 
     // 2. ConversationManagerのキャッシュをクリア
@@ -853,7 +892,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     // 3. トラッカーをリセット
     const characterId = session.participants.characters[0]?.id;
     if (characterId) {
-      const trackerManager = get().trackerManagers.get(characterId);
+      const trackerManager = getTrackerManagerSafely(get().trackerManagers, characterId);
       if (trackerManager) {
         // 全てのトラッカーを初期値にリセット
         trackerManager.initializeTrackerSet(characterId, session.participants.characters[0]?.trackers || []);
@@ -866,7 +905,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
     
-    const activeSession = get().sessions.get(activeSessionId);
+    const activeSession = getSessionSafely(get().sessions, activeSessionId);
     if(activeSession) {
         const updatedMessages = activeSession.messages.filter(msg => msg.id !== message_id);
         const updatedSession = { 
@@ -876,7 +915,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             updated_at: new Date().toISOString()
         };
         set(_state => ({
-            sessions: new Map(_state.sessions).set(activeSessionId, updatedSession)
+            sessions: createMapSafely(_state.sessions).set(activeSessionId, updatedSession)
         }));
     }
   },
@@ -884,18 +923,19 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   getActiveSession: () => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return null;
-    return get().sessions.get(activeSessionId) || null;
+    return getSessionSafely(get().sessions, activeSessionId) || null;
   },
 
   getSessionMessages: (session_id) => {
-    return get().sessions.get(session_id)?.messages || [];
+    const session = getSessionSafely(get().sessions, session_id);
+    return session?.messages || [];
   },
 
   clearActiveConversation: () => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
     
-    const activeSession = get().sessions.get(activeSessionId);
+    const activeSession = getSessionSafely(get().sessions, activeSessionId);
     if (activeSession) {
       // 挨拶メッセージのみ残して他のメッセージをクリア
       const greetingMessage = activeSession.messages[0];
@@ -907,7 +947,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       };
       
       set(_state => ({
-        sessions: new Map(_state.sessions).set(activeSessionId, clearedSession)
+        sessions: createMapSafely(_state.sessions).set(activeSessionId, clearedSession)
       }));
     }
   },
@@ -956,12 +996,16 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   // For Sidebar
   setActiveSessionId: (sessionId) => {
     if (sessionId) {
-      const session = get().sessions.get(sessionId);
+      const session = getSessionSafely(get().sessions, sessionId);
       if (session) {
         // セッションのキャラクターのトラッカーマネージャーが存在しない場合は初期化
         const trackerManagers = get().trackerManagers;
         // 一つのセッションには一つのトラッカーマネージャー（複数キャラクター対応）
-        if (!trackerManagers.has(sessionId)) {
+        const hasTrackerManager = trackerManagers instanceof Map 
+          ? trackerManagers.has(sessionId) 
+          : (trackerManagers && typeof trackerManagers === 'object' && sessionId in trackerManagers);
+        
+        if (!hasTrackerManager) {
           const trackerManager = new TrackerManager();
           // 各キャラクターのトラッカーを初期化
           session.participants.characters.forEach(character => {
@@ -984,7 +1028,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
   deleteSession: (sessionId) => {
     set(state => {
-      const newSessions = new Map(state.sessions);
+      const newSessions = createMapSafely(state.sessions);
       newSessions.delete(sessionId);
       
       let newActiveSessionId = state.active_session_id;
@@ -1009,10 +1053,10 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   },
   updateSession: (session) => {
     set(_state => {
-      const targetSession = _state.sessions.get(session.id);
+      const targetSession = getSessionSafely(_state.sessions, session.id);
       if (targetSession) {
         const updatedSession = { ...targetSession, ...session };
-        const newSessions = new Map(_state.sessions).set(session.id, updatedSession);
+        const newSessions = createMapSafely(_state.sessions).set(session.id, updatedSession);
         return { sessions: newSessions };
       }
       return _state;
@@ -1021,7 +1065,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
 
   // 履歴管理: セッションを履歴として保存
   saveSessionToHistory: async (session_id) => {
-    const session = get().sessions.get(session_id);
+    const session = getSessionSafely(get().sessions, session_id);
     if (!session) return;
     
     try {
@@ -1046,7 +1090,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       const sessionData = await response.json();
       
       set(state => ({
-        sessions: new Map(state.sessions).set(session_id, sessionData),
+        sessions: createMapSafely(state.sessions).set(session_id, sessionData),
         active_session_id: session_id
       }));
       
@@ -1058,11 +1102,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
   // 履歴管理: セッションのピン留め
   pinSession: (session_id, isPinned) => {
     set(state => {
-      const session = state.sessions.get(session_id);
+      const session = getSessionSafely(state.sessions, session_id);
       if (!session) return state;
       
       const updatedSession = { ...session, isPinned };
-      const newSessions = new Map(state.sessions).set(session_id, updatedSession);
+      const newSessions = createMapSafely(state.sessions).set(session_id, updatedSession);
       
       // APIに更新を送信
       fetch('/api/history', {
@@ -1083,7 +1127,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     if (!activeSessionId) return;
     
     const trackerManagers = get().trackerManagers;
-    if (!trackerManagers.has(activeSessionId)) {
+    const hasTrackerManager = trackerManagers instanceof Map 
+      ? trackerManagers.has(activeSessionId) 
+      : (trackerManagers && typeof trackerManagers === 'object' && activeSessionId in trackerManagers);
+    
+    if (!hasTrackerManager) {
       const trackerManager = new TrackerManager();
       trackerManager.initializeTrackerSet(character.id, character.trackers);
       trackerManagers.set(activeSessionId, trackerManager);
@@ -1094,4 +1142,5 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       
     }
   },
-});
+};
+};

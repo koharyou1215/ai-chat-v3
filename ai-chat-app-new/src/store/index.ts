@@ -61,7 +61,7 @@ const createStore = () => {
             
             // JSONの基本的な検証
             if (!item.startsWith('{') && !item.startsWith('[')) {
-              // Invalid JSON format in localStorage, clearing
+              console.warn('Invalid JSON format in localStorage, clearing');
               localStorage.removeItem(name);
               return null;
             }
@@ -71,12 +71,18 @@ const createStore = () => {
               try {
                 const parsed = JSON.parse(item);
                 if (!parsed || typeof parsed !== 'object') {
-                  // Invalid storage data structure, clearing
+                  console.warn('Invalid storage data structure, clearing');
                   localStorage.removeItem(name);
                   return null;
                 }
+                
+                // 設定が確実に保存されるよう、stateが存在することを確認
+                if (!parsed.state) {
+                  console.warn('Missing state in stored data');
+                  return null;
+                }
               } catch (parseErr) {
-                // Failed to parse stored settings, clearing corrupted data
+                console.error('Failed to parse stored settings, clearing corrupted data:', parseErr);
                 localStorage.removeItem(name);
                 return null;
               }
@@ -176,6 +182,12 @@ const createStore = () => {
               
               // 設定関連のデバッグ情報
               if (name === 'ai-chat-v3-storage') {
+                console.log('🔧 Settings saved successfully', {
+                  size: `${(sizeInBytes / 1024).toFixed(2)}KB`,
+                  hasSystemPrompts: parsed.state?.systemPrompts !== undefined,
+                  hasAPIConfig: parsed.state?.apiConfig !== undefined,
+                  hasEnableFlags: parsed.state?.enableSystemPrompt !== undefined
+                });
               }
             } catch (parseErr) {
               console.error('Invalid JSON value, refusing to save:', parseErr);

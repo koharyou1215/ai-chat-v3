@@ -112,7 +112,11 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       if (!isCharactersLoaded || !isPersonasLoaded) return;
       
       // 既にアクティブなセッションがある場合はスキップ
-      if (active_session_id && sessions.has(active_session_id)) {
+      const hasActiveSession = sessions instanceof Map 
+        ? sessions.has(active_session_id) 
+        : (sessions && typeof sessions === 'object' && active_session_id in sessions);
+      
+      if (active_session_id && hasActiveSession) {
         console.log('👌 既存のアクティブセッションを使用:', active_session_id);
         return;
       }
