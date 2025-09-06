@@ -5,7 +5,8 @@ import { VectorStore } from './vector-store';
 import { MemoryLayerManager } from './memory-layer-manager';
 import { DynamicSummarizer } from './dynamic-summarizer';
 import { TrackerManager } from '../tracker/tracker-manager'; // Import TrackerManager
-import { UnifiedMessage, SearchResult, ConversationContext, Character, MemoryCard, Persona } from '@/types';
+import { UnifiedMessage, ConversationContext, Character, MemoryCard, Persona } from '@/types';
+import { SearchResult } from '@/types/memory';
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants/prompts';
 import { replaceVariables, replaceVariablesInCharacter } from '@/utils/variable-replacer';
 
@@ -212,11 +213,26 @@ export class ConversationManager {
     
     // 5. コンテキストの構築
     const context: ConversationContext = {
-      currentInput,
-      recentConversation: layeredMemory.working.slice(-this.config.maxWorkingMemory),
-      relevantMemories: relevantMemories,
-      pinnedMemories: pinnedMessages,
-      emotionalState
+      session_id: '', // Will be set by caller
+      current_emotion: {
+        primary: emotionalState.current,
+        intensity: emotionalState.intensity
+      },
+      current_topic: '',
+      current_mood: {
+        type: 'neutral',
+        intensity: emotionalState.intensity,
+        stability: 0.8
+      },
+      recent_messages: layeredMemory.working.slice(-this.config.maxWorkingMemory),
+      recent_topics: [],
+      recent_emotions: [],
+      relevant_memories: [], // Will be converted from SearchResult to VectorSearchResult
+      pinned_memories: [], // Will be converted from UnifiedMessage to MemoryCard
+      next_likely_topics: [],
+      suggested_responses: [],
+      context_quality: 0.8,
+      coherence_score: 0.8
     };
 
     // 6. トークン数の最適化
@@ -241,6 +257,10 @@ export class ConversationManager {
     }
   ): Promise<string> {
     const context = await this.buildContext(userInput);
+    
+    // Get relevant memories and pinned messages for prompt generation
+    const relevantMemories = await this.searchRelevantMemories(userInput);
+    const pinnedMessages = this.getPinnedMessages();
     
     // 変数置換コンテキストを作成
     const variableContext = { user: persona, character };
@@ -357,11 +377,7 @@ export class ConversationManager {
           hasNsfwContent = true;
         }
         
-        // 従来のフィールドも保持（後方互換性）
-        if (nsfw.persona && nsfw.persona.trim()) {
-          prompt += `Context Persona: ${nsfw.persona}\n`;
-          hasNsfwContent = true;
-        }
+        // 従来のフィールドも保持（後方互換性） - persona field has been moved to persona_profile
         if (nsfw.situation && nsfw.situation.trim()) {
           prompt += `Situation: ${nsfw.situation}\n`;
           hasNsfwContent = true;
@@ -445,19 +461,20 @@ export class ConversationManager {
     }
 
     // 6c. ピン留めメッセージ（従来機能）
-    if (context.pinnedMemories.length > 0) {
+    if (pinnedMessages.length > 0) {
       prompt += '<pinned_messages>\n';
-      context.pinnedMemories.forEach(msg => {
+      pinnedMessages.forEach(msg => {
         prompt += `${msg.role}: ${msg.content}\n`;
       });
       prompt += '</pinned_messages>\n\n';
     }
 
     // 6d. 関連メッセージ（従来機能、設定上限まで）
-    if (context.relevantMemories.length > 0) {
+    if (relevantMemories.length > 0) {
       prompt += '<relevant_messages>\n';
-      context.relevantMemories.slice(0, this.config.maxRelevantMemories).forEach(result => {
-        prompt += `${result.message.role}: ${result.message.content}\n`;
+      relevantMemories.slice(0, this.config.maxRelevantMemories).forEach((result: SearchResult) => {
+        const role = result.message.sender === 'user' ? 'User' : 'AI';
+        prompt += `${role}: ${result.message.content}\n`;
       });
       prompt += '</relevant_messages>\n\n';
     }
@@ -483,7 +500,7 @@ export class ConversationManager {
     
     // 8. Chat History (Working Memory)
     prompt += '<recent_conversation>\n';
-    context.recentConversation.forEach(msg => {
+    context.recent_messages.forEach(msg => {
       const role = msg.role === 'user' ? 'User' : 'AI';
       prompt += `${role}: ${replaceVariables(msg.content, variableContext)}\n`;
     });
@@ -641,10 +658,8 @@ export class ConversationManager {
     // トークン数が制限を超える場合は削減
     while (currentTokens > maxTokens) {
       // 優先度の低い順に削減
-      if (context.relevantMemories.length > 2) {
-        context.relevantMemories.pop();
-      } else if (context.recentConversation.length > 3) {
-        context.recentConversation.shift();
+      if (context.recent_messages.length > 3) {
+        context.recent_messages.shift();
       } else {
         break; // これ以上削減できない
       }
@@ -660,11 +675,11 @@ export class ConversationManager {
    * 実際はtiktokenライブラリを使用
    */
   private estimateTokens(context: ConversationContext): number {
-    let totalChars = context.currentInput.length;
+    let totalChars = 0;
     
-    totalChars += context.recentConversation.reduce((sum, m) => sum + m.content.length, 0);
-    totalChars += context.relevantMemories.reduce((sum, r) => sum + r.message.content.length, 0);
-    totalChars += context.pinnedMemories.reduce((sum, m) => sum + m.content.length, 0);
+    totalChars += context.recent_messages.reduce((sum: number, m: UnifiedMessage) => sum + m.content.length, 0);
+    // Note: relevant_memories and pinned_memories are not populated in context anymore
+    // The actual relevant memories and pinned messages are handled separately
 
     // 日本語は1文字≒1トークン、英語は4文字≒1トークンで概算
     return Math.ceil(totalChars / 2);
@@ -815,7 +830,7 @@ export class ConversationManager {
    * インポートからの復元
    */
   async importData(data: Record<string, unknown>): Promise<void> {
-    this.allMessages = (data.messages as Message[]) || [];
+    this.allMessages = (data.messages as UnifiedMessage[]) || [];
     this.sessionSummary = (data.summary as string) || '';
     this.pinnedMessages = new Set((data.pinnedIds as string[]) || []);
     

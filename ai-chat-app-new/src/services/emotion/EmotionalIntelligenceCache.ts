@@ -447,7 +447,6 @@ export class EmotionalIntelligenceCache {
       promptCacheSize: this.promptCache.size,
       
       // 統計
-      totalEvictions: this.stats.totalEvictions,
       ...this.stats
     };
   }

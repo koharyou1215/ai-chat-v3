@@ -2,7 +2,7 @@
 
 import { BaseEntity } from './base.types';
 
-export interface Persona extends BaseEntity {
+export interface Persona extends Omit<BaseEntity, 'created_at'> {
   name: string;
   description: string;
   role: string;
@@ -19,8 +19,8 @@ export interface Persona extends BaseEntity {
   is_default?: boolean;
   // 感情分析用プロパティ追加
   preferences?: Record<string, any>;
-  // ソート用プロパティ追加
-  created_at?: string | Date;
+  // ソート用プロパティ追加 - override BaseEntity's required created_at
+  created_at: string;
 }
 
 export type PersonaInput = Omit<Persona, 'id' | 'created_at' | 'updated_at' | 'version'>;

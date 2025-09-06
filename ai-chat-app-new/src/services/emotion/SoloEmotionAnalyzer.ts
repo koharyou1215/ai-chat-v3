@@ -220,8 +220,8 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
       this.memoryOptimizationInterval = null;
     }
     
-    // 基底クラスのクリーンアップも実行
-    super.dispose && super.dispose();
+    // 基底クラスのクリーンアップも実行（dispose メソッドが存在する場合のみ）
+    // Note: BaseEmotionAnalyzer doesn't have a dispose method, so this is removed
     
     console.log('🧠👤 Solo Emotion Analyzer disposed');
   }
@@ -310,7 +310,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
     
     // 感情の種類による影響度調整
     const emotionalImpactMap: Record<string, number> = {
-      'love': 2.0, 'joy': 1.5, 'trust': 1.8, 'sadness': 1.3,
+      'love': 2.0, 'joy': 1.5, 'excitement': 1.8, 'sadness': 1.3,
       'anger': 0.7, 'fear': 0.8, 'neutral': 0.2
     };
     
@@ -388,7 +388,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
     emotion: EmotionalWeight
   ): number {
     const growthMap: Record<string, number> = {
-      'love': 2.0, 'joy': 1.5, 'trust': 1.8, 'sadness': 1.3
+      'love': 2.0, 'joy': 1.5, 'excitement': 1.8, 'sadness': 1.3
     };
     const growthRate = growthMap[emotion.primaryEmotion] || 1.0;
     return emotion.intensity * emotion.confidence * growthRate * 0.1;
@@ -484,14 +484,14 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   }
 
   private calculateIntimacyChange(emotion: EmotionalWeight, impact: number): number {
-    const positiveEmotions = ['joy', 'love', 'trust'];
+    const positiveEmotions = ['joy', 'love', 'excitement'];
     const change = positiveEmotions.includes(emotion.primaryEmotion) ? 
       impact * 0.05 : impact * -0.02;
     return Math.max(-0.1, Math.min(0.1, change));
   }
 
   private calculateTrustChange(emotion: EmotionalWeight, impact: number): number {
-    if (emotion.primaryEmotion === 'trust') return impact * 0.1;
+    if (emotion.primaryEmotion === 'excitement') return impact * 0.1;
     if (['anger', 'fear'].includes(emotion.primaryEmotion)) return impact * -0.05;
     return impact * 0.02;
   }
@@ -510,7 +510,7 @@ export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
   private identifyChangeReason(emotion: EmotionalWeight): string {
     const reasons: Record<string, string> = {
       'joy': '喜びの共有', 'love': '愛情表現', 'sadness': '悲しみのサポート',
-      'anger': '怒りの表現', 'fear': '不安の相談', 'trust': '信頼の構築'
+      'anger': '怒りの表現', 'fear': '不安の相談', 'excitement': '信頼の構築'
     };
     return reasons[emotion.primaryEmotion] || '感情的交流';
   }

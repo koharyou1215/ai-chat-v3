@@ -219,7 +219,7 @@ export class InspirationService {
     return recentMessages.map(msg => {
       if (isGroupMode) {
         const speaker = msg.role === 'user' 
-          ? (msg.user_name || 'ユーザー')
+          ? ((msg.metadata as any)?.user_name || 'ユーザー')
           : (msg.character_name || 'キャラクター');
         return `${speaker}: ${msg.content}`;
       } else {

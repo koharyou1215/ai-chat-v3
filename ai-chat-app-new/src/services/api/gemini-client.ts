@@ -70,11 +70,11 @@ export class GeminiClient {
       console.warn('❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
     }
 
-    // OpenRouter API キーも初期化（フォールバック用）
+    // OpenRouter API キーも初期化
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
     if (openRouterKey) {
       this.openRouterApiKey = openRouterKey;
-      console.log('✅ OpenRouter API Key loaded for Gemini fallback');
+      console.log('✅ OpenRouter API Key loaded');
     }
   }
 
@@ -196,8 +196,36 @@ export class GeminiClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorMessage;
+          
+          // Quota exceededエラーの特別処理
+          if (errorMessage.includes('Quota exceeded')) {
+            console.error('⚠️ Gemini API使用制限に達しました。しばらく待ってから再試行してください。');
+            throw new Error('Gemini APIの使用制限に達しました。しばらく待ってから再試行するか、別のAPIキーを使用してください。');
+          }
+          
+          // モデルが見つからないエラー
+          if (errorMessage.includes('not found') || errorMessage.includes('is not a valid model')) {
+            console.error(`❌ モデル ${this.model} が見つかりません。gemini-2.5-flash、gemini-2.5-flash-light、またはgemini-2.5-proを使用してください。`);
+            throw new Error(`無効なGeminiモデル: ${this.model}。gemini-2.5-flash、gemini-2.5-flash-light、またはgemini-2.5-proのいずれかを使用してください。`);
+          }
+        } catch (parseError) {
+          // JSONパースエラーの場合はテキストレスポンスを試す
+          if (parseError instanceof SyntaxError) {
+            try {
+              errorMessage = await response.text();
+            } catch {
+              // テキスト読み取りも失敗した場合はステータステキストを使用
+            }
+          } else {
+            // 特別なエラーの場合は再スロー
+            throw parseError;
+          }
+        }
+        throw new Error(`Gemini API error: ${errorMessage}`);
       }
 
       const data: GeminiResponse = await response.json();
@@ -230,7 +258,7 @@ export class GeminiClient {
       return candidate.content.parts[0].text;
     } catch (error) {
       console.error('Gemini message generation failed:', error);
-      throw error; // エラーをそのまま投げる（フォールバックなし）
+      throw error;
     }
   }
 
@@ -285,8 +313,36 @@ export class GeminiClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorMessage;
+          
+          // Quota exceededエラーの特別処理
+          if (errorMessage.includes('Quota exceeded')) {
+            console.error('⚠️ Gemini API使用制限に達しました。しばらく待ってから再試行してください。');
+            throw new Error('Gemini APIの使用制限に達しました。しばらく待ってから再試行するか、別のAPIキーを使用してください。');
+          }
+          
+          // モデルが見つからないエラー
+          if (errorMessage.includes('not found') || errorMessage.includes('is not a valid model')) {
+            console.error(`❌ モデル ${this.model} が見つかりません。gemini-2.5-flash、gemini-2.5-flash-light、またはgemini-2.5-proを使用してください。`);
+            throw new Error(`無効なGeminiモデル: ${this.model}。gemini-2.5-flash、gemini-2.5-flash-light、またはgemini-2.5-proのいずれかを使用してください。`);
+          }
+        } catch (parseError) {
+          // JSONパースエラーの場合はテキストレスポンスを試す
+          if (parseError instanceof SyntaxError) {
+            try {
+              errorMessage = await response.text();
+            } catch {
+              // テキスト読み取りも失敗した場合はステータステキストを使用
+            }
+          } else {
+            // 特別なエラーの場合は再スロー
+            throw parseError;
+          }
+        }
+        throw new Error(`Gemini API error: ${errorMessage}`);
       }
 
       const reader = response.body?.getReader();
@@ -343,7 +399,27 @@ export class GeminiClient {
       cleanModel = cleanModel.replace('-8b', '');
     }
     
+    // 古いモデル名を新しいモデル名にマップ (1.5 -> 2.5のみ)
+    const modelMapping: { [key: string]: string } = {
+      'gemini-1.5-flash': 'gemini-2.5-flash',
+      'gemini-1.5-flash-light': 'gemini-2.5-flash-light',
+      'gemini-1.5-pro': 'gemini-2.5-pro'
+    };
+    
+    if (modelMapping[cleanModel]) {
+      console.warn(`⚠️ 古いモデル名を新しいモデル名に変換: ${cleanModel} → ${modelMapping[cleanModel]}`);
+      cleanModel = modelMapping[cleanModel];
+    }
+    
+    // 有効なモデルかチェック
+    const validModels = this.getAvailableModels();
+    if (!validModels.includes(cleanModel)) {
+      console.error(`❌ 無効なGeminiモデル: ${cleanModel}. デフォルトのgemini-2.5-flashを使用します`);
+      cleanModel = 'gemini-2.5-flash';
+    }
+    
     this.model = cleanModel;
+    console.log(`✅ Geminiモデル設定: ${this.model}`);
   }
 
   setApiKey(apiKey: string): void {
@@ -353,7 +429,7 @@ export class GeminiClient {
 
   setOpenRouterApiKey(apiKey: string): void {
     this.openRouterApiKey = apiKey;
-    console.log('✅ OpenRouter API key set for Gemini fallback');
+    console.log('✅ OpenRouter API key set');
   }
 
   getAvailableModels(): string[] {
