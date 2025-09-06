@@ -108,12 +108,17 @@ export class InspirationService {
         apiConfig
       });
       
+      // プロンプトを大幅に短縮してトークン制限を回避（500文字まで）
+      const truncatedPrompt = prompt.length > 500 ? 
+        `文章強化: "${inputText}"\n${user.name}らしく拡張。` : 
+        prompt;
+      
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
         return simpleAPIManagerV2.generateMessage(
-          prompt,
+          truncatedPrompt,
           '文章を強化',
           [],
-          { ...apiConfig, max_tokens: 400 }
+          { ...apiConfig, max_tokens: 200 }  // トークン数も大幅削減
         );
       });
 
@@ -240,17 +245,22 @@ export class InspirationService {
    * 会話コンテキストの構築
    */
   private buildContext(messages: UnifiedMessage[], isGroupMode?: boolean): string {
-    const recentMessages = messages.slice(-6);
+    // コンテキストを短縮（最新3メッセージのみ、各メッセージ最大100文字）
+    const recentMessages = messages.slice(-3);
     
     return recentMessages.map(msg => {
+      const content = msg.content.length > 100 ? 
+        msg.content.substring(0, 100) + '...' : 
+        msg.content;
+      
       if (isGroupMode) {
         const speaker = msg.role === 'user' 
           ? ((msg.metadata as any)?.user_name || 'ユーザー')
           : (msg.character_name || 'キャラクター');
-        return `${speaker}: ${msg.content}`;
+        return `${speaker}: ${content}`;
       } else {
         const role = msg.role === 'user' ? 'ユーザー' : 'キャラクター';
-        return `${role}: ${msg.content}`;
+        return `${role}: ${content}`;
       }
     }).join('\n');
   }
@@ -293,18 +303,12 @@ ${context}
     context: string, 
     user: Persona
   ): string {
-    return `以下の文章を${user.name}のトーンで自然に強化してください。
+    // プロンプトを大幅に短縮
+    return `文章を自然に強化:
+"${inputText}"
 
-会話履歴:
-${context}
-
-強化対象: "${inputText}"
-
-条件:
-- 元の意味を保持
-- ${user.name}らしい表現に調整
-- 自然で読みやすく
-- 強化された文章のみ出力`;
+${user.name}らしく、元の意味を保持して拡張。
+強化された文章のみ出力。`;
   }
 
   /**
