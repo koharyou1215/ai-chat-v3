@@ -2,7 +2,7 @@
 // Automatically generates memory cards from conversation messages
 
 import { UnifiedMessage, MemoryCard, MemoryCategory } from '@/types';
-import { apiManager } from '@/services/api-manager';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 
 // AI分析結果の型定義
 interface MemoryAnalysisResult {
@@ -69,7 +69,7 @@ ${content}
 `;
 
       console.log('[MemoryCard] Generating memory card analysis...');
-      const response = await apiManager.generateMessage(analysisPrompt, '', [], { 
+      const response = await simpleAPIManagerV2.generateMessage(analysisPrompt, '', [], { 
         max_tokens: 1024,
         temperature: 0.3
       });

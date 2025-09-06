@@ -1,6 +1,6 @@
 import { Character } from '@/types/core/character.types';
 import { Persona } from '@/types/core/persona.types';
-import { apiManager } from './api-manager';
+import { simpleAPIManagerV2 } from './simple-api-manager-v2';
 
 export interface ScenarioTemplate {
   id: string;
@@ -194,7 +194,7 @@ ${allParticipantRoles}
 
       // ⚡ 高速化されたシナリオ生成（タイムアウト付き）
       let response = await Promise.race([
-        apiManager.generateMessage(
+        simpleAPIManagerV2.generateMessage(
           prompt,
           '',
           [],
@@ -232,7 +232,7 @@ JSON:
   "background_context": "背景"
 }`;
 
-        response = await apiManager.generateMessage(
+        response = await simpleAPIManagerV2.generateMessage(
           '以下のJSONフォーマットを完成させてください。JSONのみで回答し、他の説明は一切不要です。',
           shorterPrompt,
           [],

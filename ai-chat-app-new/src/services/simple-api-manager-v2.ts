@@ -89,7 +89,7 @@ export class SimpleAPIManagerV2 {
     // 🔧 リアルタイムでAPIキーを取得（Zustandストアから）
     this.refreshApiKeys();
 
-    const model = options?.model || "gemini-2.0-flash-exp";
+    const model = options?.model || "gemini-2.5-flash";
 
     console.log(`🚀 [SimpleAPIManagerV2] Generating with model: ${model}`);
     console.log(`🔑 [SimpleAPIManagerV2] API Keys status:`, {
@@ -145,18 +145,16 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
-   * Geminiモデルかどうかの判定（許可されたモデルのみ）
+   * Geminiモデルかどうかの判定（許可された3つのみ）
    */
   private isGeminiModel(model: string): boolean {
     const allowedModels = [
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-8b',
-      'gemini-1.5-pro',
-      'google/gemini-2.0-flash-exp',
-      'google/gemini-1.5-flash',
-      'google/gemini-1.5-flash-8b',
-      'google/gemini-1.5-pro'
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-light',
+      'gemini-2.5-pro',
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-flash-light',
+      'google/gemini-2.5-pro'
     ];
     
     return allowedModels.includes(model);
@@ -179,7 +177,7 @@ export class SimpleAPIManagerV2 {
 
     console.log("🔥 Using Gemini API directly");
 
-    const model = options?.model || "gemini-2.0-flash-exp";
+    const model = options?.model || "gemini-2.5-flash";
     const cleanModel = model.replace("google/", ""); // google/プレフィックス削除
 
     geminiClient.setApiKey(this.geminiApiKey);
@@ -274,7 +272,7 @@ export class SimpleAPIManagerV2 {
     onChunk: (chunk: string) => void,
     options?: Partial<APIConfig>
   ): Promise<string> {
-    const model = options?.model || "gemini-2.0-flash-exp";
+    const model = options?.model || "gemini-2.5-flash";
 
     if (this.isGeminiModel(model)) {
       // Geminiストリーミング
@@ -315,10 +313,9 @@ export class SimpleAPIManagerV2 {
       {
         provider: "Gemini (Direct)",
         models: [
-          { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash Experimental" },
-          { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
-          { id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash 8B" },
-          { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" }
+          { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+          { id: "gemini-2.5-flash-light", name: "Gemini 2.5 Flash Light" },
+          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" }
         ],
       },
       {

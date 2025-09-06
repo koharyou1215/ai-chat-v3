@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { UnifiedMessage, UUID, Character, Persona } from '@/types';
 import { GroupChatSession, GroupChatMode, GroupChatScenario } from '@/types/core/group-chat.types';
-import { apiManager } from '@/services/api-manager';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { generateCompactGroupPrompt } from '@/utils/character-summarizer';
 import { GroupEmotionAnalyzer } from '@/services/emotion/GroupEmotionAnalyzer';
@@ -610,16 +610,13 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       const effectSettings = get().effectSettings || {};
       const textFormatting = effectSettings.textFormatting || 'readable';
       
-      const aiResponse = await apiManager.generateMessage(
+      const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
         conversationHistory,
         { 
           ...apiConfig,
-          openRouterApiKey, // OpenRouterのAPIキーを追加
-          geminiApiKey, // GeminiのAPIキーも追加
-          max_tokens: finalMaxTokens,
-          textFormatting // 読みやすさ設定を追加
+          max_tokens: finalMaxTokens
         }
       );
 

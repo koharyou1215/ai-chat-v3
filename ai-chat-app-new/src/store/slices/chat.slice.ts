@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
 // Removed unused imports
 import { apiRequestQueue } from '@/services/api-request-queue';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptValidator } from '@/utils/prompt-validator';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
@@ -792,15 +793,11 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
       const apiConfig = get().apiConfig || {};
-      const openRouterApiKey = get().openRouterApiKey;
-      const geminiApiKey = get().geminiApiKey;
-      const useDirectGeminiAPI = get().useDirectGeminiAPI;
-
-      const aiResponse = await apiManager.generateMessage(
+      const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         continuePrompt,
         conversationHistory,
-        { ...apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI }
+        apiConfig
       );
 
       // 新しい続きメッセージを作成

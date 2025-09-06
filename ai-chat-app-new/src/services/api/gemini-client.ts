@@ -332,8 +332,16 @@ export class GeminiClient {
   }
 
   setModel(model: string) {
-    // "google/" プレフィックスがあれば除去してモデル名を設定
-    this.model = model.startsWith('google/') ? model.substring(7) : model;
+    // "google/" プレフィックスがあれば除去
+    let cleanModel = model.startsWith('google/') ? model.substring(7) : model;
+    
+    // 不正なサフィックス(-8b など)を除去
+    if (cleanModel.endsWith('-8b')) {
+      console.warn(`⚠️ 不正なモデルサフィックス '-8b' を除去: ${cleanModel} → ${cleanModel.replace('-8b', '')}`);
+      cleanModel = cleanModel.replace('-8b', '');
+    }
+    
+    this.model = cleanModel;
   }
 
   setApiKey(apiKey: string): void {

@@ -284,6 +284,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAPIProvider={setAPIProvider}
                     setOpenRouterApiKey={setOpenRouterApiKey}
                     setGeminiApiKey={setGeminiApiKey}
+                    useDirectGeminiAPI={useDirectGeminiAPI}
+                    setUseDirectGeminiAPI={setUseDirectGeminiAPI}
                   />
                 )}
                 {activeTab === 'language' && (
@@ -633,6 +635,8 @@ const AIPanel: React.FC<{
   setAPIProvider: (provider: APIProvider) => void; // setAPIProvider を追加
   setOpenRouterApiKey: (key: string) => void; // setOpenRouterApiKey を追加
   setGeminiApiKey: (key: string) => void; // setGeminiApiKey を追加
+  useDirectGeminiAPI: boolean; // useDirectGeminiAPI を追加
+  setUseDirectGeminiAPI: (enabled: boolean) => void; // setUseDirectGeminiAPI を追加
 }> = ({
   systemPrompts,
   enableSystemPrompt,
@@ -657,7 +661,9 @@ const AIPanel: React.FC<{
   setAPIModel,
   setAPIProvider,
   setOpenRouterApiKey,
-  setGeminiApiKey
+  setGeminiApiKey,
+  useDirectGeminiAPI,
+  setUseDirectGeminiAPI
 }) => {
   const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(openRouterApiKey || '');
   const [localGeminiApiKey, setLocalGeminiApiKey] = useState(geminiApiKey || '');

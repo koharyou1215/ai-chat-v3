@@ -2,7 +2,7 @@
 // 返信提案と文章強化機能のためのサービス
 
 import { UnifiedMessage } from '@/types/memory';
-import { apiManager } from '@/services/api-manager';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { apiRequestQueue } from '@/services/api-request-queue';
 import { APIConfig, Character, Persona } from '@/types';
 
@@ -48,7 +48,7 @@ export class InspirationService {
       console.log('📤 返信提案API呼び出し開始');
       
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
-        const result = await apiManager.generateMessage(
+        const result = await simpleAPIManagerV2.generateMessage(
           prompt,
           '返信提案を生成',
           [],
@@ -102,7 +102,7 @@ export class InspirationService {
 
     try {
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
-        return apiManager.generateMessage(
+        return simpleAPIManagerV2.generateMessage(
           prompt,
           '文章を強化',
           [],

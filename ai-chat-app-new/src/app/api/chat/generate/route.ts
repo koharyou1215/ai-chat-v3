@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { apiManager } from '@/services/api-manager';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       console.log('=====================================\n');
     }
 
-    const aiResponseContent = await apiManager.generateMessage(
+    const aiResponseContent = await simpleAPIManagerV2.generateMessage(
       systemPrompt,
       userMessage,
       conversationHistory,
