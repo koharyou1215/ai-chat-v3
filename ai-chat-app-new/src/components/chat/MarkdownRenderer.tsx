@@ -24,7 +24,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       // Add text before code block
       if (match.index > lastIndex) {
         const beforeText = text.slice(lastIndex, match.index);
-        parts.push(renderInlineMarkdown(beforeText, parts.length));
+        parts.push(
+          <React.Fragment key={`text-${parts.length}`}>
+            {renderInlineMarkdown(beforeText, parts.length)}
+          </React.Fragment>
+        );
       }
 
       // Add code block
@@ -40,116 +44,136 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     // Add remaining text
     if (lastIndex < text.length) {
       const remainingText = text.slice(lastIndex);
-      parts.push(renderInlineMarkdown(remainingText, parts.length));
+      parts.push(
+        <React.Fragment key={`text-${parts.length}`}>
+          {renderInlineMarkdown(remainingText, parts.length)}
+        </React.Fragment>
+      );
     }
 
     return parts;
   };
 
   const renderInlineMarkdown = (text: string, keyPrefix: number): React.ReactNode => {
-    // Handle inline code first
-    let result: React.ReactNode = text;
+    // Process all inline patterns in a single pass
+    const patterns = [
+      { 
+        regex: /`([^`]+)`/g, 
+        type: 'code' 
+      },
+      { 
+        regex: /\*\*([^*]+)\*\*|__([^_]+)__/g, 
+        type: 'bold' 
+      },
+      { 
+        regex: /\*([^*]+)\*|_([^_]+)_/g, 
+        type: 'italic' 
+      },
+      { 
+        regex: /\[([^\]]+)\]\(([^)]+)\)/g, 
+        type: 'link' 
+      },
+      { 
+        regex: /(https?:\/\/[^\s]+)/g, 
+        type: 'autolink' 
+      }
+    ];
+
+    // Collect all matches
+    const matches: Array<{start: number, end: number, type: string, match: RegExpExecArray}> = [];
     
-    // Inline code: `code`
-    result = processInlinePattern(
-      result as string,
-      /`([^`]+)`/g,
-      (match, index) => (
-        <code key={`inline-code-${keyPrefix}-${index}`} className="bg-slate-700/50 px-1 py-0.5 rounded text-sm text-cyan-300">
-          {match[1]}
-        </code>
-      )
-    );
+    for (const pattern of patterns) {
+      const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          type: pattern.type,
+          match: match
+        });
+      }
+    }
 
-    // Bold: **text** or __text__
-    result = processInlinePattern(
-      result as string,
-      /\*\*([^*]+)\*\*|__([^_]+)__/g,
-      (match, index) => (
-        <strong key={`bold-${keyPrefix}-${index}`} className="font-bold text-white">
-          {match[1] || match[2]}
-        </strong>
-      )
-    );
+    // Sort matches by position
+    matches.sort((a, b) => a.start - b.start);
 
-    // Italic: *text* or _text_
-    result = processInlinePattern(
-      result as string,
-      /\*([^*]+)\*|_([^_]+)_/g,
-      (match, index) => (
-        <em key={`italic-${keyPrefix}-${index}`} className="italic text-white/90">
-          {match[1] || match[2]}
-        </em>
-      )
-    );
-
-    // Links: [text](url)
-    result = processInlinePattern(
-      result as string,
-      /\[([^\]]+)\]\(([^)]+)\)/g,
-      (match, index) => (
-        <a
-          key={`link-${keyPrefix}-${index}`}
-          href={match[2]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
-        >
-          {match[1]}
-        </a>
-      )
-    );
-
-    // Auto-detect URLs not in markdown format
-    result = processInlinePattern(
-      result as string,
-      /(https?:\/\/[^\s]+)/g,
-      (match, index) => (
-        <a
-          key={`auto-link-${keyPrefix}-${index}`}
-          href={match[1]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
-        >
-          {match[1]}
-        </a>
-      )
-    );
-
-    return result;
-  };
-
-  const processInlinePattern = (
-    text: string,
-    regex: RegExp,
-    replacer: (match: RegExpExecArray, index: number) => React.ReactNode
-  ): React.ReactNode => {
+    // Build result
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
-    let index = 0;
-    let keyIndex = 0;
+    let matchIndex = 0;
 
-    while ((match = regex.exec(text)) !== null) {
+    for (const item of matches) {
+      // Skip overlapping matches
+      if (item.start < lastIndex) continue;
+
       // Add text before match
-      if (match.index > lastIndex) {
-        parts.push(<React.Fragment key={`text-${keyIndex++}`}>{text.slice(lastIndex, match.index)}</React.Fragment>);
+      if (item.start > lastIndex) {
+        parts.push(text.slice(lastIndex, item.start));
       }
 
-      // Add replacement with key
-      parts.push(<React.Fragment key={`match-${keyIndex++}`}>{replacer(match, index++)}</React.Fragment>);
+      // Add formatted match
+      switch (item.type) {
+        case 'code':
+          parts.push(
+            <code key={`inline-code-${keyPrefix}-${matchIndex++}`} className="bg-slate-700/50 px-1 py-0.5 rounded text-sm text-cyan-300">
+              {item.match[1]}
+            </code>
+          );
+          break;
+        case 'bold':
+          parts.push(
+            <strong key={`bold-${keyPrefix}-${matchIndex++}`} className="font-bold text-white">
+              {item.match[1] || item.match[2]}
+            </strong>
+          );
+          break;
+        case 'italic':
+          parts.push(
+            <em key={`italic-${keyPrefix}-${matchIndex++}`} className="italic text-white/90">
+              {item.match[1] || item.match[2]}
+            </em>
+          );
+          break;
+        case 'link':
+          parts.push(
+            <a
+              key={`link-${keyPrefix}-${matchIndex++}`}
+              href={item.match[2]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
+            >
+              {item.match[1]}
+            </a>
+          );
+          break;
+        case 'autolink':
+          parts.push(
+            <a
+              key={`auto-link-${keyPrefix}-${matchIndex++}`}
+              href={item.match[1]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
+            >
+              {item.match[1]}
+            </a>
+          );
+          break;
+      }
 
-      lastIndex = match.index + match[0].length;
+      lastIndex = item.end;
     }
 
     // Add remaining text
     if (lastIndex < text.length) {
-      parts.push(<React.Fragment key={`text-${keyIndex++}`}>{text.slice(lastIndex)}</React.Fragment>);
+      parts.push(text.slice(lastIndex));
     }
 
     return parts.length > 1 ? <>{parts}</> : text;
   };
+
 
   return (
     <div className="markdown-content leading-relaxed">

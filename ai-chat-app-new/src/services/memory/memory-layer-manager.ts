@@ -3,7 +3,7 @@
 
 // Removed unused import
 import { MemoryLayer } from '@/types/memory';
-import { UnifiedUnifiedMessage } from '@/types';
+import { UnifiedMessage } from '@/types';
 
 /**
  * 階層的メモリ管理
