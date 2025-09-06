@@ -15,6 +15,7 @@ import { formatMessageContent } from "@/utils/text-formatter";
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
   private openRouterApiKey: string | null = null;
+  private useDirectGeminiAPI: boolean = false;
   private currentConfig: APIConfig;
 
   constructor() {
@@ -45,10 +46,12 @@ export class SimpleAPIManagerV2 {
           const parsed = JSON.parse(savedData);
           this.geminiApiKey = parsed?.state?.geminiApiKey || null;
           this.openRouterApiKey = parsed?.state?.openRouterApiKey || null;
+          this.useDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI || false;
 
           console.log("🔑 APIキー読み込み:", {
             gemini: this.geminiApiKey ? "設定済み" : "未設定",
             openRouter: this.openRouterApiKey ? "設定済み" : "未設定",
+            useDirectGeminiAPI: this.useDirectGeminiAPI,
           });
         }
       } catch (error) {
@@ -136,6 +139,11 @@ export class SimpleAPIManagerV2 {
     this.currentConfig.top_p = topP;
   }
 
+  setUseDirectGeminiAPI(enabled: boolean) {
+    this.useDirectGeminiAPI = enabled;
+    console.log('🔧 Gemini API直接使用フラグ:', enabled);
+  }
+
   getCurrentConfig(): APIConfig {
     return { ...this.currentConfig };
   }
@@ -167,8 +175,10 @@ export class SimpleAPIManagerV2 {
       openRouter: this.openRouterApiKey ? "✅ 設定済み" : "❌ 未設定",
     });
 
-    // シンプルな分岐: モデル名で判定
-    if (this.isGeminiModel(model)) {
+    // useDirectGeminiAPIフラグを考慮した分岐
+    if (this.isGeminiModel(model) && this.useDirectGeminiAPI) {
+      // Geminiモデルかつ直接API使用が有効な場合
+      console.log("🔥 Gemini APIを直接使用します");
       return await this.generateWithGemini(
         systemPrompt,
         userMessage,
@@ -176,6 +186,8 @@ export class SimpleAPIManagerV2 {
         options
       );
     } else {
+      // OpenRouter経由で使用
+      console.log("🌐 OpenRouter経由で使用します");
       return await this.generateWithOpenRouter(
         systemPrompt,
         userMessage,
@@ -197,6 +209,7 @@ export class SimpleAPIManagerV2 {
           const parsed = JSON.parse(savedData);
           const newGeminiKey = parsed?.state?.geminiApiKey;
           const newOpenRouterKey = parsed?.state?.openRouterApiKey;
+          const newUseDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI;
 
           if (newGeminiKey && newGeminiKey !== this.geminiApiKey) {
             this.geminiApiKey = newGeminiKey;
@@ -206,6 +219,12 @@ export class SimpleAPIManagerV2 {
           if (newOpenRouterKey && newOpenRouterKey !== this.openRouterApiKey) {
             this.openRouterApiKey = newOpenRouterKey;
             console.log("🔄 OpenRouter APIキーを更新しました");
+          }
+          
+          // useDirectGeminiAPIフラグも更新
+          if (newUseDirectGeminiAPI !== undefined) {
+            this.useDirectGeminiAPI = newUseDirectGeminiAPI;
+            console.log("🔄 Gemini API直接使用フラグ:", this.useDirectGeminiAPI);
           }
         }
       } catch (error) {

@@ -464,6 +464,7 @@ export const createSettingsSlice: StateCreator<
   
   setUseDirectGeminiAPI: (enabled) => {
     set({ useDirectGeminiAPI: enabled });
+    simpleAPIManagerV2.setUseDirectGeminiAPI(enabled);
     console.log(`Gemini API Direct Mode: ${enabled ? 'ON' : 'OFF'}`);
   },
   
