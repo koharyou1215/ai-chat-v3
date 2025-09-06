@@ -80,7 +80,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   setIsEnhancingText: (isEnhancing) => set({ isEnhancingText: isEnhancing }),
   
   generateSuggestions: async (messages, character, user, customPrompt, isGroupMode = false) => {
-    const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
+    const { isGeneratingSuggestions, inspirationService, apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI } = get();
     if (isGeneratingSuggestions) return;
     
     set({ isGeneratingSuggestions: true, suggestions: [], suggestionData: [] });
@@ -92,7 +92,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         user,
         customPrompt,
         isGroupMode,
-        { ...apiConfig, openRouterApiKey, geminiApiKey }
+        { ...apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI }
       );
       
       const suggestionData: SuggestionData[] = suggestions.map((suggestion) => ({
@@ -115,7 +115,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   },
   
   enhanceText: async (text, messages, user, enhancePrompt) => {
-    const { inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
+    const { inspirationService, apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI } = get();
     
     // デバッグ: 現在のAPIConfig設定を確認
     console.log('🔧 Current API Config for text enhancement:', {
@@ -124,11 +124,12 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
       max_tokens: apiConfig.max_tokens,
       temperature: apiConfig.temperature,
       hasOpenRouterKey: !!openRouterApiKey,
-      hasGeminiKey: !!geminiApiKey
+      hasGeminiKey: !!geminiApiKey,
+      useDirectGeminiAPI: useDirectGeminiAPI
     });
     
     try {
-      return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey, geminiApiKey });
+      return await inspirationService.enhanceText(text, messages, user, enhancePrompt, { ...apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI });
     } catch (error) {
       console.error('Failed to enhance text:', error);
       return text;
@@ -136,7 +137,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
   },
   
   enhanceTextForModal: async (text, messages, user, enhancePrompt) => {
-    const { isEnhancingText, inspirationService, apiConfig, openRouterApiKey, geminiApiKey } = get();
+    const { isEnhancingText, inspirationService, apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI } = get();
     if (isEnhancingText) return;
     
     set({ isEnhancingText: true, enhancedText: '' });
@@ -147,7 +148,7 @@ export const createSuggestionSlice: StateCreator<AppStore, [], [], SuggestionSli
         messages, 
         user, 
         enhancePrompt, 
-        { ...apiConfig, openRouterApiKey, geminiApiKey }
+        { ...apiConfig, openRouterApiKey, geminiApiKey, useDirectGeminiAPI }
       );
       set({ enhancedText: enhanced });
     } catch (error) {
