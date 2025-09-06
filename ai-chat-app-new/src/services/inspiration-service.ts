@@ -101,6 +101,13 @@ export class InspirationService {
     }
 
     try {
+      console.log('📝 文章強化リクエスト:', {
+        inputTextLength: inputText.length,
+        contextLength: context.length,
+        promptLength: prompt.length,
+        apiConfig
+      });
+      
       const response = await apiRequestQueue.enqueueInspirationRequest(async () => {
         return simpleAPIManagerV2.generateMessage(
           prompt,
@@ -110,10 +117,29 @@ export class InspirationService {
         );
       });
 
-      return this.parseEnhancedText(response, inputText);
-    } catch (error) {
-      console.error('文章強化エラー:', error);
-      throw new Error('文章強化に失敗しました');
+      const enhancedText = this.parseEnhancedText(response, inputText);
+      console.log('✅ 文章強化成功:', {
+        originalLength: inputText.length,
+        enhancedLength: enhancedText.length
+      });
+      
+      return enhancedText;
+    } catch (error: any) {
+      console.error('❌ 文章強化エラー:', {
+        error: error.message || error,
+        inputText,
+        promptLength: prompt.length,
+        apiConfig
+      });
+      
+      // より詳細なエラーメッセージを提供
+      if (error.message?.includes('OpenRouter')) {
+        throw new Error(`文章強化に失敗しました: ${error.message}。APIキーの設定を確認してください。`);
+      } else if (error.message?.includes('Gemini')) {
+        throw new Error(`文章強化に失敗しました: ${error.message}`);
+      } else {
+        throw new Error(`文章強化に失敗しました: ${error.message || '不明なエラー'}`);
+      }
     }
   }
 

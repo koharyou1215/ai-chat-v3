@@ -60,6 +60,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['relationship', 'status']));
   const [trackerChanges, setTrackerChanges] = useState<Map<string, TrackerChangeIndicator>>(new Map());
   const prevTrackersRef = useRef<Map<string, string | number | boolean>>(new Map());
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
   // Get tracker data from store with initialization check
   const trackerManager = useAppStore(state => state.trackerManagers.get(character_id));
@@ -128,10 +129,17 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
     
     // Clear change indicators after 3 seconds
     if (changes.size > 0) {
-      const timeout = setTimeout(() => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(() => {
         setTrackerChanges(new Map());
       }, 3000);
-      return () => clearTimeout(timeout);
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     }
   }, [trackers]);
 

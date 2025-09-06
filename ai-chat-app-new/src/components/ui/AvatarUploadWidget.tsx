@@ -40,6 +40,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [urlInput, setUrlInput] = useState(currentAvatar || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const successTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   // Size configurations
   const sizeConfig = {
@@ -114,9 +115,10 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         onAvatarChange(result.url);
         
         // Success feedback
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           setUploadState(prev => ({ ...prev, success: false }));
         }, 2000);
+        successTimeoutsRef.current.push(timeoutId);
       } else {
         const errorMessage = result?.error || 'アップロードに失敗しました（詳細不明）';
         throw new Error(errorMessage);
@@ -130,6 +132,14 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
       });
     }
   }, [onAvatarChange]);
+  
+  // Cleanup timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      successTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      successTimeoutsRef.current = [];
+    };
+  }, []);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -176,9 +186,10 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
       onAvatarChange(urlInput.trim());
       setShowUrlModal(false);
       setUploadState(prev => ({ ...prev, success: true, error: null }));
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setUploadState(prev => ({ ...prev, success: false }));
       }, 2000);
+      successTimeoutsRef.current.push(timeoutId);
     }
   };
 

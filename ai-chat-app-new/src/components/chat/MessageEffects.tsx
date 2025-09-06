@@ -70,9 +70,10 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     }));
 
     setEffects(prev => [...prev, ...sparkles]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setEffects(prev => prev.filter(e => !sparkles.find(s => s.id === e.id)));
     }, 1800);
+    timeoutsRef.current.push(timeoutId);
   };
 
   const createStarBurst = () => {
@@ -83,23 +84,26 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     }));
 
     setEffects(prev => [...prev, ...stars]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setEffects(prev => prev.filter(e => !stars.find(s => s.id === e.id)));
     }, 1200);
+    timeoutsRef.current.push(timeoutId);
   };
 
   const createConfetti = () => {
     setEffects(prev => [...prev, { id: `confetti-${Date.now()}`, type: 'confetti' }]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setEffects(prev => prev.filter(e => !e.id.startsWith('confetti')));
     }, 2000);
+    timeoutsRef.current.push(timeoutId);
   };
 
   const createRainbow = () => {
     setEffects(prev => [...prev, { id: `rainbow-${Date.now()}`, type: 'rainbow' }]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setEffects(prev => prev.filter(e => !e.id.startsWith('rainbow')));
     }, 3000);
+    timeoutsRef.current.push(timeoutId);
   };
 
   return (

@@ -1,7 +1,7 @@
 // src/components/emotion/SoloEmotionalEffects.tsx
 'use client';
 
-import React, { useEffect, useState, memo } from 'react';
+import React, { useEffect, useState, memo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UnifiedMessage, Character } from '@/types';
 import { MultiLayerEmotionResult } from '@/types/core/emotional-intelligence.types';
@@ -26,6 +26,7 @@ const SoloEmotionalEffects = memo(function SoloEmotionalEffects({
 }: SoloEmotionalEffectsProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [effects, setEffects] = useState<SoloEmotionEffect[]>([]);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     // 機能フラグチェック
@@ -41,11 +42,18 @@ const SoloEmotionalEffects = memo(function SoloEmotionalEffects({
     setIsVisible(true);
 
     // 効果の自動フェードアウト（5秒後）
-    const fadeTimer = setTimeout(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
       setIsVisible(false);
     }, 5000);
 
-    return () => clearTimeout(fadeTimer);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [emotionResult, character]);
 
   if (!isVisible || effects.length === 0) {

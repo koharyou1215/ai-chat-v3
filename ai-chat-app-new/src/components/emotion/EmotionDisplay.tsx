@@ -20,6 +20,8 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
   const [moodTimeline, setMoodTimeline] = useState<MoodTimeline | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analyzerRef = useRef<EmotionAnalyzer>(new EmotionAnalyzer());
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+  const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     if (!settings.realtimeEmotion || !message.trim()) return;
@@ -46,8 +48,15 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
     };
 
     // デバウンス処理
-    const timeout = setTimeout(analyzeEmotion, 500);
-    return () => clearTimeout(timeout);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(analyzeEmotion, 500);
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
   }, [message, settings.realtimeEmotion, onEmotionDetected]);
 
   if (!settings.realtimeEmotion) return null;
@@ -320,15 +329,36 @@ export const EmotionReactions: React.FC<{
   useEffect(() => {
     if (!settings.autoReactions) return;
 
+    // Clear existing timeouts
+    reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
+    reactionTimeoutsRef.current = [];
+    
     // 自動リアクションを実行
     emotion.suggestedReactions.forEach((reaction, index) => {
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (onReactionTriggered) {
           onReactionTriggered(reaction);
         }
       }, index * 200);
+      reactionTimeoutsRef.current.push(timeoutId);
     });
+    
+    return () => {
+      reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
+      reactionTimeoutsRef.current = [];
+    };
   }, [emotion, settings.autoReactions, onReactionTriggered]);
+  
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
+      reactionTimeoutsRef.current = [];
+    };
+  }, []);
 
   if (!settings.autoReactions) return null;
 

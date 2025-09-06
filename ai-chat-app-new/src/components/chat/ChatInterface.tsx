@@ -213,12 +213,21 @@ const ChatInterfaceContent: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'memory' | 'tracker' | 'history' | 'layers'>('memory');
     const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
     const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>([]); // 追加
+    const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    
+    // Timeout cleanup effect
+    useEffect(() => {
+        return () => {
+            timeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+            timeoutsRef.current = [];
+        };
     }, []);
     
     // グループチャットセッションの取得
@@ -443,10 +452,11 @@ const ChatInterfaceContent: React.FC = () => {
                               await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
                               
                               // 状態更新がUIに反映されるのを待つために少し遅延させる
-                              setTimeout(() => {
+                              const timeoutId = setTimeout(() => {
                                 toggleScenarioModal(false);
                                 setStagingGroupMembers([]); // ステージングメンバーをクリア
                               }, 100);
+                              timeoutsRef.current.push(timeoutId);
                             } else {
                               alert('ペルソナが選択されていないか、メンバーが2人未満です。');
                             }
@@ -786,10 +796,11 @@ const ChatInterfaceContent: React.FC = () => {
                               await createGroupSession(stagingGroupMembers, persona, 'sequential', groupName, scenario);
                               
                               // 状態更新がUIに反映されるのを待つために少し遅延させる
-                              setTimeout(() => {
+                              const timeoutId = setTimeout(() => {
                                 toggleScenarioModal(false);
                                 setStagingGroupMembers([]); // ステージングメンバーをクリア
                               }, 100);
+                              timeoutsRef.current.push(timeoutId);
                             } else {
                               alert('ペルソナが選択されていないか、メンバーが2人未満です。');
                             }

@@ -219,10 +219,11 @@ export class SimpleAPIManagerV2 {
     console.log(`🔑 [SimpleAPIManagerV2] API Keys status:`, {
       gemini: this.geminiApiKey ? "✅ 設定済み" : "❌ 未設定",
       openRouter: this.openRouterApiKey ? "✅ 設定済み" : "❌ 未設定",
+      useDirectGeminiAPI: this.useDirectGeminiAPI
     });
 
     // useDirectGeminiAPIフラグを考慮した分岐
-    if (this.isGeminiModel(model) && this.useDirectGeminiAPI) {
+    if (this.isGeminiModel(model) && this.useDirectGeminiAPI && this.geminiApiKey) {
       // Geminiモデルかつ直接API使用が有効な場合
       console.log("🔥 Gemini APIを直接使用します");
       return await this.generateWithGemini(
@@ -231,7 +232,7 @@ export class SimpleAPIManagerV2 {
         conversationHistory,
         options
       );
-    } else {
+    } else if (this.openRouterApiKey) {
       // OpenRouter経由で使用
       console.log("🌐 OpenRouter経由で使用します");
       return await this.generateWithOpenRouter(
@@ -241,6 +242,13 @@ export class SimpleAPIManagerV2 {
         model,
         options
       );
+    } else {
+      // APIキーが設定されていない場合
+      const errorMsg = this.isGeminiModel(model) 
+        ? "Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。"
+        : "OpenRouter APIキーが設定されていません。設定画面でAPIキーを入力してください。";
+      console.error("❌ APIキー未設定エラー:", errorMsg);
+      throw new Error(errorMsg);
     }
   }
 
@@ -389,10 +397,32 @@ export class SimpleAPIManagerV2 {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
-
-    if (!content) {
-      throw new Error("OpenRouterからの応答が空です");
+    
+    // デバッグ情報を追加
+    console.log('🔍 OpenRouter Response:', {
+      hasData: !!data,
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length || 0,
+      firstChoice: data.choices?.[0],
+      error: data.error
+    });
+    
+    // エラーレスポンスのチェック
+    if (data.error) {
+      throw new Error(`OpenRouter APIエラー: ${data.error.message || data.error}`);
+    }
+    
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content || content.trim() === '') {
+      console.error('❌ OpenRouter空レスポンス:', {
+        model,
+        messageCount: messages.length,
+        systemPromptLength: systemPrompt.length,
+        userMessageLength: userMessage.length,
+        response: data
+      });
+      throw new Error(`OpenRouterからの応答が空です。モデル: ${model}`);
     }
 
     return formatMessageContent(content, "readable");

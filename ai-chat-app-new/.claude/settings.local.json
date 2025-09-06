@@ -101,7 +101,8 @@
       "Write",
       "MultiEdit",
       "Bash(npx playwright:*)",
-      "Bash(NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=\"--max-old-space-size=6144\" npm run build)"
+      "Bash(NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=\"--max-old-space-size=6144\" npm run build)",
+      "Bash(jobs)"
     ],
     "deny": [],
     "ask": [],
