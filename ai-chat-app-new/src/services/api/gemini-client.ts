@@ -362,12 +362,6 @@ export class GeminiClient {
   ): GeminiMessage[] {
     const messages: GeminiMessage[] = [];
 
-    // システムプロンプトを最初のメッセージに統合
-    let firstMessage = '';
-    if (systemPrompt.trim()) {
-      firstMessage = `${systemPrompt}\n\n`;
-    }
-
     // 会話履歴を追加
     for (const msg of conversationHistory) {
       messages.push({
@@ -376,8 +370,12 @@ export class GeminiClient {
       });
     }
 
-    // 現在のユーザーメッセージを追加（初回の場合はシステムプロンプトも含める）
-    const finalUserMessage = conversationHistory.length === 0 ? firstMessage + userMessage : userMessage;
+    // システムプロンプトとユーザーメッセージを結合（毎回送信）
+    let finalUserMessage = userMessage;
+    if (systemPrompt.trim()) {
+      finalUserMessage = `${systemPrompt}\n\n${userMessage}`;
+    }
+    
     messages.push({
       role: 'user',
       parts: [{ text: finalUserMessage }]
