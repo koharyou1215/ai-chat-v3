@@ -209,7 +209,7 @@ ${systemSettings.systemPrompts.jailbreak}
 `;
     }
 
-    // 🎯 System Instructions (デフォルト + カスタム追加)
+    // 🎯 System Instructions (デフォルト + キャラクター固有 + カスタム追加)
     let systemInstructions = `## 絶対厳守事項
 - **最優先**: 以下の<character_information>で定義された設定のみを厳密に維持し、他のいかなるキャラクター設定も混同しないこと。
 - **知識の制限**: キャラクター設定に書かれていない、あなたの内部知識やインターネット上の情報を絶対に使用しないこと。このキャラクターは、この対話のためだけのオリジナルな存在です。
@@ -225,6 +225,11 @@ ${systemSettings.systemPrompts.jailbreak}
 - 口調維持: 定義された話し方を一貫使用
 - 感情豊か: 適切な感情表現で機械的でない応答
 - 簡潔性: 長々と話し続けず、ユーザーの反応を待つ`;
+
+    // キャラクター固有のシステムプロンプトを追加
+    if (processedCharacter.system_prompt && processedCharacter.system_prompt.trim() !== '') {
+      systemInstructions += `\n\n## キャラクター固有の指示\n${processedCharacter.system_prompt}`;
+    }
 
     // カスタムシステムプロンプトが有効で内容がある場合は追加
     if (systemSettings.enableSystemPrompt && 
@@ -256,6 +261,9 @@ ${processedCharacter.likes && processedCharacter.likes.length > 0 ? `Likes: ${pr
 ${processedCharacter.dislikes && processedCharacter.dislikes.length > 0 ? `Dislikes: ${processedCharacter.dislikes.join(', ')}` : ''}
 ${processedCharacter.hobbies && processedCharacter.hobbies.length > 0 ? `Hobbies: ${processedCharacter.hobbies.join(', ')}` : ''}
 
+## Appearance
+${processedCharacter.appearance ? `Appearance: ${processedCharacter.appearance}` : ''}
+
 ## Communication Style
 ${processedCharacter.speaking_style ? `Speaking Style: ${processedCharacter.speaking_style}` : ''}
 ${processedCharacter.first_person ? `First Person: ${processedCharacter.first_person}` : ''}
@@ -263,10 +271,11 @@ ${processedCharacter.second_person ? `Second Person: ${processedCharacter.second
 ${processedCharacter.verbal_tics && processedCharacter.verbal_tics.length > 0 ? `Verbal Tics: ${processedCharacter.verbal_tics.join(', ')}` : ''}
 
 ${processedCharacter.nsfw_profile ? `## NSFW Profile
-${processedCharacter.nsfw_profile.consent_level ? `Consent Level: ${processedCharacter.nsfw_profile.consent_level}` : ''}
-${processedCharacter.nsfw_profile.preferred_scenarios && processedCharacter.nsfw_profile.preferred_scenarios.length > 0 ? `Preferred Scenarios: ${processedCharacter.nsfw_profile.preferred_scenarios.join(', ')}` : ''}
-${processedCharacter.nsfw_profile.kinks && processedCharacter.nsfw_profile.kinks.length > 0 ? `Kinks/Preferences: ${processedCharacter.nsfw_profile.kinks.join(', ')}` : ''}
-${processedCharacter.nsfw_profile.limits && processedCharacter.nsfw_profile.limits.length > 0 ? `Limits: ${processedCharacter.nsfw_profile.limits.join(', ')}` : ''}` : ''}
+${processedCharacter.nsfw_profile.persona ? `Persona: ${processedCharacter.nsfw_profile.persona}` : ''}
+${processedCharacter.nsfw_profile.libido_level ? `Libido Level: ${processedCharacter.nsfw_profile.libido_level}` : ''}
+${processedCharacter.nsfw_profile.situation ? `Situation: ${processedCharacter.nsfw_profile.situation}` : ''}
+${processedCharacter.nsfw_profile.mental_state ? `Mental State: ${processedCharacter.nsfw_profile.mental_state}` : ''}
+${processedCharacter.nsfw_profile.kinks && processedCharacter.nsfw_profile.kinks.length > 0 ? `Kinks: ${processedCharacter.nsfw_profile.kinks.join(', ')}` : ''}` : ''}
 
 ## Context
 ${processedCharacter.background ? `Background: ${processedCharacter.background}` : ''}
@@ -281,12 +290,13 @@ ${processedCharacter.scenario ? `Current Scenario: ${processedCharacter.scenario
 Name: ${user.name || userName}
 ${user.role ? `Role: ${user.role}` : ''}
 ${user.description ? `Description: ${user.description}` : ''}
-${user.nsfw_persona ? `
-NSFW Persona:
-${user.nsfw_persona.consent_level ? `- Consent Level: ${user.nsfw_persona.consent_level}` : ''}
-${user.nsfw_persona.preferred_scenarios && user.nsfw_persona.preferred_scenarios.length > 0 ? `- Preferred Scenarios: ${user.nsfw_persona.preferred_scenarios.join(', ')}` : ''}
-${user.nsfw_persona.kinks && user.nsfw_persona.kinks.length > 0 ? `- Kinks/Preferences: ${user.nsfw_persona.kinks.join(', ')}` : ''}
-${user.nsfw_persona.limits && user.nsfw_persona.limits.length > 0 ? `- Limits: ${user.nsfw_persona.kinks.join(', ')}` : ''}` : ''}
+${user.traits && user.traits.length > 0 ? `Traits: ${user.traits.join(', ')}` : ''}
+${user.likes && user.likes.length > 0 ? `Likes: ${user.likes.join(', ')}` : ''}
+${user.dislikes && user.dislikes.length > 0 ? `Dislikes: ${user.dislikes.join(', ')}` : ''}
+${user.personality ? `Personality: ${user.personality}` : ''}
+${user.speaking_style ? `Speaking Style: ${user.speaking_style}` : ''}
+${user.background ? `Background: ${user.background}` : ''}
+${user.other_settings ? `Other Settings: ${user.other_settings}` : ''}
 </persona_information>`;
     }
 

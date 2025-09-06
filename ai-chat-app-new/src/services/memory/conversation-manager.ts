@@ -365,9 +365,9 @@ export class ConversationManager {
         
         prompt += `\n## Special Context\n`;
         
-        // persona_profile フィールド (CharacterFormで使用)
-        if (nsfw.persona_profile && nsfw.persona_profile.trim()) {
-          prompt += `Context Profile: ${nsfw.persona_profile}\n`;
+        // persona フィールド (CharacterFormで使用)
+        if (nsfw.persona && nsfw.persona.trim()) {
+          prompt += `Context Profile: ${nsfw.persona}\n`;
           hasNsfwContent = true;
         }
         

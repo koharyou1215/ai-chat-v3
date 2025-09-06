@@ -15,11 +15,11 @@ export interface Character extends BaseEntity {
   description?: string; // 下位互換性のため（personalityの要約）
   
   // 性格・特徴
-  personality: string;
-  external_personality: string;
-  internal_personality: string;
-  strengths: string[];
-  weaknesses: string[];
+  personality: string;  // 性格の総合的な説明
+  external_personality: string;  // 外面的性格
+  internal_personality: string;  // 内面的性格
+  strengths: string[];  // 長所
+  weaknesses: string[];  // 短所
   
   // アイデンティティ（感情分析用）
   identity?: string;
@@ -73,7 +73,7 @@ export interface Character extends BaseEntity {
 }
 
 export interface NSFWProfile {
-    persona_profile?: string;
+    persona?: string;  // NSFW時の性格（定義フォーマットに準拠）
     libido_level?: string;
     situation?: string;
     mental_state?: string;
