@@ -129,22 +129,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     let lastIndex = 0;
     let match;
     let index = 0;
+    let keyIndex = 0;
 
     while ((match = regex.exec(text)) !== null) {
       // Add text before match
       if (match.index > lastIndex) {
-        parts.push(text.slice(lastIndex, match.index));
+        parts.push(<React.Fragment key={`text-${keyIndex++}`}>{text.slice(lastIndex, match.index)}</React.Fragment>);
       }
 
-      // Add replacement
-      parts.push(replacer(match, index++));
+      // Add replacement with key
+      parts.push(<React.Fragment key={`match-${keyIndex++}`}>{replacer(match, index++)}</React.Fragment>);
 
       lastIndex = match.index + match[0].length;
     }
 
     // Add remaining text
     if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex));
+      parts.push(<React.Fragment key={`text-${keyIndex++}`}>{text.slice(lastIndex)}</React.Fragment>);
     }
 
     return parts.length > 1 ? <>{parts}</> : text;

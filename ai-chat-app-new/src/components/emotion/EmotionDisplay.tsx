@@ -325,6 +325,7 @@ export const EmotionReactions: React.FC<{
   onReactionTriggered?: (reaction: EmotionResult['suggestedReactions'][0]) => void;
 }> = ({ emotion, onReactionTriggered }) => {
   const { settings } = useEffectSettings();
+  const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     if (!settings.autoReactions) return;
@@ -352,9 +353,6 @@ export const EmotionReactions: React.FC<{
   // Cleanup all timeouts on unmount
   useEffect(() => {
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
       reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
       reactionTimeoutsRef.current = [];
     };

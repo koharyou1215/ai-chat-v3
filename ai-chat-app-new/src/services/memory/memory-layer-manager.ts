@@ -3,6 +3,7 @@
 
 // Removed unused import
 import { MemoryLayer } from '@/types/memory';
+import { UnifiedUnifiedMessage } from '@/types';
 
 /**
  * 階層的メモリ管理
@@ -51,7 +52,7 @@ export class MemoryLayerManager {
   /**
    * メッセージを適切なレイヤーに追加
    */
-  addMessage(message: Message): void {
+  addUnifiedMessage(message: UnifiedMessage): void {
     // 即時記憶に追加
     this.addToLayer('immediate', message);
     
@@ -72,7 +73,7 @@ export class MemoryLayerManager {
   /**
    * レイヤーにメッセージを追加（保持ポリシーに従う）
    */
-  private addToLayer(layerName: string, message: Message): void {
+  private addToLayer(layerName: string, message: UnifiedMessage): void {
     const layer = this.layers.get(layerName);
     if (!layer) return;
 
@@ -115,7 +116,7 @@ export class MemoryLayerManager {
   /**
    * 関連性スコアの計算（時間減衰を含む）
    */
-  private calculateRelevanceScore(message: Message, now: number): number {
+  private calculateRelevanceScore(message: UnifiedMessage, now: number): number {
     const age = now - new Date(message.timestamp).getTime();
     const ageInHours = age / (1000 * 60 * 60);
     
@@ -131,7 +132,7 @@ export class MemoryLayerManager {
   /**
    * Working Memoryに追加すべきか判定
    */
-  private shouldAddToWorking(message: Message): boolean {
+  private shouldAddToWorking(message: UnifiedMessage): boolean {
     return (message.importance || 0) >= 0.4 || 
            message.sender === 'user'; // ユーザー入力は常に保持
   }
@@ -139,7 +140,7 @@ export class MemoryLayerManager {
   /**
    * Episodic Memoryに追加すべきか判定
    */
-  private shouldAddToEpisodic(message: Message): boolean {
+  private shouldAddToEpisodic(message: UnifiedMessage): boolean {
     // 感情的な内容や特定のイベントを含む場合
     const hasEmotionalContent = message.emotion !== undefined;
     
@@ -150,7 +151,7 @@ export class MemoryLayerManager {
   /**
    * Semantic Memoryに追加すべきか判定
    */
-  private shouldAddToSemantic(message: Message): boolean {
+  private shouldAddToSemantic(message: UnifiedMessage): boolean {
     // 事実や定義を含む場合（長いメッセージは知識的内容の可能性が高い）
     const hasFactualContent = message.content.length > 100;
     
@@ -162,10 +163,10 @@ export class MemoryLayerManager {
    * 各レイヤーから関連メッセージを取得
    */
   getLayeredContext(_currentQuery: string): {
-    immediate: Message[];
-    working: Message[];
-    episodic: Message[];
-    semantic: Message[];
+    immediate: UnifiedMessage[];
+    working: UnifiedMessage[];
+    episodic: UnifiedMessage[];
+    semantic: UnifiedMessage[];
   } {
     return {
       immediate: this.layers.get('immediate')?.messages || [],
@@ -196,18 +197,18 @@ export class MemoryLayerManager {
   /**
    * 特定レイヤーのメッセージを取得
    */
-  getLayerMessages(layerName: string): Message[] {
+  getLayerUnifiedMessages(layerName: string): UnifiedMessage[] {
     return this.layers.get(layerName)?.messages || [];
   }
 
   /**
    * すべてのメッセージを取得（デバッグ用）
    */
-  getAllMessages(): Message[] {
-    const allMessages: Message[] = [];
+  getAllUnifiedMessages(): UnifiedMessage[] {
+    const allUnifiedMessages: UnifiedMessage[] = [];
     this.layers.forEach(layer => {
-      allMessages.push(...layer.messages);
+      allUnifiedMessages.push(...layer.messages);
     });
-    return Array.from(new Set(allMessages)); // 重複除去
+    return Array.from(new Set(allUnifiedMessages)); // 重複除去
   }
 }

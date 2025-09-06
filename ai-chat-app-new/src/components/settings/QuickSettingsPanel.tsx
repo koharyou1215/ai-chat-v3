@@ -62,7 +62,7 @@ export const QuickSettingsPanel: React.FC<QuickSettingsPanelProps> = ({ isOpen, 
           {isGeminiModel && (
             <ToggleSwitch
               label="Gemini API直接使用"
-              checked={useDirectGeminiAPI}
+              checked={useDirectGeminiAPI ?? false}
               onChange={setUseDirectGeminiAPI}
               icon="🔥"
               onText="直接接続"
