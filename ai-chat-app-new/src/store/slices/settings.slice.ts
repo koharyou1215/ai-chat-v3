@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AISettings, SystemPrompts, ChatSettings, VoiceSettings, ImageGenerationSettings, APIConfig, APIProvider } from '@/types/core/settings.types';
-import { apiManager } from '@/services/api-manager';
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_JAILBREAK_PROMPT } from '@/constants/prompts';
 import { EmotionalIntelligenceFlags } from '@/types/core/emotional-intelligence.types';
 
@@ -439,27 +439,27 @@ export const createSettingsSlice: StateCreator<
   
   updateAPIConfig: (config) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, ...config } }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setAPIProvider: (provider) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, provider } }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setAPIModel: (model) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, model } }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setOpenRouterApiKey: (key) => {
     set({ openRouterApiKey: key });
-    apiManager.setOpenRouterApiKey(key);
+    simpleAPIManagerV2.setOpenRouterApiKey(key);
   },
   
   setGeminiApiKey: (key) => {
     set({ geminiApiKey: key });
-    apiManager.setGeminiApiKey(key);
+    simpleAPIManagerV2.setGeminiApiKey(key);
   },
   
   setUseDirectGeminiAPI: (enabled) => {
@@ -469,39 +469,39 @@ export const createSettingsSlice: StateCreator<
   
   setTemperature: (temp) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, temperature: temp } }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setMaxTokens: (tokens) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, max_tokens: tokens } }));
     const newConfig = get().apiConfig;
-    apiManager.setConfig(newConfig);
+    simpleAPIManagerV2.setAPIConfig(newConfig);
   },
   
   setTopP: (topP) => {
     set((state) => ({ apiConfig: { ...state.apiConfig, top_p: topP } }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setFrequencyPenalty: (penalty) => {
     set((state) => ({
       apiConfig: { ...state.apiConfig, frequency_penalty: penalty },
     }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setPresencePenalty: (penalty) => {
     set((state) => ({
       apiConfig: { ...state.apiConfig, presence_penalty: penalty },
     }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
   
   setContextWindow: (window) => {
     set((state) => ({
       apiConfig: { ...state.apiConfig, context_window: window },
     }));
-    apiManager.setConfig(get().apiConfig);
+    simpleAPIManagerV2.setAPIConfig(get().apiConfig);
   },
 
   resetSystemPrompts: () => {

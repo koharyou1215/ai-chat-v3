@@ -15,8 +15,20 @@ import { formatMessageContent } from "@/utils/text-formatter";
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
   private openRouterApiKey: string | null = null;
+  private currentConfig: APIConfig;
 
   constructor() {
+    // デフォルト設定
+    this.currentConfig = {
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      temperature: 0.7,
+      max_tokens: 2048,
+      top_p: 0.9,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+      context_window: 32000
+    };
     // 環境変数またはローカルストレージからAPIキーを読み込み
     this.loadApiKeys();
   }
@@ -54,6 +66,32 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
+   * JSON安全解析機能
+   */
+  private safeJsonParse(text: string): any {
+    try {
+      // 制御文字を除去
+      const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      return JSON.parse(sanitized);
+    } catch (error) {
+      console.error('🚨 JSON Parse Error:', error);
+      
+      // 不正なJSONから有効な部分を抽出
+      const jsonMatch = text.match(/\{.*\}/s);
+      if (jsonMatch) {
+        try {
+          const sanitized = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+          return JSON.parse(sanitized);
+        } catch (secondError) {
+          console.error('🚨 Second JSON parse attempt failed:', secondError);
+        }
+      }
+      
+      throw new Error(`JSON解析エラー: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * APIキーの設定
    */
   setGeminiApiKey(key: string) {
@@ -68,6 +106,38 @@ export class SimpleAPIManagerV2 {
     if (typeof window !== "undefined") {
       localStorage.setItem("openrouter_api_key", key);
     }
+  }
+
+  /**
+   * API設定の更新
+   */
+  setAPIConfig(config: Partial<APIConfig>) {
+    this.currentConfig = { ...this.currentConfig, ...config };
+    console.log('🔧 API設定更新:', this.currentConfig);
+  }
+
+  setAPIProvider(provider: APIConfig['provider']) {
+    this.currentConfig.provider = provider;
+  }
+
+  setAPIModel(model: string) {
+    this.currentConfig.model = model;
+  }
+
+  setTemperature(temp: number) {
+    this.currentConfig.temperature = temp;
+  }
+
+  setMaxTokens(tokens: number) {
+    this.currentConfig.max_tokens = tokens;
+  }
+
+  setTopP(topP: number) {
+    this.currentConfig.top_p = topP;
+  }
+
+  getCurrentConfig(): APIConfig {
+    return { ...this.currentConfig };
   }
 
   /**
@@ -190,11 +260,9 @@ export class SimpleAPIManagerV2 {
     );
 
     const response = await geminiClient.generateMessage(messages, {
-      model: cleanModel,
       temperature: options?.temperature || 0.7,
       maxTokens: options?.max_tokens || 2048,
-      topP: options?.top_p || 0.9,
-      useDirectGeminiAPI: true,
+      topP: options?.top_p || 0.9
     });
 
     return formatMessageContent(response, "readable");

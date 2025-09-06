@@ -6,7 +6,7 @@ import { CharacterSlice, createCharacterSlice } from './slices/character.slice';
 import { PersonaSlice, createPersonaSlice } from './slices/persona.slice';
 import { MemorySlice, createMemorySlice } from './slices/memory.slice';
 import { TrackerSlice, createTrackerSlice } from './slices/tracker.slice';
-import { apiManager, APIManager } from '@/services/api-manager';
+import { simpleAPIManagerV2, SimpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptBuilderService, PromptBuilderService } from '@/services/prompt-builder.service';
 import { HistorySlice, createHistorySlice } from './slices/history.slice';
 import { SettingsSlice, createSettingsSlice } from './slices/settings.slice';
@@ -17,7 +17,7 @@ import { StateCreator } from 'zustand';
 import { StorageCleaner } from '@/utils/storage-cleaner';
 
 export type AppStore = ChatSlice & GroupChatSlice & CharacterSlice & PersonaSlice & MemorySlice & TrackerSlice & HistorySlice & SettingsSlice & SuggestionSlice & UISlice & {
-  apiManager: APIManager;
+  apiManager: SimpleAPIManagerV2;
   promptBuilderService: PromptBuilderService;
   [key: string]: unknown; // Add index signature for generic operations
 };
@@ -33,7 +33,7 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
   ...createSettingsSlice(...args),
   ...createSuggestionSlice(...args),
   ...createUISlice(...args), // 追加
-  apiManager: apiManager,
+  apiManager: simpleAPIManagerV2,
   promptBuilderService: promptBuilderService,
 });
 
