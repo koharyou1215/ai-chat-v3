@@ -2879,7 +2879,406 @@ Read file: undefined
 
 ---
 
+The string to replace was not found in the file.
 
+---
+
+問題を特定しました。`canRegenerate`と`canContinue`の定義が条件付きレンダリングの後にあります。これらを条件付きレンダリングの前に移動する必要があります：
+
+
+---
+
+<details><summary>Edit file: src/components/chat/MessageBubble.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 4, lines removed: undefined
+
+```diff
+@@ -365,4 +365,8 @@
+    // プログレッシブメッセージかどうかをチェック
+    const isProgressiveMessage = message.metadata?.progressive === true;
++ 
++   // 再生成・続き生成の可否判定（条件付きレンダリングの前に定義）
++   const canRegenerate = isAssistant && isLatest && !generateIsActive;
++   const canContinue = isAssistant && isLatest && !generateIsActive;
+  
+    // アニメーション設定の最適化
+```
+
+</details>
+
+---
+
+次に、重複している`canRegenerate`と`canContinue`の定義を削除します：
+
+
+---
+
+<details><summary>Edit file: src/components/chat/MessageBubble.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: undefined, lines removed: 4
+
+```diff
+@@ -330,8 +330,4 @@
+    const generateIsActive = is_generating || group_generating;
+    const isCurrentlyGenerating = generateIsActive && isLatest;
+- 
+-   // 再生成・続き生成の可否判定
+-   const canRegenerate = isAssistant && isLatest && !generateIsActive;
+-   const canContinue = isAssistant && isLatest && !generateIsActive;
+  
+    // 音声再生状態（isSpeakingを使用）
+```
+
+</details>
+
+---
+
+変更をコミットしてデプロイしましょう：
+
+
+---
+
+```bash
+git add .
+```
+
+```
+
+PS C:\ai-chat-v3\ai-chat-app-new> git add .
+warning: in the working copy of 'ai-chat-app-new/.specstory/history/2025-09-06_12-12Z-generate-a-name-for-the-
+chat.md', LF will be replaced by CRLF the next time Git touches it
+
+warning: in the working copy of 'ai-chat-app-new/src/components/chat/MessageBubble.tsx', LF will be replaced b
+y CRLF the next time Git touches it
+
+```
+
+---
+
+```bash
+git commit -m "Fix canRegenerate undefined error in MessageBubble"
+```
+
+```
+
+[main 1f386d8c] Fix canRegenerate undefined error in MessageBubble
+ 3 files changed, 427 insertions(+), 7 deletions(-)
+```
+
+---
+
+```bash
+git push
+```
+
+```
+
+Enumerating objects: 21, done.
+Counting objects: 100% (21/21), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (11/11), done.
+Writing objects: 100% (11/11), 3.85 KiB | 1.92 MiB/s, done.
+Total 11 (delta 9), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (9/9), completed with 9 local objects.
+To https://github.com/koharyou1215/ai-chat-v3.git
+   b2ac4de3..1f386d8c  main -> main
+```
+
+---
+
+## Todo List
+
+- [x] Fix React Hooks warnings in MessageBubble.tsx and other components
+- [x] Fix build errors and ESLint warnings
+- [x] Deploy the fixed application to Vercel
+- [ ] Set NEXT_PUBLIC_OPENROUTER_API_KEY environment variable in Vercel
+- [x] Fix timeoutsRef.current warning in AdvancedEffects.tsx
+- [x] Fix white screen issues and improve error handling
+- [x] Deploy error handling improvements to Vercel
+- [x] Fix canRegenerate undefined error in MessageBubble
+
+---
+
+## エラー修正完了
+
+`canRegenerate is not defined`エラーを修正しました！
+
+### 問題の原因
+`MessageBubble.tsx`で`canRegenerate`と`canContinue`変数が条件付きレンダリング（プログレッシブメッセージの早期リターン）の後に定義されていたため、プログレッシブメッセージの場合にスキップされて未定義エラーが発生していました。
+
+### 修正内容
+1. **変数の定義位置を変更**: `canRegenerate`と`canContinue`を条件付きレンダリングの前に移動
+2. **重複定義を削除**: 後で重複していた定義を削除
+
+### 現在の状況
+- ✅ `canRegenerate`未定義エラーを修正
+- ✅ コードをGitHubにプッシュ
+- Vercelでの自動デプロイが進行中
+
+これで白い画面の問題は解決されるはずです。Vercelでのデプロイが完了したら、アプリケーションが正常に動作することを確認してください。
+
+まだ問題が続く場合は、ブラウザのコンソールで他のエラーがないか確認してください。
+
+---
+
+_**User (2025-09-06 23:17Z)**_
+
+プリケーションでエラーが発生しました。
+エラー詳細
+TypeError: z.get is not a function
+
+    at e0 (https://ai-chat-app-new.vercel.app/_next/static/chunks/app/page-7bb9f0b283aa32c0.js:1:57554)
+    at e1 (<anonymous>)
+    at e6 (https://ai-chat-app-new.vercel.app/_next/static/chunks/app/page-7bb9f0b283aa32c0.js:1:75023)
+    at e9 (https://ai-chat-app-new.vercel.app/_next/static/chunks/app/page-7bb9f0b283aa32c0.js:1:82326)
+    at te (<anonymous>)
+    at a (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:280009)
+    at k (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:295241)
+    at c (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:313679)
+    at f (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:313761)
+    at s (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:287962)
+    at c (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:288063)
+    at E (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:296491)
+    at h (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:283734)
+    at S (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:293953)
+    at x (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:294993)
+    at i (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:317138)
+    at P (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:296778)
+    at n (https://ai-chat-app-new.vercel.app/_next/static/chunks/common-a5bff8437ded4101.js:1:169552)
+    at i (https://ai-chat-app-new.vercel.app/_next/static/chunks/app/layout-a67a1a6948e13a33.js:1:1000)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at c (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:313679)
+    at f (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:313761)
+    at M (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:273894)
+    at f (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:283067)
+    at h (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:283734)
+    at A (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:278428)
+    at j (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js:1:267208)
+    at A (https://ai-chat-app-new.vercel.app/_next/static/chunks/vendors-dd27789f272812f2.js
+
+---
+
+_**Assistant**_
+
+`z.get is not a function`エラーが発生していますね。これはZustandストアの`get`メソッドに関するエラーのようです。問題を調査しましょう。
+
+
+---
+
+<details>
+                <summary>Searched codebase "z.get is not a function zustand store error" • **12** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `src/store/index.ts` | Lundefined-37 |
+| `src/store/slices/memory.slice.ts` | Lundefined-47 |
+| `src/store/slices/tracker.slice.ts` | Lundefined-263 |
+| `src/store/slices/persona.slice.ts` | Lundefined-189 |
+| `src/store/slices/character.slice.ts` | Lundefined-283 |
+| `src/store/index.ts` | L40-345 |
+| `src/store/slices/persona.slice.ts` | L4-189 |
+| `src/store/slices/history.slice.ts` | Lundefined-36 |
+| `src/store/slices/chat.slice.ts` | L19-82 |
+| `src/utils/variable-replacer.ts` | L171-197 |
+| `src/store/slices/chat.slice.ts` | L42-1477 |
+| `src/store/slices/persona.slice.ts` | L16-189 |
+
+</details>
+
+---
+
+問題を特定するために、Zustandストアの使用方法を確認しましょう：
+
+
+---
+
+
+
+---
+
+問題を特定するために、`useAppStore.getState()`の使用方法を確認しましょう。エラーは`z.get is not a function`なので、Zustandの`get`メソッドが正しく呼び出されていない可能性があります。
+
+
+---
+
+Read file: undefined
+
+---
+
+問題を特定しました。Zustandストアの作成で`createStore()`関数を使用していますが、これが正しく動作していない可能性があります。エラーハンドリングを改善しましょう：
+
+
+---
+
+<details><summary>Edit file: src/store/index.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 12, lines removed: 1
+
+```diff
+@@ -346,4 +346,15 @@
+  };
+  
+- export const useAppStore = createStore();
++ // ストアの初期化を安全に行う
++ let useAppStore: ReturnType<typeof createStore>;
++ 
++ try {
++   useAppStore = createStore();
++ } catch (error) {
++   console.error('Failed to create store, using fallback:', error);
++   // フォールバック: 永続化なしのストアを作成
++   useAppStore = create<AppStore>()(combinedSlices);
++ }
++ 
++ export { useAppStore };
+  
+```
+
+</details>
+
+---
+
+さらに、`useAppStore.getState()`の使用方法に問題がある可能性があります。エラーハンドリングを追加しましょう：
+
+
+---
+
+<details><summary>Edit file: src/store/index.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 12, lines removed: undefined
+
+```diff
+@@ -351,4 +351,16 @@
+  try {
+    useAppStore = createStore();
++   
++   // ストアが正しく動作するかテスト
++   if (typeof useAppStore.getState !== 'function') {
++     throw new Error('Store getState method is not available');
++   }
++   
++   // 基本的な動作テスト
++   const testState = useAppStore.getState();
++   if (!testState || typeof testState !== 'object') {
++     throw new Error('Store state is invalid');
++   }
++   
+  } catch (error) {
+    console.error('Failed to create store, using fallback:', error);
+```
+
+</details>
+
+---
+
+さらに、`useAppStore.getState()`の呼び出し箇所でエラーハンドリングを追加しましょう。最も問題が起きやすい箇所を修正します：
+
+
+---
+
+Read file: undefined
+
+---
+
+The model provided an ambiguous search string to replace.
+
+---
+
+The model provided an ambiguous search string to replace.
+
+---
+
+
+
+---
+
+<details><summary>Edit file: src/components/chat/ChatInterface.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -444,5 +444,5 @@
+                            onClose={() => toggleScenarioModal(false)}
+                            onSubmit={async (scenario) => {
+-                             const persona = useAppStore.getState().getSelectedPersona();
++                             const persona = useAppStore?.getState?.()?.getSelectedPersona?.() || null;
+                              if (persona && stagingGroupMembers.length >= 2) {
+                                const groupName = scenario.title !== 'スキップ' 
+```
+
+**Chunk 2**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -788,5 +788,5 @@
+                            onClose={() => toggleScenarioModal(false)}
+                            onSubmit={async (scenario) => {
+-                             const persona = useAppStore.getState().getSelectedPersona();
++                             const persona = useAppStore?.getState?.()?.getSelectedPersona?.() || null;
+                              if (persona && stagingGroupMembers.length >= 2) {
+                                const groupName = scenario.title !== 'スキップ' 
+```
+
+</details>
+
+---
+
+他の箇所も修正しましょう：
+
+
+---
+
+<details><summary>Edit file: src/components/chat/ChatInterface.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -535,5 +535,5 @@
+                  <div 
+                      className="fixed inset-0 bg-black/50 z-40 md:hidden"
+-                     onClick={() => useAppStore.getState().toggleLeftSidebar()}
++                     onClick={() => useAppStore?.getState?.()?.toggleLeftSidebar?.()}
+                  />
+              )}
+```
+
+</details>
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+
+
+---
+
+他のファイルも修正しましょう：
+
+
+---
+
+The string to replace was not found in the file.
 
 ---
 

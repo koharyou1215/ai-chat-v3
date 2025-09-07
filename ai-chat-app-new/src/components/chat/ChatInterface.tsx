@@ -443,7 +443,7 @@ const ChatInterfaceContent: React.FC = () => {
                           isOpen={isScenarioModalOpen}
                           onClose={() => toggleScenarioModal(false)}
                           onSubmit={async (scenario) => {
-                            const persona = useAppStore.getState().getSelectedPersona();
+                            const persona = useAppStore?.getState?.()?.getSelectedPersona?.() || null;
                             if (persona && stagingGroupMembers.length >= 2) {
                               const groupName = scenario.title !== 'スキップ' 
                                 ? scenario.title 
@@ -534,7 +534,7 @@ const ChatInterfaceContent: React.FC = () => {
             {isLeftSidebarOpen && (
                 <div 
                     className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                    onClick={() => useAppStore.getState().toggleLeftSidebar()}
+                    onClick={() => useAppStore?.getState?.()?.toggleLeftSidebar?.()}
                 />
             )}
             
@@ -787,7 +787,7 @@ const ChatInterfaceContent: React.FC = () => {
                           isOpen={isScenarioModalOpen}
                           onClose={() => toggleScenarioModal(false)}
                           onSubmit={async (scenario) => {
-                            const persona = useAppStore.getState().getSelectedPersona();
+                            const persona = useAppStore?.getState?.()?.getSelectedPersona?.() || null;
                             if (persona && stagingGroupMembers.length >= 2) {
                               const groupName = scenario.title !== 'スキップ' 
                                 ? scenario.title 

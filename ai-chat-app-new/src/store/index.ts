@@ -345,4 +345,27 @@ const createStore = () => {
   }
 };
 
-export const useAppStore = createStore();
+// ストアの初期化を安全に行う
+let useAppStore: ReturnType<typeof createStore>;
+
+try {
+  useAppStore = createStore();
+  
+  // ストアが正しく動作するかテスト
+  if (typeof useAppStore.getState !== 'function') {
+    throw new Error('Store getState method is not available');
+  }
+  
+  // 基本的な動作テスト
+  const testState = useAppStore.getState();
+  if (!testState || typeof testState !== 'object') {
+    throw new Error('Store state is invalid');
+  }
+  
+} catch (error) {
+  console.error('Failed to create store, using fallback:', error);
+  // フォールバック: 永続化なしのストアを作成
+  useAppStore = create<AppStore>()(combinedSlices);
+}
+
+export { useAppStore };

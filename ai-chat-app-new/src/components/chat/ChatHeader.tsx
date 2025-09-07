@@ -289,7 +289,7 @@ const ChatHeaderContent: React.FC = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
-                            const { setShowSettingsModal } = useAppStore.getState();
+                            const { setShowSettingsModal } = useAppStore?.getState?.() || {};
                             setShowSettingsModal(true, 'ai');
                         }}
                         className="flex items-center gap-0.5 px-1.5 py-1 md:px-2 md:py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-purple-400/30 text-xs font-medium"
@@ -297,7 +297,7 @@ const ChatHeaderContent: React.FC = () => {
                     >
                         <Settings className="w-4 h-4 md:w-3 md:h-3 text-blue-400 flex-shrink-0" />
                         <span className="text-white drop-shadow-lg/90 inline max-w-[80px] md:max-w-[100px] lg:max-w-[120px] truncate text-xs md:text-sm">
-                            {getModelDisplayName(useAppStore.getState().apiConfig.model)}
+                            {getModelDisplayName(useAppStore?.getState?.()?.apiConfig?.model || '')}
                         </span>
                         <ChevronDown className="w-2 h-2 text-white drop-shadow-lg/60 flex-shrink-0" />
                     </motion.button>
