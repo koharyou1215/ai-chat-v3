@@ -677,19 +677,3 @@ class BackgroundTaskQueue {
 }
 
 export const backgroundTaskQueue = new BackgroundTaskQueue();
-this.processing = true;
-
-    while (this.tasks.length > 0) {
-      const task = this.tasks.shift()!;
-      try {
-        await task();
-      } catch (error) {
-        console.error("Background task failed:", error);
-      }
-    }
-
-    this.processing = false;
-  }
-}
-
-export const backgroundTaskQueue = new BackgroundTaskQueue();
