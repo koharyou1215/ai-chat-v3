@@ -467,13 +467,28 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   if (isProgressiveMessage && message.metadata && 'progressiveData' in message.metadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
     const progressiveData = (message.metadata as any).progressiveData;
+    
+    // デバッグログ
+    console.log('🔄 MessageBubble: Rendering progressive message', {
+      messageId: message.id,
+      currentStage: progressiveData?.currentStage,
+      hasStages: !!progressiveData?.stages
+    });
     const progressiveMessage = {
       ...message,
       stages: progressiveData?.stages || { reflex: null, context: null, intelligence: null },
       currentStage: progressiveData?.currentStage || 'reflex',
       transitions: progressiveData?.transitions || [],
-      ui: progressiveData?.ui || { isUpdating: false, glowIntensity: 'none', highlightChanges: false },
-      metadata: progressiveData?.metadata || message.metadata
+      ui: progressiveData?.ui || { 
+        isUpdating: false, 
+        glowIntensity: 'none', 
+        highlightChanges: false,
+        showIndicator: true 
+      },
+      metadata: progressiveData?.metadata || message.metadata,
+      // キャラクター情報を正しく設定
+      character_name: character?.name,
+      character_avatar: character?.avatar_url,
     };
     
     return (

@@ -10,7 +10,6 @@ export interface Persona extends Omit<BaseEntity, 'created_at'> {
   likes: string[];
   dislikes: string[];
   other_settings: string;
-  avatar_url?: string;
   personality?: string;
   speaking_style?: string;
   background?: string;

@@ -819,6 +819,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           tokens: reflexPrompt.tokenLimit
         };
         progressiveMessage.content = reflexResponse;
+        progressiveMessage.currentStage = 'reflex';
         
         // metadata.progressiveDataも更新（MessageBubbleが使用）
         progressiveMessage.metadata = {
@@ -877,8 +878,16 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         
         console.log('📝 Stage 2 Prompt built, calling API...');
         
+        // 💭 心の声プロンプト強化: 文脈ステージでは内面的な思考や感情を重視
+        const heartVoicePrompt = contextPrompt.prompt + `\n\n【特別指示 - 心の声モード】
+このレスポンスでは、キャラクターの内面的な声、心の奥底にある本音、感情の動きを重視してください。
+- 表面的な返答ではなく、心の中で感じていることを表現
+- 感情の微細な変化や内的な葛藤を含める  
+- より親密で個人的な語りかけを心がける
+- 「心の中では...」「本当は...」「実は...」などの内面表現を自然に含める`;
+        
         const contextResponse = await simpleAPIManagerV2.generateMessage(
-          contextPrompt.prompt,
+          heartVoicePrompt,
           content,
           contextPrompt.conversationHistory || [],
           { 

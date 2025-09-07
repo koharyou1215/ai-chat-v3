@@ -50,7 +50,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/ai-chat-v3/ai-chat-app-new/test-results",
@@ -66,7 +66,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/ai-chat-v3/ai-chat-app-new/test-results",
@@ -82,7 +82,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/ai-chat-v3/ai-chat-app-new/test-results",
@@ -98,7 +98,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       }
     ],
     "shard": null,
@@ -115,25 +115,25 @@
   },
   "suites": [
     {
-      "title": "progressive-mode-enabled-test.spec.ts",
-      "file": "progressive-mode-enabled-test.spec.ts",
+      "title": "test-progressive-complete.spec.ts",
+      "file": "test-progressive-complete.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Progressive Mode Full Functionality Test",
-          "file": "progressive-mode-enabled-test.spec.ts",
-          "line": 5,
+          "title": "Progressive Message Complete Test",
+          "file": "test-progressive-complete.spec.ts",
+          "line": 3,
           "column": 6,
           "specs": [
             {
-              "title": "Enable Progressive Mode and Test Full Functionality",
+              "title": "Complete test of Progressive Message with Show Diff",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 60000,
+                  "timeout": 30000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -143,76 +143,28 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 10444,
+                      "duration": 2458,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "🚀 Starting Progressive Mode Full Functionality Test\n"
+                          "text": "🚀 Starting complete Progressive Message test...\n"
                         },
                         {
-                          "text": "⚙️ Step 1: Opening Settings...\n"
+                          "text": "📸 1. Initial state captured\n"
                         },
                         {
-                          "text": "⚠️ Settings button not found, trying programmatic approach\n"
+                          "text": "⚙️ Found 0 settings buttons\n"
                         },
                         {
-                          "text": "📝 Step 2: Sending test message...\n"
+                          "text": "📝 Found 0 message input fields\n"
                         },
                         {
-                          "text": "✅ Message sent\n"
-                        },
-                        {
-                          "text": "👀 Step 3: Monitoring progressive stages...\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 1...\n"
-                        },
-                        {
-                          "text": "📊 Stage 1: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 2...\n"
-                        },
-                        {
-                          "text": "📊 Stage 2: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 3...\n"
-                        },
-                        {
-                          "text": "📊 Stage 3: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🔍 Step 4: Verifying cumulative content...\n"
-                        },
-                        {
-                          "text": "📈 Total messages displayed: 0\n"
-                        },
-                        {
-                          "text": "📸 Final screenshot captured\n"
-                        },
-                        {
-                          "text": "✅ Progressive Mode functionality test completed\n"
-                        },
-                        {
-                          "text": "🎨 Step 6: Final layout verification...\n"
-                        },
-                        {
-                          "text": "📊 Final verification:\n"
-                        },
-                        {
-                          "text": "  - Duplicate trackers: 0\n"
-                        },
-                        {
-                          "text": "  - Show Diff buttons: 0\n"
-                        },
-                        {
-                          "text": "🎉 All Progressive Mode tests completed successfully!\n"
+                          "text": "✅ 10. Test completed successfully\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-09-07T15:18:39.859Z",
+                      "startTime": "2025-09-07T19:50:36.520Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -220,256 +172,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "c5abbc43d211cd5d4382-8bc156bd5a2359180c4e",
-              "file": "progressive-mode-enabled-test.spec.ts",
-              "line": 6,
-              "column": 7
-            },
-            {
-              "title": "Enable Progressive Mode and Test Full Functionality",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 60044,
-                      "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded while setting up \"page\".\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded while setting up \"page\".\u001b[39m"
-                      },
-                      "errors": [
-                        {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded while setting up \"page\".\u001b[39m"
-                        },
-                        {
-                          "message": "Error: browserContext.newPage: Test timeout of 60000ms exceeded."
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-07T15:18:51.534Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\ai-chat-v3\\ai-chat-app-new\\test-results\\progressive-mode-enabled-t-26809-and-Test-Full-Functionality-firefox\\trace.zip"
-                        }
-                      ]
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "c5abbc43d211cd5d4382-26cbefe685f72066221e",
-              "file": "progressive-mode-enabled-test.spec.ts",
-              "line": 6,
-              "column": 7
-            },
-            {
-              "title": "Enable Progressive Mode and Test Full Functionality",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 11409,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🚀 Starting Progressive Mode Full Functionality Test\n"
-                        },
-                        {
-                          "text": "⚙️ Step 1: Opening Settings...\n"
-                        },
-                        {
-                          "text": "⚠️ Settings button not found, trying programmatic approach\n"
-                        },
-                        {
-                          "text": "📝 Step 2: Sending test message...\n"
-                        },
-                        {
-                          "text": "✅ Message sent\n"
-                        },
-                        {
-                          "text": "👀 Step 3: Monitoring progressive stages...\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 1...\n"
-                        },
-                        {
-                          "text": "📊 Stage 1: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 2...\n"
-                        },
-                        {
-                          "text": "📊 Stage 2: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 3...\n"
-                        },
-                        {
-                          "text": "📊 Stage 3: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🔍 Step 4: Verifying cumulative content...\n"
-                        },
-                        {
-                          "text": "📈 Total messages displayed: 0\n"
-                        },
-                        {
-                          "text": "📸 Final screenshot captured\n"
-                        },
-                        {
-                          "text": "✅ Progressive Mode functionality test completed\n"
-                        },
-                        {
-                          "text": "🎨 Step 6: Final layout verification...\n"
-                        },
-                        {
-                          "text": "📊 Final verification:\n"
-                        },
-                        {
-                          "text": "  - Duplicate trackers: 0\n"
-                        },
-                        {
-                          "text": "  - Show Diff buttons: 0\n"
-                        },
-                        {
-                          "text": "🎉 All Progressive Mode tests completed successfully!\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-07T15:19:53.499Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "c5abbc43d211cd5d4382-721bebfb6c8f41d8a3cf",
-              "file": "progressive-mode-enabled-test.spec.ts",
-              "line": 6,
-              "column": 7
-            },
-            {
-              "title": "Enable Progressive Mode and Test Full Functionality",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "mobile-chrome",
-                  "projectName": "mobile-chrome",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 11720,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🚀 Starting Progressive Mode Full Functionality Test\n"
-                        },
-                        {
-                          "text": "⚙️ Step 1: Opening Settings...\n"
-                        },
-                        {
-                          "text": "⚠️ Settings button not found, trying programmatic approach\n"
-                        },
-                        {
-                          "text": "📝 Step 2: Sending test message...\n"
-                        },
-                        {
-                          "text": "✅ Message sent\n"
-                        },
-                        {
-                          "text": "👀 Step 3: Monitoring progressive stages...\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 1...\n"
-                        },
-                        {
-                          "text": "📊 Stage 1: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 2...\n"
-                        },
-                        {
-                          "text": "📊 Stage 2: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🎯 Checking for Stage 3...\n"
-                        },
-                        {
-                          "text": "📊 Stage 3: 0 indicators, content visible: false\n"
-                        },
-                        {
-                          "text": "🔍 Step 4: Verifying cumulative content...\n"
-                        },
-                        {
-                          "text": "📈 Total messages displayed: 0\n"
-                        },
-                        {
-                          "text": "📸 Final screenshot captured\n"
-                        },
-                        {
-                          "text": "✅ Progressive Mode functionality test completed\n"
-                        },
-                        {
-                          "text": "🎨 Step 6: Final layout verification...\n"
-                        },
-                        {
-                          "text": "📊 Final verification:\n"
-                        },
-                        {
-                          "text": "  - Duplicate trackers: 0\n"
-                        },
-                        {
-                          "text": "  - Show Diff buttons: 0\n"
-                        },
-                        {
-                          "text": "🎉 All Progressive Mode tests completed successfully!\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-07T15:20:05.774Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "c5abbc43d211cd5d4382-ca41c30fba5e9b3ed998",
-              "file": "progressive-mode-enabled-test.spec.ts",
-              "line": 6,
+              "id": "298bb0ea65e8ffffed24-99fb091d197f7c6c0fcf",
+              "file": "test-progressive-complete.spec.ts",
+              "line": 4,
               "column": 7
             }
           ]
@@ -479,11 +184,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-09-07T15:18:38.736Z",
-    "duration": 99290.54299999999,
-    "expected": 3,
+    "startTime": "2025-09-07T19:50:34.911Z",
+    "duration": 4568.746,
+    "expected": 1,
     "skipped": 0,
-    "unexpected": 1,
+    "unexpected": 0,
     "flaky": 0
   }
 }

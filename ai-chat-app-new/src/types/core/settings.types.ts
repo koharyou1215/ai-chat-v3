@@ -142,7 +142,7 @@ export interface FullProgressiveMode {
 export const getProgressiveModeWithDefaults = (
   progressiveMode?: ChatSettings['progressiveMode']
 ): FullProgressiveMode => ({
-  enabled: progressiveMode?.enabled ?? false,
+  enabled: progressiveMode?.enabled ?? true,
   showIndicators: progressiveMode?.showIndicators ?? true,
   highlightChanges: progressiveMode?.highlightChanges ?? true,
   glowIntensity: progressiveMode?.glowIntensity ?? 'medium',

@@ -34,7 +34,7 @@ export const QuickSettingsPanel: React.FC<QuickSettingsPanelProps> = ({ isOpen, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-50 overflow-y-auto">
+    <div className="fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-[9999] overflow-y-auto">
       {/* ヘッダー */}
       <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4">
         <div className="flex items-center justify-between">

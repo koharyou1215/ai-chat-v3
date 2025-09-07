@@ -1,448 +1,429 @@
-/**
- * Progressive Message Bubble Component
- * 3段階プログレッシブ応答の表示コンポーネント
- */
+'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import { ProgressiveMessage } from "@/types/progressive-message.types";
 import { messageTransitionService } from "@/services/message-transition.service";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import Image from "next/image";
 import { RotateCcw, Play, Copy, MoreHorizontal } from "lucide-react";
 import { useAppStore } from "@/store";
+import { useEffectSettings } from "@/contexts/EffectSettingsContext";
+import MessageEffects from "@/components/chat/MessageEffects";
+import { ParticleText } from "@/components/chat/AdvancedEffects";
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
   isLatest?: boolean;
 }
 
-export const ProgressiveMessageBubble: React.FC<
-  ProgressiveMessageBubbleProps
-> = ({ message, isLatest = false }) => {
-  const [displayContent, setDisplayContent] = useState("");
-  const [previousContent, setPreviousContent] = useState("");
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [showDiff, setShowDiff] = useState(false); // デフォルトでHide Diff
+export const ProgressiveMessageBubble: React.FC<ProgressiveMessageBubbleProps> = ({ 
+  message, 
+  isLatest = false 
+}) => {
   const [showFullActions, setShowFullActions] = useState(false);
-  const [selectedText, setSelectedText] = useState("");
+  const [showDiff, setShowDiff] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const { is_generating } = useAppStore();
+  const { settings: effectSettings } = useEffectSettings();
+  const contentRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [displayedContent, setDisplayedContent] = useState("");
+  const [isTypewriterActive, setIsTypewriterActive] = useState(false);
   
-  // Store functions
-  const { 
-    is_generating,
-    regenerateLastMessage,
-    continueLastMessage,
-  } = useAppStore();
+  // デバッグログ
+  console.log('📊 ProgressiveMessageBubble render:', {
+    currentStage: message.currentStage,
+    hasReflex: !!message.stages?.reflex?.content,
+    hasContext: !!message.stages?.context?.content,
+    hasIntelligence: !!message.stages?.intelligence?.content,
+    showIndicator: message.ui?.showIndicator,
+    displayedContent: displayedContent?.substring(0, 50),
+    stages: message.stages
+  });
 
-  // コンテンツ更新の監視と表示
-  useEffect(() => {
-    // ステージごとのコンテンツを結合して表示
-    const getProgressiveContent = () => {
-      let content = "";
-      
-      // 各ステージのコンテンツを累積的に結合
-      if (message.stages.reflex?.content) {
-        content += message.stages.reflex.content;
-      }
-      if (message.stages.context?.content) {
-        content += (content ? "\n\n" : "") + message.stages.context.content;
-      }
-      if (message.stages.intelligence?.content) {
-        content += (content ? "\n\n" : "") + message.stages.intelligence.content;
-      }
-      
-      // フォールバック: ステージがない場合は全体のコンテンツを使用
-      if (!content && message.content) {
-        content = message.content;
-      }
-      
-      return content;
-    };
-    
-    const newContent = getProgressiveContent();
-    
-    if (newContent && newContent !== previousContent) {
-      setPreviousContent(displayContent);
-
-      // アニメーション効果を適用
-      if (contentRef.current && previousContent) {
-        // 差分がある場合はトランジション
-        const diff = messageTransitionService.detectChanges(
-          previousContent,
-          newContent
-        );
-        if (diff.changeRatio > 0.1 && isLatest) {
-          // モーフィングアニメーション
-          messageTransitionService.morphTransition(
-            contentRef.current,
-            previousContent,
-            newContent,
-            700
-          );
-        } else {
-          // 即座に更新
-          setDisplayContent(newContent);
-        }
-      } else {
-        // 初回表示
-        setDisplayContent(newContent);
-      }
-
-      // グロー効果
-      if (
-        contentRef.current &&
-        isLatest &&
-        message.ui.glowIntensity !== "none"
-      ) {
-        messageTransitionService.applyGlowEffect(
-          contentRef.current,
-          message.ui.glowIntensity,
-          1000
-        );
-      }
-    }
-  }, [
-    message.content,
-    message.stages.reflex?.content,
-    message.stages.context?.content,
-    message.stages.intelligence?.content,
-    previousContent,
-    displayContent,
-    isLatest,
-    message.ui.glowIntensity,
-  ]);
-
-  // ステージインジケーターの色を取得（赤→緑→白の順序）
-  const getStageColor = (
-    stage: "reflex" | "context" | "intelligence",
-    isComplete: boolean
-  ) => {
-    if (!isComplete) return "bg-gray-600";
-
+  // ステージ表示ヘルパー
+  const getStageLabel = (stage: string) => {
     switch (stage) {
       case "reflex":
-        return "bg-red-500";      // 反射 = 赤（第一段階）
+        return "直感";
       case "context":
-        return "bg-green-500";    // 文脈 = 緑（第二段階）
+        return "文脈 ❤️";
       case "intelligence":
-        return "bg-white border border-gray-300"; // 洞察 = 白（最終段階）
+        return "知性";
       default:
-        return "bg-gray-600";
+        return stage;
     }
   };
 
-  // ステージラベルの取得
-  const getStageLabel = (stage: "reflex" | "context" | "intelligence") => {
+  // ステージ詳細説明ヘルパー  
+  const getStageDescription = (stage: string) => {
     switch (stage) {
       case "reflex":
-        return "反射";
+        return "瞬間的な反応と理解";
       case "context":
-        return "文脈";
+        return "心の声・内面の想い";
       case "intelligence":
-        return "洞察";
+        return "深い洞察と知識";
       default:
         return "";
     }
   };
 
-  // メニューアクション
-  const handleRegenerate = useCallback(async () => {
-    if (!isLatest || is_generating) return;
-    try {
-      await regenerateLastMessage();
-    } catch (error) {
-      console.error("再生成に失敗しました:", error);
-    }
-  }, [isLatest, is_generating, regenerateLastMessage]);
-
-  const handleContinue = useCallback(async () => {
-    if (!isLatest || is_generating) return;
-    try {
-      await continueLastMessage();
-    } catch (error) {
-      console.error("続きの生成に失敗しました:", error);
-    }
-  }, [isLatest, is_generating, continueLastMessage]);
-
-  const handleCopy = useCallback(() => {
-    const textToCopy = selectedText || displayContent;
-    navigator.clipboard.writeText(textToCopy);
-    setSelectedText("");
-    setShowFullActions(false);
-  }, [selectedText, displayContent]);
-
-  const handleTextSelection = useCallback(() => {
-    const selection = window.getSelection();
-    const selectedText = selection?.toString().trim() || "";
-    setSelectedText(selectedText);
-    setShowFullActions(selectedText.length > 0);
-  }, []);
-
-  // メニューの外側クリックでの閉じる処理
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowFullActions(false);
-        setSelectedText("");
+  const getStageColor = (stage: string, isActive: boolean) => {
+    if (isActive) {
+      switch (stage) {
+        case "reflex":
+          return "bg-green-500 shadow-lg shadow-green-500/50";
+        case "context":
+          return "bg-pink-500 shadow-lg shadow-pink-500/50 animate-pulse";
+        case "intelligence":
+          return "bg-purple-500 shadow-lg shadow-purple-500/50";
+        default:
+          return "bg-gray-500";
       }
-    };
-
-    if (showFullActions) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showFullActions]);
+    return "bg-gray-600";
+  };
+
+  const handleRegenerate = async () => {
+    const { regenerateLastMessage } = useAppStore.getState();
+    await regenerateLastMessage();
+  };
+
+  const handleContinue = async () => {
+    const { continueGeneration } = useAppStore.getState();
+    await continueGeneration();
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+  };
+
+  // 現在のステージに応じたコンテンツを取得
+  const getCurrentStageContent = () => {
+    // 現在のステージに基づいてコンテンツを返す
+    // 段階的に表示: 前のステージの内容も含める
+    if (message.currentStage === 'intelligence') {
+      // 知性段階: 最終的な内容を表示
+      return message.stages.intelligence?.content || message.stages.context?.content || message.stages.reflex?.content || message.content || '';
+    } else if (message.currentStage === 'context') {
+      // 文脈段階: 文脈の内容を表示
+      return message.stages.context?.content || message.stages.reflex?.content || message.content || '';
+    } else if (message.currentStage === 'reflex') {
+      // 直感段階: 直感の内容を表示
+      return message.stages.reflex?.content || message.content || '';
+    }
+    // フォールバック: message.content または 空文字列
+    return message.content || '';
+  };
+
+  // タイプライター効果の実装
+  useEffect(() => {
+    const currentContent = getCurrentStageContent();
+    
+    if (effectSettings.typewriterEffect && currentContent && contentRef.current) {
+      setIsTypewriterActive(true);
+      setDisplayedContent("");
+      
+      const speed = Math.max(10, 100 - effectSettings.typewriterIntensity);
+      messageTransitionService.typewriterEffect(
+        contentRef.current,
+        currentContent,
+        speed
+      ).finally(() => {
+        setIsTypewriterActive(false);
+        setDisplayedContent(currentContent);
+      });
+    } else {
+      setDisplayedContent(currentContent);
+    }
+  }, [message.content, message.currentStage, message.stages, effectSettings.typewriterEffect, effectSettings.typewriterIntensity]);
 
   const canRegenerate = isLatest && !is_generating;
   const canContinue = isLatest && !is_generating;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`progressive-message-bubble relative ${
-        message.ui.isUpdating ? "updating" : ""
-      }`}>
-      {/* ステージインジケーター - 改善されたレイアウト */}
-      {message.ui.showIndicator && (
-        <div className="stage-indicator flex flex-wrap gap-4 mb-4 p-2 bg-gray-800/30 rounded-lg backdrop-blur-sm" data-testid="stage-indicators">
-          {(["reflex", "context", "intelligence"] as const).map((stage, index) => (
-            <div key={stage} className="stage-item flex items-center gap-2 min-w-0 flex-1">
-              <motion.div
-                className={`stage-dot w-4 h-4 rounded-full transition-all duration-300 flex-shrink-0 ${getStageColor(
-                  stage,
-                  !!message.stages[stage]
-                )}`}
-                animate={{
-                  scale: message.currentStage === stage ? [1, 1.3, 1] : 1,
-                }}
-                transition={{
-                  duration: 0.6,
-                  repeat:
-                    message.currentStage === stage && message.ui.isUpdating
-                      ? Infinity
-                      : 0,
-                }}
-                data-testid={`stage-dot-${stage}`}
-              />
-              <div className="stage-info flex flex-col min-w-0">
-                <span className="stage-label text-sm font-medium text-gray-300">
-                  {getStageLabel(stage)}
-                </span>
-                {message.stages[stage] && (
-                  <span className="stage-tokens text-xs text-gray-500 font-mono">
-                    {message.stages[stage]?.tokens}t
-                    {message.stages[stage]?.timestamp && (
-                      <span className="ml-1">
-                        • {message.stages[stage]?.timestamp}ms
-                      </span>
-                    )}
-                  </span>
-                )}
-              </div>
-              {/* ステージ間の区切り線 */}
-              {index < 2 && (
-                <div className="stage-separator w-8 h-0.5 bg-gray-600 mx-2 flex-shrink-0" />
-              )}
+    <div className="progressive-message-bubble relative">
+      <div className="progressive-container bg-slate-800/50 backdrop-blur-sm rounded-lg border border-purple-400/20 overflow-hidden">
+        {/* ステージインジケーター */}
+        {message.ui.showIndicator && (
+          <div className="stage-indicator p-3 border-b border-purple-400/20">
+            <div className="flex flex-wrap gap-4">
+              {(["reflex", "context", "intelligence"] as const).map((stage, index) => (
+                <div key={stage} className="stage-item flex items-center gap-2 min-w-0 flex-1">
+                  <div className={`stage-icon w-3 h-3 rounded-full transition-all duration-300 ${
+                    getStageColor(stage, message.currentStage === stage)
+                  }`} />
+                  <div className="stage-info flex flex-col min-w-0">
+                    <span className="stage-label text-sm font-medium text-gray-300">
+                      {getStageLabel(stage)}
+                    </span>
+                    <span className="stage-description text-xs text-gray-500 truncate">
+                      {message.stages[stage]?.content ? (
+                        <span className="text-green-400 font-medium">完了</span>
+                      ) : message.currentStage === stage ? (
+                        <span className="text-yellow-400 font-medium">処理中...</span>
+                      ) : (
+                        <span className="text-gray-500">待機中</span>
+                      )}
+                    </span>
+                  </div>
+                  {index < 2 && (
+                    <div className="stage-separator w-8 h-0.5 bg-gray-600 mx-2 flex-shrink-0" />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* メッセージコンテンツ */}
-      <div
-        ref={contentRef}
-        className={`message-content relative overflow-hidden ${
-          message.ui.highlightChanges ? "highlight-changes" : ""
-        }`}>
-        {/* アバター */}
-        {message.character_avatar && (
-          <div className="absolute -left-12 top-0 w-10 h-10 rounded-full overflow-hidden">
-            <Image
-              src={message.character_avatar}
-              alt={message.character_name || "Character"}
-              width={40}
-              height={40}
-              className="w-full h-full object-cover"
-            />
+            
+            {/* Show Diff トグル */}
+            {message.stages.context?.content && message.stages.reflex?.content && (
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={() => setShowDiff(!showDiff)}
+                  className={`px-3 py-1 text-xs rounded-lg transition-all ${
+                    showDiff 
+                      ? 'bg-purple-500 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {showDiff ? '✓ Show Diff' : 'Show Diff'}
+                </button>
+                <span className="text-xs text-gray-500">ステージ間の差分を表示</span>
+              </div>
+            )}
           </div>
         )}
 
-        {/* テキストコンテンツ */}
-        <div 
-          className="prose prose-invert max-w-none"
-          onMouseUp={handleTextSelection}
-          onTouchEnd={handleTextSelection}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {displayContent || "..."}
-          </ReactMarkdown>
-        </div>
-
-        {/* メッセージメニュー */}
-        <AnimatePresence>
-          {(showFullActions || isLatest) && (
-            <motion.div
-              ref={menuRef}
-              className="message-menu absolute top-2 right-2 flex items-center gap-1 bg-gray-800 rounded-lg p-1 shadow-lg"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* 再生成ボタン */}
-              {canRegenerate && (
-                <button
-                  onClick={handleRegenerate}
-                  className="action-button p-2 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
-                  title="再生成"
+        {/* メッセージ表示エリア */}
+        <div className="message-area p-4 relative">
+          {/* メッセージバブル */}
+          <div
+            ref={contentRef}
+            className={`message-content px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200 relative overflow-hidden ${
+              message.ui.highlightChanges ? "highlight-changes" : ""
+            } ${
+              effectSettings.colorfulBubbles 
+                ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 border-purple-400/40 shadow-purple-500/20" 
+                : "bg-slate-800/60 border-slate-600/30"
+            }`}
+            style={{
+              fontSize: effectSettings.fontEffects ? 
+                `${Math.max(0.75, 1 + (effectSettings.fontEffectsIntensity - 50) / 100)}rem` : 
+                undefined,
+              fontWeight: effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 70 ? 
+                "bold" : 
+                undefined,
+              textShadow: effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 50 ? 
+                "0 0 10px rgba(255,255,255,0.3)" : 
+                undefined
+            }}
+          >
+            {/* メッセージ内容 */}
+            <div className="message-text prose prose-sm prose-invert max-w-none">
+              {effectSettings.typewriterEffect && isTypewriterActive ? (
+                <div className="relative">
+                  <div className="typewriter-content prose prose-sm prose-invert max-w-none" />
+                  <span className="typewriter-cursor animate-pulse ml-1 text-purple-400">|</span>
+                </div>
+              ) : (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  }}
                 >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
+                  {displayedContent}
+                </ReactMarkdown>
               )}
+            </div>
 
-              {/* 続きボタン */}
-              {canContinue && (
-                <button
-                  onClick={handleContinue}
-                  className="action-button p-2 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded transition-colors"
-                  title="続きを生成"
+            {/* メッセージメニュー */}
+            <div className="message-actions">
+              {(showFullActions || isLatest) && (
+                <div
+                  ref={menuRef}
+                  className="message-menu absolute top-2 right-2 flex items-center gap-1 bg-gray-800/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-gray-600/30 z-10"
                 >
-                  <Play className="w-4 h-4" />
-                </button>
+                  {/* 再生成ボタン */}
+                  {canRegenerate && (
+                    <button
+                      onClick={handleRegenerate}
+                      className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                      title="再生成"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+                  {/* 続きボタン */}
+                  {canContinue && (
+                    <button
+                      onClick={handleContinue}
+                      className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                      title="続きを生成"
+                    >
+                      <Play className="w-4 h-4" />
+                    </button>
+                  )}
+                  {/* コピーボタン */}
+                  <button
+                    onClick={handleCopy}
+                    className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                    title="コピー"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  {/* その他メニュー */}
+                  <button
+                    onClick={() => setShowFullActions(!showFullActions)}
+                    className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                    title="その他"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </div>
               )}
+            </div>
 
-              {/* コピーボタン */}
-              <button
-                onClick={handleCopy}
-                className="action-button p-2 text-gray-400 hover:text-yellow-400 hover:bg-gray-700 rounded transition-colors"
-                title="コピー"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
+            {/* エフェクト統合 */}
+            {effectSettings.particleEffects && (
+              <Suspense fallback={null}>
+                <ParticleText text={displayedContent} trigger={isLatest && !isTypewriterActive} />
+              </Suspense>
+            )}
 
-              {/* その他メニュー */}
-              <button
-                onClick={() => setShowFullActions(!showFullActions)}
-                className="action-button p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-                title="その他"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 差分表示（開発モード） */}
-        {process.env.NODE_ENV === "development" &&
-          showDiff &&
-          message.stages.context?.diff && (
-            <div className="diff-display mt-2 p-2 bg-gray-800 rounded text-xs">
-              <div className="additions text-green-400">
-                + {message.stages.context.diff.additions.join(" ")}
-              </div>
-              <div className="deletions text-red-400">
-                - {message.stages.context.diff.deletions.join(" ")}
+            {(effectSettings.particleEffects || effectSettings.colorfulBubbles) && (
+              <Suspense fallback={null}>
+                <MessageEffects
+                  trigger={displayedContent}
+                  position={{ x: 50, y: 50 }}
+                />
+              </Suspense>
+            )}
+          </div>
+          
+          {/* Diff表示エリア */}
+          {showDiff && message.stages.context?.content && message.stages.reflex?.content && (
+            <div className="diff-display mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+              <div className="text-xs font-medium text-gray-400 mb-2">ステージ間の変化</div>
+              <div className="space-y-3">
+                {/* 直感 → 文脈 */}
+                <div className="diff-section">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-green-400">直感</span>
+                    <span className="text-xs text-gray-500">→</span>
+                    <span className="text-xs text-pink-400">文脈</span>
+                  </div>
+                  <div className="text-xs text-gray-300 bg-gray-800/50 p-2 rounded">
+                    {message.stages.context.content.length > message.stages.reflex.content.length 
+                      ? `+${message.stages.context.content.length - message.stages.reflex.content.length} 文字追加`
+                      : '内容を調整'}
+                  </div>
+                </div>
+                
+                {/* 文脈 → 知性 */}
+                {message.stages.intelligence?.content && (
+                  <div className="diff-section">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-pink-400">文脈</span>
+                      <span className="text-xs text-gray-500">→</span>
+                      <span className="text-xs text-purple-400">知性</span>
+                    </div>
+                    <div className="text-xs text-gray-300 bg-gray-800/50 p-2 rounded">
+                      {message.stages.intelligence.content.length > message.stages.context.content.length 
+                        ? `+${message.stages.intelligence.content.length - message.stages.context.content.length} 文字追加`
+                        : '内容を洗練'}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
+        </div>
+
+        {/* メタデータ表示（開発モード） - 折りたたみ可能 */}
+        {process.env.NODE_ENV === "development" && message.metadata && (
+          <div className="metadata mt-3 bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 text-xs">
+            <div 
+              className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-800/50 transition-colors"
+              onClick={() => setShowMetadata(!showMetadata)}
+            >
+              <div className="flex items-center gap-2 text-gray-300">
+                <span className="text-xs">メタデータ</span>
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span>{message.metadata.totalTime}ms</span>
+                  <span>•</span>
+                  <span>{message.metadata.totalTokens}トークン</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-gray-500">
+                <span className="text-xs">詳細</span>
+                <div className={`transition-transform duration-200 ${showMetadata ? "rotate-180" : ""}`}>
+                  •••
+                </div>
+              </div>
+            </div>
+            
+            {/* 詳細メタデータ（折りたたみ可能） */}
+            {showMetadata && (
+              <div className="p-3 border-t border-gray-700">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-gray-300">
+                  <div className="stat-item">
+                    <span className="label">総生成時間:</span>
+                    <span className="value">{message.metadata.totalTime}ms</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="label">総トークン:</span>
+                    <span className="value">{message.metadata.totalTokens}トークン</span>
+                  </div>
+                  {message.metadata.userSatisfactionPoint && (
+                    <div className="stat-item">
+                      <span className="label">満足度ポイント:</span>
+                      <span className="value">{message.metadata.userSatisfactionPoint}</span>
+                    </div>
+                  )}
+                </div>
+                {message.metadata.stageTimings && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <span className="label text-gray-400">ステージタイミング:</span>
+                    <div className="stage-timings grid grid-cols-3 gap-2 mt-1 text-xs">
+                      {message.metadata.stageTimings.reflex && (
+                        <div>直感: {message.metadata.stageTimings.reflex}ms</div>
+                      )}
+                      {message.metadata.stageTimings.context && (
+                        <div>文脈: {message.metadata.stageTimings.context}ms</div>
+                      )}
+                      {message.metadata.stageTimings.intelligence && (
+                        <div>知性: {message.metadata.stageTimings.intelligence}ms</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 更新中インジケーター */}
+      {/* 生成中インジケーター */}
       {message.ui.isUpdating && (
-        <motion.div
-          className="updating-indicator mt-3 flex items-center gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}>
-          <div className="loading-dots flex gap-1">
+        <div className="updating-indicator absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-purple-500/20 backdrop-blur-sm px-4 py-2 rounded-full">
+          <div className="flex gap-1">
             {[0, 1, 2].map((i) => (
-              <motion.span
+              <div
                 key={i}
-                className="dot w-2 h-2 bg-blue-400 rounded-full"
-                animate={{
-                  scale: [1, 1.5, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 1,
-                  repeat: Infinity,
-                  delay: i * 0.2,
-                }}
+                className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"
+                style={{ animationDelay: `${i * 200}ms` }}
               />
             ))}
           </div>
           <span className="text-sm text-gray-400">
             {message.currentStage === "reflex" && "記憶を検索中..."}
-            {message.currentStage === "context" && "深い洞察を生成中..."}
+            {message.currentStage === "context" && "心の声を紡いでいる... 💭"}
             {message.currentStage === "intelligence" && "最終調整中..."}
           </span>
-        </motion.div>
-      )}
-
-      {/* メタデータ（開発モード） - レイアウト改善 */}
-      {process.env.NODE_ENV === "development" && message.metadata && (
-        <div className="metadata mt-3 p-3 bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 text-xs">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-gray-300">
-            <div className="stat-item">
-              <span className="stat-label text-gray-500 block">Total Tokens</span>
-              <span className="stat-value font-mono">{message.metadata.totalTokens || 0}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label text-gray-500 block">Total Time</span>
-              <span className="stat-value font-mono">{message.metadata.totalTime || 0}ms</span>
-            </div>
-            {message.metadata.stageTimings && (
-              <>
-                <div className="stat-item">
-                  <span className="stat-label text-red-400 block">🔴 Reflex</span>
-                  <span className="stat-value font-mono">{message.metadata.stageTimings.reflex || 0}ms</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label text-green-400 block">🟢 Context</span>
-                  <span className="stat-value font-mono">{message.metadata.stageTimings.context || 0}ms</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label text-white block">⚪ Intelligence</span>
-                  <span className="stat-value font-mono">{message.metadata.stageTimings.intelligence || 0}ms</span>
-                </div>
-              </>
-            )}
-          </div>
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-3 pt-3 border-t border-gray-700">
-              <button
-                onClick={() => setShowDiff(!showDiff)}
-                className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 rounded-md transition-colors"
-                data-testid="diff-toggle-button">
-                {showDiff ? "Hide Diff" : "Show Diff"}
-              </button>
-            </div>
-          )}
         </div>
       )}
-
-      {/* 波紋エフェクトのオーバーレイ */}
-      <AnimatePresence>
-        {message.ui.isUpdating && message.currentStage === "context" && (
-          <motion.div
-            className="ripple-overlay absolute inset-0 pointer-events-none"
-            initial={{ scale: 0, opacity: 0.5 }}
-            animate={{ scale: 2, opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5 }}
-            style={{
-              background:
-                "radial-gradient(circle, rgba(100,200,255,0.3) 0%, transparent 70%)",
-            }}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
 

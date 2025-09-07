@@ -256,18 +256,13 @@ const ChatHeaderContent: React.FC = () => {
               setShowCharacterGallery(true);
             }}
             style={{ pointerEvents: "auto" }}>
-            {character?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={character.avatar_url}
-                alt={character.name}
-                className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+              {character ? (
+                <span className="text-white font-bold text-xs">{character.name.charAt(0)}</span>
+              ) : (
                 <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
-              </div>
-            )}
+              )}
+            </div>
             <div className="min-w-0 hidden sm:block">
               <h1 className="text-white drop-shadow-lg text-xs md:text-sm font-medium truncate">
                 {character?.name || "AI Assistant"}
@@ -308,18 +303,13 @@ const ChatHeaderContent: React.FC = () => {
               setShowPersonaGallery(true);
             }}
             style={{ pointerEvents: "auto" }}>
-            {persona?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={persona.avatar_url}
-                alt={persona?.name || "User"}
-                className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+              {persona ? (
+                <span className="text-white font-bold text-xs">{persona.name.charAt(0)}</span>
+              ) : (
                 <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-white" />
-              </div>
-            )}
+              )}
+            </div>
             <div className="min-w-0 hidden md:block">
               <h2 className="text-white drop-shadow-lg text-xs font-medium truncate">
                 {persona?.name || "User"}
@@ -337,19 +327,17 @@ const ChatHeaderContent: React.FC = () => {
       {/* Right side - model selector, voice call button and brain tracker */}
       <div className="flex items-center gap-1 flex-shrink-0">
         {/* クイック設定ボタン */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+        <button
           onClick={() => setIsQuickSettingsOpen(!isQuickSettingsOpen)}
           className={cn(
-            "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation flex-shrink-0",
+            "p-1.5 md:p-2 rounded-lg transition-colors touch-manipulation flex-shrink-0 hover:scale-105 active:scale-95",
             isQuickSettingsOpen
               ? "bg-purple-500/20 text-purple-300"
               : "hover:bg-white/20 text-white drop-shadow-lg"
           )}
           title="クイック設定">
           <Sliders className="w-5 h-5 md:w-5 md:h-5" />
-        </motion.button>
+        </button>
 
         {/* 音声通話ボタン */}
         <motion.button

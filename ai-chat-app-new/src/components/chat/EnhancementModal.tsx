@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Copy, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,7 +45,9 @@ export const EnhancementModal: React.FC<EnhancementModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-purple-400/20">
+          <DialogPortal>
+            <DialogOverlay className="z-[99]" />
+            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-purple-400/20 z-[100]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-white">
                 <Sparkles className="w-5 h-5" />
@@ -118,6 +120,7 @@ export const EnhancementModal: React.FC<EnhancementModalProps> = ({
               </Button>
             </div>
           </DialogContent>
+          </DialogPortal>
         </Dialog>
       )}
     </AnimatePresence>

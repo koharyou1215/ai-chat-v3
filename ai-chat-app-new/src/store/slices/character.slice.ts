@@ -144,23 +144,16 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
         return;
       }
       
-      const characterFiles = await response.json();
+      const charactersData = await response.json();
       const charactersMap = new Map<UUID, Character>();
       
-      // 各キャラクターファイルを読み込み
-      for (const filename of characterFiles) {
+      // APIから直接キャラクターデータを処理
+      for (const characterData of charactersData) {
         try {
-          const charResponse = await fetch(`/characters/${encodeURIComponent(filename)}`);
-          if (!charResponse.ok) {
-            // Failed to fetch character data
-            continue;
-          }
-          
-          const characterData = await charResponse.json();
           
           // JSONデータをCharacter型に変換
           const character: Character = {
-            id: filename.replace('.json', ''),
+            id: characterData.id || characterData.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
             created_at: new Date().toISOString(),
             updated_at: characterData.lastModified || new Date().toISOString(),
             version: 1,
@@ -182,8 +175,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             dislikes: Array.isArray(characterData.dislikes) ? characterData.dislikes : (typeof characterData.dislikes === 'string' ? characterData.dislikes.split(',').map((s: string) => s.trim()) : []),
             
             appearance: characterData.appearance || '',
-            avatar_url: characterData.avatar_url,
-            background_url: characterData.background_url,
+            background_url: (characterData.background_url && typeof characterData.background_url === 'string' && characterData.background_url.trim() !== '') 
+              ? characterData.background_url 
+              : '/images/default-bg.jpg',
 
             speaking_style: characterData.speaking_style || '',
             first_person: characterData.first_person || '私',
@@ -268,7 +262,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
           
           charactersMap.set(character.id, character);
         } catch (error) {
-          console.error(`character.slice: Error processing character file ${filename}:`, error);
+          console.error(`character.slice: Error processing character data:`, error);
         }
       }
       
