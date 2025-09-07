@@ -1,139 +1,205 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { useAppStore } from '@/store';
+import React, { useEffect } from "react";
+import { useAppStore } from "@/store";
 
-export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { appearanceSettings, getSelectedCharacter, selectedCharacterId } = useAppStore();
+export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { appearanceSettings, getSelectedCharacter, selectedCharacterId } =
+    useAppStore();
   const currentCharacter = getSelectedCharacter();
 
   useEffect(() => {
     // CSS変数を設定して、全体のスタイルを動的に変更
     const root = document.documentElement;
-    const hasCharacterBackground = !!(currentCharacter && currentCharacter.background_url);
-    
+    const hasCharacterBackground = !!(
+      currentCharacter && currentCharacter.background_url
+    );
+
     // カラー設定を適用
-    root.style.setProperty('--primary-color', appearanceSettings.primaryColor);
-    root.style.setProperty('--accent-color', appearanceSettings.accentColor);
-    root.style.setProperty('--background-color', appearanceSettings.backgroundColor);
-    root.style.setProperty('--surface-color', appearanceSettings.surfaceColor);
-    root.style.setProperty('--text-color', appearanceSettings.textColor);
-    root.style.setProperty('--secondary-text-color', appearanceSettings.secondaryTextColor);
-    root.style.setProperty('--border-color', appearanceSettings.borderColor);
-    root.style.setProperty('--shadow-color', appearanceSettings.shadowColor);
-    
+    root.style.setProperty("--primary-color", appearanceSettings.primaryColor);
+    root.style.setProperty("--accent-color", appearanceSettings.accentColor);
+    root.style.setProperty(
+      "--background-color",
+      appearanceSettings.backgroundColor
+    );
+    root.style.setProperty("--surface-color", appearanceSettings.surfaceColor);
+    root.style.setProperty("--text-color", appearanceSettings.textColor);
+    root.style.setProperty(
+      "--secondary-text-color",
+      appearanceSettings.secondaryTextColor
+    );
+    root.style.setProperty("--border-color", appearanceSettings.borderColor);
+    root.style.setProperty("--shadow-color", appearanceSettings.shadowColor);
+
     // フォント設定を適用
-    root.style.setProperty('--font-family', appearanceSettings.fontFamily);
-    
+    root.style.setProperty("--font-family", appearanceSettings.fontFamily);
+
     const fontSizeMap = {
-      small: '14px',
-      medium: '16px',
-      large: '18px',
-      'x-large': '20px'
+      small: "14px",
+      medium: "16px",
+      large: "18px",
+      "x-large": "20px",
     };
-    root.style.setProperty('--font-size', fontSizeMap[appearanceSettings.fontSize]);
-    root.style.setProperty('--font-weight', appearanceSettings.fontWeight);
-    
+    root.style.setProperty(
+      "--font-size",
+      fontSizeMap[appearanceSettings.fontSize]
+    );
+    root.style.setProperty("--font-weight", appearanceSettings.fontWeight);
+
     const lineHeightMap = {
-      compact: '1.2',
-      normal: '1.5',
-      relaxed: '1.8'
+      compact: "1.2",
+      normal: "1.5",
+      relaxed: "1.8",
     };
-    root.style.setProperty('--line-height', lineHeightMap[appearanceSettings.lineHeight]);
-    
+    root.style.setProperty(
+      "--line-height",
+      lineHeightMap[appearanceSettings.lineHeight]
+    );
+
     // レイアウト設定を適用
     const messageSpacingMap = {
-      compact: '0.5rem',
-      normal: '1rem',
-      spacious: '1.5rem'
+      compact: "0.5rem",
+      normal: "1rem",
+      spacious: "1.5rem",
     };
-    root.style.setProperty('--message-spacing', messageSpacingMap[appearanceSettings.messageSpacing]);
-    
+    root.style.setProperty(
+      "--message-spacing",
+      messageSpacingMap[appearanceSettings.messageSpacing]
+    );
+
     const borderRadiusMap = {
-      none: '0',
-      small: '0.375rem',
-      medium: '0.5rem',
-      large: '0.75rem',
-      full: '9999px'
+      none: "0",
+      small: "0.375rem",
+      medium: "0.5rem",
+      large: "0.75rem",
+      full: "9999px",
     };
-    root.style.setProperty('--message-border-radius', borderRadiusMap[appearanceSettings.messageBorderRadius]);
-    
+    root.style.setProperty(
+      "--message-border-radius",
+      borderRadiusMap[appearanceSettings.messageBorderRadius]
+    );
+
     const chatWidthMap = {
-      narrow: '600px',
-      normal: '800px',
-      wide: '1000px',
-      full: '100%'
+      narrow: "600px",
+      normal: "800px",
+      wide: "1000px",
+      full: "100%",
     };
-    root.style.setProperty('--chat-max-width', chatWidthMap[appearanceSettings.chatMaxWidth]);
-    
+    root.style.setProperty(
+      "--chat-max-width",
+      chatWidthMap[appearanceSettings.chatMaxWidth]
+    );
+
     const sidebarWidthMap = {
-      narrow: '200px',
-      normal: '240px',
-      wide: '280px'
+      narrow: "200px",
+      normal: "240px",
+      wide: "280px",
     };
-    root.style.setProperty('--sidebar-width', sidebarWidthMap[appearanceSettings.sidebarWidth]);
-    
+    root.style.setProperty(
+      "--sidebar-width",
+      sidebarWidthMap[appearanceSettings.sidebarWidth]
+    );
+
     // 背景設定を適用 - bodyにdata属性も設定
     const body = document.body;
-    
+
     // キャラクター背景を最優先に適用
     if (hasCharacterBackground) {
       // キャラクター背景が存在する場合は最優先で適用
-      body.setAttribute('data-background-type', 'character');
-      body.style.setProperty('background', 'transparent', 'important');
-      root.style.setProperty('--background', 'transparent');
-    } else if (appearanceSettings.backgroundType === 'image' && appearanceSettings.backgroundImage) {
+      body.setAttribute("data-background-type", "character");
+      body.style.setProperty("background", "transparent", "important");
+      root.style.setProperty("--background", "transparent");
+    } else if (
+      appearanceSettings.backgroundType === "image" &&
+      appearanceSettings.backgroundImage
+    ) {
       // キャラクター背景がない場合のみ外観設定の画像背景を適用
-      root.style.setProperty('--background', `url(${appearanceSettings.backgroundImage})`);
-      root.style.setProperty('--background-blur', `${appearanceSettings.backgroundBlur}px`);
-      root.style.setProperty('--background-opacity', `${appearanceSettings.backgroundOpacity}%`);
-      body.setAttribute('data-background-type', 'image');
-      body.style.setProperty('background', `url(${appearanceSettings.backgroundImage})`, 'important');
-      body.style.setProperty('background-size', 'cover', 'important');
-      body.style.setProperty('background-position', 'center', 'important');
-      body.style.setProperty('background-repeat', 'no-repeat', 'important');
-      body.style.setProperty('background-attachment', 'scroll', 'important');
-    } else if (appearanceSettings.backgroundType === 'solid') {
-      root.style.setProperty('--background', appearanceSettings.backgroundColor);
-      body.setAttribute('data-background-type', 'solid');
-      body.style.setProperty('background', appearanceSettings.backgroundColor, 'important');
-    } else if (appearanceSettings.backgroundType === 'gradient') {
-      root.style.setProperty('--background', appearanceSettings.backgroundGradient);
-      body.setAttribute('data-background-type', 'gradient');
-      body.style.setProperty('background', appearanceSettings.backgroundGradient, 'important');
+      root.style.setProperty(
+        "--background",
+        `url(${appearanceSettings.backgroundImage})`
+      );
+      root.style.setProperty(
+        "--background-blur",
+        `${appearanceSettings.backgroundBlur}px`
+      );
+      root.style.setProperty(
+        "--background-opacity",
+        `${appearanceSettings.backgroundOpacity}%`
+      );
+      body.setAttribute("data-background-type", "image");
+      body.style.setProperty(
+        "background",
+        `url(${appearanceSettings.backgroundImage})`,
+        "important"
+      );
+      body.style.setProperty("background-size", "cover", "important");
+      body.style.setProperty("background-position", "center", "important");
+      body.style.setProperty("background-repeat", "no-repeat", "important");
+      body.style.setProperty("background-attachment", "scroll", "important");
+    } else if (appearanceSettings.backgroundType === "solid") {
+      root.style.setProperty(
+        "--background",
+        appearanceSettings.backgroundColor
+      );
+      body.setAttribute("data-background-type", "solid");
+      body.style.setProperty(
+        "background",
+        appearanceSettings.backgroundColor,
+        "important"
+      );
+    } else if (appearanceSettings.backgroundType === "gradient") {
+      root.style.setProperty(
+        "--background",
+        appearanceSettings.backgroundGradient
+      );
+      body.setAttribute("data-background-type", "gradient");
+      body.style.setProperty(
+        "background",
+        appearanceSettings.backgroundGradient,
+        "important"
+      );
     }
-    
+
     // アニメーション設定を適用
     const transitionDurationMap = {
-      fast: '0.15s',
-      normal: '0.3s',
-      slow: '0.5s'
+      fast: "0.15s",
+      normal: "0.3s",
+      slow: "0.5s",
     };
-    root.style.setProperty('--transition-duration', transitionDurationMap[appearanceSettings.transitionDuration]);
-    root.style.setProperty('--enable-animations', appearanceSettings.enableAnimations ? '1' : '0');
-    
+    root.style.setProperty(
+      "--transition-duration",
+      transitionDurationMap[appearanceSettings.transitionDuration]
+    );
+    root.style.setProperty(
+      "--enable-animations",
+      appearanceSettings.enableAnimations ? "1" : "0"
+    );
+
     // カスタムCSSを適用
-    const existingCustomStyle = document.getElementById('custom-appearance-style');
+    const existingCustomStyle = document.getElementById(
+      "custom-appearance-style"
+    );
     if (existingCustomStyle) {
       existingCustomStyle.remove();
     }
-    
+
     if (appearanceSettings.customCSS) {
-      const style = document.createElement('style');
-      style.id = 'custom-appearance-style';
+      const style = document.createElement("style");
+      style.id = "custom-appearance-style";
       style.textContent = appearanceSettings.customCSS;
       document.head.appendChild(style);
     }
-    
   }, [appearanceSettings, selectedCharacterId, currentCharacter]);
 
   // グローバルスタイルも追加
   useEffect(() => {
-    const styleId = 'appearance-global-styles';
+    const styleId = "appearance-global-styles";
     const existingStyle = document.getElementById(styleId);
-    
+
     if (!existingStyle) {
-      const style = document.createElement('style');
+      const style = document.createElement("style");
       style.id = styleId;
       style.textContent = `
         /* グローバル外観スタイル */
@@ -225,7 +291,10 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // 背景タイプをbody要素に適用
   useEffect(() => {
-    document.body.setAttribute('data-background-type', appearanceSettings.backgroundType);
+    document.body.setAttribute(
+      "data-background-type",
+      appearanceSettings.backgroundType
+    );
   }, [appearanceSettings.backgroundType]);
 
   return <>{children}</>;

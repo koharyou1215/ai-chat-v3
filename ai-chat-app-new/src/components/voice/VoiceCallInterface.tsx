@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore } from '@/store';
-import { UnifiedMessage } from '@/types/core/message.types';
-import { 
-  VoiceCallMessage, 
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAppStore } from "@/store";
+import { UnifiedMessage } from "@/types/core/message.types";
+import {
+  VoiceCallMessage,
   VoiceActivityStatus,
-  isTranscriptionMessage, 
-  isAIResponseMessage, 
+  isTranscriptionMessage,
+  isAIResponseMessage,
   isResponseMessage,
   isErrorMessage,
   isStatsMessage,
   isVoiceActivityMessage,
   OutgoingStopAudioMessage,
-  OutgoingPingMessage
-} from '@/types/websocket';
+  OutgoingPingMessage,
+} from "@/types/websocket";
 
 interface WebSocketMessage {
   type: string;
@@ -24,7 +24,7 @@ interface WebSocketMessage {
   data?: unknown;
   audioUrl?: string;
   error?: string;
-  status?: 'speaking' | 'listening' | 'processing' | 'idle';
+  status?: "speaking" | "listening" | "processing" | "idle";
   text?: string;
   message?: string;
   stats?: Record<string, unknown>;
@@ -45,59 +45,68 @@ interface AudioVisualizerProps {
 }
 
 // AudioVisualizer Component
-const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData, isActive, className = "" }) => {
+const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
+  audioData,
+  isActive,
+  className = "",
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const draw = () => {
       // Set canvas size
       canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
       canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
-      
+
       ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-      
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-      
+
       if (!isActive || !audioData || audioData.length === 0) {
         // Show idle state
-        ctx.fillStyle = '#374151'; // gray-700
+        ctx.fillStyle = "#374151"; // gray-700
         ctx.fillRect(0, canvas.offsetHeight / 2 - 1, canvas.offsetWidth, 2);
         return;
       }
-      
+
       // Draw audio bars
       const barWidth = canvas.offsetWidth / audioData.length;
       const barSpacing = 1;
       const maxBarHeight = canvas.offsetHeight - 4;
-      
+
       for (let i = 0; i < audioData.length; i++) {
         const barHeight = (audioData[i] / 255) * maxBarHeight;
         const x = i * barWidth;
         const y = (canvas.offsetHeight - barHeight) / 2;
-        
+
         // Create gradient based on intensity
         const intensity = audioData[i] / 255;
         let color;
-        
+
         if (intensity > 0.7) {
-          color = '#ef4444'; // red-500 - high intensity
+          color = "#ef4444"; // red-500 - high intensity
         } else if (intensity > 0.4) {
-          color = '#f59e0b'; // yellow-500 - medium intensity
+          color = "#f59e0b"; // yellow-500 - medium intensity
         } else if (intensity > 0.1) {
-          color = '#10b981'; // green-500 - low intensity
+          color = "#10b981"; // green-500 - low intensity
         } else {
-          color = '#6b7280'; // gray-500 - very low
+          color = "#6b7280"; // gray-500 - very low
         }
-        
+
         ctx.fillStyle = color;
-        ctx.fillRect(x, y, Math.max(barWidth - barSpacing, 1), Math.max(barHeight, 2));
+        ctx.fillRect(
+          x,
+          y,
+          Math.max(barWidth - barSpacing, 1),
+          Math.max(barHeight, 2)
+        );
       }
     };
 
@@ -108,9 +117,10 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData, isActive, 
     <canvas
       ref={canvasRef}
       className={`w-full h-8 rounded ${className}`}
-      style={{ 
-        background: 'linear-gradient(90deg, rgba(17,24,39,0.8) 0%, rgba(31,41,55,0.8) 100%)',
-        imageRendering: 'pixelated'
+      style={{
+        background:
+          "linear-gradient(90deg, rgba(17,24,39,0.8) 0%, rgba(31,41,55,0.8) 100%)",
+        imageRendering: "pixelated",
       }}
     />
   );
@@ -120,32 +130,37 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   _characterId,
   characterId = _characterId,
   isActive,
-  onEnd
+  onEnd,
 }) => {
-  console.log('🎤 VoiceCallInterface render - isActive:', isActive);
+  console.log("🎤 VoiceCallInterface render - isActive:", isActive);
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
-  
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connecting" | "connected" | "disconnected" | "error"
+  >("disconnected");
+
   // Audio state
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [_audioLevel, _setAudioLevel] = useState(0);
-  const [audioVisualizerData, setAudioVisualizerData] = useState<Uint8Array>(new Uint8Array(32));
-  
+  const [audioVisualizerData, setAudioVisualizerData] = useState<Uint8Array>(
+    new Uint8Array(32)
+  );
+
   // Call state
   const [callDuration, setCallDuration] = useState(0);
-  const [voiceActivityStatus, setVoiceActivityStatus] = useState<'idle' | 'speaking' | 'listening' | 'processing'>('idle');
-  const [_transcription, _setTranscription] = useState<string>('');
-  const [_lastMessage, _setLastMessage] = useState<string>('');
-  
-  
+  const [voiceActivityStatus, setVoiceActivityStatus] = useState<
+    "idle" | "speaking" | "listening" | "processing"
+  >("idle");
+  const [_transcription, _setTranscription] = useState<string>("");
+  const [_lastMessage, _setLastMessage] = useState<string>("");
+
   // Performance stats
   const [_stats, _setStats] = useState({
     latency: 0,
     packetsLost: 0,
-    audioQuality: 100
+    audioQuality: 100,
   });
 
   // Refs
@@ -161,60 +176,69 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   const animationFrameRef = useRef<number>(0);
   const pingTimeRef = useRef<number>(0);
   const visualizerUpdateRef = useRef<number>(0);
-  
+
   // Store hooks
   const { active_session_id, sendMessage } = useAppStore();
 
   // WebSocket connection
   const initializeWebSocket = useCallback(() => {
     // Force localhost connection for debugging
-    const voiceServerUrl = 'ws://localhost:8082';
-    setConnectionStatus('connecting');
-    console.log('🔗 Connecting to:', voiceServerUrl);
-    console.log('ENV check:', process.env.NEXT_PUBLIC_VOICE_SERVER_URL);
-    console.log('All env vars:', Object.keys(process.env).filter(k => k.includes('VOICE')));
-    
+    const voiceServerUrl = "ws://localhost:8082";
+    setConnectionStatus("connecting");
+    console.log("🔗 Connecting to:", voiceServerUrl);
+    console.log("ENV check:", process.env.NEXT_PUBLIC_VOICE_SERVER_URL);
+    console.log(
+      "All env vars:",
+      Object.keys(process.env).filter((k) => k.includes("VOICE"))
+    );
+
     // Close existing WebSocket if any
     if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
       wsRef.current.close();
     }
-    
+
     try {
       const ws = new WebSocket(voiceServerUrl);
-      
+
       ws.onopen = () => {
-        console.log('✅ Voice WebSocket connected successfully!');
-        console.log('🔍 WebSocket readyState:', ws.readyState);
+        console.log("✅ Voice WebSocket connected successfully!");
+        console.log("🔍 WebSocket readyState:", ws.readyState);
         setIsConnected(true);
-        setConnectionStatus('connected');
-        setVoiceActivityStatus('idle'); // 初期状態を設定
-        
+        setConnectionStatus("connected");
+        setVoiceActivityStatus("idle"); // 初期状態を設定
+
         // Wait a moment before sending ping to ensure connection is stable
         setTimeout(() => {
           if (ws.readyState === WebSocket.OPEN) {
             pingTimeRef.current = Date.now();
-            ws.send(JSON.stringify({ type: 'ping' }));
-            console.log('📤 Ping sent to server');
-            
+            ws.send(JSON.stringify({ type: "ping" }));
+            console.log("📤 Ping sent to server");
+
             // 自動的に通話を開始
             setTimeout(() => {
               if (!isCallActive) {
-                console.log('🟢 Auto-starting voice call...');
+                console.log("🟢 Auto-starting voice call...");
                 startCall();
               }
             }, 500);
           } else {
-            console.log('⚠️ WebSocket not open when trying to ping, state:', ws.readyState);
+            console.log(
+              "⚠️ WebSocket not open when trying to ping, state:",
+              ws.readyState
+            );
           }
         }, 100);
       };
 
       ws.onmessage = async (event) => {
-        console.log('📨 Received WebSocket message:', event.data.constructor.name);
-        
+        console.log(
+          "📨 Received WebSocket message:",
+          event.data.constructor.name
+        );
+
         if (event.data instanceof Blob) {
           // Binary audio data
-          console.log('🎵 Received audio data:', event.data.size, 'bytes');
+          console.log("🎵 Received audio data:", event.data.size, "bytes");
           audioQueueRef.current.push(event.data);
           if (!isPlayingRef.current) {
             playNextAudio();
@@ -223,145 +247,155 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
           // JSON messages
           try {
             const message = JSON.parse(event.data);
-            console.log('📋 Received JSON message:', message.type);
+            console.log("📋 Received JSON message:", message.type);
             handleWebSocketMessage(message);
           } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
-            console.error('Raw message:', event.data);
+            console.error("Failed to parse WebSocket message:", error);
+            console.error("Raw message:", event.data);
           }
         }
       };
 
       ws.onerror = (error) => {
-        console.log('❌ WebSocket error event occurred');
-        console.log('Error object:', error);
-        console.log('Error type:', typeof error);
-        console.log('Error properties:', Object.keys(error));
-        console.log('Error details:', {
+        console.log("❌ WebSocket error event occurred");
+        console.log("Error object:", error);
+        console.log("Error type:", typeof error);
+        console.log("Error properties:", Object.keys(error));
+        console.log("Error details:", {
           type: error.type,
-          target: error.target && 'readyState' in error.target ? (error.target as WebSocket).readyState : 'N/A',
+          target:
+            error.target && "readyState" in error.target
+              ? (error.target as WebSocket).readyState
+              : "N/A",
           url: voiceServerUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
-        setConnectionStatus('error');
+        setConnectionStatus("error");
         setIsConnected(false);
-        
+
         // Show user-friendly error message
-        _setLastMessage('Connection failed - please check server status');
+        _setLastMessage("Connection failed - please check server status");
       };
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket disconnected:', {
+        console.log("🔌 WebSocket disconnected:", {
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
           url: voiceServerUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
-        console.log('🔍 Close event details:', event);
-        setConnectionStatus('disconnected');
+        console.log("🔍 Close event details:", event);
+        setConnectionStatus("disconnected");
         setIsConnected(false);
         setIsCallActive(false);
       };
 
       wsRef.current = ws;
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
-      setConnectionStatus('error');
-      _setLastMessage('WebSocket creation failed - server unavailable');
+      console.error("Failed to create WebSocket:", error);
+      setConnectionStatus("error");
+      _setLastMessage("WebSocket creation failed - server unavailable");
     }
   }, [isCallActive, handleWebSocketMessage, playNextAudio, startCall]);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = useCallback((message: VoiceCallMessage) => {
-    switch (message.type) {
-      case 'session_start':
-        console.log('✅ Voice session started:', message.sessionId);
-        break;
+  const handleWebSocketMessage = useCallback(
+    (message: VoiceCallMessage) => {
+      switch (message.type) {
+        case "session_start":
+          console.log("✅ Voice session started:", message.sessionId);
+          break;
 
-      case 'pong':
-        const latency = Date.now() - pingTimeRef.current;
-        _setStats((prev: any) => ({ ...prev, latency }));
-        break;
+        case "pong":
+          const latency = Date.now() - pingTimeRef.current;
+          _setStats((prev: any) => ({ ...prev, latency }));
+          break;
 
-      case 'voice_activity':
-        if (isVoiceActivityMessage(message)) {
-          setVoiceActivityStatus(message.status);
-        }
-        break;
-
-      case 'transcription':
-        if (isTranscriptionMessage(message)) {
-          _setTranscription(message.text);
-          _setLastMessage(`You: ${message.text}`);
-          
-          // Add user message to chat history
-          if (active_session_id && message.text) {
-          const userMessage: Partial<UnifiedMessage> = {
-            role: 'user',
-            content: message.text,
-            session_id: active_session_id,
-            metadata: { 
-              source: 'voice',
-              timestamp: new Date().toISOString(),
-              call_duration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
-            }
-          };
-          
-            sendMessage(userMessage.content || '');
+        case "voice_activity":
+          if (isVoiceActivityMessage(message)) {
+            setVoiceActivityStatus(message.status);
           }
-        }
-        break;
+          break;
 
-      case 'audio_start':
-        setVoiceActivityStatus('listening');
-        break;
+        case "transcription":
+          if (isTranscriptionMessage(message)) {
+            _setTranscription(message.text);
+            _setLastMessage(`You: ${message.text}`);
 
-      case 'audio_end':
-        setVoiceActivityStatus('idle');
-        break;
+            // Add user message to chat history
+            if (active_session_id && message.text) {
+              const userMessage: Partial<UnifiedMessage> = {
+                role: "user",
+                content: message.text,
+                session_id: active_session_id,
+                metadata: {
+                  source: "voice",
+                  timestamp: new Date().toISOString(),
+                  call_duration: Math.floor(
+                    (Date.now() - callStartTimeRef.current) / 1000
+                  ),
+                },
+              };
 
-      case 'ai_response':
-        if (isAIResponseMessage(message)) {
-          // Add AI response to chat history
-          if (active_session_id && message.text) {
-          const aiMessage: Partial<UnifiedMessage> = {
-            role: 'assistant',
-            content: message.text,
-            session_id: active_session_id,
-            metadata: { 
-              source: 'voice',
-              timestamp: new Date().toISOString(),
-              call_duration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+              sendMessage(userMessage.content || "");
             }
-          };
-          
-            sendMessage(aiMessage.content || '');
           }
-        }
-        break;
+          break;
 
-      case 'error':
-        if (isErrorMessage(message)) {
-          console.error('Voice call error:', message.error);
-          _setLastMessage(`Error: ${message.error}`);
-        }
-        break;
+        case "audio_start":
+          setVoiceActivityStatus("listening");
+          break;
 
-      case 'stats':
-        if (isStatsMessage(message)) {
-          _setStats((prev: any) => ({ ...prev, ...message.stats }));
-        }
-        break;
-        
-      case 'response':
-        if (isResponseMessage(message)) {
-          console.log('🧪 Response received:', message.message);
-          _setLastMessage(`Response: ${message.message}`);
-        }
-        break;
-    }
-  }, [active_session_id, sendMessage]);
+        case "audio_end":
+          setVoiceActivityStatus("idle");
+          break;
+
+        case "ai_response":
+          if (isAIResponseMessage(message)) {
+            // Add AI response to chat history
+            if (active_session_id && message.text) {
+              const aiMessage: Partial<UnifiedMessage> = {
+                role: "assistant",
+                content: message.text,
+                session_id: active_session_id,
+                metadata: {
+                  source: "voice",
+                  timestamp: new Date().toISOString(),
+                  call_duration: Math.floor(
+                    (Date.now() - callStartTimeRef.current) / 1000
+                  ),
+                },
+              };
+
+              sendMessage(aiMessage.content || "");
+            }
+          }
+          break;
+
+        case "error":
+          if (isErrorMessage(message)) {
+            console.error("Voice call error:", message.error);
+            _setLastMessage(`Error: ${message.error}`);
+          }
+          break;
+
+        case "stats":
+          if (isStatsMessage(message)) {
+            _setStats((prev: any) => ({ ...prev, ...message.stats }));
+          }
+          break;
+
+        case "response":
+          if (isResponseMessage(message)) {
+            console.log("🧪 Response received:", message.message);
+            _setLastMessage(`Response: ${message.message}`);
+          }
+          break;
+      }
+    },
+    [active_session_id, sendMessage]
+  );
 
   // Play audio from queue
   const playNextAudio = useCallback(async () => {
@@ -375,35 +409,36 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
     try {
       if (!audioContextRef.current) return;
-      
+
       // Resume audio context if suspended (browser security requirement)
-      if (audioContextRef.current.state === 'suspended') {
+      if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
-      
+
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-      
+      const audioBuffer = await audioContextRef.current.decodeAudioData(
+        arrayBuffer
+      );
+
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
-      
+
       if (isSpeakerOn) {
         source.connect(audioContextRef.current.destination);
       }
-      
+
       source.onended = () => {
         playNextAudio();
       };
-      
+
       source.start();
-      
     } catch (error) {
-      console.error('Audio playback error:', error);
+      console.error("Audio playback error:", error);
       // Don't retry immediately on NotAllowedError
-      if ((error as any).name !== 'NotAllowedError') {
+      if ((error as any).name !== "NotAllowedError") {
         playNextAudio();
       } else {
-        console.log('🔊 Audio blocked by browser - user interaction required');
+        console.log("🔊 Audio blocked by browser - user interaction required");
         isPlayingRef.current = false;
       }
     }
@@ -411,10 +446,10 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
   // Start voice call
   const startCall = useCallback(async () => {
-    console.log('🟢 Starting voice call...');
-    console.log('WebSocket state:', wsRef.current?.readyState);
-    console.log('Is connected:', isConnected);
-    
+    console.log("🟢 Starting voice call...");
+    console.log("WebSocket state:", wsRef.current?.readyState);
+    console.log("Is connected:", isConnected);
+
     try {
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -423,83 +458,99 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
           sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
-        }
+          autoGainControl: true,
+        },
       });
 
       mediaStreamRef.current = stream;
-      
+
       // Initialize AudioContext
-      audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)({
-        sampleRate: 16000
+      audioContextRef.current = new (window.AudioContext ||
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext)({
+        sampleRate: 16000,
       });
-      
+
       // Create source node
-      sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      
+      sourceNodeRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
+
       // Create analyser for visualization
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 128;
       sourceNodeRef.current.connect(analyserRef.current);
-      
+
       // Create script processor
-      scriptProcessorRef.current = audioContextRef.current.createScriptProcessor(512, 1, 1);
-      
+      scriptProcessorRef.current =
+        audioContextRef.current.createScriptProcessor(512, 1, 1);
+
       scriptProcessorRef.current.onaudioprocess = (event) => {
         if (!isMuted && wsRef.current?.readyState === WebSocket.OPEN) {
           const inputData = event.inputBuffer.getChannelData(0);
           const buffer = new ArrayBuffer(inputData.length * 2);
           const view = new DataView(buffer);
-          
+
           // Convert Float32 to Int16
           for (let i = 0; i < inputData.length; i++) {
             const s = Math.max(-1, Math.min(1, inputData[i]));
-            view.setInt16(i * 2, s * 0x7FFF, true);
+            view.setInt16(i * 2, s * 0x7fff, true);
           }
-          
+
           // 音声レベルをチェックして状態を更新
-          const volume = inputData.reduce((sum, sample) => sum + Math.abs(sample), 0) / inputData.length;
-          if (volume > 0.01) { // 音声レベル閾値
-            setVoiceActivityStatus('speaking');
+          const volume =
+            inputData.reduce((sum, sample) => sum + Math.abs(sample), 0) /
+            inputData.length;
+          if (volume > 0.01) {
+            // 音声レベル閾値
+            setVoiceActivityStatus("speaking");
           } else {
-            setVoiceActivityStatus('idle');
+            setVoiceActivityStatus("idle");
           }
-          
-          console.log('🎤 Sending audio data:', buffer.byteLength, 'bytes, volume:', volume.toFixed(4));
+
+          console.log(
+            "🎤 Sending audio data:",
+            buffer.byteLength,
+            "bytes, volume:",
+            volume.toFixed(4)
+          );
           wsRef.current.send(buffer);
         } else {
-          console.log('🔇 Audio not sent - muted:', isMuted, 'WS state:', wsRef.current?.readyState);
-          setVoiceActivityStatus('idle');
+          console.log(
+            "🔇 Audio not sent - muted:",
+            isMuted,
+            "WS state:",
+            wsRef.current?.readyState
+          );
+          setVoiceActivityStatus("idle");
         }
       };
-      
+
       sourceNodeRef.current.connect(scriptProcessorRef.current);
       scriptProcessorRef.current.connect(audioContextRef.current.destination);
-      
+
       // Start call
       setIsCallActive(true);
       callStartTimeRef.current = Date.now();
-      
+
       // Start audio visualizer updates
       updateAudioVisualizer();
-      
     } catch (error) {
-      console.error('Failed to start call:', error);
-      alert('マイクへのアクセスが必要です。ブラウザの設定を確認してください。');
+      console.error("Failed to start call:", error);
+      alert("マイクへのアクセスが必要です。ブラウザの設定を確認してください。");
     }
   }, [isMuted, isConnected, updateAudioVisualizer]);
 
   // End voice call
   const endCall = useCallback(() => {
-    console.log('🔴 Ending voice call - stopping all audio playback');
-    console.log('🔍 endCall called from:', new Error().stack);
-    
+    console.log("🔴 Ending voice call - stopping all audio playback");
+    console.log("🔍 endCall called from:", new Error().stack);
+
     // **即座に全ての音声再生を停止**
-    
+
     // 1. 音声キューを完全にクリア
     audioQueueRef.current = [];
     isPlayingRef.current = false;
-    
+
     // 2. 現在再生中の音声を停止するため、新しいAudioContextを作成して古いものを破棄
     if (audioContextRef.current) {
       try {
@@ -508,13 +559,13 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
           audioContextRef.current?.close();
         });
       } catch (error) {
-        console.log('Audio context cleanup error:', error);
+        console.log("Audio context cleanup error:", error);
       }
     }
-    
+
     // 3. メディアストリームを停止
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
 
@@ -541,7 +592,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    
+
     if (visualizerUpdateRef.current) {
       cancelAnimationFrame(visualizerUpdateRef.current);
     }
@@ -549,8 +600,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     // 7. WebSocketに停止シグナル送信
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const stopMessage: OutgoingStopAudioMessage = {
-        type: 'stop_audio',
-        timestamp: Date.now()
+        type: "stop_audio",
+        timestamp: Date.now(),
       };
       wsRef.current.send(JSON.stringify(stopMessage));
     }
@@ -558,17 +609,17 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     // 8. 状態リセット
     setIsCallActive(false);
     setCallDuration(0);
-    setVoiceActivityStatus('idle');
-    _setTranscription('');
-    _setLastMessage('');
+    setVoiceActivityStatus("idle");
+    _setTranscription("");
+    _setLastMessage("");
     setAudioVisualizerData(new Uint8Array(32));
-    
+
     // 9. 親コンポーネントに通知
     if (onEnd) {
       onEnd();
     }
-    
-    console.log('✅ Voice call ended - all audio stopped');
+
+    console.log("✅ Voice call ended - all audio stopped");
   }, [onEnd]);
 
   // Update audio visualizer
@@ -577,11 +628,11 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
-    
+
     // Reduce data to 32 bars for better performance
     const reducedData = new Uint8Array(32);
     const blockSize = Math.floor(dataArray.length / 32);
-    
+
     for (let i = 0; i < 32; i++) {
       let sum = 0;
       for (let j = 0; j < blockSize; j++) {
@@ -589,18 +640,19 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       }
       reducedData[i] = Math.floor(sum / blockSize);
     }
-    
+
     setAudioVisualizerData(reducedData);
     visualizerUpdateRef.current = requestAnimationFrame(updateAudioVisualizer);
   }, [isCallActive, setAudioVisualizerData]);
-
 
   // Update call duration
   useEffect(() => {
     if (!isCallActive) return;
 
     const interval = setInterval(() => {
-      const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+      const duration = Math.floor(
+        (Date.now() - callStartTimeRef.current) / 1000
+      );
       setCallDuration(duration);
     }, 1000);
 
@@ -609,16 +661,16 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
   // Simple initialization effect
   useEffect(() => {
-    console.log('🎤 VoiceCallInterface mounted, isActive:', isActive);
-    
+    console.log("🎤 VoiceCallInterface mounted, isActive:", isActive);
+
     if (isActive) {
-      console.log('🟢 Initializing WebSocket...');
+      console.log("🟢 Initializing WebSocket...");
       initializeWebSocket();
     }
 
     // Only cleanup on unmount
     return () => {
-      console.log('🔴 Component unmounting');
+      console.log("🔴 Component unmounting");
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -627,13 +679,13 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
   // Separate effect for isActive changes
   useEffect(() => {
-    console.log('🎯 isActive changed to:', isActive);
-    
+    console.log("🎯 isActive changed to:", isActive);
+
     if (isActive && !isConnected) {
-      console.log('🟢 Starting WebSocket due to isActive=true');
+      console.log("🟢 Starting WebSocket due to isActive=true");
       initializeWebSocket();
     } else if (!isActive) {
-      console.log('🔴 Ending call due to isActive=false');
+      console.log("🔴 Ending call due to isActive=false");
       endCall();
     }
   }, [isActive, isConnected, initializeWebSocket, endCall]);
@@ -645,7 +697,7 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     const interval = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         pingTimeRef.current = Date.now();
-        const pingMessage: OutgoingPingMessage = { type: 'ping' };
+        const pingMessage: OutgoingPingMessage = { type: "ping" };
         wsRef.current.send(JSON.stringify(pingMessage));
       }
     }, 5000);
@@ -657,16 +709,22 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   // Connection status indicator
   const getConnectionStatusColor = () => {
     switch (connectionStatus) {
-      case 'connected': return 'bg-green-500';
-      case 'connecting': return 'bg-yellow-500 animate-pulse';
-      case 'error': return 'bg-red-500 animate-pulse';
-      default: return 'bg-gray-500';
+      case "connected":
+        return "bg-green-500";
+      case "connecting":
+        return "bg-yellow-500 animate-pulse";
+      case "error":
+        return "bg-red-500 animate-pulse";
+      default:
+        return "bg-gray-500";
     }
   };
 
@@ -676,108 +734,102 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       className="fixed bottom-4 right-4 z-50 md:bottom-4 md:right-4 
-                 max-md:bottom-20 max-md:right-2 max-md:left-2 max-md:mx-auto"
-    >
-      <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700 
+                 max-md:bottom-20 max-md:right-2 max-md:left-2 max-md:mx-auto">
+      <div
+        className="bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700 
                       p-4 shadow-2xl max-md:p-3 max-md:max-w-sm max-md:mx-auto">
         {/* Minimal status indicator */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${getConnectionStatusColor()}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${getConnectionStatusColor()}`}
+            />
             <span className="text-xs text-gray-400">
               {isCallActive ? formatDuration(callDuration) : connectionStatus}
             </span>
           </div>
-          
+
           {/* Voice activity indicator with bouncy phone animation */}
           <AnimatePresence mode="wait">
-            {voiceActivityStatus === 'speaking' && (
+            {voiceActivityStatus === "speaking" && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="flex items-center space-x-1"
-              >
+                className="flex items-center space-x-1">
                 <motion.div
-                  animate={{ 
-                    rotate: [-3, 3, -3], 
-                    scale: [1, 1.1, 1] 
+                  animate={{
+                    rotate: [-3, 3, -3],
+                    scale: [1, 1.1, 1],
                   }}
-                  transition={{ 
-                    duration: 0.6, 
-                    repeat: Infinity, 
-                    ease: "easeInOut" 
-                  }}
-                >
+                  transition={{
+                    duration: 0.6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}>
                   <Mic className="text-green-400" size={14} />
                 </motion.div>
                 <span className="text-xs text-green-400">話中</span>
               </motion.div>
             )}
-            {voiceActivityStatus === 'listening' && (
+            {voiceActivityStatus === "listening" && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="flex items-center space-x-1"
-              >
+                className="flex items-center space-x-1">
                 <motion.div
-                  animate={{ 
+                  animate={{
                     scale: [1, 1.2, 1],
-                    opacity: [1, 0.7, 1]
+                    opacity: [1, 0.7, 1],
                   }}
-                  transition={{ 
-                    duration: 1.0, 
-                    repeat: Infinity, 
-                    ease: "easeInOut" 
-                  }}
-                >
+                  transition={{
+                    duration: 1.0,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}>
                   <Volume2 className="text-blue-400" size={14} />
                 </motion.div>
                 <span className="text-xs text-blue-400">聴取</span>
               </motion.div>
             )}
-            {voiceActivityStatus === 'processing' && (
+            {voiceActivityStatus === "processing" && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="flex items-center space-x-1"
-              >
+                className="flex items-center space-x-1">
                 <motion.div
-                  animate={{ 
+                  animate={{
                     rotate: [0, 360],
-                    scale: [1, 1.1, 1]
+                    scale: [1, 1.1, 1],
                   }}
-                  transition={{ 
-                    duration: 1.5, 
-                    repeat: Infinity, 
-                    ease: "linear" 
-                  }}
-                >
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}>
                   <Phone className="text-yellow-400" size={14} />
                 </motion.div>
                 <span className="text-xs text-yellow-400">処理</span>
               </motion.div>
             )}
-            {connectionStatus === 'connecting' && (
+            {connectionStatus === "connecting" && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="flex items-center space-x-1"
-              >
+                className="flex items-center space-x-1">
                 <motion.div
-                  animate={{ 
+                  animate={{
                     y: [-2, 2, -2],
-                    rotate: [-5, 5, -5]
+                    rotate: [-5, 5, -5],
                   }}
-                  transition={{ 
-                    duration: 0.8, 
-                    repeat: Infinity, 
-                    ease: "easeInOut" 
-                  }}
-                >
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}>
                   <Phone className="text-purple-400" size={14} />
                 </motion.div>
                 <span className="text-xs text-purple-400">接続中</span>
@@ -785,16 +837,16 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             )}
           </AnimatePresence>
         </div>
-        
+
         {/* Audio Visualizer */}
         <div className="mb-3">
-          <AudioVisualizer 
-            audioData={audioVisualizerData} 
+          <AudioVisualizer
+            audioData={audioVisualizerData}
             isActive={isCallActive}
             className="border border-gray-600/30"
           />
         </div>
-        
+
         {/* Minimal control buttons */}
         <div className="flex items-center space-x-3 max-md:space-x-4 max-md:justify-center">
           {/* Mute Button */}
@@ -804,15 +856,18 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             className={`p-2 md:p-2 max-md:p-3 rounded-full transition-all touch-manipulation ${
               isCallActive
                 ? isMuted
-                  ? 'bg-red-500/30 text-red-400'
-                  : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
-                : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                  ? "bg-red-500/30 text-red-400"
+                  : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                : "bg-gray-800/50 text-gray-600 cursor-not-allowed"
             }`}
-            title={isMuted ? "ミュート中" : "マイク ON"}
-          >
-            {isMuted ? <MicOff size={18} className="md:w-4 md:h-4" /> : <Mic size={18} className="md:w-4 md:h-4" />}
+            title={isMuted ? "ミュート中" : "マイク ON"}>
+            {isMuted ? (
+              <MicOff size={18} className="md:w-4 md:h-4" />
+            ) : (
+              <Mic size={18} className="md:w-4 md:h-4" />
+            )}
           </button>
-          
+
           {/* Start/End Call Button */}
           {!isCallActive ? (
             <button
@@ -820,23 +875,21 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
               disabled={!isConnected}
               className={`p-2 md:p-2 max-md:p-3 rounded-full transition-all touch-manipulation ${
                 isConnected
-                  ? 'bg-green-500/30 hover:bg-green-500/50 text-green-400 cursor-pointer'
-                  : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                  ? "bg-green-500/30 hover:bg-green-500/50 text-green-400 cursor-pointer"
+                  : "bg-gray-800/50 text-gray-600 cursor-not-allowed"
               }`}
-              title={isConnected ? "通話開始" : "接続待機中"}
-            >
+              title={isConnected ? "通話開始" : "接続待機中"}>
               <Phone size={18} className="md:w-4 md:h-4" />
             </button>
           ) : (
             <button
               onClick={endCall}
               className="p-2 md:p-2 max-md:p-3 rounded-full bg-red-500/30 hover:bg-red-500/50 text-red-400 transition-all touch-manipulation cursor-pointer"
-              title="通話終了"
-            >
+              title="通話終了">
               <PhoneOff size={18} className="md:w-4 md:h-4" />
             </button>
           )}
-          
+
           {/* Speaker Button */}
           <button
             onClick={() => setIsSpeakerOn(!isSpeakerOn)}
@@ -844,16 +897,19 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
             className={`p-2 md:p-2 max-md:p-3 rounded-full transition-all touch-manipulation ${
               isCallActive
                 ? isSpeakerOn
-                  ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
-                  : 'bg-orange-500/30 text-orange-400'
-                : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                  ? "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                  : "bg-orange-500/30 text-orange-400"
+                : "bg-gray-800/50 text-gray-600 cursor-not-allowed"
             }`}
-            title={isSpeakerOn ? "スピーカー ON" : "スピーカー OFF"}
-          >
-            {isSpeakerOn ? <Volume2 size={18} className="md:w-4 md:h-4" /> : <VolumeX size={18} className="md:w-4 md:h-4" />}
+            title={isSpeakerOn ? "スピーカー ON" : "スピーカー OFF"}>
+            {isSpeakerOn ? (
+              <Volume2 size={18} className="md:w-4 md:h-4" />
+            ) : (
+              <VolumeX size={18} className="md:w-4 md:h-4" />
+            )}
           </button>
         </div>
-        
+
         {/* Debug info disabled */}
       </div>
     </motion.div>

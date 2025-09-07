@@ -1,171 +1,209 @@
-'use client';
+"use client";
 
-import { useEffect, ReactNode } from 'react';
-import { useAppStore } from '@/store';
-import { StorageManager } from '@/utils/storage-cleanup';
-import { StorageAnalyzer } from '@/utils/storage-analyzer';
-import { StorageCleaner } from '@/utils/storage-cleaner';
-import { checkStorageUsage } from '@/utils/check-storage';
-import { AppearanceProvider } from '@/components/providers/AppearanceProvider';
-import { PreloadStrategies, BundleAnalysis } from '@/utils/dynamic-imports';
+import { useEffect, useState, ReactNode } from "react";
+import { useAppStore } from "@/store";
+import { StorageManager } from "@/utils/storage-cleanup";
+import { StorageAnalyzer } from "@/utils/storage-analyzer";
+import { StorageCleaner } from "@/utils/storage-cleaner";
+import { checkStorageUsage } from "@/utils/check-storage";
+import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
+import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
 
 interface AppInitializerProps {
   children: ReactNode;
 }
 
 const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
-  const { 
-    sessions, 
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const {
+    sessions,
     active_session_id,
-    createSession, 
+    createSession,
     getSelectedPersona,
-    characters, 
-    personas, 
-    isCharactersLoaded, 
+    characters,
+    personas,
+    isCharactersLoaded,
     isPersonasLoaded,
     loadCharactersFromPublic,
     loadPersonasFromPublic,
     selectedCharacterId,
     setSelectedCharacterId,
-    effectSettings, // Add effect settings for preloading
-    loadStoreFromStorage, // Add store loading
+    effectSettings,
+    loadStoreFromStorage,
   } = useAppStore();
 
-  // データの読み込み（Safari対応：console.log削除）+ Performance optimization
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Performance monitoring start
         const loadStartTime = performance.now();
-        
-        // ストレージ状況を詳細に分析
         const storageInfo = StorageManager.getStorageInfo();
-        console.log('📊 Storage info:', storageInfo);
-        
-        // ストレージ使用状況をチェック
+        console.log("?? Storage info:", storageInfo);
         checkStorageUsage();
-        
-        // 詳細分析（開発環境のみ）
-        if (process.env.NODE_ENV === 'development') {
+
+        if (process.env.NODE_ENV === "development") {
           StorageAnalyzer.printAnalysis();
           StorageAnalyzer.analyzeMessages();
         }
-        
-        // 自動クリーンアップ
+
         if (StorageManager.isStorageNearLimit()) {
-          console.warn('⚠️ Storage is near limit - starting cleanup');
+          console.warn("?? Storage is near limit - starting cleanup");
           const cleanupResult = StorageCleaner.cleanupLocalStorage();
-          console.log('🧹 Cleanup completed:', cleanupResult);
+          console.log("?? Cleanup completed:", cleanupResult);
         }
-        
-        // Store data is automatically loaded by Zustand persist middleware
-        // No need to manually call loadStoreFromStorage()
-        
-        // データの並列読み込み（パフォーマンス最適化）
+
         const [charactersResult, personasResult] = await Promise.allSettled([
           loadCharactersFromPublic(),
-          loadPersonasFromPublic()
+          loadPersonasFromPublic(),
         ]);
 
-        // エラーハンドリング
-        if (charactersResult.status === 'rejected') {
-          console.error('❌ キャラクター読み込みエラー:', charactersResult.reason);
+        if (charactersResult.status === "rejected") {
+          console.error(
+            "? キャラクター読み込みエラー:",
+            charactersResult.reason
+          );
         }
-        if (personasResult.status === 'rejected') {
-          console.error('❌ ペルソナ読み込みエラー:', personasResult.reason);
+        if (personasResult.status === "rejected") {
+          console.error("? ペルソナ読み込みエラー:", personasResult.reason);
         }
 
-        // Performance monitoring end
         const loadEndTime = performance.now();
-        console.log(`⚡ App initialization completed in ${(loadEndTime - loadStartTime).toFixed(2)}ms`);
-        
-        // Preload critical components after successful data load
+        console.log(
+          `? App initialization completed in ${(
+            loadEndTime - loadStartTime
+          ).toFixed(2)}ms`
+        );
+
         PreloadStrategies.preloadCriticalComponents();
-        
-        // Preload effects based on user settings
         PreloadStrategies.preloadEffects(effectSettings);
-        
-        // Log bundle analysis in development
-        if (process.env.NODE_ENV === 'development') {
+
+        if (process.env.NODE_ENV === "development") {
           setTimeout(() => {
             BundleAnalysis.logLoadingStatus();
           }, 5000);
         }
-
       } catch (error) {
-        console.error('❌ 初期化中にエラーが発生しました:', error);
+        console.error("? 初期化中にエラーが発生しました:", error);
+        setHasError(true);
+        setErrorMessage(error instanceof Error ? error.message : String(error));
       }
     };
 
     loadData();
   }, [
-    loadCharactersFromPublic, 
-    loadPersonasFromPublic, 
+    loadCharactersFromPublic,
+    loadPersonasFromPublic,
     loadStoreFromStorage,
-    effectSettings
+    effectSettings,
   ]);
 
-  // セッション自動作成ロジック（パフォーマンス最適化版）
   useEffect(() => {
     const createInitialSession = async () => {
-      // 読み込み完了を待つ
       if (!isCharactersLoaded || !isPersonasLoaded) return;
-      
-      // 既にアクティブなセッションがある場合はスキップ
-      const hasActiveSession = active_session_id && (sessions instanceof Map 
-        ? sessions.has(active_session_id) 
-        : (sessions && typeof sessions === 'object' && active_session_id in sessions));
-      
+
+      const hasActiveSession =
+        sessions instanceof Map
+          ? sessions.has(active_session_id)
+          : sessions &&
+            typeof sessions === "object" &&
+            active_session_id in sessions;
+
       if (active_session_id && hasActiveSession) {
-        console.log('👌 既存のアクティブセッションを使用:', active_session_id);
+        console.log("?? 既存のアクティブセッションを使用:", active_session_id);
         return;
       }
 
       try {
         const selectedPersona = getSelectedPersona();
-        
-        // キャラクターが選択されている場合
-        if (selectedCharacterId && characters.has(selectedCharacterId) && selectedPersona) {
-          const selectedCharacter = characters.get(selectedCharacterId);
+
+        const hasSelectedCharacter =
+          selectedCharacterId &&
+          (characters instanceof Map
+            ? characters.has(selectedCharacterId)
+            : characters[selectedCharacterId] !== undefined);
+
+        if (hasSelectedCharacter && selectedPersona) {
+          const selectedCharacter =
+            characters instanceof Map
+              ? characters.get(selectedCharacterId)
+              : characters[selectedCharacterId];
           if (selectedCharacter) {
-            console.log('🔄 選択中のキャラクターでセッション作成:', selectedCharacter.name);
+            console.log(
+              "?? 選択中のキャラクターでセッション作成:",
+              selectedCharacter.name
+            );
             await createSession(selectedCharacter, selectedPersona);
             return;
           }
         }
 
-        // フォールバック：最初のキャラクターを使用
         const firstCharacter = characters.values().next().value;
         if (firstCharacter && selectedPersona) {
-          console.log('🎯 フォールバック：最初のキャラクターでセッション作成:', firstCharacter.name);
+          console.log(
+            "?? フォールバック：最初のキャラクターでセッション作成:",
+            firstCharacter.name
+          );
           await createSession(firstCharacter, selectedPersona);
           setSelectedCharacterId(firstCharacter.id);
         }
       } catch (error) {
-        console.error('❌ 初期セッション作成エラー:', error);
+        console.error("? 初期セッション作成エラー:", error);
+        setHasError(true);
+        setErrorMessage(error instanceof Error ? error.message : String(error));
       }
     };
 
-    // Debounce session creation to avoid multiple calls
     const timeoutId = setTimeout(createInitialSession, 500);
     return () => clearTimeout(timeoutId);
   }, [
-    isCharactersLoaded, 
-    isPersonasLoaded, 
-    active_session_id, 
-    sessions, 
-    selectedCharacterId, 
-    characters, 
-    getSelectedPersona, 
-    createSession, 
-    setSelectedCharacterId
+    isCharactersLoaded,
+    isPersonasLoaded,
+    active_session_id,
+    sessions,
+    selectedCharacterId,
+    characters,
+    getSelectedPersona,
+    createSession,
+    setSelectedCharacterId,
   ]);
 
-  return (
-    <AppearanceProvider>
-      {children}
-    </AppearanceProvider>
-  );
+  // エラー状態の表示
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-white mb-4">エラーが発生しました</h1>
+          <p className="text-white/80 mb-6">{errorMessage}</p>
+          <button
+            onClick={() => {
+              setHasError(false);
+              setErrorMessage("");
+              window.location.reload();
+            }}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            再読み込み
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ローディング状態の表示
+  if (!isCharactersLoaded || !isPersonasLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-white/80">アプリケーションを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <AppearanceProvider>{children}</AppearanceProvider>;
 };
 
 export default AppInitializer;
