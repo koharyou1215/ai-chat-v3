@@ -40,20 +40,32 @@ export type AppStore = ChatSlice &
     [key: string]: unknown; // Add index signature for generic operations
   };
 
-const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (...args) => ({
-  ...createChatSlice(...args),
-  ...createGroupChatSlice(...args),
-  ...createCharacterSlice(...args),
-  ...createPersonaSlice(...args),
-  ...createMemorySlice(...args),
-  ...createTrackerSlice(...args),
-  ...createHistorySlice(...args),
-  ...createSettingsSlice(...args),
-  ...createSuggestionSlice(...args),
-  ...createUISlice(...args), // 追加
-  apiManager: simpleAPIManagerV2,
-  promptBuilderService: promptBuilderService,
-});
+const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (set, get, api) => {
+  // 安全なget関数を作成
+  const safeGet = () => {
+    try {
+      return get();
+    } catch (error) {
+      console.error("Error in safeGet:", error);
+      return {} as AppStore;
+    }
+  };
+
+  return {
+    ...createChatSlice(set, safeGet, api),
+    ...createGroupChatSlice(set, safeGet, api),
+    ...createCharacterSlice(set, safeGet, api),
+    ...createPersonaSlice(set, safeGet, api),
+    ...createMemorySlice(set, safeGet, api),
+    ...createTrackerSlice(set, safeGet, api),
+    ...createHistorySlice(set, safeGet, api),
+    ...createSettingsSlice(set, safeGet, api),
+    ...createSuggestionSlice(set, safeGet, api),
+    ...createUISlice(set, safeGet, api),
+    apiManager: simpleAPIManagerV2,
+    promptBuilderService: promptBuilderService,
+  };
+};
 
 // Safari互換性のため、persist なしでも動作するようにフォールバック
 const createStore = () => {
@@ -441,8 +453,38 @@ const createStore = () => {
 // ストアの初期化を安全に行う
 let useAppStore: ReturnType<typeof createStore>;
 
-// まず永続化なしのストアを作成（最も安全）
-useAppStore = create<AppStore>()(combinedSlices);
+// 最も安全な方法：永続化なしのストアを直接作成
+try {
+  useAppStore = create<AppStore>()(combinedSlices);
+  
+  // ストアが正しく動作するかテスト
+  if (typeof useAppStore.getState !== "function") {
+    throw new Error("Store getState method is not available");
+  }
+  
+  const testState = useAppStore.getState();
+  if (!testState || typeof testState !== "object") {
+    throw new Error("Store state is invalid");
+  }
+  
+  console.log("✅ Basic store initialized successfully");
+} catch (error) {
+  console.error("❌ Failed to create basic store:", error);
+  // フォールバック: 最小限のストアを作成
+  useAppStore = create<AppStore>()((set, get) => ({
+    // 最小限のプロパティのみ
+    sessions: new Map(),
+    active_session_id: null,
+    characters: new Map(),
+    personas: new Map(),
+    selectedCharacterId: null,
+    isCharactersLoaded: false,
+    isPersonasLoaded: false,
+    // その他のプロパティは後で追加
+    apiManager: simpleAPIManagerV2,
+    promptBuilderService: promptBuilderService,
+  }));
+}
 
 // 永続化ストアの作成を試行（失敗しても基本ストアは動作する）
 if (typeof window !== "undefined") {
