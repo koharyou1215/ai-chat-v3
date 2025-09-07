@@ -130,7 +130,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // グローバルスタイルも追加
   useEffect(() => {
     const styleId = 'appearance-global-styles';
-    let existingStyle = document.getElementById(styleId);
+    const existingStyle = document.getElementById(styleId);
     
     if (!existingStyle) {
       const style = document.createElement('style');

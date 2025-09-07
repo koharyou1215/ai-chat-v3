@@ -521,7 +521,7 @@ ${trackerInfo}
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
         recentMessages.forEach((msg) => {
-          const role = msg.role === "user" ? "あなた" : "AI";
+          const role = msg.role === "user" ? "{{user}}" : "{{char}}";
           historyPrompt += `${role}: ${msg.content}\n`;
         });
         historyPrompt += "\n";
@@ -662,6 +662,22 @@ class BackgroundTaskQueue {
 
   private async process() {
     this.processing = true;
+
+    while (this.tasks.length > 0) {
+      const task = this.tasks.shift()!;
+      try {
+        await task();
+      } catch (error) {
+        console.error("Background task failed:", error);
+      }
+    }
+
+    this.processing = false;
+  }
+}
+
+export const backgroundTaskQueue = new BackgroundTaskQueue();
+this.processing = true;
 
     while (this.tasks.length > 0) {
       const task = this.tasks.shift()!;

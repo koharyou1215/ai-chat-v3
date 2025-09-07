@@ -8,7 +8,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
   </div>
 );
 import { motion, AnimatePresence, TargetAndTransition } from 'framer-motion';
-import { RefreshCw, Copy, Volume2, Pause, Edit, CornerUpLeft, X, MoreVertical, ChevronRight } from 'lucide-react';
+import { RefreshCw, Copy, Volume2, VolumeX, Pause, Edit, CornerUpLeft, X, MoreVertical, ChevronRight } from 'lucide-react';
 import { UnifiedMessage } from '@/types';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';

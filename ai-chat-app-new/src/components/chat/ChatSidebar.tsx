@@ -507,4 +507,6 @@ const ChatSidebar: React.FC = React.memo(() => {
   );
 });
 
+ChatSidebar.displayName = 'ChatSidebar';
+
 export default ChatSidebar;

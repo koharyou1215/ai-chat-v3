@@ -40,9 +40,9 @@ export class DynamicImportManager {
     this.cache.set(cacheKey, importPromise);
 
     try {
-      const module = await importPromise;
+      const moduleExports = await importPromise;
       this.loadedModules.add(cacheKey);
-      return module;
+      return moduleExports;
     } catch (error) {
       // Remove failed import from cache
       this.cache.delete(cacheKey);

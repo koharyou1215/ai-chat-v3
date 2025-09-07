@@ -59,7 +59,7 @@ export const createMemorySlice: StateCreator<MemorySlice, [], [], MemorySlice> =
     const soloSessions = state.sessions || new Map();
     const groupSessions = state.group_sessions || new Map();
     
-    let session = soloSessions.get(session_id) || groupSessions.get(session_id);
+    const session = soloSessions.get(session_id) || groupSessions.get(session_id);
     
     if (!session) {
       console.warn(`🔍 [MemorySlice] Session ${session_id} not found in solo (${soloSessions.size}) or group (${groupSessions.size}) sessions`);

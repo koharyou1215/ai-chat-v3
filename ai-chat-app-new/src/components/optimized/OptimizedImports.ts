@@ -1,82 +1,227 @@
 /**
- * Optimized import utilities to reduce bundle size
- * This file provides optimized imports that avoid barrel imports and heavy dependencies
+ * Optimized Imports for Performance
+ * 
+ * This file provides optimized import patterns to reduce bundle size
+ * and improve loading performance by using dynamic imports and
+ * tree-shaking optimizations.
  */
-
-import type { AppStore } from '@/store';
 
 // ===== FRAMER MOTION OPTIMIZATIONS =====
 
 // Instead of importing the entire framer-motion library,
 // we can create optimized motion components for common use cases
 
-export const createOptimizedMotion = () => {
+export const createOptimizedMotion = async () => {
   // Only import what we need from framer-motion
-  const { motion, AnimatePresence } = require('framer-motion');
+  const { motion, AnimatePresence } = await import('framer-motion');
   return { motion, AnimatePresence };
 };
 
 // ===== ICON OPTIMIZATIONS =====
 
 // Create tree-shakeable icon imports
-export const getOptimizedIcons = () => {
+export const getOptimizedIcons = async () => {
   // Lucide React is already tree-shakeable, but we can optimize common patterns
+  const lucideReact = await import('lucide-react');
   return {
     // Core icons used everywhere
-    X: require('lucide-react').X,
-    Search: require('lucide-react').Search,
-    Plus: require('lucide-react').Plus,
-    Settings: require('lucide-react').Settings,
+    X: lucideReact.X,
+    Search: lucideReact.Search,
+    Plus: lucideReact.Plus,
+    Settings: lucideReact.Settings,
     
     // Chat icons
-    Bot: require('lucide-react').Bot,
-    Send: require('lucide-react').Send,
-    Mic: require('lucide-react').Mic,
+    Bot: lucideReact.Bot,
+    Send: lucideReact.Send,
+    Mic: lucideReact.Mic,
+    Volume2: lucideReact.Volume2,
+    VolumeX: lucideReact.VolumeX,
+    Pause: lucideReact.Pause,
+    Play: lucideReact.Play,
+    
+    // UI icons
+    ChevronRight: lucideReact.ChevronRight,
+    ChevronLeft: lucideReact.ChevronLeft,
+    ChevronDown: lucideReact.ChevronDown,
+    ChevronUp: lucideReact.ChevronUp,
+    MoreVertical: lucideReact.MoreVertical,
+    MoreHorizontal: lucideReact.MoreHorizontal,
     
     // Action icons
-    Copy: require('lucide-react').Copy,
-    Edit: require('lucide-react').Edit,
-    RefreshCw: require('lucide-react').RefreshCw,
+    Edit: lucideReact.Edit,
+    Copy: lucideReact.Copy,
+    RefreshCw: lucideReact.RefreshCw,
+    Trash2: lucideReact.Trash2,
+    Download: lucideReact.Download,
+    Upload: lucideReact.Upload,
+    
+    // Status icons
+    Check: lucideReact.Check,
+    AlertCircle: lucideReact.AlertCircle,
+    Info: lucideReact.Info,
+    Warning: lucideReact.Warning,
+    
+    // Navigation icons
+    Home: lucideReact.Home,
+    User: lucideReact.User,
+    Users: lucideReact.Users,
+    MessageCircle: lucideReact.MessageCircle,
+    Bell: lucideReact.Bell,
+    Heart: lucideReact.Heart,
+    Star: lucideReact.Star,
     
     // Media icons
-    Volume2: require('lucide-react').Volume2,
-    Pause: require('lucide-react').Pause,
-    Upload: require('lucide-react').Upload,
+    Image: lucideReact.Image,
+    Video: lucideReact.Video,
+    File: lucideReact.File,
+    Folder: lucideReact.Folder,
+    
+    // System icons
+    Menu: lucideReact.Menu,
+    Close: lucideReact.Close,
+    Maximize: lucideReact.Maximize,
+    Minimize: lucideReact.Minimize,
+    RotateCcw: lucideReact.RotateCcw,
+    RotateCw: lucideReact.RotateCw,
+    
+    // Specialized icons
+    Sparkles: lucideReact.Sparkles,
+    Wand2: lucideReact.Wand2,
+    Brain: lucideReact.Brain,
+    Activity: lucideReact.Activity,
+    Gauge: lucideReact.Gauge,
+    Palette: lucideReact.Palette,
+    Globe: lucideReact.Globe,
+    Code: lucideReact.Code,
+    Database: lucideReact.Database,
+    Shield: lucideReact.Shield,
+    Lightbulb: lucideReact.Lightbulb,
+    Cpu: lucideReact.Cpu,
+    Eye: lucideReact.Eye,
+    EyeOff: lucideReact.EyeOff,
+    Save: lucideReact.Save,
+    Loader: lucideReact.Loader,
+    Loader2: lucideReact.Loader2,
   };
 };
 
-// ===== TYPE IMPORT OPTIMIZATIONS =====
+// ===== COMPONENT OPTIMIZATIONS =====
 
-// Instead of importing all types from barrel exports,
-// provide specific type imports
-export type { Character } from '@/types/core/character.types';
-export type { Persona } from '@/types/core/persona.types';
-export type { UnifiedMessage } from '@/types/core/message.types';
-export type { MemoryCard } from '@/types/core/memory.types';
+// Lazy load heavy components
+export const getOptimizedComponents = async () => {
+  const [
+    { HologramMessage, ParticleText, MessageEffects, EmotionDisplay },
+    { EmotionReactions },
+    { VoiceCallInterface },
+    { AdvancedEffects }
+  ] = await Promise.all([
+    import('../lazy/LazyEffects'),
+    import('@/components/emotion/EmotionDisplay'),
+    import('@/components/voice/VoiceCallInterface'),
+    import('@/components/chat/AdvancedEffects')
+  ]);
 
-// ===== COMPONENT IMPORT OPTIMIZATIONS =====
-
-// Wrapper for commonly used UI components to avoid repeated imports
-export const getUIComponents = () => {
   return {
-    Button: require('@/components/ui/button').Button,
-    Input: require('@/components/ui/input').Input,
-    Dialog: require('@/components/ui/dialog').Dialog,
-    DialogContent: require('@/components/ui/dialog').DialogContent,
-    Tabs: require('@/components/ui/tabs').Tabs,
-    TabsContent: require('@/components/ui/tabs').TabsContent,
+    HologramMessage,
+    ParticleText,
+    MessageEffects,
+    EmotionDisplay,
+    EmotionReactions,
+    VoiceCallInterface,
+    AdvancedEffects
   };
 };
 
-// ===== STORE OPTIMIZATIONS =====
+// ===== UTILITY OPTIMIZATIONS =====
 
-// Optimized store selectors to prevent unnecessary re-renders
-export const getOptimizedStoreSelectors = () => {
+// Lazy load utility functions
+export const getOptimizedUtils = async () => {
+  const [
+    { replaceVariables, replaceVariablesInMessage },
+    { cn },
+    { formatMessageContent }
+  ] = await Promise.all([
+    import('@/utils/variable-replacer'),
+    import('@/lib/utils'),
+    import('@/utils/text-formatter')
+  ]);
+
   return {
-    // Commonly used selectors that can be memoized
-    useSelectedCharacter: () => require('@/store').useAppStore((state: AppStore) => state.getSelectedCharacter()),
-    useSelectedPersona: () => require('@/store').useAppStore((state: AppStore) => state.getSelectedPersona()),
-    useIsGenerating: () => require('@/store').useAppStore((state: AppStore) => state.is_generating),
-    useActiveSession: () => require('@/store').useAppStore((state: AppStore) => state.getActiveSession()),
+    replaceVariables,
+    replaceVariablesInMessage,
+    cn,
+    formatMessageContent
+  };
+};
+
+// ===== HOOK OPTIMIZATIONS =====
+
+// Lazy load custom hooks
+export const getOptimizedHooks = async () => {
+  const [
+    { useAudioPlayback },
+    { useVoiceCall },
+    { useEmotionAnalysis }
+  ] = await Promise.all([
+    import('@/hooks/useAudioPlayback'),
+    import('@/hooks/useVoiceCall'),
+    import('@/hooks/useEmotionAnalysis')
+  ]);
+
+  return {
+    useAudioPlayback,
+    useVoiceCall,
+    useEmotionAnalysis
+  };
+};
+
+// ===== SERVICE OPTIMIZATIONS =====
+
+// Lazy load services
+export const getOptimizedServices = async () => {
+  const [
+    { EmotionAnalyzer },
+    { VoiceService },
+    { MemoryService }
+  ] = await Promise.all([
+    import('@/services/emotion/EmotionAnalyzer'),
+    import('@/services/voice/VoiceService'),
+    import('@/services/memory/MemoryService')
+  ]);
+
+  return {
+    EmotionAnalyzer,
+    VoiceService,
+    MemoryService
+  };
+};
+
+// ===== MAIN OPTIMIZATION FUNCTION =====
+
+// Load all optimizations at once
+export const loadAllOptimizations = async () => {
+  const [
+    motion,
+    icons,
+    components,
+    utils,
+    hooks,
+    services
+  ] = await Promise.all([
+    createOptimizedMotion(),
+    getOptimizedIcons(),
+    getOptimizedComponents(),
+    getOptimizedUtils(),
+    getOptimizedHooks(),
+    getOptimizedServices()
+  ]);
+
+  return {
+    motion,
+    icons,
+    components,
+    utils,
+    hooks,
+    services
   };
 };
