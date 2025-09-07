@@ -8,19 +8,56 @@ export async function GET(request: NextRequest) {
     if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
       console.log('Characters API: Using production mode (manifest)');
       try {
-        const manifestPath = path.join(process.cwd(), 'public', 'characters', 'manifest.json');
+        const charactersDir = path.join(process.cwd(), 'public', 'characters');
+        const manifestPath = path.join(charactersDir, 'manifest.json');
+        
         if (fs.existsSync(manifestPath)) {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-          console.log(`Characters API: Loaded ${manifest.length} characters from manifest`);
-          return NextResponse.json(manifest);
+          const characters = [];
+          
+          // 各キャラクターファイルを読み込み
+          for (const filename of manifest) {
+            const filePath = path.join(charactersDir, filename);
+            if (fs.existsSync(filePath)) {
+              try {
+                let fileContent = fs.readFileSync(filePath, 'utf8');
+                // Remove BOM if present (fixes "Unexpected token '﻿'" error)
+                if (fileContent.charCodeAt(0) === 0xFEFF) {
+                  fileContent = fileContent.slice(1);
+                }
+                const characterData = JSON.parse(fileContent);
+                characters.push(characterData);
+              } catch (parseError) {
+                console.warn(`Characters API: Failed to parse ${filename}:`, parseError);
+              }
+            }
+          }
+          
+          console.log(`Characters API: Loaded ${characters.length} characters from manifest`);
+          return NextResponse.json(characters);
         } else {
           // Fallback: try to fetch from URL
           const baseUrl = request.url.replace('/api/characters', '');
           const manifestResponse = await fetch(`${baseUrl}/characters/manifest.json`);
           if (manifestResponse.ok) {
             const manifest = await manifestResponse.json();
-            console.log(`Characters API: Loaded ${manifest.length} characters from URL manifest`);
-            return NextResponse.json(manifest);
+            const characters = [];
+            
+            // 各キャラクターファイルをURLから取得
+            for (const filename of manifest) {
+              try {
+                const characterResponse = await fetch(`${baseUrl}/characters/${filename}`);
+                if (characterResponse.ok) {
+                  const characterData = await characterResponse.json();
+                  characters.push(characterData);
+                }
+              } catch (fetchError) {
+                console.warn(`Characters API: Failed to fetch ${filename}:`, fetchError);
+              }
+            }
+            
+            console.log(`Characters API: Loaded ${characters.length} characters from URL manifest`);
+            return NextResponse.json(characters);
           }
         }
       } catch (manifestError) {
@@ -47,8 +84,26 @@ export async function GET(request: NextRequest) {
       file !== 'manifest.json'
     );
     
-    console.log(`Characters API: Loaded ${jsonFiles.length} characters from filesystem`);
-    return NextResponse.json(jsonFiles);
+    const characters = [];
+    
+    // 各キャラクターファイルを読み込み
+    for (const filename of jsonFiles) {
+      const filePath = path.join(charactersDir, filename);
+      try {
+        let fileContent = fs.readFileSync(filePath, 'utf8');
+        // Remove BOM if present (fixes "Unexpected token '﻿'" error)
+        if (fileContent.charCodeAt(0) === 0xFEFF) {
+          fileContent = fileContent.slice(1);
+        }
+        const characterData = JSON.parse(fileContent);
+        characters.push(characterData);
+      } catch (parseError) {
+        console.warn(`Characters API: Failed to parse ${filename}:`, parseError);
+      }
+    }
+    
+    console.log(`Characters API: Loaded ${characters.length} characters from filesystem`);
+    return NextResponse.json(characters);
   } catch (error) {
     console.error('Characters API: Error reading characters:', error);
     return NextResponse.json([]);
