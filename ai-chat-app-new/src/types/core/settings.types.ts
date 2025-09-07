@@ -22,6 +22,17 @@ export interface ChatSettings {
     max_prompt_tokens: number;           // プロンプト全体のトークン上限
     max_context_messages: number;        // 会話履歴のメッセージ数上限
   };
+  progressiveMode?: {
+    enabled: boolean;                    // プログレッシブモードのON/OFF
+    showIndicators?: boolean;            // 🔧 FIX: オプショナルに変更
+    highlightChanges?: boolean;          // 🔧 FIX: オプショナルに変更
+    glowIntensity?: 'none' | 'soft' | 'medium' | 'strong'; // 🔧 FIX: オプショナルに変更
+    stageDelays?: {                      // 🔧 FIX: オプショナルに変更
+      reflex: number;                     // 反射ステージの遅延(ms)
+      context: number;                    // 文脈ステージの遅延(ms)
+      intelligence: number;               // 洞察ステージの遅延(ms)
+    };
+  };
 }
 
 export interface ImageGenerationSettings {
@@ -113,3 +124,31 @@ export interface AISettings {
   // Image Generation Settings
   imageGeneration: ImageGenerationSettings;
 }
+
+// 🆕 ヘルパー型: デフォルト値付きProgressiveMode
+export interface FullProgressiveMode {
+  enabled: boolean;
+  showIndicators: boolean;
+  highlightChanges: boolean;
+  glowIntensity: 'none' | 'soft' | 'medium' | 'strong';
+  stageDelays: {
+    reflex: number;
+    context: number;
+    intelligence: number;
+  };
+}
+
+// 🆕 ヘルパー関数: ProgressiveModeのデフォルト値を取得
+export const getProgressiveModeWithDefaults = (
+  progressiveMode?: ChatSettings['progressiveMode']
+): FullProgressiveMode => ({
+  enabled: progressiveMode?.enabled ?? false,
+  showIndicators: progressiveMode?.showIndicators ?? true,
+  highlightChanges: progressiveMode?.highlightChanges ?? true,
+  glowIntensity: progressiveMode?.glowIntensity ?? 'medium',
+  stageDelays: progressiveMode?.stageDelays ?? {
+    reflex: 0,
+    context: 1000,
+    intelligence: 2000
+  }
+});

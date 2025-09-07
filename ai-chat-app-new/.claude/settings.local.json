@@ -103,7 +103,8 @@
       "Bash(npx playwright:*)",
       "Bash(NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=\"--max-old-space-size=6144\" npm run build)",
       "Bash(jobs)",
-      "Bash(BashOutput 7689e6)"
+      "Bash(BashOutput 7689e6)",
+      "Read(//c/AIチャットバックアップ/**)"
     ],
     "deny": [],
     "ask": [],

@@ -28,38 +28,35 @@ export const getOptimizedIcons = async () => {
     X: lucideReact.X,
     Search: lucideReact.Search,
     Plus: lucideReact.Plus,
+    Minus: lucideReact.Minus,
     Settings: lucideReact.Settings,
-    
-    // Chat icons
-    Bot: lucideReact.Bot,
-    Send: lucideReact.Send,
-    Mic: lucideReact.Mic,
-    Volume2: lucideReact.Volume2,
-    VolumeX: lucideReact.VolumeX,
-    Pause: lucideReact.Pause,
-    Play: lucideReact.Play,
-    
-    // UI icons
-    ChevronRight: lucideReact.ChevronRight,
-    ChevronLeft: lucideReact.ChevronLeft,
-    ChevronDown: lucideReact.ChevronDown,
-    ChevronUp: lucideReact.ChevronUp,
-    MoreVertical: lucideReact.MoreVertical,
     MoreHorizontal: lucideReact.MoreHorizontal,
+    MoreVertical: lucideReact.MoreVertical,
     
     // Action icons
     Edit: lucideReact.Edit,
-    Copy: lucideReact.Copy,
-    RefreshCw: lucideReact.RefreshCw,
-    Trash2: lucideReact.Trash2,
+    Delete: lucideReact.Trash2,
+    Save: lucideReact.Save,
     Download: lucideReact.Download,
     Upload: lucideReact.Upload,
+    Copy: lucideReact.Copy,
+    Share: lucideReact.Share,
+    
+    // Navigation arrows
+    ChevronLeft: lucideReact.ChevronLeft,
+    ChevronRight: lucideReact.ChevronRight,
+    ChevronUp: lucideReact.ChevronUp,
+    ChevronDown: lucideReact.ChevronDown,
+    ArrowLeft: lucideReact.ArrowLeft,
+    ArrowRight: lucideReact.ArrowRight,
     
     // Status icons
     Check: lucideReact.Check,
+    CheckCircle: lucideReact.CheckCircle,
+    AlertTriangle: lucideReact.AlertTriangle,
     AlertCircle: lucideReact.AlertCircle,
     Info: lucideReact.Info,
-    Warning: lucideReact.Warning,
+    AlertOctagon: lucideReact.AlertOctagon, // 🔧 FIX: Warning -> AlertOctagon
     
     // Navigation icons
     Home: lucideReact.Home,
@@ -78,7 +75,7 @@ export const getOptimizedIcons = async () => {
     
     // System icons
     Menu: lucideReact.Menu,
-    Close: lucideReact.Close,
+    XCircle: lucideReact.XCircle, // 🔧 FIX: Close -> XCircle
     Maximize: lucideReact.Maximize,
     Minimize: lucideReact.Minimize,
     RotateCcw: lucideReact.RotateCcw,
@@ -87,141 +84,194 @@ export const getOptimizedIcons = async () => {
     // Specialized icons
     Sparkles: lucideReact.Sparkles,
     Wand2: lucideReact.Wand2,
-    Brain: lucideReact.Brain,
-    Activity: lucideReact.Activity,
-    Gauge: lucideReact.Gauge,
-    Palette: lucideReact.Palette,
-    Globe: lucideReact.Globe,
-    Code: lucideReact.Code,
-    Database: lucideReact.Database,
-    Shield: lucideReact.Shield,
-    Lightbulb: lucideReact.Lightbulb,
-    Cpu: lucideReact.Cpu,
-    Eye: lucideReact.Eye,
-    EyeOff: lucideReact.EyeOff,
-    Save: lucideReact.Save,
-    Loader: lucideReact.Loader,
-    Loader2: lucideReact.Loader2,
   };
 };
 
-// ===== COMPONENT OPTIMIZATIONS =====
+// ===== UI COMPONENTS OPTIMIZATION =====
 
-// Lazy load heavy components
-export const getOptimizedComponents = async () => {
+// Lazy load UI library components for better performance
+export const getOptimizedUIComponents = async () => {
   const [
-    { HologramMessage, ParticleText, MessageEffects, EmotionDisplay },
-    { EmotionReactions },
-    { VoiceCallInterface },
-    { AdvancedEffects }
+    { Button },
+    { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle },
+    { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger },
+    { Tabs, TabsContent, TabsList, TabsTrigger },
+    { Select, SelectContent, SelectItem, SelectTrigger, SelectValue },
+    { Input },
+    { Label },
+    { Textarea },
+    { Separator },
   ] = await Promise.all([
-    import('../lazy/LazyEffects'),
-    import('@/components/emotion/EmotionDisplay'),
-    import('@/components/voice/VoiceCallInterface'),
-    import('@/components/chat/AdvancedEffects')
+    import('@/components/ui/button'),
+    import('@/components/ui/card'),
+    import('@/components/ui/dialog'),
+    import('@/components/ui/tabs'),
+    import('@/components/ui/select'),
+    import('@/components/ui/input'),
+    import('@/components/ui/label'),
+    import('@/components/ui/textarea'),
+    import('@/components/ui/separator'),
   ]);
 
   return {
-    HologramMessage,
-    ParticleText,
+    Button,
+    Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+    Tabs, TabsContent, TabsList, TabsTrigger,
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    Input,
+    Label,
+    Textarea,
+    Separator,
+  };
+};
+
+// ===== CHAT COMPONENTS OPTIMIZATION =====
+
+// Heavy chat components that should be loaded on demand
+export const getChatComponents = async () => {
+  const [
+    { AdvancedEffects }, // 🔧 FIX: Remove incorrect reference
+    { MessageEffects },
+    { EmotionDisplay },
+    { TrackerDisplay },
+    { MemoryCard },
+    { CharacterCard },
+    { PersonaCard },
+  ] = await Promise.all([
+    import('@/components/chat/AdvancedEffects'),
+    import('@/components/chat/MessageEffects'),
+    import('@/components/emotion/EmotionDisplay'),
+    import('@/components/tracker/TrackerDisplay'),
+    import('@/components/memory/MemoryCard'),
+    import('@/components/character/CharacterCard'),
+    import('@/components/persona/PersonaCard'),
+  ]);
+
+  return {
+    AdvancedEffects,
     MessageEffects,
     EmotionDisplay,
-    EmotionReactions,
-    VoiceCallInterface,
-    AdvancedEffects
+    TrackerDisplay,
+    MemoryCard,
+    CharacterCard,
+    PersonaCard,
   };
+};
+
+// ===== MODAL COMPONENTS OPTIMIZATION =====
+
+// Modals are perfect for lazy loading since they're not always visible
+export const getModalComponents = async () => {
+  const [
+    { SettingsModal },
+    { CharacterGalleryModal },
+    { PersonaGalleryModal },
+    { ChatHistoryModal },
+    { SuggestionModal },
+    { EnhancementModal },
+    { ScenarioSetupModal },
+  ] = await Promise.all([
+    import('@/components/settings/SettingsModal'),
+    import('@/components/character/CharacterGalleryModal'),
+    import('@/components/persona/PersonaGalleryModal'),
+    import('@/components/history/ChatHistoryModal'),
+    import('@/components/chat/SuggestionModal'),
+    import('@/components/chat/EnhancementModal'),
+    import('@/components/chat/ScenarioSetupModal'),
+  ]);
+
+  return {
+    SettingsModal,
+    CharacterGalleryModal,
+    PersonaGalleryModal,
+    ChatHistoryModal,
+    SuggestionModal,
+    EnhancementModal,
+    ScenarioSetupModal,
+  };
+};
+
+// ===== HOOKS AND SERVICES OPTIMIZATION =====
+
+// Services that might not be needed immediately
+export const getOptimizedServices = async () => {
+  // 🔧 FIX: Remove non-existent imports
+  const [
+    { promptBuilderService },
+    { simpleAPIManagerV2 },
+    { autoMemoryManager },
+  ] = await Promise.all([
+    import('@/services/prompt-builder.service'),
+    import('@/services/simple-api-manager-v2'),
+    import('@/services/memory/auto-memory-manager'),
+  ]);
+
+  return {
+    promptBuilderService,
+    simpleAPIManagerV2,
+    autoMemoryManager,
+  };
+};
+
+// ===== FORM VALIDATION OPTIMIZATION =====
+
+// Form validation libraries can be large, so load on demand
+export const getFormValidation = async () => {
+  // Example of dynamic form validation loading
+  const { z } = await import('zod');
+  return { z };
 };
 
 // ===== UTILITY OPTIMIZATIONS =====
 
-// Lazy load utility functions
-export const getOptimizedUtils = async () => {
+// Utility functions that might not be needed on initial load
+export const getOptimizedUtilities = async () => {
   const [
-    { replaceVariables, replaceVariablesInMessage },
     { cn },
-    { formatMessageContent }
+    { formatDistanceToNow, format } // Add date-fns if needed
   ] = await Promise.all([
-    import('@/utils/variable-replacer'),
     import('@/lib/utils'),
-    import('@/utils/text-formatter')
+    import('date-fns'),
   ]);
 
   return {
-    replaceVariables,
-    replaceVariablesInMessage,
     cn,
-    formatMessageContent
+    formatDistanceToNow,
+    format,
   };
 };
 
-// ===== HOOK OPTIMIZATIONS =====
+// ===== PERFORMANCE MONITORING =====
 
-// Lazy load custom hooks
-export const getOptimizedHooks = async () => {
-  const [
-    { useAudioPlayback },
-    { useVoiceCall },
-    { useEmotionAnalysis }
-  ] = await Promise.all([
-    import('@/hooks/useAudioPlayback'),
-    import('@/hooks/useVoiceCall'),
-    import('@/hooks/useEmotionAnalysis')
-  ]);
-
-  return {
-    useAudioPlayback,
-    useVoiceCall,
-    useEmotionAnalysis
-  };
+// Tools for performance monitoring that shouldn't block initial load
+export const getPerformanceTools = async () => {
+  // Example performance monitoring setup
+  if (process.env.NODE_ENV === 'development') {
+    const { getCLS, getFID, getFCP, getLCP, getTTFB } = await import('web-vitals');
+    return {
+      getCLS,
+      getFID,
+      getFCP,
+      getLCP,
+      getTTFB,
+    };
+  }
+  return {};
 };
 
-// ===== SERVICE OPTIMIZATIONS =====
+// ===== EXPORT OPTIMIZED LOADERS =====
 
-// Lazy load services
-export const getOptimizedServices = async () => {
-  const [
-    { EmotionAnalyzer },
-    { VoiceService },
-    { MemoryService }
-  ] = await Promise.all([
-    import('@/services/emotion/EmotionAnalyzer'),
-    import('@/services/voice/VoiceService'),
-    import('@/services/memory/MemoryService')
-  ]);
-
-  return {
-    EmotionAnalyzer,
-    VoiceService,
-    MemoryService
-  };
+export const OptimizedLoaders = {
+  motion: createOptimizedMotion,
+  icons: getOptimizedIcons,
+  ui: getOptimizedUIComponents,
+  chat: getChatComponents,
+  modals: getModalComponents,
+  services: getOptimizedServices,
+  forms: getFormValidation,
+  utils: getOptimizedUtilities,
+  performance: getPerformanceTools,
 };
 
-// ===== MAIN OPTIMIZATION FUNCTION =====
-
-// Load all optimizations at once
-export const loadAllOptimizations = async () => {
-  const [
-    motion,
-    icons,
-    components,
-    utils,
-    hooks,
-    services
-  ] = await Promise.all([
-    createOptimizedMotion(),
-    getOptimizedIcons(),
-    getOptimizedComponents(),
-    getOptimizedUtils(),
-    getOptimizedHooks(),
-    getOptimizedServices()
-  ]);
-
-  return {
-    motion,
-    icons,
-    components,
-    utils,
-    hooks,
-    services
-  };
-};
+export default OptimizedLoaders;

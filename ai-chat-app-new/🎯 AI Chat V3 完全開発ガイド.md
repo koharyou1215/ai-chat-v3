@@ -52,6 +52,24 @@ Following these best practices can help prevent common errors.
         - Ensure all mapped components have unique keys (e.g., `key={strength-${index}}` instead of `key={index}`)
         - Always check function declaration order in React components with useCallback dependencies
 
+6.  **Gemini API Model Validation:**
+    *   **Problem:** `google/gemini-1.5-flash-8b is not a valid model ID` errors when using OpenRouter.
+    *   **Cause:** Invalid or outdated Gemini model names being sent to OpenRouter API.
+    *   **Solution:** Model validation has been enhanced in `simple-api-manager-v2.ts` to automatically clean and map old model names to valid ones (1.5 → 2.5).
+    *   **Status:** ✅ RESOLVED (Sept 2025)
+
+7.  **NSFW Persona Type Issues:**
+    *   **Problem:** Type errors when accessing NSFW persona data in prompt-builder.
+    *   **Cause:** Incorrect property path - trying to access `user.nsfw_persona` instead of `character.nsfw_profile.nsfw_persona`.
+    *   **Solution:** Use correct property path for character NSFW profiles.
+    *   **Status:** ⚠️ KNOWN ISSUE - Low priority
+
+8.  **Chat Menu Generation State:**
+    *   **Problem:** Chat menu becomes unresponsive, regenerate/continue buttons don't work.
+    *   **Cause:** Generation state (`is_generating`/`group_generating`) stuck in true state.
+    *   **Solution:** Double-click message area to reset generation state, or wait for 30-second auto-reset.
+    *   **Status:** ✅ RESOLVED - Auto-reset mechanism implemented
+
 ---
 
 📋 **Table of Contents**
@@ -1647,6 +1665,28 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 6.  Ensure backward compatibility with existing systems.
 
 ---
+## 🔧 Critical Development Rules (MUST READ)
+
+### Server Operation Rules
+- **Port 3000 ONLY**: Never start server on other ports
+- **Never Stop Server**: Once stopped, restart takes extremely long time
+- **Hot Reload First**: Use Hot Reload for code changes, avoid server restarts
+- **No Browser DevTools**: User environment doesn't support F12/console/network inspection
+- **Server-Side Debug Only**: Use console.log, file logging, Bash output monitoring
+
+### Code Maintenance Rules
+- **Type-First Development**: Update types before implementation
+- **No `any` Type**: Use `unknown`, generics, or proper type definitions
+- **Protect Existing UI**: Never change current icons, layouts, or designs
+- **API Compatibility**: Maintain existing API interfaces and data structures
+- **Settings Persistence**: Ensure all settings changes persist correctly
+
+### Known Issues & Solutions
+1. **Chat Menu Stuck**: Double-click message area or wait 30 seconds for auto-reset
+2. **Gemini Model Errors**: Models automatically mapped from 1.5 to 2.5 series
+3. **Build Errors**: Often outdated - check actual runtime behavior first
+4. **Blue UI Elements**: Legacy from previous UI design - can be updated to purple theme
+
 ## 🆕 Latest Updates
 
 ### Critical Update: August 31, 2025
@@ -1672,7 +1712,15 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 - **UI Cleanup**: Removed debug history display button for cleaner interface
 - **Deployment Fix**: Added missing tw-animate-css dependency for successful production builds
 
-### Critical Update: August 30, 2025
+### Update: September 2025
+
+#### 🔧 Development Environment Stabilization
+- **Dev Server Constraints:** Port 3000 is fixed, server restart takes significant time due to .next cache clearing
+- **Debug Tool Limitations:** Browser DevTools (F12) not available in user environment - use server-side logging only
+- **Hot Reload Priority:** Code changes should use Hot Reload, avoid server restarts when possible
+- **Build Process:** Use `npm run build` only for final verification, not during active development
+
+### Update: August 30, 2025
 
 #### 🎯 Geminiフォールバック機能とグループチャット再生成の完全修正
 - **Gemini API フォールバック機能修正:** GeminiClientにOpenRouter APIキー管理機能を追加し、クォータ制限時のOpenRouterフォールバックが正常動作

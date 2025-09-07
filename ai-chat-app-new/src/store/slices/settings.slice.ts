@@ -321,6 +321,17 @@ export const createSettingsSlice: StateCreator<
       max_prompt_tokens: 32000,     // プロンプト全体: 32k tokens
       max_context_messages: 20,     // 会話履歴: 最大20メッセージ
     },
+    progressiveMode: {
+      enabled: false,                // プログレッシブモードはデフォルト無効（コスト3倍のため）
+      showIndicators: true,          // ステージインジケーター表示
+      highlightChanges: true,        // 変更箇所ハイライト
+      glowIntensity: 'medium' as 'none' | 'soft' | 'medium' | 'strong', // グロー効果強度
+      stageDelays: {
+        reflex: 0,                   // 反射ステージの遅延(ms)
+        context: 1000,               // 文脈ステージの遅延(ms)
+        intelligence: 2000,          // 洞察ステージの遅延(ms)
+      },
+    },
   },
 
   voice: {

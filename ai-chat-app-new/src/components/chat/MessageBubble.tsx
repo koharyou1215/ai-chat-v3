@@ -14,6 +14,7 @@ import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { replaceVariablesInMessage, getVariableContext } from '@/utils/variable-replacer';
 import { RichMessage } from './RichMessage';
+import { ProgressiveMessageBubble } from './ProgressiveMessageBubble';
 
 // Lazy imports for heavy effect components
 import { 
@@ -254,6 +255,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   const generateIsActive = is_generating || group_generating;
   const isCurrentlyGenerating = generateIsActive && isLatest;
+  
+  // 再生成・続き生成の可否判定
+  const canRegenerate = isAssistant && isLatest && !generateIsActive;
+  const canContinue = isAssistant && isLatest && !generateIsActive;
+  
+  // 音声再生状態（isSpeakingを使用）
+  const isPlaying = isSpeaking;
 
   // プロフィール画像の表示判定（グループチャット用）
   const shouldShowAvatar = isAssistant && (isGroupChat || character?.avatar_url);
@@ -274,6 +282,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     _previousMessage.metadata?.character_id !== message.metadata?.character_id ||
     (timeSincePrevious && timeSincePrevious > 5)
   );
+
+  // プログレッシブメッセージかどうかをチェック
+  const isProgressiveMessage = message.metadata?.progressive === true;
+
+  // プログレッシブメッセージの場合は専用コンポーネントを使用
+  if (isProgressiveMessage && message.metadata?.progressiveData) {
+    return (
+      <ProgressiveMessageBubble
+        message={message.metadata.progressiveData}
+        isLatest={isLatest}
+      />
+    );
+  }
 
   // アニメーション設定の最適化
   const bubbleAnimation: TargetAndTransition = useMemo(() => ({

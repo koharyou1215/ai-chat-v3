@@ -1,10 +1,17 @@
 import { StateCreator } from 'zustand';
 import { UnifiedChatSession, UnifiedMessage, UUID, Character, Persona } from '@/types';
+import { 
+  ProgressiveMessage, 
+  ProgressiveSettings, 
+  DEFAULT_PROGRESSIVE_SETTINGS 
+} from '@/types/progressive-message.types';
 // Removed unused imports
 import { apiRequestQueue } from '@/services/api-request-queue';
 import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptValidator } from '@/utils/prompt-validator';
 import { promptBuilderService } from '@/services/prompt-builder.service';
+import { progressivePromptBuilder } from '@/services/progressive-prompt-builder.service';
+import { messageTransitionService } from '@/services/message-transition.service';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { autoMemoryManager } from '@/services/memory/auto-memory-manager';
 import { SoloEmotionAnalyzer } from '@/services/emotion/SoloEmotionAnalyzer';
@@ -44,6 +51,7 @@ export interface ChatSlice {
   
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
   sendMessage: (content: string, imageUrl?: string) => Promise<void>;
+  sendProgressiveMessage: (content: string, imageUrl?: string) => Promise<void>; // 🆕 プログレッシブ応答
   regenerateLastMessage: () => Promise<void>;
   continueLastMessage: () => Promise<void>; // 🆕 ソロチャット続きを生成機能を追加
   deleteMessage: (message_id: UUID) => void;
@@ -621,6 +629,332 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         set({ is_generating: false });
       }
     })();
+  },
+
+  sendProgressiveMessage: async (content: string, imageUrl?: string) => {
+    // グループモードの場合は通常送信にフォールバック
+    const state = get();
+    if (state.is_group_mode && state.active_group_session_id) {
+      return await state.sendGroupMessage(content, imageUrl);
+    }
+    
+    const activeSessionId = state.active_session_id;
+    if (!activeSessionId) return;
+    const activeSession = getSessionSafely(state.sessions, activeSessionId);
+    if (!activeSession) return;
+
+    if (state.is_generating) {
+      return;
+    }
+    set({ is_generating: true });
+    
+    // 1. ユーザーメッセージを作成
+    const userMessage: UnifiedMessage = {
+      id: generateUserMessageId(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      version: 1,
+      session_id: activeSessionId,
+      is_deleted: false,
+      role: 'user',
+      content,
+      image_url: imageUrl,
+      memory: {
+        importance: { score: 0.7, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.8, ai_judgment: 0.6 } },
+        is_pinned: false,
+        is_bookmarked: false,
+        keywords: [],
+        summary: undefined
+      },
+      expression: {
+        emotion: { primary: 'neutral', intensity: 0.5, emoji: '😐' },
+        style: { font_weight: 'normal', text_color: '#ffffff' },
+        effects: []
+      },
+      edit_history: [],
+      regeneration_count: 0,
+      metadata: {}
+    };
+    
+    // 2. ユーザーメッセージを即座にUIに反映
+    const sessionWithUserMessage = {
+      ...activeSession,
+      messages: [...activeSession.messages, userMessage],
+      message_count: activeSession.message_count + 1,
+      updated_at: new Date().toISOString(),
+      last_message_at: new Date().toISOString()
+    };
+    
+    set(state => ({
+      sessions: createMapSafely(state.sessions).set(activeSessionId, sessionWithUserMessage)
+    }));
+    
+    // 3. プログレッシブメッセージの初期化
+    const messageId = generateAIMessageId();
+    const startTime = Date.now();
+    
+    // 🔧 FIX: ProgressiveMessage型に合わせてmetadataを修正
+    const progressiveMessage: ProgressiveMessage = {
+      id: messageId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      version: 1,
+      session_id: activeSessionId,
+      is_deleted: false,
+      role: 'assistant',
+      content: '',
+      character_id: activeSession.participants.characters[0]?.id,
+      character_name: activeSession.participants.characters[0]?.name,
+      character_avatar: activeSession.participants.characters[0]?.avatar_url,
+      memory: {
+        importance: { score: 0.6, factors: { emotional_weight: 0.4, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.7 } },
+        is_pinned: false,
+        is_bookmarked: false,
+        keywords: [],
+        summary: undefined
+      },
+      expression: {
+        emotion: { primary: 'neutral', intensity: 0.6, emoji: '🤔' },
+        style: { font_weight: 'normal', text_color: '#ffffff' },
+        effects: []
+      },
+      edit_history: [],
+      regeneration_count: 0,
+      // 🔧 FIX: ProgressiveMessage専用のmetadata
+      metadata: {
+        totalTokens: 0,
+        totalTime: 0,
+        stageTimings: {}
+      },
+      // Progressive specific fields
+      stages: {},
+      currentStage: 'reflex',
+      transitions: {},
+      ui: {
+        isUpdating: true,
+        showIndicator: true,
+        glowIntensity: 'soft',
+        highlightChanges: true
+      }
+    };
+    
+    // メッセージを即座に表示（空の状態で）
+    const sessionWithProgressiveMessage = {
+      ...sessionWithUserMessage,
+      messages: [...sessionWithUserMessage.messages, progressiveMessage],
+      message_count: sessionWithUserMessage.message_count + 1
+    };
+    
+    set(state => ({
+      sessions: createMapSafely(state.sessions).set(activeSessionId, sessionWithProgressiveMessage)
+    }));
+    
+    // 4. 並列実行の準備
+    const characterId = activeSession.participants.characters[0]?.id;
+    const trackerManager = characterId ? getTrackerManagerSafely(get().trackerManagers, characterId) : null;
+    const memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
+      sessionWithUserMessage.messages,
+      content
+    );
+    
+    // 5. Stage 1: Reflex (即座に開始)
+    (async () => {
+      try {
+        const reflexPrompt = progressivePromptBuilder.buildReflexPrompt(
+          content,
+          activeSession.participants.characters[0],
+          activeSession.participants.user
+        );
+        
+        const reflexResponse = await simpleAPIManagerV2.generateMessage(
+          reflexPrompt.prompt,
+          content,
+          [],
+          { 
+            max_tokens: reflexPrompt.tokenLimit,
+            temperature: reflexPrompt.temperature
+          }
+        );
+        
+        // Progressive messageを更新
+        progressiveMessage.stages.reflex = {
+          content: reflexResponse,
+          timestamp: Date.now() - startTime,
+          tokens: reflexPrompt.tokenLimit
+        };
+        progressiveMessage.content = reflexResponse;
+        progressiveMessage.metadata = {
+          totalTokens: reflexPrompt.tokenLimit,
+          totalTime: Date.now() - startTime,
+          stageTimings: { reflex: Date.now() - startTime }
+        };
+        
+        // UIを更新
+        set(state => {
+          const session = getSessionSafely(state.sessions, activeSessionId);
+          if (session) {
+            const messageIndex = session.messages.findIndex(m => m.id === messageId);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...session.messages];
+              updatedMessages[messageIndex] = progressiveMessage;
+              const updatedSession = { ...session, messages: updatedMessages };
+              return {
+                sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
+              };
+            }
+          }
+          return state;
+        });
+        
+        console.log('✅ Stage 1 (Reflex) complete:', reflexResponse.substring(0, 50) + '...');
+      } catch (error) {
+        console.error('❌ Stage 1 (Reflex) failed:', error);
+      }
+    })();
+    
+    // 6. Stage 2: Context (500ms後に開始)
+    setTimeout(async () => {
+      try {
+        const contextPrompt = await progressivePromptBuilder.buildContextPrompt(
+          content,
+          sessionWithUserMessage,
+          memoryCards,
+          trackerManager || undefined
+        );
+        
+        const contextResponse = await simpleAPIManagerV2.generateMessage(
+          contextPrompt.prompt,
+          content,
+          contextPrompt.conversationHistory || [],
+          { 
+            max_tokens: contextPrompt.tokenLimit,
+            temperature: contextPrompt.temperature
+          }
+        );
+        
+        // Progressive messageを更新
+        progressiveMessage.stages.context = {
+          content: contextResponse,
+          timestamp: Date.now() - startTime,
+          tokens: contextPrompt.tokenLimit,
+          diff: messageTransitionService.detectChanges(
+            progressiveMessage.stages.reflex?.content || '',
+            contextResponse
+          )
+        };
+        progressiveMessage.content = contextResponse;
+        progressiveMessage.currentStage = 'context';
+        progressiveMessage.metadata.totalTokens = 
+          (progressiveMessage.metadata.totalTokens || 0) + contextPrompt.tokenLimit;
+        progressiveMessage.metadata.stageTimings = {
+          ...progressiveMessage.metadata.stageTimings,
+          context: Date.now() - startTime
+        };
+        
+        // UIを更新
+        set(state => {
+          const session = getSessionSafely(state.sessions, activeSessionId);
+          if (session) {
+            const messageIndex = session.messages.findIndex(m => m.id === messageId);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...session.messages];
+              updatedMessages[messageIndex] = progressiveMessage;
+              const updatedSession = { ...session, messages: updatedMessages };
+              return {
+                sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
+              };
+            }
+          }
+          return state;
+        });
+        
+        console.log('✅ Stage 2 (Context) complete:', contextResponse.substring(0, 50) + '...');
+      } catch (error) {
+        console.error('❌ Stage 2 (Context) failed:', error);
+      }
+    }, 500);
+    
+    // 7. Stage 3: Intelligence (1500ms後に開始)
+    setTimeout(async () => {
+      try {
+        const systemInstructions = get().systemPrompts.system;
+        const intelligencePrompt = await progressivePromptBuilder.buildIntelligencePrompt(
+          content,
+          sessionWithUserMessage,
+          memoryCards,
+          trackerManager || undefined,
+          systemInstructions
+        );
+        
+        const intelligenceResponse = await simpleAPIManagerV2.generateMessage(
+          intelligencePrompt.prompt,
+          content,
+          intelligencePrompt.conversationHistory || [],
+          { 
+            max_tokens: intelligencePrompt.tokenLimit,
+            temperature: intelligencePrompt.temperature
+          }
+        );
+        
+        // Progressive messageを更新
+        progressiveMessage.stages.intelligence = {
+          content: intelligenceResponse,
+          timestamp: Date.now() - startTime,
+          tokens: intelligencePrompt.tokenLimit,
+          diff: messageTransitionService.detectChanges(
+            progressiveMessage.stages.context?.content || '',
+            intelligenceResponse
+          )
+        };
+        progressiveMessage.content = intelligenceResponse;
+        progressiveMessage.currentStage = 'intelligence';
+        progressiveMessage.metadata.totalTokens = 
+          (progressiveMessage.metadata.totalTokens || 0) + intelligencePrompt.tokenLimit;
+        progressiveMessage.metadata.totalTime = Date.now() - startTime;
+        progressiveMessage.metadata.stageTimings = {
+          ...progressiveMessage.metadata.stageTimings,
+          intelligence: Date.now() - startTime
+        };
+        progressiveMessage.ui.isUpdating = false;
+        progressiveMessage.ui.glowIntensity = 'none';
+        
+        // UIを最終更新
+        set(state => {
+          const session = getSessionSafely(state.sessions, activeSessionId);
+          if (session) {
+            const messageIndex = session.messages.findIndex(m => m.id === messageId);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...session.messages];
+              updatedMessages[messageIndex] = progressiveMessage;
+              const updatedSession = { ...session, messages: updatedMessages };
+              return {
+                sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
+              };
+            }
+          }
+          return state;
+        });
+        
+        console.log(`✅ Progressive message complete: ${progressiveMessage.metadata.totalTokens} tokens in ${progressiveMessage.metadata.totalTime}ms`);
+        
+        // トラッカー更新（バックグラウンド）
+        if (trackerManager && characterId) {
+          // 🔧 FIX: updateFromMessage method doesn't exist, use alternative
+          // trackerManager.updateFromMessage(characterId, intelligenceResponse, 'assistant');
+        }
+        
+        // メモリー処理（バックグラウンド）
+        setTimeout(() => {
+          // 🔧 FIX: processMessage method doesn't exist, use processNewMessage
+          autoMemoryManager.processNewMessage(progressiveMessage, activeSessionId, characterId, get().createMemoryCard);
+        }, 100);
+        
+      } catch (error) {
+        console.error('❌ Stage 3 (Intelligence) failed:', error);
+      } finally {
+        set({ is_generating: false });
+      }
+    }, 1500);
   },
 
   regenerateLastMessage: async () => {

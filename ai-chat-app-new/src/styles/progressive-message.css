@@ -1,0 +1,375 @@
+/**
+ * Progressive Message Animations
+ * 3段階プログレッシブ応答システムのアニメーションスタイル
+ */
+
+/* プログレッシブメッセージバブル */
+.progressive-message-bubble {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.progressive-message-bubble.updating {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* ステージインジケーター */
+.stage-indicator {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stage-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stage-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.stage-dot.complete {
+  animation: complete-pulse 0.6s ease-out;
+}
+
+.stage-dot.active {
+  animation: active-pulse 1.5s ease-in-out infinite;
+}
+
+.stage-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.stage-tokens {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* メッセージコンテンツ */
+.message-content {
+  position: relative;
+  overflow: hidden;
+}
+
+.message-content.highlight-changes .content-updated {
+  animation: highlight-new 1s ease-out;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(100, 200, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1s ease-out;
+}
+
+/* グロー効果 */
+.glow-soft {
+  animation: glow-soft 1s ease-out;
+}
+
+.glow-medium {
+  animation: glow-medium 1s ease-out;
+}
+
+.glow-strong {
+  animation: glow-strong 1s ease-out;
+}
+
+@keyframes glow-soft {
+  0% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(100, 200, 255, 0.3),
+                0 0 30px rgba(100, 200, 255, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+}
+
+@keyframes glow-medium {
+  0% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(100, 200, 255, 0.5),
+                0 0 40px rgba(100, 200, 255, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+}
+
+@keyframes glow-strong {
+  0% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(100, 200, 255, 0.7),
+                0 0 50px rgba(100, 200, 255, 0.3),
+                0 0 75px rgba(100, 200, 255, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(100, 200, 255, 0);
+  }
+}
+
+/* シマー効果 */
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+/* ハイライト効果 */
+@keyframes highlight-new {
+  0% {
+    background-color: rgba(100, 200, 255, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* パルスアニメーション */
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.002);
+  }
+}
+
+@keyframes complete-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes active-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* ローディングドット */
+.loading-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.loading-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(100, 200, 255, 0.6);
+}
+
+/* 更新中インジケーター */
+.updating-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(100, 200, 255, 0.2);
+}
+
+/* 波紋エフェクト */
+.ripple-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+@keyframes ripple-expand {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* テキストモーフィング */
+.morphing-text {
+  position: relative;
+  overflow: hidden;
+}
+
+.morphing-text .old-text {
+  animation: fade-out-slide 0.5s ease-out forwards;
+}
+
+.morphing-text .new-text {
+  animation: fade-in-slide 0.5s ease-out forwards;
+}
+
+@keyframes fade-out-slide {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-in-slide {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 差分表示 */
+.diff-display {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.diff-display .additions {
+  color: #4ade80;
+}
+
+.diff-display .deletions {
+  color: #f87171;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* メタデータ表示 */
+.metadata {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+/* プログレスライン */
+.progress-line {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    #4ade80 0%,
+    #60a5fa 33%,
+    #a78bfa 66%,
+    #f472b6 100%
+  );
+  background-size: 300% 100%;
+  animation: progress-flow 3s linear;
+  border-radius: 1px;
+  margin: 0.5rem 0;
+}
+
+@keyframes progress-flow {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 640px) {
+  .stage-indicator {
+    gap: 0.5rem;
+  }
+  
+  .stage-label {
+    display: none;
+  }
+  
+  .stage-tokens {
+    font-size: 0.5rem;
+  }
+  
+  .updating-indicator {
+    font-size: 0.75rem;
+  }
+}
+
+/* ダークモード最適化 */
+@media (prefers-color-scheme: dark) {
+  .progressive-message-bubble {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .progressive-message-bubble.updating {
+    border-color: rgba(100, 200, 255, 0.3);
+  }
+}
+
+/* アクセシビリティ: モーション削減 */
+@media (prefers-reduced-motion: reduce) {
+  .progressive-message-bubble.updating,
+  .stage-dot,
+  .loading-dots .dot,
+  .glow-soft,
+  .glow-medium,
+  .glow-strong {
+    animation: none !important;
+  }
+  
+  .message-content,
+  .stage-dot,
+  .updating-indicator {
+    transition: none !important;
+  }
+}

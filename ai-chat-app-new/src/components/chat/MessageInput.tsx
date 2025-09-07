@@ -47,6 +47,7 @@ export const MessageInput: React.FC = React.memo(() => {
     groupSessions,
     systemPrompts,
     sendMessage,
+    sendProgressiveMessage,
     setCurrentInputText,
     setShowCharacterGallery,
     setShowPersonaGallery,
@@ -59,7 +60,8 @@ export const MessageInput: React.FC = React.memo(() => {
     setShowEnhancementModal,
     enhanceTextForModal,
     getActiveSession,
-    toggleGroupMemberModal
+    toggleGroupMemberModal,
+    chat
   } = useAppStore();
   
   const hasMessage = currentInputText.trim().length > 0;
@@ -143,7 +145,12 @@ export const MessageInput: React.FC = React.memo(() => {
     
     setIsSending(true);
     try {
-      await sendMessage(currentInputText, selectedImage || undefined);
+      // プログレッシブモードが有効な場合は sendProgressiveMessage を使用
+      if (chat.progressiveMode?.enabled && !is_group_mode) {
+        await sendProgressiveMessage(currentInputText, selectedImage || undefined);
+      } else {
+        await sendMessage(currentInputText, selectedImage || undefined);
+      }
       setCurrentInputText('');
       setSelectedImage(null);
     } catch (error) {

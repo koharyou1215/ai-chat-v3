@@ -292,24 +292,39 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
-   * モデル名を検証・正規化する
+   * モデル名を検証・正規化する（強化版）
    */
   private validateAndCleanModel(model: string): string {
     console.log(`🧹 Model validation - Input: ${model}`);
     
-    // Step 1: Remove invalid prefixes and suffixes
+    // Step 1: Remove invalid prefixes and suffixes (強化版)
     let cleanModel = model
-      .replace(/^google\//, '') // Remove google/ prefix
-      .replace(/-8b$/, '')      // Remove invalid -8b suffix
-      .replace(/-light$/, '-flash-light'); // Fix light variant naming
+      .replace(/^google\//, '')     // Remove google/ prefix
+      .replace(/-8b$/, '')         // Remove invalid -8b suffix
+      .replace(/-4b$/, '')         // Remove invalid -4b suffix
+      .replace(/-light$/, '-flash-light') // Fix light variant naming
+      .replace(/\s+/g, '')         // Remove all whitespace
+      .toLowerCase();              // Normalize to lowercase
     
     console.log(`🧹 After cleaning: ${cleanModel}`);
     
-    // Step 2: Map old model names to new ones (1.5 -> 2.5)
+    // Step 2: Handle completely invalid model names (including flash-8b in original)
+    if (cleanModel.includes('flash-8b') || cleanModel.includes('flash8b') || 
+        model.toLowerCase().includes('flash-8b')) {
+      console.warn(`⚠️ Detected invalid model with -8b suffix: ${model} -> gemini-2.5-flash`);
+      cleanModel = 'gemini-2.5-flash';
+    }
+    
+    // Step 3: Map old model names to new ones (1.5 -> 2.5)
     const modelMapping: { [key: string]: string } = {
       'gemini-1.5-flash': 'gemini-2.5-flash',
       'gemini-1.5-flash-light': 'gemini-2.5-flash-light', 
-      'gemini-1.5-pro': 'gemini-2.5-pro'
+      'gemini-1.5-pro': 'gemini-2.5-pro',
+      // Handle variants
+      'gemini-1.5-flash-8b': 'gemini-2.5-flash',
+      'gemini-1.5-flash-4b': 'gemini-2.5-flash',
+      'geminiflash': 'gemini-2.5-flash',
+      'geminipro': 'gemini-2.5-pro'
     };
     
     if (modelMapping[cleanModel]) {
@@ -317,7 +332,7 @@ export class SimpleAPIManagerV2 {
       cleanModel = modelMapping[cleanModel];
     }
     
-    // Step 3: Validate against allowed models
+    // Step 4: Validate against allowed models
     const allowedGeminiModels = [
       'gemini-2.5-flash',
       'gemini-2.5-flash-light',
@@ -325,8 +340,15 @@ export class SimpleAPIManagerV2 {
     ];
     
     // If it's supposed to be a Gemini model but invalid, default to flash
-    if (model.includes('gemini') && !allowedGeminiModels.includes(cleanModel)) {
+    if ((model.toLowerCase().includes('gemini') || cleanModel.includes('gemini')) 
+        && !allowedGeminiModels.includes(cleanModel)) {
       console.warn(`❌ Invalid Gemini model: ${model} -> defaulting to gemini-2.5-flash`);
+      cleanModel = 'gemini-2.5-flash';
+    }
+    
+    // Step 5: Final validation - if still not valid, use default
+    if (!allowedGeminiModels.includes(cleanModel) && cleanModel.includes('gemini')) {
+      console.error(`🚨 Critical: Could not validate Gemini model: ${model} -> forcing gemini-2.5-flash`);
       cleanModel = 'gemini-2.5-flash';
     }
     
@@ -366,7 +388,7 @@ export class SimpleAPIManagerV2 {
     console.log("🔥 Using Gemini API directly");
 
     const model = options?.model || "gemini-2.5-flash";
-    const cleanModel = model.replace("google/", ""); // google/プレフィックス削除
+    const cleanModel = this.validateAndCleanModel(model);
 
     geminiClient.setApiKey(this.geminiApiKey);
     geminiClient.setModel(cleanModel);
@@ -460,14 +482,21 @@ export class SimpleAPIManagerV2 {
 
     // 🛡️ Safe JSON parsing
     let data;
+    let responseText: string;
     try {
-      const responseText = await response.text();
+      responseText = await response.text();
       console.log('🔍 OpenRouter Response (first 200 chars):', responseText.substring(0, 200));
       data = JSON.parse(responseText);
     } catch (jsonError) {
       console.error('❌ JSON Parse Error:', jsonError);
-      console.error('❌ Invalid JSON Response:', await response.text());
-      throw new Error('OpenRouterからの応答を解析できませんでした。APIの応答形式に問題があります。');
+      console.error('❌ Invalid JSON Response:', responseText);
+      
+      // エラーレスポンスがHTML形式の場合の処理
+      if (responseText && responseText.includes('<html')) {
+        throw new Error('OpenRouterサービスが一時的に利用できません。しばらく待ってから再試行してください。');
+      }
+      
+      throw new Error(`OpenRouterからの応答を解析できませんでした: ${String(jsonError).substring(0, 100)}`);
     }
     
     // デバッグ情報を追加
