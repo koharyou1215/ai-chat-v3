@@ -220,7 +220,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto space-y-4 p-4">
+      <div className="flex-1 overflow-y-auto space-y-4 p-2 md:p-4">
         {categories.map((category) => (
           <div key={category.name} className="space-y-2">
             {/* Category Header */}
@@ -229,7 +229,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                "w-full flex items-center justify-between p-3 rounded-xl transition-all duration-300",
+                "w-full flex items-center justify-between p-2 md:p-3 rounded-xl transition-all duration-300",
                 "bg-gradient-to-r border border-white/20 backdrop-blur-sm",
                 categoryGradients[category.name as keyof typeof categoryGradients] || categoryGradients.other,
                 "hover:shadow-lg hover:shadow-white/10 hover:border-white/30",
@@ -319,7 +319,7 @@ const TrackerItem: React.FC<{
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "p-3 bg-black/20 backdrop-blur-sm rounded-lg group border border-white/20",
+        "p-2 md:p-3 bg-black/20 backdrop-blur-sm rounded-lg group border border-white/20",
         "hover:shadow-lg hover:shadow-white/10 hover:border-white/30 transition-all duration-300",
         hasRecentChange && "ring-2 ring-blue-400 ring-opacity-50"
       )}

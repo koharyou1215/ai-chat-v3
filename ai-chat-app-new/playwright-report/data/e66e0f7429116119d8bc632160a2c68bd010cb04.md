@@ -1,0 +1,54 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - img "background" [ref=e5]
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - button "Open sidebar" [ref=e10] [cursor=pointer]:
+            - img [ref=e11] [cursor=pointer]
+          - generic [ref=e13]:
+            - generic [ref=e14] [cursor=pointer]:
+              - img "マリア" [ref=e15] [cursor=pointer]
+              - generic [ref=e16] [cursor=pointer]:
+                - heading "マリア" [level=1] [ref=e17] [cursor=pointer]
+                - paragraph [ref=e18] [cursor=pointer]: 1件のメッセージ
+            - generic [ref=e20] [cursor=pointer]:
+              - img [ref=e22] [cursor=pointer]
+              - generic [ref=e26] [cursor=pointer]:
+                - heading "あなた" [level=2] [ref=e27] [cursor=pointer]
+                - paragraph [ref=e28] [cursor=pointer]: Persona
+        - generic [ref=e29]:
+          - button "クイック設定" [ref=e30] [cursor=pointer]:
+            - img [ref=e31] [cursor=pointer]
+          - button "音声通話" [ref=e32] [cursor=pointer]:
+            - img [ref=e33] [cursor=pointer]
+          - button "Gemini 2.5 Flash" [ref=e36] [cursor=pointer]:
+            - img [ref=e37] [cursor=pointer]
+            - generic [ref=e40] [cursor=pointer]: Gemini 2.5 Flash
+            - img [ref=e41] [cursor=pointer]
+          - button "記憶情報を表示" [ref=e43] [cursor=pointer]:
+            - img [ref=e44] [cursor=pointer]
+      - generic [ref=e60]: （ステップ１は何でしたっけ？ああ、今ステップ２をやっています。ステップ３は、ソファで寝たふりをすることです...これは簡単です。ここ数日寝たふりを練習してきたので、正直言ってかなり上手になったと思います。よし、最後のセリフの時間です。これはもう何度も練習したので、さあ、始めましょう。）「やあ～。ああ あなた、すごく疲れてる…地震でも起きないと思う。今すぐ寝るから、朝になったら映画の結末を教えてね～。」（よし、なかなかよかった。私が伝えようとしているメッセージが伝わればいいな。あとは正しい姿勢をとればいい…スカートを少しだけ持ち上げて…おっぱいがちょうどいい具合にシャツからこぼれるようにして…そして…目を閉じる。完了！あとはここで横になって待つだけ…彼は私がもうすぐ寝たと思うはずだ。お願い…私の罠に、かかって…）
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - button [ref=e65] [cursor=pointer]:
+              - img [ref=e67] [cursor=pointer]
+            - generic [ref=e69]: 音声通話を開始
+          - generic [ref=e70]:
+            - button [ref=e71] [cursor=pointer]:
+              - img [ref=e73] [cursor=pointer]
+            - generic [ref=e78]: グループチャットに切り替え
+        - textbox "メッセージを入力..." [ref=e79]: アニメーションテスト
+        - generic [ref=e80]:
+          - generic [ref=e82]:
+            - button [ref=e83] [cursor=pointer]:
+              - img [ref=e85] [cursor=pointer]
+            - generic [ref=e87]: 文章強化
+          - button [ref=e89] [cursor=pointer]:
+            - img [ref=e90] [cursor=pointer]
+```

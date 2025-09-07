@@ -40,7 +40,11 @@ export type AppStore = ChatSlice &
     [key: string]: unknown; // Add index signature for generic operations
   };
 
-const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (set, get, api) => {
+const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (
+  set,
+  get,
+  api
+) => {
   // 安全なget関数を作成
   const safeGet = () => {
     try {
@@ -456,17 +460,17 @@ let useAppStore: ReturnType<typeof createStore>;
 // 最も安全な方法：永続化なしのストアを直接作成
 try {
   useAppStore = create<AppStore>()(combinedSlices);
-  
+
   // ストアが正しく動作するかテスト
   if (typeof useAppStore.getState !== "function") {
     throw new Error("Store getState method is not available");
   }
-  
+
   const testState = useAppStore.getState();
   if (!testState || typeof testState !== "object") {
     throw new Error("Store state is invalid");
   }
-  
+
   console.log("✅ Basic store initialized successfully");
 } catch (error) {
   console.error("❌ Failed to create basic store:", error);

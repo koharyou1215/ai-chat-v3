@@ -44,13 +44,23 @@ export class VectorStore {
       });
       
       if (!response.ok) {
-        throw new Error(`Embedding API failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        
+        // OpenAI API key未設定の場合は警告のみでフォールバック
+        if (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY')) {
+          console.warn('⚠️ OpenAI API key not configured, using fallback embedding');
+        } else {
+          console.error('🚨 Embedding API failed:', response.status, errorData);
+        }
+        
+        // エラーを投げずにフォールバックを使用
+        return this.createFallbackEmbedding(text);
       }
       
       const data = await response.json();
       return data.embedding;
     } catch (error) {
-      console.error('Embedding error:', error);
+      console.warn('⚠️ Embedding API unavailable, using fallback:', error instanceof Error ? error.message : 'Unknown error');
       // フォールバック: より品質の高いハッシュベースのベクトル
       return this.createFallbackEmbedding(text);
     }
@@ -162,18 +172,33 @@ export class VectorStore {
       
       // 並列でバッチ処理
       const batchPromises = batches.map(async (batch) => {
-        const response = await fetch('/api/embeddings/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ texts: batch })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Batch embedding API failed: ${response.status}`);
+        try {
+          const response = await fetch('/api/embeddings/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texts: batch })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            
+            // OpenAI API key未設定の場合は警告のみでフォールバック
+            if (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY')) {
+              console.warn('⚠️ OpenAI API key not configured for batch embedding, using fallback');
+            } else {
+              console.error('🚨 Batch embedding API failed:', response.status, errorData);
+            }
+            
+            // エラーを投げずにフォールバックを使用
+            return batch.map(text => this.createFallbackEmbedding(text));
+          }
+          
+          const data = await response.json();
+          return data.embeddings;
+        } catch (error) {
+          console.warn('⚠️ Batch embedding API unavailable, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+          return batch.map(text => this.createFallbackEmbedding(text));
         }
-        
-        const data = await response.json();
-        return data.embeddings;
       });
       
       const batchResults = await Promise.all(batchPromises);
@@ -196,29 +221,34 @@ export class VectorStore {
     k: number = 5,
     threshold: number = 0.7
   ): Promise<SearchResult[]> {
-    const queryEmbedding = await this.embed(query);
-    
-    // コサイン類似度計算
-    const results: SearchResult[] = [];
-    
-    for (const [id, messageEmbedding] of this.embeddings) {
-      const similarity = this.cosineSimilarity(queryEmbedding, messageEmbedding);
+    try {
+      const queryEmbedding = await this.embed(query);
       
-      if (similarity >= threshold) {
-        const message = this.messages.get(id)!;
-        results.push({
-          message,
-          similarity,
-          relevance: similarity > 0.9 ? 0.9 : 
-                    similarity > 0.8 ? 0.8 : 0.7
-        });
+      // コサイン類似度計算
+      const results: SearchResult[] = [];
+      
+      for (const [id, messageEmbedding] of this.embeddings) {
+        const similarity = this.cosineSimilarity(queryEmbedding, messageEmbedding);
+        
+        if (similarity >= threshold) {
+          const message = this.messages.get(id)!;
+          results.push({
+            message,
+            similarity,
+            relevance: similarity > 0.9 ? 0.9 : 
+                      similarity > 0.8 ? 0.8 : 0.7
+          });
+        }
       }
-    }
 
-    // スコアでソートしてトップk件を返す
-    return results
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, k);
+      // スコアでソートしてトップk件を返す
+      return results
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, k);
+    } catch (error) {
+      console.warn('⚠️ Vector search failed, returning empty results:', error instanceof Error ? error.message : 'Unknown error');
+      return [];
+    }
   }
 
   /**

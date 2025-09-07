@@ -223,6 +223,20 @@ export class AutoMemoryManager {
       // this.IMPORTANCE_THRESHOLD = threshold; // readonly なので実際は設定ファイルで管理
     }
   }
+
+  /**
+   * コンテキスト用の関連メモリを取得（プログレッシブモード用）
+   */
+  async getRelevantMemoriesForContext(
+    messages: UnifiedMessage[],
+    currentInput: string
+  ): Promise<MemoryCard[]> {
+    // プログレッシブモードでは簡素化 - 空の配列を返す
+    // 本格的な実装では、メッセージ内容とcurrentInputに基づいて
+    // 関連するメモリカードを検索・返却する
+    console.log('🧠 [AutoMemory] getRelevantMemoriesForContext called (simplified for progressive mode)');
+    return [];
+  }
 }
 
 export const autoMemoryManager = new AutoMemoryManager();

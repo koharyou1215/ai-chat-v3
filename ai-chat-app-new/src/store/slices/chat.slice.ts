@@ -48,6 +48,12 @@ export interface ChatSlice {
   is_generating: boolean;
   showSettingsModal: boolean;
   currentInputText: string;
+  lastError?: {
+    type: 'regeneration' | 'continue' | 'send' | 'memory' | 'general';
+    message: string;
+    timestamp: string;
+    details?: string;
+  };
   
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
   sendMessage: (content: string, imageUrl?: string) => Promise<void>;
@@ -722,6 +728,23 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       regeneration_count: 0,
       // 🔧 FIX: ProgressiveMessage専用のmetadata
       metadata: {
+        progressive: true,  // MessageBubbleが検出するためのフラグ
+        progressiveData: {  // ProgressiveMessageBubbleが必要とするデータ
+          stages: {},
+          currentStage: 'reflex',
+          transitions: {},
+          ui: {
+            isUpdating: true,
+            showIndicator: true,
+            glowIntensity: 'soft',
+            highlightChanges: true
+          },
+          metadata: {
+            totalTokens: 0,
+            totalTime: 0,
+            stageTimings: {}
+          }
+        },
         totalTokens: 0,
         totalTime: 0,
         stageTimings: {}
@@ -752,12 +775,22 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
     // 4. 並列実行の準備
     const characterId = activeSession.participants.characters[0]?.id;
     const trackerManager = characterId ? getTrackerManagerSafely(get().trackerManagers, characterId) : null;
-    const memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
-      sessionWithUserMessage.messages,
-      content
-    );
+    
+    console.log('🧠 Starting memory retrieval...');
+    let memoryCards = [];
+    try {
+      memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
+        sessionWithUserMessage.messages,
+        content
+      );
+      console.log(`✅ Memory retrieval complete: ${memoryCards.length} cards found`);
+    } catch (error) {
+      console.error('❌ Memory retrieval failed:', error);
+      memoryCards = []; // フォールバック
+    }
     
     // 5. Stage 1: Reflex (即座に開始)
+    console.log('🚀 Starting Progressive Message Generation - Stage 1: Reflex');
     (async () => {
       try {
         const reflexPrompt = progressivePromptBuilder.buildReflexPrompt(
@@ -766,6 +799,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           activeSession.participants.user
         );
         
+        console.log('📝 Stage 1 Prompt built, calling API...');
         const reflexResponse = await simpleAPIManagerV2.generateMessage(
           reflexPrompt.prompt,
           content,
@@ -776,6 +810,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           }
         );
         
+        console.log('✨ Stage 1 Response received:', reflexResponse.substring(0, 50) + '...');
+        
         // Progressive messageを更新
         progressiveMessage.stages.reflex = {
           content: reflexResponse,
@@ -783,7 +819,20 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           tokens: reflexPrompt.tokenLimit
         };
         progressiveMessage.content = reflexResponse;
+        
+        // metadata.progressiveDataも更新（MessageBubbleが使用）
         progressiveMessage.metadata = {
+          ...progressiveMessage.metadata,
+          progressiveData: {
+            ...progressiveMessage.metadata.progressiveData,
+            stages: progressiveMessage.stages,
+            currentStage: 'reflex',
+            metadata: {
+              totalTokens: reflexPrompt.tokenLimit,
+              totalTime: Date.now() - startTime,
+              stageTimings: { reflex: Date.now() - startTime }
+            }
+          },
           totalTokens: reflexPrompt.tokenLimit,
           totalTime: Date.now() - startTime,
           stageTimings: { reflex: Date.now() - startTime }
@@ -812,8 +861,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       }
     })();
     
-    // 6. Stage 2: Context (500ms後に開始)
+    // 6. Stage 2: Context (設定に基づく遅延後に開始)
+    const chatSettings = get().chat;
+    const stage2Delay = chatSettings?.progressiveMode?.stageDelays?.context || 1000;
+    console.log(`⏱️ Stage 2 will start after ${stage2Delay}ms delay`);
     setTimeout(async () => {
+      console.log('🚀 Starting Progressive Message Generation - Stage 2: Context');
       try {
         const contextPrompt = await progressivePromptBuilder.buildContextPrompt(
           content,
@@ -821,6 +874,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           memoryCards,
           trackerManager || undefined
         );
+        
+        console.log('📝 Stage 2 Prompt built, calling API...');
         
         const contextResponse = await simpleAPIManagerV2.generateMessage(
           contextPrompt.prompt,
@@ -831,6 +886,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             temperature: contextPrompt.temperature
           }
         );
+        
+        console.log('✨ Stage 2 Response received:', contextResponse.substring(0, 50) + '...');
         
         // Progressive messageを更新
         progressiveMessage.stages.context = {
@@ -844,11 +901,28 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         };
         progressiveMessage.content = contextResponse;
         progressiveMessage.currentStage = 'context';
-        progressiveMessage.metadata.totalTokens = 
-          (progressiveMessage.metadata.totalTokens || 0) + contextPrompt.tokenLimit;
-        progressiveMessage.metadata.stageTimings = {
-          ...progressiveMessage.metadata.stageTimings,
-          context: Date.now() - startTime
+        
+        // metadata.progressiveDataも更新（MessageBubbleが使用）
+        progressiveMessage.metadata = {
+          ...progressiveMessage.metadata,
+          progressiveData: {
+            ...progressiveMessage.metadata.progressiveData,
+            stages: progressiveMessage.stages,
+            currentStage: 'context',
+            metadata: {
+              totalTokens: (progressiveMessage.metadata.totalTokens || 0) + contextPrompt.tokenLimit,
+              totalTime: Date.now() - startTime,
+              stageTimings: {
+                ...progressiveMessage.metadata.stageTimings,
+                context: Date.now() - startTime
+              }
+            }
+          },
+          totalTokens: (progressiveMessage.metadata.totalTokens || 0) + contextPrompt.tokenLimit,
+          stageTimings: {
+            ...progressiveMessage.metadata.stageTimings,
+            context: Date.now() - startTime
+          }
         };
         
         // UIを更新
@@ -871,11 +945,15 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         console.log('✅ Stage 2 (Context) complete:', contextResponse.substring(0, 50) + '...');
       } catch (error) {
         console.error('❌ Stage 2 (Context) failed:', error);
+        // Stage 2が失敗してもStage 3は実行する
       }
-    }, 500);
+    }, stage2Delay);
     
-    // 7. Stage 3: Intelligence (1500ms後に開始)
+    // 7. Stage 3: Intelligence (設定に基づく遅延後に開始)
+    const stage3Delay = chatSettings?.progressiveMode?.stageDelays?.intelligence || 2000;
+    console.log(`⏱️ Stage 3 will start after ${stage3Delay}ms delay`);
     setTimeout(async () => {
+      console.log('🚀 Starting Progressive Message Generation - Stage 3: Intelligence');
       try {
         const systemInstructions = get().systemPrompts.system;
         const intelligencePrompt = await progressivePromptBuilder.buildIntelligencePrompt(
@@ -886,6 +964,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           systemInstructions
         );
         
+        console.log('📝 Stage 3 Prompt built, calling API...');
+        
         const intelligenceResponse = await simpleAPIManagerV2.generateMessage(
           intelligencePrompt.prompt,
           content,
@@ -895,6 +975,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
             temperature: intelligencePrompt.temperature
           }
         );
+        
+        console.log('✨ Stage 3 Response received:', intelligenceResponse.substring(0, 50) + '...');
         
         // Progressive messageを更新
         progressiveMessage.stages.intelligence = {
@@ -908,15 +990,33 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         };
         progressiveMessage.content = intelligenceResponse;
         progressiveMessage.currentStage = 'intelligence';
-        progressiveMessage.metadata.totalTokens = 
-          (progressiveMessage.metadata.totalTokens || 0) + intelligencePrompt.tokenLimit;
-        progressiveMessage.metadata.totalTime = Date.now() - startTime;
-        progressiveMessage.metadata.stageTimings = {
-          ...progressiveMessage.metadata.stageTimings,
-          intelligence: Date.now() - startTime
-        };
         progressiveMessage.ui.isUpdating = false;
         progressiveMessage.ui.glowIntensity = 'none';
+        
+        // metadata.progressiveDataも更新（MessageBubbleが使用）
+        progressiveMessage.metadata = {
+          ...progressiveMessage.metadata,
+          progressiveData: {
+            ...progressiveMessage.metadata.progressiveData,
+            stages: progressiveMessage.stages,
+            currentStage: 'intelligence',
+            ui: progressiveMessage.ui,
+            metadata: {
+              totalTokens: (progressiveMessage.metadata.totalTokens || 0) + intelligencePrompt.tokenLimit,
+              totalTime: Date.now() - startTime,
+              stageTimings: {
+                ...progressiveMessage.metadata.stageTimings,
+                intelligence: Date.now() - startTime
+              }
+            }
+          },
+          totalTokens: (progressiveMessage.metadata.totalTokens || 0) + intelligencePrompt.tokenLimit,
+          totalTime: Date.now() - startTime,
+          stageTimings: {
+            ...progressiveMessage.metadata.stageTimings,
+            intelligence: Date.now() - startTime
+          }
+        };
         
         // UIを最終更新
         set(state => {
@@ -951,10 +1051,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         
       } catch (error) {
         console.error('❌ Stage 3 (Intelligence) failed:', error);
+        console.error('Stage 3 Error Details:', error);
       } finally {
+        console.log('🏁 Progressive Generation Complete - Setting is_generating to false');
         set({ is_generating: false });
       }
-    }, 1500);
+    }, stage3Delay);
   },
 
   regenerateLastMessage: async () => {
@@ -1069,7 +1171,37 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         };
       });
     } catch (error) {
-        console.error("Regeneration failed:", error);
+        console.error("🚨 Regeneration failed:", error);
+        
+        // 詳細なエラーハンドリングとユーザーフィードバック
+        let errorMessage = 'メッセージの再生成に失敗しました。';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('API request failed')) {
+            errorMessage = 'API接続エラー: サーバーとの通信に失敗しました。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('memory')) {
+            errorMessage = 'メモリ処理エラー: 一時的な問題が発生しました。ページをリロードして再試行してください。';
+          } else if (error.message.includes('timeout')) {
+            errorMessage = 'タイムアウト: 処理時間が長すぎます。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('rate limit')) {
+            errorMessage = 'レート制限: APIの使用制限に達しました。しばらく待ってから再試行してください。';
+          }
+        }
+        
+        // エラー状態をストアに保存（UI表示用）
+        set({ 
+          lastError: {
+            type: 'regeneration',
+            message: errorMessage,
+            timestamp: new Date().toISOString(),
+            details: error instanceof Error ? error.message : String(error)
+          }
+        });
+        
+        // エラートースト表示（実装されている場合）
+        if (typeof window !== 'undefined' && (window as any).showToast) {
+          (window as any).showToast(errorMessage, 'error');
+        }
     } finally {
         set({ is_generating: false });
     }
@@ -1185,7 +1317,39 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
       });
 
     } catch (error) {
-        console.error("Continue failed:", error);
+        console.error("🚨 Continue generation failed:", error);
+        
+        // 詳細なエラーハンドリングとユーザーフィードバック
+        let errorMessage = 'メッセージの続き生成に失敗しました。';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('API request failed') || error.message.includes('generateMessage')) {
+            errorMessage = 'API接続エラー: サーバーとの通信に失敗しました。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('memory') || error.message.includes('embedding')) {
+            errorMessage = 'メモリ処理エラー: 一時的な問題が発生しました。ページをリロードして再試行してください。';
+          } else if (error.message.includes('timeout')) {
+            errorMessage = 'タイムアウト: 処理時間が長すぎます。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
+            errorMessage = 'レート制限: APIの使用制限に達しました。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('invalid model') || error.message.includes('model')) {
+            errorMessage = 'モデル設定エラー: AI設定を確認してください。';
+          }
+        }
+        
+        // エラー状態をストアに保存（UI表示用）
+        set({ 
+          lastError: {
+            type: 'continue',
+            message: errorMessage,
+            timestamp: new Date().toISOString(),
+            details: error instanceof Error ? error.message : String(error)
+          }
+        });
+        
+        // エラートースト表示（実装されている場合）
+        if (typeof window !== 'undefined' && (window as any).showToast) {
+          (window as any).showToast(errorMessage, 'error');
+        }
     } finally {
         set({ is_generating: false });
     }

@@ -322,7 +322,7 @@ export const createSettingsSlice: StateCreator<
       max_context_messages: 20,     // 会話履歴: 最大20メッセージ
     },
     progressiveMode: {
-      enabled: false,                // プログレッシブモードはデフォルト無効（コスト3倍のため）
+      enabled: true,                 // テスト用に一時的に有効化
       showIndicators: true,          // ステージインジケーター表示
       highlightChanges: true,        // 変更箇所ハイライト
       glowIntensity: 'medium' as 'none' | 'soft' | 'medium' | 'strong', // グロー効果強度

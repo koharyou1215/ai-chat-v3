@@ -3,13 +3,15 @@
  * 3段階プログレッシブ応答の表示コンポーネント
  */
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProgressiveMessage } from "@/types/progressive-message.types";
 import { messageTransitionService } from "@/services/message-transition.service";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
+import { RotateCcw, Play, Copy, MoreHorizontal } from "lucide-react";
+import { useAppStore } from "@/store";
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
@@ -22,7 +24,17 @@ export const ProgressiveMessageBubble: React.FC<
   const [displayContent, setDisplayContent] = useState("");
   const [previousContent, setPreviousContent] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
-  const [showDiff, setShowDiff] = useState(false);
+  const [showDiff, setShowDiff] = useState(false); // デフォルトでHide Diff
+  const [showFullActions, setShowFullActions] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Store functions
+  const { 
+    is_generating,
+    regenerateLastMessage,
+    continueLastMessage,
+  } = useAppStore();
 
   // コンテンツ更新の監視と表示
   useEffect(() => {
@@ -74,7 +86,7 @@ export const ProgressiveMessageBubble: React.FC<
     message.ui.glowIntensity,
   ]);
 
-  // ステージインジケーターの色を取得
+  // ステージインジケーターの色を取得（赤→緑→白の順序）
   const getStageColor = (
     stage: "reflex" | "context" | "intelligence",
     isComplete: boolean
@@ -83,11 +95,11 @@ export const ProgressiveMessageBubble: React.FC<
 
     switch (stage) {
       case "reflex":
-        return "bg-green-500";
+        return "bg-red-500";      // 反射 = 赤（第一段階）
       case "context":
-        return "bg-blue-500";
+        return "bg-green-500";    // 文脈 = 緑（第二段階）
       case "intelligence":
-        return "bg-purple-500";
+        return "bg-white border border-gray-300"; // 洞察 = 白（最終段階）
       default:
         return "bg-gray-600";
     }
@@ -107,6 +119,58 @@ export const ProgressiveMessageBubble: React.FC<
     }
   };
 
+  // メニューアクション
+  const handleRegenerate = useCallback(async () => {
+    if (!isLatest || is_generating) return;
+    try {
+      await regenerateLastMessage();
+    } catch (error) {
+      console.error("再生成に失敗しました:", error);
+    }
+  }, [isLatest, is_generating, regenerateLastMessage]);
+
+  const handleContinue = useCallback(async () => {
+    if (!isLatest || is_generating) return;
+    try {
+      await continueLastMessage();
+    } catch (error) {
+      console.error("続きの生成に失敗しました:", error);
+    }
+  }, [isLatest, is_generating, continueLastMessage]);
+
+  const handleCopy = useCallback(() => {
+    const textToCopy = selectedText || displayContent;
+    navigator.clipboard.writeText(textToCopy);
+    setSelectedText("");
+    setShowFullActions(false);
+  }, [selectedText, displayContent]);
+
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim() || "";
+    setSelectedText(selectedText);
+    setShowFullActions(selectedText.length > 0);
+  }, []);
+
+  // メニューの外側クリックでの閉じる処理
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowFullActions(false);
+        setSelectedText("");
+      }
+    };
+
+    if (showFullActions) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showFullActions]);
+
+  const canRegenerate = isLatest && !is_generating;
+  const canContinue = isLatest && !is_generating;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -115,34 +179,46 @@ export const ProgressiveMessageBubble: React.FC<
       className={`progressive-message-bubble relative ${
         message.ui.isUpdating ? "updating" : ""
       }`}>
-      {/* ステージインジケーター */}
+      {/* ステージインジケーター - 改善されたレイアウト */}
       {message.ui.showIndicator && (
-        <div className="stage-indicator flex gap-3 mb-3">
-          {(["reflex", "context", "intelligence"] as const).map((stage) => (
-            <div key={stage} className="stage-item flex items-center gap-1">
+        <div className="stage-indicator flex flex-wrap gap-4 mb-4 p-2 bg-gray-800/30 rounded-lg backdrop-blur-sm" data-testid="stage-indicators">
+          {(["reflex", "context", "intelligence"] as const).map((stage, index) => (
+            <div key={stage} className="stage-item flex items-center gap-2 min-w-0 flex-1">
               <motion.div
-                className={`stage-dot w-3 h-3 rounded-full transition-all duration-300 ${getStageColor(
+                className={`stage-dot w-4 h-4 rounded-full transition-all duration-300 flex-shrink-0 ${getStageColor(
                   stage,
                   !!message.stages[stage]
                 )}`}
                 animate={{
-                  scale: message.currentStage === stage ? [1, 1.2, 1] : 1,
+                  scale: message.currentStage === stage ? [1, 1.3, 1] : 1,
                 }}
                 transition={{
-                  duration: 0.5,
+                  duration: 0.6,
                   repeat:
                     message.currentStage === stage && message.ui.isUpdating
                       ? Infinity
                       : 0,
                 }}
+                data-testid={`stage-dot-${stage}`}
               />
-              <span className="stage-label text-xs text-gray-400">
-                {getStageLabel(stage)}
-              </span>
-              {message.stages[stage] && (
-                <span className="stage-tokens text-xs text-gray-500">
-                  ({message.stages[stage]?.tokens}t)
+              <div className="stage-info flex flex-col min-w-0">
+                <span className="stage-label text-sm font-medium text-gray-300">
+                  {getStageLabel(stage)}
                 </span>
+                {message.stages[stage] && (
+                  <span className="stage-tokens text-xs text-gray-500 font-mono">
+                    {message.stages[stage]?.tokens}t
+                    {message.stages[stage]?.timestamp && (
+                      <span className="ml-1">
+                        • {message.stages[stage]?.timestamp}ms
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+              {/* ステージ間の区切り線 */}
+              {index < 2 && (
+                <div className="stage-separator w-8 h-0.5 bg-gray-600 mx-2 flex-shrink-0" />
               )}
             </div>
           ))}
@@ -169,11 +245,69 @@ export const ProgressiveMessageBubble: React.FC<
         )}
 
         {/* テキストコンテンツ */}
-        <div className="prose prose-invert max-w-none">
+        <div 
+          className="prose prose-invert max-w-none"
+          onMouseUp={handleTextSelection}
+          onTouchEnd={handleTextSelection}
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {displayContent || "..."}
           </ReactMarkdown>
         </div>
+
+        {/* メッセージメニュー */}
+        <AnimatePresence>
+          {(showFullActions || isLatest) && (
+            <motion.div
+              ref={menuRef}
+              className="message-menu absolute top-2 right-2 flex items-center gap-1 bg-gray-800 rounded-lg p-1 shadow-lg"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* 再生成ボタン */}
+              {canRegenerate && (
+                <button
+                  onClick={handleRegenerate}
+                  className="action-button p-2 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
+                  title="再生成"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* 続きボタン */}
+              {canContinue && (
+                <button
+                  onClick={handleContinue}
+                  className="action-button p-2 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded transition-colors"
+                  title="続きを生成"
+                >
+                  <Play className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* コピーボタン */}
+              <button
+                onClick={handleCopy}
+                className="action-button p-2 text-gray-400 hover:text-yellow-400 hover:bg-gray-700 rounded transition-colors"
+                title="コピー"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+
+              {/* その他メニュー */}
+              <button
+                onClick={() => setShowFullActions(!showFullActions)}
+                className="action-button p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                title="その他"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 差分表示（開発モード） */}
         {process.env.NODE_ENV === "development" &&
@@ -222,25 +356,48 @@ export const ProgressiveMessageBubble: React.FC<
         </motion.div>
       )}
 
-      {/* メタデータ（開発モード） */}
+      {/* メタデータ（開発モード） - レイアウト改善 */}
       {process.env.NODE_ENV === "development" && message.metadata && (
-        <div className="metadata mt-3 p-2 bg-gray-900 rounded text-xs text-gray-400">
-          <div className="flex gap-4">
-            <span>Total Tokens: {message.metadata.totalTokens}</span>
-            <span>Total Time: {message.metadata.totalTime}ms</span>
+        <div className="metadata mt-3 p-3 bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-gray-300">
+            <div className="stat-item">
+              <span className="stat-label text-gray-500 block">Total Tokens</span>
+              <span className="stat-value font-mono">{message.metadata.totalTokens || 0}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label text-gray-500 block">Total Time</span>
+              <span className="stat-value font-mono">{message.metadata.totalTime || 0}ms</span>
+            </div>
             {message.metadata.stageTimings && (
               <>
-                <span>R: {message.metadata.stageTimings.reflex}ms</span>
-                <span>C: {message.metadata.stageTimings.context}ms</span>
-                <span>I: {message.metadata.stageTimings.intelligence}ms</span>
+                <div className="stat-item">
+                  <span className="stat-label text-red-400 block">🔴 Reflex</span>
+                  <span className="stat-value font-mono">{message.metadata.stageTimings.reflex || 0}ms</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label text-green-400 block">🟢 Context</span>
+                  <span className="stat-value font-mono">{message.metadata.stageTimings.context || 0}ms</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label text-white block">⚪ Intelligence</span>
+                  <span className="stat-value font-mono">{message.metadata.stageTimings.intelligence || 0}ms</span>
+                </div>
               </>
             )}
           </div>
-          <button
-            onClick={() => setShowDiff(!showDiff)}
-            className="mt-1 text-blue-400 hover:text-blue-300">
-            {showDiff ? "Hide" : "Show"} Diff
-          </button>
+          <div className="mt-3 pt-3 border-t border-gray-700 flex justify-between items-center">
+            {process.env.NODE_ENV === "development" && (
+              <button
+                onClick={() => setShowDiff(!showDiff)}
+                className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 rounded-md transition-colors"
+                data-testid="diff-toggle-button">
+                {showDiff ? "Hide Diff" : "Show Diff"}
+              </button>
+            )}
+            <span className="text-gray-500 text-xs">
+              Stage: {message.currentStage || 'unknown'}
+            </span>
+          </div>
         </div>
       )}
 

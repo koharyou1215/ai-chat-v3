@@ -100,7 +100,7 @@ export class ConversationManager {
 
     // バッチ処理でメモリレイヤーを更新
     for (const message of messages) {
-      this.memoryLayers.addMessage(message);
+      this.memoryLayers.addUnifiedMessage(message);
     }
 
     // インデックス対象メッセージを抽出してバッチ処理
@@ -190,7 +190,7 @@ export class ConversationManager {
 
     // 階層的メモリに追加
     processingTasks.push(
-      Promise.resolve().then(() => this.memoryLayers.addMessage(message))
+      Promise.resolve().then(() => this.memoryLayers.addUnifiedMessage(message))
     );
 
     // ベクトルストアに追加（コスト最適化考慮）
@@ -990,7 +990,7 @@ export class ConversationManager {
 
     // メモリレイヤーの再構築
     for (const message of this.allMessages) {
-      this.memoryLayers.addMessage(message);
+      this.memoryLayers.addUnifiedMessage(message);
 
       // ベクトルストアへの追加（バッチ処理）
       if (this.shouldIndexMessage(message)) {
