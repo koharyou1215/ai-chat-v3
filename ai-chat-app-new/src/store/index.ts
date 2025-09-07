@@ -457,7 +457,10 @@ if (typeof window !== "undefined") {
       }
     }
   } catch (error) {
-    console.warn("⚠️ Failed to create persisted store, using basic store:", error);
+    console.warn(
+      "⚠️ Failed to create persisted store, using basic store:",
+      error
+    );
   }
 }
 

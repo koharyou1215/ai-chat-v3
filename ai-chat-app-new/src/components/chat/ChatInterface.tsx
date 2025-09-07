@@ -3,7 +3,6 @@
 import React, { useRef, useEffect, useState, useMemo, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
-import { useSafeGetState } from "@/hooks/useSafeAppStore";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { ChatHeader } from "./ChatHeader";
@@ -493,11 +492,7 @@ const ChatInterfaceContent: React.FC = () => {
                 isOpen={isScenarioModalOpen}
                 onClose={() => toggleScenarioModal(false)}
                 onSubmit={async (scenario) => {
-                  const persona =
-                    (() => {
-                      const getState = useSafeGetState();
-                      return getState?.getSelectedPersona?.() || null;
-                    })();
+                  const persona =                     useAppStore?.getState?.()?.getSelectedPersona?.() || null;
                   if (persona && stagingGroupMembers.length >= 2) {
                     const groupName =
                       scenario.title !== "スキップ"
@@ -600,10 +595,7 @@ const ChatInterfaceContent: React.FC = () => {
       {isLeftSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
-           onClick={() => {
-             const getState = useSafeGetState();
-             getState?.toggleLeftSidebar?.();
-           }}
+           onClick={() => useAppStore?.getState?.()?.toggleLeftSidebar?.()}
         />
       )}
 
@@ -887,11 +879,7 @@ const ChatInterfaceContent: React.FC = () => {
                 isOpen={isScenarioModalOpen}
                 onClose={() => toggleScenarioModal(false)}
                 onSubmit={async (scenario) => {
-                  const persona =
-                    (() => {
-                      const getState = useSafeGetState();
-                      return getState?.getSelectedPersona?.() || null;
-                    })();
+                  const persona =                     useAppStore?.getState?.()?.getSelectedPersona?.() || null;
                   if (persona && stagingGroupMembers.length >= 2) {
                     const groupName =
                       scenario.title !== "スキップ"

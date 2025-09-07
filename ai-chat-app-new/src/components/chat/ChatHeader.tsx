@@ -13,7 +13,6 @@ import {
   Sliders,
 } from "lucide-react";
 import { useAppStore } from "@/store";
-import { useSafeGetState } from "@/hooks/useSafeAppStore";
 import { cn } from "@/lib/utils";
 import { GroupChatMode as _GroupChatMode } from "@/types/core/group-chat.types";
 import { VoiceCallInterface } from "../voice/VoiceCallInterface";
@@ -368,18 +367,14 @@ const ChatHeaderContent: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-               const getState = useSafeGetState();
-               const { setShowSettingsModal } = getState || {};
+               const { setShowSettingsModal } = useAppStore?.getState?.() || {};
               setShowSettingsModal(true, "ai");
             }}
             className="flex items-center gap-0.5 px-1.5 py-1 md:px-2 md:py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-purple-400/30 text-xs font-medium"
             title="AI設定">
             <Settings className="w-4 h-4 md:w-3 md:h-3 text-blue-400 flex-shrink-0" />
             <span className="text-white drop-shadow-lg/90 inline max-w-[80px] md:max-w-[100px] lg:max-w-[120px] truncate text-xs md:text-sm">
-               {(() => {
-                 const getState = useSafeGetState();
-                 return getModelDisplayName(getState?.apiConfig?.model || "");
-               })()}
+               {getModelDisplayName(useAppStore?.getState?.()?.apiConfig?.model || "")}
             </span>
             <ChevronDown className="w-2 h-2 text-white drop-shadow-lg/60 flex-shrink-0" />
           </motion.button>
