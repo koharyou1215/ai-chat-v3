@@ -628,11 +628,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* メニューを相対位置で配置 - バブル内に移動 */}
-            {showMenu && (
+            {(showMenu || isLatest) && (
               <div
                 className={cn(
                   "absolute top-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
-                  isUser ? "right-full mr-1" : "left-full ml-1"
+                  isUser ? "right-full mr-1" : "left-full ml-1",
+                  !showMenu && isLatest ? "opacity-50 hover:opacity-100 transition-opacity" : ""
                 )}
                 onMouseEnter={() => {
                   // メニューにホバーしたらタイマーをクリア

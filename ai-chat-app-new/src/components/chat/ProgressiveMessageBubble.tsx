@@ -99,22 +99,30 @@ export const ProgressiveMessageBubble: React.FC<ProgressiveMessageBubbleProps> =
     navigator.clipboard.writeText(message.content);
   };
 
-  // 現在のステージに応じたコンテンツを取得
+  // 現在のステージに応じたコンテンツを取得（段階的表示）
   const getCurrentStageContent = () => {
-    // 現在のステージに基づいてコンテンツを返す
-    // 段階的に表示: 前のステージの内容も含める
-    if (message.currentStage === 'intelligence') {
-      // 知性段階: 最終的な内容を表示
-      return message.stages.intelligence?.content || message.stages.context?.content || message.stages.reflex?.content || message.content || '';
-    } else if (message.currentStage === 'context') {
-      // 文脈段階: 文脈の内容を表示
-      return message.stages.context?.content || message.stages.reflex?.content || message.content || '';
-    } else if (message.currentStage === 'reflex') {
-      // 直感段階: 直感の内容を表示
-      return message.stages.reflex?.content || message.content || '';
+    // 各ステージの内容を段階的に表示
+    // reflexのみ → reflex → context → intelligence と進行
+    let content = '';
+    
+    // 直感段階の内容を追加
+    if (message.stages.reflex?.content) {
+      content = message.stages.reflex.content;
     }
+    
+    // 文脈段階に進んでいる場合、文脈の内容を表示
+    if ((message.currentStage === 'context' || message.currentStage === 'intelligence') && 
+        message.stages.context?.content) {
+      content = message.stages.context.content;
+    }
+    
+    // 知性段階に進んでいる場合、知性の内容を表示
+    if (message.currentStage === 'intelligence' && message.stages.intelligence?.content) {
+      content = message.stages.intelligence.content;
+    }
+    
     // フォールバック: message.content または 空文字列
-    return message.content || '';
+    return content || message.content || '';
   };
 
   // タイプライター効果の実装
@@ -162,7 +170,7 @@ export const ProgressiveMessageBubble: React.FC<ProgressiveMessageBubbleProps> =
                       {message.stages[stage]?.content ? (
                         <span className="text-green-400 font-medium">完了</span>
                       ) : message.currentStage === stage ? (
-                        <span className="text-yellow-400 font-medium">処理中...</span>
+                        <span className="text-yellow-400 font-medium animate-pulse">処理中...</span>
                       ) : (
                         <span className="text-gray-500">待機中</span>
                       )}

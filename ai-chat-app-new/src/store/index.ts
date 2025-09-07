@@ -457,9 +457,9 @@ const createStore = () => {
 // ストアの初期化を安全に行う
 let useAppStore: ReturnType<typeof createStore>;
 
-// 最も安全な方法：永続化なしのストアを直接作成
+// 永続化付きストアを作成（失敗時はフォールバック）
 try {
-  useAppStore = create<AppStore>()(combinedSlices);
+  useAppStore = createStore();
 
   // ストアが正しく動作するかテスト
   if (typeof useAppStore.getState !== "function") {
@@ -471,42 +471,27 @@ try {
     throw new Error("Store state is invalid");
   }
 
-  console.log("✅ Basic store initialized successfully");
+  console.log("✅ Persisted store initialized successfully");
 } catch (error) {
-  console.error("❌ Failed to create basic store:", error);
-  // フォールバック: 最小限のストアを作成
-  useAppStore = create<AppStore>()((set, get) => ({
-    // 最小限のプロパティのみ
-    sessions: new Map(),
-    active_session_id: null,
-    characters: new Map(),
-    personas: new Map(),
-    selectedCharacterId: null,
-    isCharactersLoaded: false,
-    isPersonasLoaded: false,
-    // その他のプロパティは後で追加
-    apiManager: simpleAPIManagerV2,
-    promptBuilderService: promptBuilderService,
-  }));
-}
-
-// 永続化ストアの作成を試行（失敗しても基本ストアは動作する）
-if (typeof window !== "undefined") {
+  console.error("⚠️ Failed to create persisted store, falling back to basic store:", error);
+  // フォールバック: 永続化なしのストアを作成
   try {
-    const persistedStore = createStore();
-    // 永続化ストアが正常に動作する場合のみ置き換え
-    if (persistedStore && typeof persistedStore.getState === "function") {
-      const testState = persistedStore.getState();
-      if (testState && typeof testState === "object") {
-        useAppStore = persistedStore;
-        console.log("✅ Persisted store initialized successfully");
-      }
-    }
-  } catch (error) {
-    console.warn(
-      "⚠️ Failed to create persisted store, using basic store:",
-      error
-    );
+    useAppStore = create<AppStore>()(combinedSlices);
+    console.log("⚠️ Using non-persisted store as fallback");
+  } catch (fallbackError) {
+    console.error("❌ Critical error: Could not create any store", fallbackError);
+    // 最後の手段：最小限のストア
+    useAppStore = create<AppStore>()((set, get) => ({
+      sessions: new Map(),
+      active_session_id: null,
+      characters: new Map(),
+      personas: new Map(),
+      selectedCharacterId: null,
+      isCharactersLoaded: false,
+      isPersonasLoaded: false,
+      apiManager: simpleAPIManagerV2,
+      promptBuilderService: promptBuilderService,
+    } as any));
   }
 }
 
