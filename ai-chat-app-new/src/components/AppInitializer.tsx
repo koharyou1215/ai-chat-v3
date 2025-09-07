@@ -174,7 +174,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-white mb-4">エラーが発生しました</h1>
+          <h1 className="text-2xl font-bold text-white mb-4">
+            エラーが発生しました
+          </h1>
           <p className="text-white/80 mb-6">{errorMessage}</p>
           <button
             onClick={() => {
@@ -182,8 +184,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
               setErrorMessage("");
               window.location.reload();
             }}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-          >
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
             再読み込み
           </button>
         </div>

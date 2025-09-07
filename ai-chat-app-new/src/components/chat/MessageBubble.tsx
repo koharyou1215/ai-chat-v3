@@ -330,10 +330,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const generateIsActive = is_generating || group_generating;
   const isCurrentlyGenerating = generateIsActive && isLatest;
 
-  // 再生成・続き生成の可否判定
-  const canRegenerate = isAssistant && isLatest && !generateIsActive;
-  const canContinue = isAssistant && isLatest && !generateIsActive;
-
   // 音声再生状態（isSpeakingを使用）
   const isPlaying = isSpeaking;
 
@@ -364,6 +360,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // プログレッシブメッセージかどうかをチェック
   const isProgressiveMessage = message.metadata?.progressive === true;
+
+  // 再生成・続き生成の可否判定（条件付きレンダリングの前に定義）
+  const canRegenerate = isAssistant && isLatest && !generateIsActive;
+  const canContinue = isAssistant && isLatest && !generateIsActive;
 
   // アニメーション設定の最適化
   const bubbleAnimation: TargetAndTransition = useMemo(
