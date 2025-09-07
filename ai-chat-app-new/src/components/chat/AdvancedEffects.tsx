@@ -225,8 +225,9 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
   // コンポーネントアンマウント時にタイマーをクリーンアップ
   useEffect(() => {
     return () => {
-      timeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-      timeoutsRef.current.clear();
+      const timeouts = timeoutsRef.current;
+      timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      timeouts.clear();
     };
   }, []);
 

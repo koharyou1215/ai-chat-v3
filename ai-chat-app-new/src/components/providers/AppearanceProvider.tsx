@@ -125,7 +125,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       document.head.appendChild(style);
     }
     
-  }, [appearanceSettings, selectedCharacterId]);
+  }, [appearanceSettings, selectedCharacterId, currentCharacter]);
 
   // グローバルスタイルも追加
   useEffect(() => {

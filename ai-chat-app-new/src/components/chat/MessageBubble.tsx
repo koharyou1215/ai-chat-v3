@@ -286,16 +286,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   // プログレッシブメッセージかどうかをチェック
   const isProgressiveMessage = message.metadata?.progressive === true;
 
-  // プログレッシブメッセージの場合は専用コンポーネントを使用
-  if (isProgressiveMessage && message.metadata?.progressiveData) {
-    return (
-      <ProgressiveMessageBubble
-        message={message.metadata.progressiveData}
-        isLatest={isLatest}
-      />
-    );
-  }
-
   // アニメーション設定の最適化
   const bubbleAnimation: TargetAndTransition = useMemo(() => ({
     scale: [0.95, 1],
@@ -375,6 +365,16 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       setShowFullActions(false);
     }
   }, [selectedTextSelection, selectedText, getSelectedCharacter, addMessage]);
+
+  // プログレッシブメッセージの場合は専用コンポーネントを使用
+  if (isProgressiveMessage && message.metadata?.progressiveData) {
+    return (
+      <ProgressiveMessageBubble
+        message={message.metadata.progressiveData}
+        isLatest={isLatest}
+      />
+    );
+  }
 
   return (
     <AnimatePresence>

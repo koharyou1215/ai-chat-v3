@@ -9,6 +9,7 @@ import { ProgressiveMessage } from '@/types/progressive-message.types';
 import { messageTransitionService } from '@/services/message-transition.service';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Image from 'next/image';
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
@@ -140,9 +141,11 @@ export const ProgressiveMessageBubble: React.FC<ProgressiveMessageBubbleProps> =
         {/* アバター */}
         {message.character_avatar && (
           <div className="absolute -left-12 top-0 w-10 h-10 rounded-full overflow-hidden">
-            <img 
+            <Image 
               src={message.character_avatar} 
               alt={message.character_name}
+              width={40}
+              height={40}
               className="w-full h-full object-cover"
             />
           </div>
