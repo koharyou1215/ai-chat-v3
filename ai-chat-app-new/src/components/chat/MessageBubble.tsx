@@ -464,12 +464,16 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   );
 
   // プログレッシブメッセージの場合は専用コンポーネントを使用
-  if (isProgressiveMessage && message.metadata?.progressiveData) {
+  if (isProgressiveMessage && message.metadata && 'progressiveData' in message.metadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
+    const progressiveData = (message.metadata as any).progressiveData;
     const progressiveMessage = {
       ...message,
-      ...message.metadata.progressiveData,
-      metadata: message.metadata.progressiveData.metadata
+      stages: progressiveData?.stages || { reflex: null, context: null, intelligence: null },
+      currentStage: progressiveData?.currentStage || 'reflex',
+      transitions: progressiveData?.transitions || [],
+      ui: progressiveData?.ui || { isUpdating: false, glowIntensity: 'none', highlightChanges: false },
+      metadata: progressiveData?.metadata || message.metadata
     };
     
     return (

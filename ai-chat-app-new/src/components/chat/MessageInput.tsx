@@ -277,7 +277,9 @@ export const MessageInput: React.FC = React.memo(() => {
   useEffect(() => {
     if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        const maxHeight = 120; // max-h-[120px] in pixels
+        const scrollHeight = textareaRef.current.scrollHeight;
+        textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     }
   }, [currentInputText]);
 

@@ -38,7 +38,32 @@ export const ProgressiveMessageBubble: React.FC<
 
   // コンテンツ更新の監視と表示
   useEffect(() => {
-    if (message.content && message.content !== previousContent) {
+    // ステージごとのコンテンツを結合して表示
+    const getProgressiveContent = () => {
+      let content = "";
+      
+      // 各ステージのコンテンツを累積的に結合
+      if (message.stages.reflex?.content) {
+        content += message.stages.reflex.content;
+      }
+      if (message.stages.context?.content) {
+        content += (content ? "\n\n" : "") + message.stages.context.content;
+      }
+      if (message.stages.intelligence?.content) {
+        content += (content ? "\n\n" : "") + message.stages.intelligence.content;
+      }
+      
+      // フォールバック: ステージがない場合は全体のコンテンツを使用
+      if (!content && message.content) {
+        content = message.content;
+      }
+      
+      return content;
+    };
+    
+    const newContent = getProgressiveContent();
+    
+    if (newContent && newContent !== previousContent) {
       setPreviousContent(displayContent);
 
       // アニメーション効果を適用
@@ -46,23 +71,23 @@ export const ProgressiveMessageBubble: React.FC<
         // 差分がある場合はトランジション
         const diff = messageTransitionService.detectChanges(
           previousContent,
-          message.content
+          newContent
         );
         if (diff.changeRatio > 0.1 && isLatest) {
           // モーフィングアニメーション
           messageTransitionService.morphTransition(
             contentRef.current,
             previousContent,
-            message.content,
+            newContent,
             700
           );
         } else {
           // 即座に更新
-          setDisplayContent(message.content);
+          setDisplayContent(newContent);
         }
       } else {
         // 初回表示
-        setDisplayContent(message.content);
+        setDisplayContent(newContent);
       }
 
       // グロー効果
@@ -80,6 +105,9 @@ export const ProgressiveMessageBubble: React.FC<
     }
   }, [
     message.content,
+    message.stages.reflex?.content,
+    message.stages.context?.content,
+    message.stages.intelligence?.content,
     previousContent,
     displayContent,
     isLatest,
@@ -236,7 +264,7 @@ export const ProgressiveMessageBubble: React.FC<
           <div className="absolute -left-12 top-0 w-10 h-10 rounded-full overflow-hidden">
             <Image
               src={message.character_avatar}
-              alt={message.character_name}
+              alt={message.character_name || "Character"}
               width={40}
               height={40}
               className="w-full h-full object-cover"
@@ -385,19 +413,16 @@ export const ProgressiveMessageBubble: React.FC<
               </>
             )}
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-700 flex justify-between items-center">
-            {process.env.NODE_ENV === "development" && (
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-3 pt-3 border-t border-gray-700">
               <button
                 onClick={() => setShowDiff(!showDiff)}
                 className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 rounded-md transition-colors"
                 data-testid="diff-toggle-button">
                 {showDiff ? "Hide Diff" : "Show Diff"}
               </button>
-            )}
-            <span className="text-gray-500 text-xs">
-              Stage: {message.currentStage || 'unknown'}
-            </span>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
