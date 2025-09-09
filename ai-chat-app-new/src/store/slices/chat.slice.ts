@@ -839,14 +839,26 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           stageTimings: { reflex: Date.now() - startTime }
         };
         
-        // UIを更新
+        // UIを更新（ディープコピーでReactの再レンダリングを確実にトリガー）
         set(state => {
           const session = getSessionSafely(state.sessions, activeSessionId);
           if (session) {
             const messageIndex = session.messages.findIndex(m => m.id === messageId);
             if (messageIndex !== -1) {
               const updatedMessages = [...session.messages];
-              updatedMessages[messageIndex] = progressiveMessage;
+              // ディープコピーを作成してReactが変更を検知できるようにする
+              updatedMessages[messageIndex] = {
+                ...progressiveMessage,
+                stages: { ...progressiveMessage.stages },
+                metadata: {
+                  ...progressiveMessage.metadata,
+                  progressiveData: progressiveMessage.metadata.progressiveData ? {
+                    ...progressiveMessage.metadata.progressiveData,
+                    stages: { ...progressiveMessage.stages },
+                    currentStage: progressiveMessage.currentStage
+                  } : undefined
+                }
+              };
               const updatedSession = { ...session, messages: updatedMessages };
               return {
                 sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
@@ -934,14 +946,26 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           }
         };
         
-        // UIを更新
+        // UIを更新（ディープコピーでReactの再レンダリングを確実にトリガー）
         set(state => {
           const session = getSessionSafely(state.sessions, activeSessionId);
           if (session) {
             const messageIndex = session.messages.findIndex(m => m.id === messageId);
             if (messageIndex !== -1) {
               const updatedMessages = [...session.messages];
-              updatedMessages[messageIndex] = progressiveMessage;
+              // ディープコピーを作成してReactが変更を検知できるようにする
+              updatedMessages[messageIndex] = {
+                ...progressiveMessage,
+                stages: { ...progressiveMessage.stages },
+                metadata: {
+                  ...progressiveMessage.metadata,
+                  progressiveData: progressiveMessage.metadata.progressiveData ? {
+                    ...progressiveMessage.metadata.progressiveData,
+                    stages: { ...progressiveMessage.stages },
+                    currentStage: progressiveMessage.currentStage
+                  } : undefined
+                }
+              };
               const updatedSession = { ...session, messages: updatedMessages };
               return {
                 sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)
@@ -1027,14 +1051,26 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           }
         };
         
-        // UIを最終更新
+        // UIを最終更新（ディープコピーでReactの再レンダリングを確実にトリガー）
         set(state => {
           const session = getSessionSafely(state.sessions, activeSessionId);
           if (session) {
             const messageIndex = session.messages.findIndex(m => m.id === messageId);
             if (messageIndex !== -1) {
               const updatedMessages = [...session.messages];
-              updatedMessages[messageIndex] = progressiveMessage;
+              // ディープコピーを作成してReactが変更を検知できるようにする
+              updatedMessages[messageIndex] = {
+                ...progressiveMessage,
+                stages: { ...progressiveMessage.stages },
+                metadata: {
+                  ...progressiveMessage.metadata,
+                  progressiveData: progressiveMessage.metadata.progressiveData ? {
+                    ...progressiveMessage.metadata.progressiveData,
+                    stages: { ...progressiveMessage.stages },
+                    currentStage: progressiveMessage.currentStage
+                  } : undefined
+                }
+              };
               const updatedSession = { ...session, messages: updatedMessages };
               return {
                 sessions: createMapSafely(state.sessions).set(activeSessionId, updatedSession)

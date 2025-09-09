@@ -464,9 +464,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   );
 
   // プログレッシブメッセージの場合は専用コンポーネントを使用
-  if (isProgressiveMessage && message.metadata && 'progressiveData' in message.metadata) {
+  // metadata.progressiveまたはmetadata.progressiveDataをチェック
+  const hasProgressiveMetadata = message.metadata && 
+    ('progressive' in message.metadata || 'progressiveData' in message.metadata);
+  
+  if (isProgressiveMessage && hasProgressiveMetadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
-    const progressiveData = (message.metadata as any).progressiveData;
+    const progressiveData = (message.metadata as any).progressiveData || message.metadata;
     
     // デバッグログ
     console.log('🔄 MessageBubble: Rendering progressive message', {
@@ -474,9 +478,17 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       currentStage: progressiveData?.currentStage,
       hasStages: !!progressiveData?.stages
     });
+    // progressiveDataが正しく取得できているか確認
+    console.log('🔍 MessageBubble: Progressive data check', {
+      hasProgressiveData: !!progressiveData,
+      stages: progressiveData?.stages,
+      currentStage: progressiveData?.currentStage,
+      messageContent: message.content?.substring(0, 50)
+    });
+    
     const progressiveMessage = {
       ...message,
-      stages: progressiveData?.stages || { reflex: null, context: null, intelligence: null },
+      stages: progressiveData?.stages || {}, // 空のオブジェクトに変更
       currentStage: progressiveData?.currentStage || 'reflex',
       transitions: progressiveData?.transitions || [],
       ui: progressiveData?.ui || { 
@@ -486,6 +498,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         showIndicator: true 
       },
       metadata: progressiveData?.metadata || message.metadata,
+      content: message.content, // message.contentを確実に渡す
       // キャラクター情報を正しく設定
       character_name: character?.name,
       character_avatar: character?.avatar_url,

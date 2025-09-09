@@ -1342,7 +1342,7 @@ const ChatPanel: React.FC = () => {
                 onChange={(e) =>
                   updateChatSettings({
                     progressiveMode: {
-                      enabled: chat.progressiveMode?.enabled ?? false,
+                      enabled: chat.progressiveMode?.enabled ?? true,
                       showIndicators: e.target.checked,
                       highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
                       glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
@@ -1370,7 +1370,7 @@ const ChatPanel: React.FC = () => {
                 onChange={(e) =>
                   updateChatSettings({
                     progressiveMode: {
-                      enabled: chat.progressiveMode?.enabled ?? false,
+                      enabled: chat.progressiveMode?.enabled ?? true,
                       showIndicators: chat.progressiveMode?.showIndicators ?? true,
                       highlightChanges: e.target.checked,
                       glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
@@ -1399,7 +1399,7 @@ const ChatPanel: React.FC = () => {
                 onChange={(e) =>
                   updateChatSettings({
                     progressiveMode: {
-                      enabled: chat.progressiveMode?.enabled ?? false,
+                      enabled: chat.progressiveMode?.enabled ?? true,
                       showIndicators: chat.progressiveMode?.showIndicators ?? true,
                       highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
                       glowIntensity: e.target.value as 'none' | 'soft' | 'medium' | 'strong',
@@ -1437,7 +1437,7 @@ const ChatPanel: React.FC = () => {
                     onChange={(e) =>
                       updateChatSettings({
                         progressiveMode: {
-                          enabled: chat.progressiveMode?.enabled ?? false,
+                          enabled: chat.progressiveMode?.enabled ?? true,
                           showIndicators: chat.progressiveMode?.showIndicators ?? true,
                           highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
                           glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
@@ -1463,7 +1463,7 @@ const ChatPanel: React.FC = () => {
                     onChange={(e) =>
                       updateChatSettings({
                         progressiveMode: {
-                          enabled: chat.progressiveMode?.enabled ?? false,
+                          enabled: chat.progressiveMode?.enabled ?? true,
                           showIndicators: chat.progressiveMode?.showIndicators ?? true,
                           highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
                           glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
@@ -1489,7 +1489,7 @@ const ChatPanel: React.FC = () => {
                     onChange={(e) =>
                       updateChatSettings({
                         progressiveMode: {
-                          enabled: chat.progressiveMode?.enabled ?? false,
+                          enabled: chat.progressiveMode?.enabled ?? true,
                           showIndicators: chat.progressiveMode?.showIndicators ?? true,
                           highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
                           glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
