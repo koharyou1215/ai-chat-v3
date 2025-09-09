@@ -45,18 +45,9 @@ export const PersonaCard: React.FC<PersonaCardProps> = ({
               className="relative flex-shrink-0"
             >
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-400/50 shadow-xl">
-                {persona.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={persona.avatar_url}
-                    alt={persona.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                     <User className="w-8 h-8 text-white" />
                   </div>
-                )}
               </div>
               {isSelected && (
                 <motion.div

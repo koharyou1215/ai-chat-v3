@@ -333,9 +333,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   // 音声再生状態（isSpeakingを使用）
   const isPlaying = isSpeaking;
 
-  // プロフィール画像の表示判定（グループチャット用）
-  const shouldShowAvatar =
-    isAssistant && (isGroupChat || character?.avatar_url);
+  
 
   // メッセージ間の時間差計算
   const timeSincePrevious = useMemo(() => {
@@ -501,7 +499,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       content: message.content, // message.contentを確実に渡す
       // キャラクター情報を正しく設定
       character_name: character?.name,
-      character_avatar: character?.avatar_url,
     };
     
     return (
@@ -530,23 +527,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}>
         {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
-        {shouldShowAvatar && (
-          <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
-            {character?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={character.avatar_url}
-                alt={character.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
-                {character?.name?.[0] || "AI"}
-              </div>
-            )}
+        <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
+            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
+              {character?.name?.[0] || "AI"}
+            </div>
           </div>
-        )}
 
         <div
           className={cn(

@@ -102,12 +102,13 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     const createInitialSession = async () => {
       if (!isCharactersLoaded || !isPersonasLoaded) return;
 
-      const hasActiveSession =
-        sessions instanceof Map
+            const hasActiveSession =
+        active_session_id &&
+        (sessions instanceof Map
           ? sessions.has(active_session_id)
           : sessions &&
             typeof sessions === "object" &&
-            active_session_id in sessions;
+            active_session_id in sessions);
 
       if (active_session_id && hasActiveSession) {
         console.log("?? 既存のアクティブセッションを使用:", active_session_id);

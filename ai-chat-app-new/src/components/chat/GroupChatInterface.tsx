@@ -283,22 +283,9 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                     isActive ? "クリックで脱退" : "クリックで参加"
                   }
                 >
-                  {character.avatar_url ? (
-                    <div className="relative w-5 h-5">
-                      <Image 
-                        src={character.avatar_url} 
-                        alt={character.name}
-                        width={20}
-                        height={20}
-                        className="rounded-full object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-xs">
-                      {character.name[0]?.toUpperCase()}
-                    </div>
-                  )}
+                  <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-xs">
+                    {character.name[0]?.toUpperCase()}
+                  </div>
                   <span className="font-medium">{character.name}</span>
                   {isActive && (
                     <motion.div
@@ -460,18 +447,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                         <div className="flex -space-x-2">
                           {session.characters.slice(0, 3).map(char => (
                             <div key={char.id} className="w-8 h-8 rounded-full border-2 border-purple-400/30">
-                              {char.avatar_url ? (
-                                <Image 
-                                  src={char.avatar_url} 
-                                  alt={char.name}
-                                  width={32}
-                                  height={32}
-                                  className="rounded-full object-cover"
-                                  unoptimized
-                                />
-                              ) : (
-                                <div className="w-full h-full rounded-full bg-slate-600" />
-                              )}
+                              <div className="w-full h-full rounded-full bg-slate-600" />
                             </div>
                           ))}
                           {session.characters.length > 3 && (
@@ -569,20 +545,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
                   onClick={() => toggleCharacterSelection(character.id)}
                 >
                   <div className="flex items-center gap-3">
-                    {character.avatar_url ? (
-                      <div className="relative w-10 h-10">
-                        <Image 
-                          src={character.avatar_url} 
-                          alt={character.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-600" />
-                    )}
+                    <div className="w-10 h-10 rounded-full bg-slate-600" />
                     <div>
                       <h4 className="font-medium">{character.name}</h4>
                       <p className="text-sm opacity-60">{character.description?.slice(0, 40)}...</p>

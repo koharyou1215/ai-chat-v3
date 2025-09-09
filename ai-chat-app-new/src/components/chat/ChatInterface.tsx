@@ -591,7 +591,7 @@ const ChatInterfaceContent: React.FC = () => {
         }
         
         // キャラクター背景がない場合は設定の背景を表示
-        const { backgroundType, backgroundImage, backgroundGradient, backgroundOpacity, backgroundBlur } = useAppStore.getState().appearance;
+        const { backgroundType, backgroundImage, backgroundGradient, backgroundOpacity, backgroundBlur } = useAppStore.getState().appearanceSettings;
         
         return (
           <div

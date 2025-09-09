@@ -160,15 +160,7 @@ export const VoiceSettingsModal: React.FC = () => {
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10">
               <div className="flex items-center gap-4">
-                {persona && (
-                  <AvatarUploadWidget
-                    currentAvatar={persona.avatar_url}
-                    onAvatarChange={(url) => updatePersona({ ...persona, avatar_url: url })}
-                    size="small"
-                    name={persona.name}
-                    showUrlInput={false}
-                  />
-                )}
+                
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <TestTube2 className="w-6 h-6" />

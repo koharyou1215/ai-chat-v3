@@ -10,8 +10,9 @@ interface MemoryAnalysisResult {
   summary?: string;
   keywords?: string[];
   category?: string;
-  importance?: number;
-  emotional_impact?: number;
+  importance_score?: number;
+  emotion_tags?: string[];
+  context_tags?: string[];
   [key: string]: unknown;
 }
 
@@ -43,7 +44,7 @@ ${content}
   "title": "短い要約タイトル（20文字以内）",
   "summary": "会話の要約（100-200文字）",
   "keywords": ["キーワード1", "キーワード2", "キーワード3"],
-  "category": "カテゴリー（personal_info/preference/event/relationship/promise/important_date/emotion/decision/question/other）",
+  "category": "カテゴリー（personal_info/preference/event/relationship/promise/important_date/emotion/decision/knowledge/other）",
   "importance_score": 0.7,
   "emotion_tags": ["感情タグ1", "感情タグ2"],
   "context_tags": ["文脈タグ1", "文脈タグ2"]
@@ -64,7 +65,7 @@ ${content}
 - important_date: 重要な日付
 - emotion: 感情的な内容
 - decision: 決定事項
-- question: 質問や疑問
+- knowledge: 知識・情報
 - other: その他
 `;
 
@@ -77,12 +78,17 @@ ${content}
 
       // JSON解析
       const analysisResult = this.parseAnalysisResult(response);
+
+      if (!analysisResult) {
+        console.warn('[MemoryCard] Failed to parse analysis result, using fallback.');
+        return this.generateFallbackMemoryCard(messages, content);
+      }
       
       return {
         title: analysisResult.title || this.generateFallbackTitle(messages),
         summary: analysisResult.summary || this.generateFallbackSummary(messages),
         keywords: analysisResult.keywords || this.extractFallbackKeywords(content),
-        category: this.validateCategory(analysisResult.category) || 'other',
+        category: this.validateCategory(analysisResult.category),
         original_content: content,
         importance: {
           score: Math.max(0.1, Math.min(1.0, analysisResult.importance_score || 0.5)),
@@ -94,7 +100,7 @@ ${content}
           }
         },
         confidence: 0.8,
-        emotion_tags: analysisResult.emotion_tags || [],
+        emotion_tags: (analysisResult.emotion_tags || []).map(tag => ({ emotion: tag, intensity: 0.5})),
         context_tags: analysisResult.context_tags || [],
         auto_tags: ['auto-generated', 'ai-analyzed', `session-${session_id.slice(-8)}`]
       };
@@ -143,15 +149,15 @@ ${content}
     const result: MemoryAnalysisResult = {};
     
     // タイトル抽出
-    const titleMatch = response.match(/title[\"']?\s*:\s*[\"']([^\"']+)[\"']/i);
+    const titleMatch = response.match(/title[\"']?\s*:\s*[\"']([^\"']+)["']/i);
     if (titleMatch) result.title = titleMatch[1];
     
     // 要約抽出
-    const summaryMatch = response.match(/summary[\"']?\s*:\s*[\"']([^\"']+)[\"']/i);
+    const summaryMatch = response.match(/summary[\"']?\s*:\s*[\"']([^\"']+)["']/i);
     if (summaryMatch) result.summary = summaryMatch[1];
     
     // カテゴリー抽出
-    const categoryMatch = response.match(/category[\"']?\s*:\s*[\"']([^\"']+)[\"']/i);
+    const categoryMatch = response.match(/category[\"']?\s*:\s*[\"']([^\"']+)["']/i);
     if (categoryMatch) result.category = categoryMatch[1];
     
     // 重要度抽出
@@ -164,13 +170,13 @@ ${content}
   /**
    * カテゴリーの検証
    */
-  private validateCategory(category: string): MemoryCategory | null {
+  private validateCategory(category: string | undefined): MemoryCategory {
     const validCategories: MemoryCategory[] = [
       'personal_info', 'preference', 'event', 'relationship', 'promise',
-      'important_date', 'emotion', 'decision', 'question', 'other'
+      'important_date', 'emotion', 'decision', 'knowledge', 'other'
     ];
     
-    return validCategories.includes(category as MemoryCategory) ? category as MemoryCategory : null;
+    return validCategories.includes(category as MemoryCategory) ? category as MemoryCategory : 'other';
   }
 
   /**
@@ -243,7 +249,7 @@ ${content}
     // 簡単な単語頻度分析
     const words = content
       .replace(/[。、！？\n\r]/g, ' ')
-      .split(/\s+/)
+      .split(/\s+/) 
       .filter(w => w.length > 1)
       .map(w => w.trim());
     
@@ -274,7 +280,7 @@ ${content}
     });
     
     emotionalChars.forEach(char => {
-      score += (content.match(new RegExp(char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length * 0.05;
+      score += (content.match(new RegExp(char.replace(/[.*+?^${}()|[\\]/g, '\\$&'), 'g')) || []).length * 0.05;
     });
     
     return Math.min(1.0, score);

@@ -14,7 +14,7 @@ interface BasicInfoPanelProps {
   formData: Character | Persona | null;
   setFormData: React.Dispatch<React.SetStateAction<Character | Persona | null>>;
   mode: 'character' | 'persona';
-  handleFileUpload: (file: File, field: 'avatar_url' | 'background_url') => Promise<void>;
+  handleFileUpload: (file: File, field: 'background_url') => Promise<void>;
 }
 
 export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
@@ -35,48 +35,19 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
 
       {/* 画像アップロード部分 */}
       <div className="mb-8 space-y-6">
-        {mode === 'character' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {mode === 'character' && (
+          <div className="grid grid-cols-1 gap-6">
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-slate-300">🎭 アバター画像</label>
+              <label className="block text-sm font-medium text-slate-300">🖼️ 背景画像・動画</label>
               <ImageUploader
-                url={formData?.avatar_url}
-                onFileUpload={(file) => handleFileUpload(file, 'avatar_url')}
-                onClear={() => setFormData(prev => prev ? {...prev, avatar_url: ''} : null)}
-                supportVideo={false}
-                aspectRatio="square"
-                className="h-64"
-                placeholder="アバター画像をドラッグ&ドロップ"
-              />
-            </div>
-            {mode === 'character' && (
-              <div className="space-y-4">
-                <label className="block text-sm font-medium text-slate-300">🖼️ 背景画像・動画</label>
-                <ImageUploader
-                  url={(formData as Character)?.background_url}
-                  onFileUpload={(file) => handleFileUpload(file, 'background_url')}
-                  onClear={() => setFormData(prev => prev ? {...prev as Character, background_url: ''} : null)}
-                  supportVideo={true}
-                  aspectRatio="16:9"
-                  className="h-48"
-                  placeholder="背景画像・動画をドラッグ&ドロップ"
-                  showPreviewControls={true}
-                />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex justify-center mb-6">
-            <div className="w-full max-w-md space-y-4">
-              <label className="block text-sm font-medium text-slate-300">🎭 アバター画像</label>
-              <ImageUploader
-                url={formData?.avatar_url}
-                onFileUpload={(file) => handleFileUpload(file, 'avatar_url')}
-                onClear={() => setFormData(prev => prev ? {...prev, avatar_url: ''} : null)}
-                supportVideo={false}
-                aspectRatio="square"
-                className="h-64"
-                placeholder="ペルソナアバターをドラッグ&ドロップ"
+                url={(formData as Character)?.background_url}
+                onFileUpload={(file) => handleFileUpload(file, 'background_url')}
+                onClear={() => setFormData(prev => prev ? {...prev as Character, background_url: ''} : null)}
+                supportVideo={true}
+                aspectRatio="16:9"
+                className="h-48"
+                placeholder="背景画像・動画をドラッグ&ドロップ"
+                showPreviewControls={true}
               />
             </div>
           </div>

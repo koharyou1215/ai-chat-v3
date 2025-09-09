@@ -213,24 +213,11 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                       onClick={() => toggleCharacterSelection(character.id)}
                     >
                       <div className="flex items-center gap-3">
-                        {character.avatar_url ? (
-                          <div className="relative w-12 h-12">
-                            <Image 
-                              src={character.avatar_url} 
-                              alt={character.name}
-                              width={48}
-                              height={48}
-                              className="rounded-full object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-slate-600 flex items-center justify-center">
-                            <span className="text-lg font-bold">
-                              {character.name[0]?.toUpperCase()}
-                            </span>
-                          </div>
-                        )}
+                        <div className="w-12 h-12 rounded-full bg-slate-600 flex items-center justify-center">
+                          <span className="text-lg font-bold">
+                            {character.name[0]?.toUpperCase()}
+                          </span>
+                        </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{character.name}</h4>
@@ -275,7 +262,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
                         <div className="relative w-6 h-6">
                           <Image 
-                            src={char.avatar_url || '/images/default-avatar.png'} 
+                            src={'/images/default-avatar.png'} 
                             alt={char.name}
                             width={24}
                             height={24}
@@ -302,7 +289,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
                         <div className="relative w-6 h-6">
                           <Image 
-                            src={char.avatar_url || '/default-avatar.png'} 
+                            src={'/default-avatar.png'} 
                             alt={char.name}
                             width={24}
                             height={24}
@@ -329,7 +316,7 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
                       <div key={char.id} className="flex items-center gap-2 text-sm text-white/80">
                         <div className="relative w-6 h-6">
                           <Image 
-                            src={char.avatar_url || '/images/default-avatar.png'} 
+                            src={'/images/default-avatar.png'} 
                             alt={char.name}
                             width={24}
                             height={24}

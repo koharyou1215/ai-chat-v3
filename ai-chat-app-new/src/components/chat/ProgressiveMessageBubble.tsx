@@ -101,8 +101,8 @@ export const ProgressiveMessageBubble: React.FC<ProgressiveMessageBubbleProps> =
   };
 
   const handleContinue = async () => {
-    const { continueGeneration } = useAppStore.getState();
-    await continueGeneration();
+    const { continueLastMessage } = useAppStore.getState();
+    await continueLastMessage();
   };
 
   const handleCopy = () => {

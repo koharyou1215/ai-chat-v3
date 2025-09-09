@@ -315,20 +315,7 @@ export const PersonaDetailModal: React.FC<PersonaDetailModalProps> = ({
       case 'appearance':
         return (
           <div className="space-y-6">
-            <div className="text-center">
-              <label className="block text-sm font-medium text-white mb-4">アバター画像</label>
-              <AvatarUploadWidget
-                currentAvatar={editingPersona.avatar_url}
-                onAvatarChange={(url) => updatePersona({ avatar_url: url })}
-                size="large"
-                name={editingPersona.name}
-                showUrlInput={true}
-                className="mx-auto"
-              />
-              <p className="text-xs text-slate-400 mt-3">
-                ドラッグ&ドロップでアップロード、またはURLを指定してください
-              </p>
-            </div>
+            
             
             <div>
               <label className="block text-sm font-medium text-white mb-2">カラーテーマ</label>
@@ -425,13 +412,7 @@ export const PersonaDetailModal: React.FC<PersonaDetailModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-700">
             <div className="flex items-center gap-3">
-              <AvatarUploadWidget
-                currentAvatar={editingPersona.avatar_url}
-                onAvatarChange={(url) => updatePersona({ avatar_url: url })}
-                size="small"
-                name={editingPersona.name}
-                showUrlInput={false}
-              />
+              
               <div>
                 <h2 className="text-xl font-semibold text-white">ペルソナ詳細設定</h2>
                 <p className="text-sm text-white/60">{editingPersona.name}の設定を編集</p>

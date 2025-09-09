@@ -135,7 +135,6 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                         likes: personaData.likes || [],
                         dislikes: personaData.dislikes || [],
                         other_settings: personaData.other_settings || '',
-                        avatar_url: personaData.avatar_url,
                         is_active: true,
                         is_default: false
                     };

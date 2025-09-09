@@ -292,18 +292,9 @@ const ChatSidebar: React.FC = React.memo(() => {
           <div className="space-y-2">
             {currentCharacter && (
               <div className="flex items-center gap-2">
-                {currentCharacter.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentCharacter.avatar_url}
-                    alt={currentCharacter.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
+                <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
                     {currentCharacter.name.charAt(0).toUpperCase()}
                   </div>
-                )}
                 <span className="text-sm font-medium truncate">
                   {currentCharacter.name}
                 </span>
@@ -311,18 +302,9 @@ const ChatSidebar: React.FC = React.memo(() => {
             )}
             {currentPersona && (
               <div className="flex items-center gap-2">
-                {currentPersona.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentPersona.avatar_url}
-                    alt={currentPersona.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
                     {currentPersona.name.charAt(0).toUpperCase()}
                   </div>
-                )}
                 <span className="text-sm font-medium truncate">
                   {currentPersona.name}
                 </span>

@@ -68,7 +68,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
         }
     };
     
-    const handleFileUpload = async (file: File, field: 'avatar_url' | 'background_url') => {
+    const handleFileUpload = async (file: File, field: 'background_url') => {
         if (!file) {
             console.log('No file provided to handleFileUpload');
             return;

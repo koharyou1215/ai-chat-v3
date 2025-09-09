@@ -216,7 +216,7 @@ ${character.scenario || 'No specific scenario'}
 ## Special Context
 ${character.nsfw_profile?.is_enabled ? `
 NSFW Profile Active
-Persona: ${character.nsfw_profile.nsfw_persona || 'Standard'}
+Persona: ${character.nsfw_profile.persona || 'Standard'}
 Preferences: ${character.nsfw_profile.kinks?.join(', ') || 'None specified'}
 ` : ''}
 </character_information>`;

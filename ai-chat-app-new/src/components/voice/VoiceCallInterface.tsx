@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
@@ -7,7 +7,6 @@ import { useAppStore } from "@/store";
 import { UnifiedMessage } from "@/types/core/message.types";
 import {
   VoiceCallMessage,
-  VoiceActivityStatus,
   isTranscriptionMessage,
   isAIResponseMessage,
   isResponseMessage,
@@ -180,6 +179,270 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
   // Store hooks
   const { active_session_id, sendMessage } = useAppStore();
 
+  // Update audio visualizer
+  const updateAudioVisualizer = useCallback(() => {
+    if (!analyserRef.current || !isCallActive) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+
+    // Reduce data to 32 bars for better performance
+    const reducedData = new Uint8Array(32);
+    const blockSize = Math.floor(dataArray.length / 32);
+
+    for (let i = 0; i < 32; i++) {
+      let sum = 0;
+      for (let j = 0; j < blockSize; j++) {
+        sum += dataArray[i * blockSize + j];
+      }
+      reducedData[i] = Math.floor(sum / blockSize);
+    }
+
+    setAudioVisualizerData(reducedData);
+    visualizerUpdateRef.current = requestAnimationFrame(updateAudioVisualizer);
+  }, [isCallActive, setAudioVisualizerData]);
+
+  // Play audio from queue
+  const playNextAudio = useCallback(async () => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      return;
+    }
+
+    isPlayingRef.current = true;
+    const audioBlob = audioQueueRef.current.shift()!;
+
+    try {
+      if (!audioContextRef.current) return;
+
+      // Resume audio context if suspended (browser security requirement)
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const audioBuffer = await audioContextRef.current.decodeAudioData(
+        arrayBuffer
+      );
+
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+
+      if (isSpeakerOn) {
+        source.connect(audioContextRef.current.destination);
+      }
+
+      source.onended = () => {
+        playNextAudio();
+      };
+
+      source.start();
+    } catch (error) {
+      console.error("Audio playback error:", error);
+      // Don't retry immediately on NotAllowedError
+      if ((error as any).name !== "NotAllowedError") {
+        playNextAudio();
+      } else {
+        console.log("🔊 Audio blocked by browser - user interaction required");
+        isPlayingRef.current = false;
+      }
+    }
+  }, [isSpeakerOn]);
+
+  // Handle WebSocket messages
+  const handleWebSocketMessage = useCallback(
+    (message: VoiceCallMessage) => {
+      switch (message.type) {
+        case "session_start":
+          console.log("✅ Voice session started:", message.sessionId);
+          break;
+
+        case "pong":
+          const latency = Date.now() - pingTimeRef.current;
+          _setStats((prev: any) => ({ ...prev, latency }));
+          break;
+
+        case "voice_activity":
+          if (isVoiceActivityMessage(message)) {
+            setVoiceActivityStatus(message.status);
+          }
+          break;
+
+        case "transcription":
+          if (isTranscriptionMessage(message)) {
+            _setTranscription(message.text);
+            _setLastMessage(`You: ${message.text}`);
+
+            // Add user message to chat history
+            if (active_session_id && message.text) {
+              const userMessage: Partial<UnifiedMessage> = {
+                role: "user",
+                content: message.text,
+                session_id: active_session_id,
+                metadata: {
+                  source: "voice",
+                  timestamp: new Date().toISOString(),
+                  call_duration: Math.floor(
+                    (Date.now() - callStartTimeRef.current) / 1000
+                  ),
+                },
+              };
+
+              sendMessage(userMessage.content || "");
+            }
+          }
+          break;
+
+        case "audio_start":
+          setVoiceActivityStatus("listening");
+          break;
+
+        case "audio_end":
+          setVoiceActivityStatus("idle");
+          break;
+
+        case "ai_response":
+          if (isAIResponseMessage(message)) {
+            // Add AI response to chat history
+            if (active_session_id && message.text) {
+              const aiMessage: Partial<UnifiedMessage> = {
+                role: "assistant",
+                content: message.text,
+                session_id: active_session_id,
+                metadata: {
+                  source: "voice",
+                  timestamp: new Date().toISOString(),
+                  call_duration: Math.floor(
+                    (Date.now() - callStartTimeRef.current) / 1000
+                  ),
+                },
+              };
+
+              sendMessage(aiMessage.content || "");
+            }
+          }
+          break;
+
+        case "error":
+          if (isErrorMessage(message)) {
+            console.error("Voice call error:", message.error);
+            _setLastMessage(`Error: ${message.error}`);
+          }
+          break;
+
+        case "stats":
+          if (isStatsMessage(message)) {
+            _setStats((prev: any) => ({ ...prev, ...message.stats }));
+          }
+          break;
+
+        case "response":
+          if (isResponseMessage(message)) {
+            console.log("🧪 Response received:", message.message);
+            _setLastMessage(`Response: ${message.message}`);
+          }
+          break;
+      }
+    },
+    [active_session_id, sendMessage]
+  );
+
+  // Start voice call
+  const startCall = useCallback(async () => {
+    console.log("🟢 Starting voice call...");
+    console.log("WebSocket state:", wsRef.current?.readyState);
+    console.log("Is connected:", isConnected);
+
+    try {
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      mediaStreamRef.current = stream;
+
+      // Initialize AudioContext
+      audioContextRef.current = new (window.AudioContext ||
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext)({
+        sampleRate: 16000,
+      });
+
+      // Create source node
+      sourceNodeRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
+
+      // Create analyser for visualization
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 128;
+      sourceNodeRef.current.connect(analyserRef.current);
+
+      // Create script processor
+      scriptProcessorRef.current =
+        audioContextRef.current.createScriptProcessor(512, 1, 1);
+
+      scriptProcessorRef.current.onaudioprocess = (event) => {
+        if (!isMuted && wsRef.current?.readyState === WebSocket.OPEN) {
+          const inputData = event.inputBuffer.getChannelData(0);
+          const buffer = new ArrayBuffer(inputData.length * 2);
+          const view = new DataView(buffer);
+
+          // Convert Float32 to Int16
+          for (let i = 0; i < inputData.length; i++) {
+            const s = Math.max(-1, Math.min(1, inputData[i]));
+            view.setInt16(i * 2, s * 0x7fff, true);
+          }
+
+          // 音声レベルをチェックして状態を更新
+          const volume =
+            inputData.reduce((sum, sample) => sum + Math.abs(sample), 0) /
+            inputData.length;
+          if (volume > 0.01) {
+            // 音声レベル閾値
+            setVoiceActivityStatus("speaking");
+          } else {
+            setVoiceActivityStatus("idle");
+          }
+
+          console.log(
+            "🎤 Sending audio data:",
+            buffer.byteLength,
+            "bytes, volume:",
+            volume.toFixed(4)
+          );
+          wsRef.current.send(buffer);
+        } else {
+          console.log(
+            "🔇 Audio not sent - muted:",
+            isMuted,
+            "WS state:",
+            wsRef.current?.readyState
+          );
+          setVoiceActivityStatus("idle");
+        }
+      };
+
+      sourceNodeRef.current.connect(scriptProcessorRef.current);
+      scriptProcessorRef.current.connect(audioContextRef.current.destination);
+
+      // Start call
+      setIsCallActive(true);
+      callStartTimeRef.current = Date.now();
+
+      // Start audio visualizer updates
+      updateAudioVisualizer();
+    } catch (error) {
+      console.error("Failed to start call:", error);
+      alert("マイクへのアクセスが必要です。ブラウザの設定を確認してください。");
+    }
+  }, [isMuted, isConnected, updateAudioVisualizer]);
+
   // WebSocket connection
   const initializeWebSocket = useCallback(() => {
     // Force localhost connection for debugging
@@ -299,247 +562,6 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     }
   }, [isCallActive, handleWebSocketMessage, playNextAudio, startCall]);
 
-  // Handle WebSocket messages
-  const handleWebSocketMessage = useCallback(
-    (message: VoiceCallMessage) => {
-      switch (message.type) {
-        case "session_start":
-          console.log("✅ Voice session started:", message.sessionId);
-          break;
-
-        case "pong":
-          const latency = Date.now() - pingTimeRef.current;
-          _setStats((prev: any) => ({ ...prev, latency }));
-          break;
-
-        case "voice_activity":
-          if (isVoiceActivityMessage(message)) {
-            setVoiceActivityStatus(message.status);
-          }
-          break;
-
-        case "transcription":
-          if (isTranscriptionMessage(message)) {
-            _setTranscription(message.text);
-            _setLastMessage(`You: ${message.text}`);
-
-            // Add user message to chat history
-            if (active_session_id && message.text) {
-              const userMessage: Partial<UnifiedMessage> = {
-                role: "user",
-                content: message.text,
-                session_id: active_session_id,
-                metadata: {
-                  source: "voice",
-                  timestamp: new Date().toISOString(),
-                  call_duration: Math.floor(
-                    (Date.now() - callStartTimeRef.current) / 1000
-                  ),
-                },
-              };
-
-              sendMessage(userMessage.content || "");
-            }
-          }
-          break;
-
-        case "audio_start":
-          setVoiceActivityStatus("listening");
-          break;
-
-        case "audio_end":
-          setVoiceActivityStatus("idle");
-          break;
-
-        case "ai_response":
-          if (isAIResponseMessage(message)) {
-            // Add AI response to chat history
-            if (active_session_id && message.text) {
-              const aiMessage: Partial<UnifiedMessage> = {
-                role: "assistant",
-                content: message.text,
-                session_id: active_session_id,
-                metadata: {
-                  source: "voice",
-                  timestamp: new Date().toISOString(),
-                  call_duration: Math.floor(
-                    (Date.now() - callStartTimeRef.current) / 1000
-                  ),
-                },
-              };
-
-              sendMessage(aiMessage.content || "");
-            }
-          }
-          break;
-
-        case "error":
-          if (isErrorMessage(message)) {
-            console.error("Voice call error:", message.error);
-            _setLastMessage(`Error: ${message.error}`);
-          }
-          break;
-
-        case "stats":
-          if (isStatsMessage(message)) {
-            _setStats((prev: any) => ({ ...prev, ...message.stats }));
-          }
-          break;
-
-        case "response":
-          if (isResponseMessage(message)) {
-            console.log("🧪 Response received:", message.message);
-            _setLastMessage(`Response: ${message.message}`);
-          }
-          break;
-      }
-    },
-    [active_session_id, sendMessage]
-  );
-
-  // Play audio from queue
-  const playNextAudio = useCallback(async () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      return;
-    }
-
-    isPlayingRef.current = true;
-    const audioBlob = audioQueueRef.current.shift()!;
-
-    try {
-      if (!audioContextRef.current) return;
-
-      // Resume audio context if suspended (browser security requirement)
-      if (audioContextRef.current.state === "suspended") {
-        await audioContextRef.current.resume();
-      }
-
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioBuffer = await audioContextRef.current.decodeAudioData(
-        arrayBuffer
-      );
-
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-
-      if (isSpeakerOn) {
-        source.connect(audioContextRef.current.destination);
-      }
-
-      source.onended = () => {
-        playNextAudio();
-      };
-
-      source.start();
-    } catch (error) {
-      console.error("Audio playback error:", error);
-      // Don't retry immediately on NotAllowedError
-      if ((error as any).name !== "NotAllowedError") {
-        playNextAudio();
-      } else {
-        console.log("🔊 Audio blocked by browser - user interaction required");
-        isPlayingRef.current = false;
-      }
-    }
-  }, [isSpeakerOn]);
-
-  // Start voice call
-  const startCall = useCallback(async () => {
-    console.log("🟢 Starting voice call...");
-    console.log("WebSocket state:", wsRef.current?.readyState);
-    console.log("Is connected:", isConnected);
-
-    try {
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-
-      mediaStreamRef.current = stream;
-
-      // Initialize AudioContext
-      audioContextRef.current = new (window.AudioContext ||
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext)({
-        sampleRate: 16000,
-      });
-
-      // Create source node
-      sourceNodeRef.current =
-        audioContextRef.current.createMediaStreamSource(stream);
-
-      // Create analyser for visualization
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 128;
-      sourceNodeRef.current.connect(analyserRef.current);
-
-      // Create script processor
-      scriptProcessorRef.current =
-        audioContextRef.current.createScriptProcessor(512, 1, 1);
-
-      scriptProcessorRef.current.onaudioprocess = (event) => {
-        if (!isMuted && wsRef.current?.readyState === WebSocket.OPEN) {
-          const inputData = event.inputBuffer.getChannelData(0);
-          const buffer = new ArrayBuffer(inputData.length * 2);
-          const view = new DataView(buffer);
-
-          // Convert Float32 to Int16
-          for (let i = 0; i < inputData.length; i++) {
-            const s = Math.max(-1, Math.min(1, inputData[i]));
-            view.setInt16(i * 2, s * 0x7fff, true);
-          }
-
-          // 音声レベルをチェックして状態を更新
-          const volume =
-            inputData.reduce((sum, sample) => sum + Math.abs(sample), 0) /
-            inputData.length;
-          if (volume > 0.01) {
-            // 音声レベル閾値
-            setVoiceActivityStatus("speaking");
-          } else {
-            setVoiceActivityStatus("idle");
-          }
-
-          console.log(
-            "🎤 Sending audio data:",
-            buffer.byteLength,
-            "bytes, volume:",
-            volume.toFixed(4)
-          );
-          wsRef.current.send(buffer);
-        } else {
-          console.log(
-            "🔇 Audio not sent - muted:",
-            isMuted,
-            "WS state:",
-            wsRef.current?.readyState
-          );
-          setVoiceActivityStatus("idle");
-        }
-      };
-
-      sourceNodeRef.current.connect(scriptProcessorRef.current);
-      scriptProcessorRef.current.connect(audioContextRef.current.destination);
-
-      // Start call
-      setIsCallActive(true);
-      callStartTimeRef.current = Date.now();
-
-      // Start audio visualizer updates
-      updateAudioVisualizer();
-    } catch (error) {
-      console.error("Failed to start call:", error);
-      alert("マイクへのアクセスが必要です。ブラウザの設定を確認してください。");
-    }
-  }, [isMuted, isConnected, updateAudioVisualizer]);
-
   // End voice call
   const endCall = useCallback(() => {
     console.log("🔴 Ending voice call - stopping all audio playback");
@@ -621,29 +643,6 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
     console.log("✅ Voice call ended - all audio stopped");
   }, [onEnd]);
-
-  // Update audio visualizer
-  const updateAudioVisualizer = useCallback(() => {
-    if (!analyserRef.current || !isCallActive) return;
-
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
-
-    // Reduce data to 32 bars for better performance
-    const reducedData = new Uint8Array(32);
-    const blockSize = Math.floor(dataArray.length / 32);
-
-    for (let i = 0; i < 32; i++) {
-      let sum = 0;
-      for (let j = 0; j < blockSize; j++) {
-        sum += dataArray[i * blockSize + j];
-      }
-      reducedData[i] = Math.floor(sum / blockSize);
-    }
-
-    setAudioVisualizerData(reducedData);
-    visualizerUpdateRef.current = requestAnimationFrame(updateAudioVisualizer);
-  }, [isCallActive, setAudioVisualizerData]);
 
   // Update call duration
   useEffect(() => {

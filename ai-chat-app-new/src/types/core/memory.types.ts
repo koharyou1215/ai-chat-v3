@@ -60,6 +60,7 @@ export interface MemoryCard extends BaseEntity, WithMetadata {
   auto_tags: string[];
   user_tags?: string[];
   emotion_tags?: EmotionTag[];
+  context_tags?: string[];
   keywords: string[];             // キーワードリスト
   
   // 重要度・信頼度

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Optimized Imports for Performance
  * 
@@ -100,7 +102,6 @@ export const getOptimizedUIComponents = async () => {
     { Input },
     { Label },
     { Textarea },
-    { Separator },
   ] = await Promise.all([
     import('@/components/ui/button'),
     import('@/components/ui/card'),
@@ -110,7 +111,6 @@ export const getOptimizedUIComponents = async () => {
     import('@/components/ui/input'),
     import('@/components/ui/label'),
     import('@/components/ui/textarea'),
-    import('@/components/ui/separator'),
   ]);
 
   return {
@@ -122,7 +122,6 @@ export const getOptimizedUIComponents = async () => {
     Input,
     Label,
     Textarea,
-    Separator,
   };
 };
 
@@ -131,15 +130,13 @@ export const getOptimizedUIComponents = async () => {
 // Heavy chat components that should be loaded on demand
 export const getChatComponents = async () => {
   const [
-    { AdvancedEffects }, // 🔧 FIX: Remove incorrect reference
     { MessageEffects },
     { EmotionDisplay },
     { TrackerDisplay },
-    { MemoryCard },
+    { MemoryCardComponent: MemoryCard },
     { CharacterCard },
     { PersonaCard },
   ] = await Promise.all([
-    import('@/components/chat/AdvancedEffects'),
     import('@/components/chat/MessageEffects'),
     import('@/components/emotion/EmotionDisplay'),
     import('@/components/tracker/TrackerDisplay'),
@@ -149,7 +146,6 @@ export const getChatComponents = async () => {
   ]);
 
   return {
-    AdvancedEffects,
     MessageEffects,
     EmotionDisplay,
     TrackerDisplay,
@@ -242,24 +238,6 @@ export const getOptimizedUtilities = async () => {
   };
 };
 
-// ===== PERFORMANCE MONITORING =====
-
-// Tools for performance monitoring that shouldn't block initial load
-export const getPerformanceTools = async () => {
-  // Example performance monitoring setup
-  if (process.env.NODE_ENV === 'development') {
-    const { getCLS, getFID, getFCP, getLCP, getTTFB } = await import('web-vitals');
-    return {
-      getCLS,
-      getFID,
-      getFCP,
-      getLCP,
-      getTTFB,
-    };
-  }
-  return {};
-};
-
 // ===== EXPORT OPTIMIZED LOADERS =====
 
 export const OptimizedLoaders = {
@@ -271,7 +249,6 @@ export const OptimizedLoaders = {
   services: getOptimizedServices,
   forms: getFormValidation,
   utils: getOptimizedUtilities,
-  performance: getPerformanceTools,
 };
 
 export default OptimizedLoaders;
