@@ -33,7 +33,7 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 │ 🎯 統一システム             │ 🔧 分散処理                       │
 │ • PromptBuilderService      │ • 直接生成(groupChat.slice.ts)    │
 │ • ConversationManager       │ • generateCompactGroupPrompt()    │
-│ • /api/chat/generate        │ • apiManager直接呼び出し          │
+│ • /api/chat/generate        │ • simpleAPIManagerV2直接呼び出し  │
 │                             │                                   │
 │ 🎭 プロンプト構造            │ 🎭 プロンプト構造                  │
 │ • 統一8段階構成             │ • コンパクト/フル自動切替          │
@@ -44,8 +44,8 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 │ 1. ChatSlice.sendMessage    │ 1. GroupChatSlice.sendMessage     │
 │ 2. PromptBuilderService     │ 2. generateCharacterResponse      │
 │ 3. ConversationManager      │ 3. 直接プロンプト生成             │
-│ 4. /api/chat/generate       │ 4. apiManager.generateMessage     │
-│ 5. APIManager               │ 5. GeminiClient                   │
+│ 4. /api/chat/generate       │ 4. simpleAPIManagerV2.generateMessage │
+│ 5. SimpleAPIManagerV2       │ 5. GeminiClient                   │
 └─────────────────────────────┴───────────────────────────────────┘
 ```
 
@@ -85,6 +85,32 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 **修正済み問題 (2025年8月30日):**
 - ❌ **旧:** 空のuserMessage → テンプレート応答「はい、そうですね」
 - ✅ **新:** 適切なメッセージ内容 → 多様で創造的な提案生成
+
+---
+
+## 📊 Progressive Message System (新機能)
+
+**3段階の段階的レスポンス生成システム:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              Progressive Message Architecture                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Stage 1 (1-2秒)              │ 即座の応答・確認                 │
+│ • Quick acknowledgment       │ • ユーザー入力の理解確認         │
+│ • Initial reaction           │ • 簡潔な初期応答                 │
+├──────────────────────────────┼──────────────────────────────────┤
+│ Stage 2 (2-4秒)              │ 詳細な説明・メインコンテンツ     │
+│ • Core response content      │ • 完全な応答内容                 │
+│ • Detailed explanation       │ • 必要な情報の提供               │
+├──────────────────────────────┼──────────────────────────────────┤
+│ Stage 3 (4-6秒)              │ 追加情報・提案                   │
+│ • Additional insights        │ • 関連する提案                   │
+│ • Follow-up suggestions      │ • 会話の継続促進                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**実装ファイル:** `src/components/chat/ProgressiveMessageBubble.tsx`
 
 ---
 
@@ -286,7 +312,7 @@ Description: [behavioral impact explanation]
 npm run dev
 # コンソールで確認すべきログ:
 # ✅ 🎯 [キャラクター名] トークン配分: 250
-# ✅ 🤖 [APIManager] プロンプト長さ確認  
+# ✅ 🤖 [SimpleAPIManagerV2] プロンプト長さ確認  
 # ✅ Group message generated successfully
 # ❌ 🔄 Attempting fallback via OpenRouter (Gemini障害時)
 ```
@@ -425,7 +451,7 @@ NODE_ENV="development"
 ```
 **Expected Output**: Full prompt content in terminal during chat
 
-### **Method 2: Check APIManager Logs**  
+### **Method 2: Check SimpleAPIManagerV2 Logs**  
 Look for these log patterns:
 ```
 🤖 ===== API Manager Generate =====
@@ -502,7 +528,7 @@ Look for these log patterns:
 | **Character State** | `src/services/tracker/tracker-manager.ts` | Tracker value management |
 | **Data Processing** | `src/utils/variable-replacer.ts` | Character variable replacement |
 | **Chat Integration** | `src/store/slices/chat.slice.ts` | Prompt building integration |
-| **API Communication** | `src/services/api-manager.ts` | Final prompt delivery |
+| **API Communication** | `src/services/simple-api-manager-v2.ts` | Final prompt delivery |
 
 ---
 

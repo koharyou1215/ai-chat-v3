@@ -286,7 +286,7 @@ export const createSettingsSlice: StateCreator<
   
   apiConfig: {
     provider: 'gemini',
-    model: 'google/gemini-2.5-flash',
+    model: 'gemini-2.5-flash', // Remove google/ prefix to prevent validation issues
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 1.0,

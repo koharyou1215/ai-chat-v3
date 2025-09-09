@@ -17,6 +17,8 @@ export class SimpleAPIManagerV2 {
   private openRouterApiKey: string | null = null;
   private useDirectGeminiAPI: boolean = false;
   private currentConfig: APIConfig;
+  private apiKeyCache: { gemini: string | null; openRouter: string | null; timestamp: number } | null = null;
+  private readonly CACHE_TTL = 5000; // 5 seconds cache for API keys
 
   constructor() {
     // デフォルト設定
@@ -254,17 +256,32 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
-   * ZustandストアからリアルタイムでAPIキーを取得
+   * ZustandストアからリアルタイムでAPIキーを取得（キャッシュ付き）
    */
   private refreshApiKeys() {
     if (typeof window !== "undefined") {
       try {
+        // Check cache first
+        const now = Date.now();
+        if (this.apiKeyCache && (now - this.apiKeyCache.timestamp) < this.CACHE_TTL) {
+          this.geminiApiKey = this.apiKeyCache.gemini;
+          this.openRouterApiKey = this.apiKeyCache.openRouter;
+          return;
+        }
+        
         const savedData = localStorage.getItem("ai-chat-v3-storage");
         if (savedData) {
           const parsed = JSON.parse(savedData);
           const newGeminiKey = parsed?.state?.geminiApiKey;
           const newOpenRouterKey = parsed?.state?.openRouterApiKey;
           const newUseDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI;
+          
+          // Update cache
+          this.apiKeyCache = {
+            gemini: newGeminiKey || null,
+            openRouter: newOpenRouterKey || null,
+            timestamp: now
+          };
 
           if (newGeminiKey && newGeminiKey !== this.geminiApiKey) {
             this.geminiApiKey = newGeminiKey;
@@ -296,6 +313,12 @@ export class SimpleAPIManagerV2 {
    */
   private validateAndCleanModel(model: string): string {
     console.log(`🧹 Model validation - Input: ${model}`);
+    
+    // Step 0: Immediate rejection of known invalid patterns
+    if (model.includes('-8b') || model.includes('-4b') || model.includes('flash-8b')) {
+      console.warn(`🚫 Immediately rejecting invalid model: ${model} -> gemini-2.5-flash`);
+      return 'gemini-2.5-flash';
+    }
     
     // Step 1: Remove invalid prefixes and suffixes (強化版)
     let cleanModel = model
@@ -424,8 +447,15 @@ export class SimpleAPIManagerV2 {
       );
     }
 
-    // 🚨 CRITICAL: Validate model before sending to OpenRouter
+    // 🚨 CRITICAL: Validate model FIRST before any processing
     const validatedModel = this.validateAndCleanModel(model);
+    
+    // Debug logging to trace model transformation
+    console.log('🔍 Model validation chain:', {
+      inputModel: model,
+      validatedModel: validatedModel,
+      isGemini: this.isGeminiModel(validatedModel)
+    });
     
     // For Gemini models via OpenRouter, add the google/ prefix if needed
     let openRouterModel = validatedModel;

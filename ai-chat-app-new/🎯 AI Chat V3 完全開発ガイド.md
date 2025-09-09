@@ -103,7 +103,7 @@ import { Character } from '@/types/core/character.types';         // Unified cha
 import { EffectSettings } from '@/store/slices/settings.slice';   // All settings
 
 // MUST USE Services  
-import { apiManager } from '@/services/api-manager';              // Unified API
+import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2'; // Simplified API
 import { useAppStore } from '@/store';                            // Zustand store
 ```
 
@@ -298,7 +298,7 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
 ├── services/               # Business Logic
 │   ├── api/                # API-related services
   │   │   ├── gemini-client.ts
-│   │   ├── openrouter-client.ts (deleted)
+│   │   ├── openrouter-client.ts
   │   │   └── vector-search.ts
 │   ├── memory/             # Memory system
   │   │   ├── conversation-manager.ts
@@ -307,7 +307,7 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
   │   │   └── vector-store.ts
 │   ├── tracker/            # Tracker system
   │   │   └── tracker-manager.ts
-│   ├── api-manager.ts      # Unified API Manager
+│   ├── simple-api-manager-v2.ts  # Simplified API Manager (replaced complex api-manager.ts)
 │   ├── inspiration-service.ts # Suggestion generation service
   │   └── prompt-builder.service.ts
 ├── store/                  # Zustand State Management
@@ -440,7 +440,7 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     
   // Appearance & Style
     appearance: string;
-    avatar_url?: string;
+    // avatar_url was intentionally removed (was causing character loading errors)
     background_url?: string;
     image_prompt?: string;
     negative_prompt?: string;
@@ -469,6 +469,53 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
     nsfw_profile?: NSFWProfile;
   }
 ```
+
+---
+📈 **Progressive Message System**
+
+The Progressive Message System provides a multi-stage response generation for enhanced user experience.
+
+**Implementation (`src/components/chat/ProgressiveMessageBubble.tsx`)**
+
+```typescript
+export const ProgressiveMessageBubble: React.FC<Props> = ({ message }) => {
+  // 3-stage progressive response system
+  const stages = [
+    { 
+      delay: 1000,  // Stage 1: Quick response (1-2 seconds)
+      content: quickResponse 
+    },
+    { 
+      delay: 3000,  // Stage 2: Detailed explanation (2-4 seconds)
+      content: detailedExplanation 
+    },
+    { 
+      delay: 5000,  // Stage 3: Additional info & suggestions (4-6 seconds)
+      content: additionalInfo 
+    }
+  ];
+  
+  // Progressive reveal with smooth transitions
+  return (
+    <div className="progressive-message">
+      {stages.map((stage, index) => (
+        <AnimatedSection 
+          key={index}
+          delay={stage.delay}
+          content={stage.content}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+**Features:**
+- Immediate acknowledgment (Stage 1)
+- Core content delivery (Stage 2)  
+- Enriched information and suggestions (Stage 3)
+- Smooth fade-in animations between stages
+- User can interrupt at any stage
 
 ---
 🧩 **Key Components**
@@ -655,11 +702,12 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
   ---
 🔌 **API Design**
 
-**API Manager (Unified)**
+**Simple API Manager V2 (Simplified from Complex System)**
 
 ```typescript
-  // src/services/api-manager.ts
-  export class APIManager {
+  // src/services/simple-api-manager-v2.ts
+  // Note: Replaced the previous complex api-manager.ts to reduce errors
+  export class SimpleAPIManagerV2 {
     private currentConfig: APIConfig;
     private openRouterApiKey: string | null = null;
 
@@ -1579,7 +1627,7 @@ git push origin main    # Triggers Vercel auto-deploy
 *   🔥 **Core (Most Important)**
     *   `src/types/core/message.types.ts`       # Unified Message Type
     *   `src/store/index.ts`                    # Zustand Integrated Store
-    *   `src/services/api-manager.ts`           # Unified API Manager
+    *   `src/services/simple-api-manager-v2.ts`  # Simplified API Manager
     *   `src/components/chat/ChatInterface.tsx` # Main Chat Interface
     *   `src/components/chat/MessageBubble.tsx` # Message Display with Effects
 

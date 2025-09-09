@@ -780,8 +780,9 @@ const AIPanel: React.FC<{
             onChange={(e) => handleModelChange(e.target.value)}
             className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
             <optgroup label="Google">
-              <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
-              <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-flash-light">Gemini 2.5 Flash Light</option>
             </optgroup>
             <optgroup label="Anthropic (OpenRouter)">
               <option value="anthropic/claude-opus-4">Claude Opus 4</option>

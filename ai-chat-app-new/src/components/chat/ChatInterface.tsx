@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useMemo, Suspense } from "react";
+import React, { useRef, useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
@@ -50,7 +50,7 @@ const EmptyState = () => {
     isPersonasLoaded,
   } = useAppStore();
 
-  const handleQuickStart = async () => {
+  const handleQuickStart = useCallback(async () => {
     // 最初のキャラクターとアクティブなペルソナを取得
     const firstCharacter = characters.values().next().value;
     const activePersona = getSelectedPersona();
@@ -70,7 +70,7 @@ const EmptyState = () => {
       );
       toggleLeftSidebar();
     }
-  };
+  }, [characters, getSelectedPersona, createSession, toggleLeftSidebar]);
 
   return (
     <div
@@ -555,36 +555,80 @@ const ChatInterfaceContent: React.FC = () => {
       style={{
         height: "calc(var(--vh, 1vh) * 100)",
       }}>
-      {/* 🎨 キャラクター背景画像・動画（最優先表示） */}
-      {character && character.background_url && (
-        <div
-          className="fixed inset-0 overflow-hidden z-0"
-          style={{
-            left: windowWidth >= 768 && isLeftSidebarOpen ? "320px" : "0",
-            right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
-            top: 0,
-            bottom: 0,
-          }}>
-          {character.background_url.endsWith(".mp4") ||
-          character.background_url.includes("video") ? (
-            <video
-              src={character.background_url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={character.background_url}
-              alt="background"
-              className="w-full h-full object-cover"
-            />
-          )}
-        </div>
-      )}
+      {/* 🎨 背景表示ロジック（優先順位: キャラクター背景 > 設定背景） */}
+      {(() => {
+        // キャラクター背景がある場合
+        if (character && character.background_url) {
+          return (
+            <div
+              className="fixed inset-0 overflow-hidden z-0"
+              style={{
+                left: windowWidth >= 768 && isLeftSidebarOpen ? "320px" : "0",
+                right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
+                top: 0,
+                bottom: 0,
+              }}>
+              {character.background_url.endsWith(".mp4") ||
+              character.background_url.includes("video") ? (
+                <video
+                  src={character.background_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={character.background_url}
+                  alt="background"
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+          );
+        }
+        
+        // キャラクター背景がない場合は設定の背景を表示
+        const { backgroundType, backgroundImage, backgroundGradient, backgroundOpacity, backgroundBlur } = useAppStore.getState().appearance;
+        
+        return (
+          <div
+            className="fixed inset-0 overflow-hidden z-0"
+            style={{
+              left: windowWidth >= 768 && isLeftSidebarOpen ? "320px" : "0",
+              right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
+              top: 0,
+              bottom: 0,
+              opacity: backgroundOpacity / 100,
+              filter: `blur(${backgroundBlur}px)`,
+            }}>
+            {backgroundType === 'image' && backgroundImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={backgroundImage}
+                alt="background"
+                className="w-full h-full object-cover"
+              />
+            ) : backgroundType === 'gradient' ? (
+              <div
+                className="w-full h-full"
+                style={{
+                  background: backgroundGradient,
+                }}
+              />
+            ) : (
+              <div
+                className="w-full h-full"
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                }}
+              />
+            )}
+          </div>
+        );
+      })()}
 
       <ClientOnlyProvider fallback={null}>
         <AnimatePresence>
