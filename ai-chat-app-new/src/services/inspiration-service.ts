@@ -5,6 +5,7 @@ import { UnifiedMessage } from "@/types/memory";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
 import { apiRequestQueue } from "@/services/api-request-queue";
 import { APIConfig, Character, Persona } from "@/types";
+import { replaceVariables } from "@/utils/variable-replacer";
 
 export interface InspirationSuggestion {
   id: string;
@@ -41,7 +42,7 @@ class InspirationCache {
     hits: 0,
     misses: 0,
     evictions: 0,
-    totalRequests: 0
+    totalRequests: 0,
   };
 
   constructor() {
@@ -53,12 +54,15 @@ class InspirationCache {
    */
   get<T>(key: string): T | null {
     this.stats.totalRequests++;
-    
+
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.stats.misses++;
-      console.log('💾❌ Inspiration cache miss for key:', this.truncateKey(key));
+      console.log(
+        "💾❌ Inspiration cache miss for key:",
+        this.truncateKey(key)
+      );
       return null;
     }
 
@@ -66,14 +70,14 @@ class InspirationCache {
     if (this.isExpired(entry.timestamp)) {
       this.cache.delete(key);
       this.stats.misses++;
-      console.log('💾⏰ Expired cache entry removed:', this.truncateKey(key));
+      console.log("💾⏰ Expired cache entry removed:", this.truncateKey(key));
       return null;
     }
 
     // Cache hit
     entry.hitCount++;
     this.stats.hits++;
-    console.log('💾✅ Inspiration cache hit:', this.truncateKey(key));
+    console.log("💾✅ Inspiration cache hit:", this.truncateKey(key));
     return entry.data;
   }
 
@@ -85,13 +89,13 @@ class InspirationCache {
       key,
       data,
       timestamp: Date.now(),
-      hitCount: 0
+      hitCount: 0,
     };
 
     this.cache.set(key, entry);
     this.maintainCacheSize();
-    
-    console.log('💾💿 Inspiration response cached:', this.truncateKey(key));
+
+    console.log("💾💿 Inspiration response cached:", this.truncateKey(key));
   }
 
   /**
@@ -99,13 +103,15 @@ class InspirationCache {
    */
   generateCacheKey(prompt: string, apiConfig?: Partial<APIConfig>): string {
     // Create a hash from the prompt and relevant config options
-    const configHash = apiConfig ? this.hashObject({
-      model: apiConfig.model,
-      temperature: apiConfig.temperature,
-      max_tokens: apiConfig.max_tokens,
-      top_p: apiConfig.top_p
-    }) : '';
-    
+    const configHash = apiConfig
+      ? this.hashObject({
+          model: apiConfig.model,
+          temperature: apiConfig.temperature,
+          max_tokens: apiConfig.max_tokens,
+          top_p: apiConfig.top_p,
+        })
+      : "";
+
     const promptHash = this.simpleHash(prompt);
     return `inspiration_${promptHash}_${configHash}`;
   }
@@ -114,15 +120,16 @@ class InspirationCache {
    * Get cache statistics
    */
   getStats() {
-    const hitRate = this.stats.totalRequests > 0 
-      ? Math.round((this.stats.hits / this.stats.totalRequests) * 100) 
-      : 0;
+    const hitRate =
+      this.stats.totalRequests > 0
+        ? Math.round((this.stats.hits / this.stats.totalRequests) * 100)
+        : 0;
 
     return {
       ...this.stats,
       hitRate,
       cacheSize: this.cache.size,
-      maxSize: this.maxCacheSize
+      maxSize: this.maxCacheSize,
     };
   }
 
@@ -131,7 +138,7 @@ class InspirationCache {
    */
   clear(): void {
     this.cache.clear();
-    console.log('💾🧹 Inspiration cache cleared');
+    console.log("💾🧹 Inspiration cache cleared");
   }
 
   /**
@@ -143,7 +150,7 @@ class InspirationCache {
 
     // Use Array.from to ensure compatibility
     const entries = Array.from(this.cache.entries());
-    
+
     for (let i = 0; i < entries.length; i++) {
       const [key, entry] = entries[i];
       if (this.isExpired(entry.timestamp, now)) {
@@ -153,7 +160,9 @@ class InspirationCache {
     }
 
     if (cleanedCount > 0) {
-      console.log(`💾🧹 Cleaned up ${cleanedCount} expired inspiration cache entries`);
+      console.log(
+        `💾🧹 Cleaned up ${cleanedCount} expired inspiration cache entries`
+      );
     }
 
     return cleanedCount;
@@ -167,11 +176,11 @@ class InspirationCache {
       this.cleanupExpired();
     }, 5 * 60 * 1000);
 
-    console.log('💾 Inspiration cache initialized with 15-minute TTL');
+    console.log("💾 Inspiration cache initialized with 15-minute TTL");
   }
 
   private isExpired(timestamp: number, now: number = Date.now()): boolean {
-    return (now - timestamp) > this.cacheTTL;
+    return now - timestamp > this.cacheTTL;
   }
 
   private maintainCacheSize(): void {
@@ -184,19 +193,21 @@ class InspirationCache {
 
     // Use Array.from to ensure compatibility
     const entries = Array.from(this.cache.entries());
-    
+
     for (let i = 0; i < entries.length; i++) {
       const [key, entry] = entries[i];
-      
+
       // Prioritize expired entries for removal
       if (this.isExpired(entry.timestamp)) {
         lruKey = key;
         break;
       }
-      
+
       // Find entry with least hits or oldest timestamp
-      if (entry.hitCount < lruHitCount || 
-          (entry.hitCount === lruHitCount && entry.timestamp < oldestTime)) {
+      if (
+        entry.hitCount < lruHitCount ||
+        (entry.hitCount === lruHitCount && entry.timestamp < oldestTime)
+      ) {
         lruKey = key;
         lruHitCount = entry.hitCount;
         oldestTime = entry.timestamp;
@@ -206,7 +217,10 @@ class InspirationCache {
     if (lruKey) {
       this.cache.delete(lruKey);
       this.stats.evictions++;
-      console.log('💾🗑️ Evicted inspiration cache entry:', this.truncateKey(lruKey));
+      console.log(
+        "💾🗑️ Evicted inspiration cache entry:",
+        this.truncateKey(lruKey)
+      );
     }
   }
 
@@ -214,7 +228,7 @@ class InspirationCache {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36);
@@ -225,7 +239,7 @@ class InspirationCache {
   }
 
   private truncateKey(key: string): string {
-    return key.length > 50 ? key.substring(0, 50) + '...' : key;
+    return key.length > 50 ? key.substring(0, 50) + "..." : key;
   }
 }
 
@@ -269,13 +283,15 @@ export class InspirationService {
     // Check cache first
     const cacheKey = this.cache.generateCacheKey(prompt, apiConfig);
     const cachedResponse = this.cache.get<string>(cacheKey);
-    
+
     if (cachedResponse) {
       // Parse cached response
       const suggestions = this.parseReplySuggestionsAdvanced(cachedResponse);
-      
+
       if (suggestions.length > 0) {
-        console.log(`📥 Using cached reply suggestions (${suggestions.length} items)`);
+        console.log(
+          `📥 Using cached reply suggestions (${suggestions.length} items)`
+        );
         return suggestions;
       }
     }
@@ -331,7 +347,8 @@ export class InspirationService {
     recentMessages: UnifiedMessage[],
     user: Persona,
     enhancePrompt?: string,
-    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string },
+    character?: Character
   ): Promise<string> {
     if (!inputText.trim()) {
       throw new Error("入力テキストが空です");
@@ -341,18 +358,26 @@ export class InspirationService {
 
     let prompt: string;
     if (enhancePrompt) {
-      prompt = enhancePrompt
+      // {{user}}と{{char}}を適切に置換
+      const variableContext = { user, character };
+      prompt = replaceVariables(enhancePrompt, variableContext)
         .replace(/{{conversation}}/g, context)
-        .replace(/{{user}}/g, inputText)
         .replace(/{{text}}/g, inputText);
     } else {
       prompt = this.buildEnhancementPrompt(inputText, context, user);
     }
+    
+    // デフォルトプロンプトも{{user}}と{{char}}を置換
+    const variableContext = { user, character };
+    prompt = replaceVariables(prompt, variableContext);
 
     // Check cache first
-    const cacheKey = this.cache.generateCacheKey(prompt + '|enhance|' + inputText, apiConfig);
+    const cacheKey = this.cache.generateCacheKey(
+      prompt + "|enhance|" + inputText,
+      apiConfig
+    );
     const cachedResponse = this.cache.get<string>(cacheKey);
-    
+
     if (cachedResponse) {
       const enhancedText = this.parseEnhancedText(cachedResponse, inputText);
       console.log("✅ 文章強化成功 (キャッシュ):", {
@@ -592,9 +617,9 @@ export class InspirationService {
       ${context}
       ###**分析すべき要素**
       - 会話の文脈と話題の流れ
-      - {{user}}と発言意図と感情状態
-      - これまでの{{user}}とトーンとスタイル
-      - {{char}}との関係性  
+      - {{user}}の発言意図と感情状態
+      - これまでの{{user}}のトーンとスタイル
+      - 会話相手との関係性  
       ###生成する4つのアプローチ 
       - ${speaker}の性格を反映させること
      - 各提案頭には番号を付けて、150～300字で、濃密かつ描写的に。  
@@ -628,19 +653,25 @@ export class InspirationService {
     user: Persona
   ): string {
     // プロンプトを大幅に短縮
+    // {{user}}と{{char}}を使用したプロンプト（後で置換される）
     return `{{user}}視点の文章をパワーアップさせる。:
-こっちは 官能性・挑発性・心理的駆け引き を増幅する方向。
-（直接的な禁止ワードは避けつつ、感覚描写やエロティックな言葉選びを強化するイメージ）
 
-あなたは感情表現と官能的描写のエキスパートです。  
-以下の文章を、${user.name}らしくキャラクターを保持したまま、元の意味を保持してNSFW会話として強化し拡張しください。  
+あなたは感情表現のエキスパートです。  
+以下の文章を、{{user}}らしくキャラクターを保持したまま、元の意味を保持して強化し拡張しください。  
 
 条件:
-- 原文の意味・意図を保持しながら、官能的な要素を増幅させること  
-- ${user.name}の口調・性格を崩さず、より魅惑的で挑発的な文体にすること  
-- 肉体的な感覚、心理的な揺さぶり、羞恥や快楽を表現に組み込むこと  
-- 原文を1.5～2倍に拡張してもよい  
-- 出力は強化された台詞のみとし、解説や注釈は含めないこと  
+会話履歴:
+      ${context}
+      ###**分析すべき要素**
+      - 会話の文脈と話題の流れ
+      - {{user}}の発言意図と感情状態
+      - これまでの{{user}}のトーンとスタイル
+      - 会話相手との関係性  
+- 原文の意味や意図は保持すること  
+- {{user}}の口調やキャラクター性を尊重すること  
+- 語彙や表現を拡張し、豊かで自然に聞こえる文章にすること  
+- 必要に応じて原文の1.5～2倍に拡張してよい  
+- 不要な解説や注釈は含めず、強化後の文章のみを出力すること
 
 入力文:  
 "${inputText}"

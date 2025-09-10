@@ -11,11 +11,19 @@ import React, {
 import { ProgressiveMessage } from "@/types/progressive-message.types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { RefreshCw, ChevronRight, Copy, X, CornerUpLeft, Edit } from "lucide-react";
+import {
+  RefreshCw,
+  ChevronRight,
+  Copy,
+  X,
+  CornerUpLeft,
+  Edit,
+} from "lucide-react";
 import { useAppStore } from "@/store";
 import MessageEffects from "@/components/chat/MessageEffects";
 import { ParticleText } from "@/components/chat/AdvancedEffects";
 import { cn } from "@/lib/utils";
+import TokenUsageDisplay from "@/components/ui/TokenUsageDisplay";
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
@@ -30,17 +38,17 @@ export const ProgressiveMessageBubble: React.FC<
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const { 
-    is_generating, 
+  const {
+    is_generating,
     is_group_mode,
     group_generating,
-    effectSettings, 
+    effectSettings,
     regenerateLastMessage,
     regenerateLastGroupMessage,
     continueLastMessage,
     continueLastGroupMessage,
     deleteMessage,
-    rollbackSession
+    rollbackSession,
   } = useAppStore();
   const contentRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -61,6 +69,19 @@ export const ProgressiveMessageBubble: React.FC<
     glowIntensity: "none",
     highlightChanges: false,
   };
+
+  // 初期化時に利用可能な最新のステージを自動選択
+  useEffect(() => {
+    if (!selectedStage && stages && typeof stages === "object") {
+      if (stages.intelligence?.content) {
+        setSelectedStage("intelligence");
+      } else if (stages.context?.content) {
+        setSelectedStage("context");
+      } else if (stages.reflex?.content) {
+        setSelectedStage("reflex");
+      }
+    }
+  }, [selectedStage, stages]);
 
   // ステージ表示ヘルパー
   const getStageLabel = (stage: string) => {
@@ -141,37 +162,25 @@ export const ProgressiveMessageBubble: React.FC<
 
   // 現在のステージに応じたコンテンツを取得
   const getCurrentStageContent = useCallback(() => {
+    // 特定のステージが選択されている場合は、そのステージの内容を表示
     if (selectedStage && stages[selectedStage]?.content) {
       return stages[selectedStage].content;
     }
 
-    if (!selectedStage && message.content) {
-      return message.content;
+    // ステージが選択されていない場合は、利用可能な最新のステージを表示
+    if (!selectedStage) {
+      if (stages.intelligence?.content) {
+        return stages.intelligence.content;
+      } else if (stages.context?.content) {
+        return stages.context.content;
+      } else if (stages.reflex?.content) {
+        return stages.reflex.content;
+      }
     }
 
-    if (!stages || typeof stages !== "object") {
-      return "";
-    }
-
-    let content = "";
-
-    if (stages.reflex?.content) {
-      content = stages.reflex.content;
-    }
-
-    if (
-      (currentStage === "context" || currentStage === "intelligence") &&
-      stages.context?.content
-    ) {
-      content = stages.context.content;
-    }
-
-    if (currentStage === "intelligence" && stages.intelligence?.content) {
-      content = stages.intelligence.content;
-    }
-
-    return content || "";
-  }, [selectedStage, stages, message.content, currentStage]);
+    // フォールバック
+    return "";
+  }, [selectedStage, stages, message.content]);
 
   // タイプライター効果
   useEffect(() => {
@@ -316,7 +325,9 @@ export const ProgressiveMessageBubble: React.FC<
               {stages.reflex?.content && (
                 <button
                   onClick={() =>
-                    setSelectedStage(selectedStage === "reflex" ? null : "reflex")
+                    setSelectedStage(
+                      selectedStage === "reflex" ? null : "reflex"
+                    )
                   }
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -425,7 +436,8 @@ export const ProgressiveMessageBubble: React.FC<
                   <div className="text-gray-400 italic">
                     {currentStage === "reflex" && "直感ステージを処理中..."}
                     {currentStage === "context" && "文脈ステージを処理中..."}
-                    {currentStage === "intelligence" && "知性ステージを処理中..."}
+                    {currentStage === "intelligence" &&
+                      "知性ステージを処理中..."}
                   </div>
                 )}
               </div>
@@ -449,6 +461,18 @@ export const ProgressiveMessageBubble: React.FC<
                   />
                 </Suspense>
               )}
+
+              {/* トークン使用量表示 */}
+              {selectedStage &&
+                stages[selectedStage as keyof typeof stages]?.usage && (
+                  <TokenUsageDisplay
+                    usage={stages[selectedStage as keyof typeof stages]?.usage}
+                    model={
+                      message.metadata?.progressiveData?.metadata?.model_used
+                    }
+                    isVisible={true}
+                  />
+                )}
             </div>
           </div>
         </div>
@@ -460,7 +484,9 @@ export const ProgressiveMessageBubble: React.FC<
             className={cn(
               "absolute bottom-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
               message.role === "user" ? "right-full mr-1" : "left-full ml-1",
-              !showMenu ? "opacity-0 group-hover:opacity-50 hover:!opacity-100" : "opacity-100",
+              !showMenu
+                ? "opacity-0 group-hover:opacity-50 hover:!opacity-100"
+                : "opacity-100",
               "transition-opacity"
             )}
             onMouseEnter={() => {
@@ -499,7 +525,9 @@ export const ProgressiveMessageBubble: React.FC<
                   className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
                   title="再生成"
                   disabled={isRegenerating || generateIsActive}>
-                  <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+                  <RefreshCw
+                    className={cn("w-4 h-4", isRegenerating && "animate-spin")}
+                  />
                 </button>
               )}
 
@@ -510,7 +538,9 @@ export const ProgressiveMessageBubble: React.FC<
                   className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
                   title="続きを生成"
                   disabled={isContinuing || generateIsActive}>
-                  <ChevronRight className={cn("w-4 h-4", isContinuing && "animate-pulse")} />
+                  <ChevronRight
+                    className={cn("w-4 h-4", isContinuing && "animate-pulse")}
+                  />
                 </button>
               )}
 

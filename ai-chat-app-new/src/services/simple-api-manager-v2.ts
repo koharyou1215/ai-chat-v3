@@ -172,17 +172,20 @@ export class SimpleAPIManagerV2 {
     // AIタブのuseDirectGeminiAPIトグルのみで判断
     if (this.useDirectGeminiAPI && this.geminiApiKey) {
       console.log("🔥 Gemini API直接使用 (AIタブトグルON)");
-      return await this.generateWithGemini(
+      const result = await this.generateWithGemini(
         systemPrompt,
         userMessage,
         conversationHistory,
         options
       );
+      return result;
     } else {
-      console.log("🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)");
+      console.log(
+        "🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)"
+      );
       // 🚨 修正: GeminiモデルをOpenRouterに送信しない
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
-      
+
       // OpenRouterではgoogle/プレフィックス付きで送信
       if (model.includes("gemini")) {
         if (!model.startsWith("google/")) {
@@ -190,14 +193,15 @@ export class SimpleAPIManagerV2 {
         }
         console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
       }
-      
-      return await this.generateWithOpenRouter(
+
+      const result = await this.generateWithOpenRouter(
         systemPrompt,
         userMessage,
         conversationHistory,
         model,
         options
       );
+      return result.content;
     }
   }
 
@@ -237,7 +241,11 @@ export class SimpleAPIManagerV2 {
           // 現在のAPIConfigも更新（モデル設定を反映）
           if (currentApiConfig && currentApiConfig.model) {
             this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
-            console.log("🔄 APIConfig更新（モデル:", currentApiConfig.model, "）");
+            console.log(
+              "🔄 APIConfig更新（モデル:",
+              currentApiConfig.model,
+              "）"
+            );
           }
         }
       } catch (error) {
@@ -245,7 +253,6 @@ export class SimpleAPIManagerV2 {
       }
     }
   }
-
 
   /**
    * Gemini API直接使用
@@ -294,7 +301,7 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[],
     model: string,
     options?: Partial<APIConfig>
-  ): Promise<string> {
+  ): Promise<{ content: string; usage?: any }> {
     if (!this.openRouterApiKey) {
       throw new Error(
         `OpenRouter APIキーが設定されていません。${model}を使用するにはOpenRouter APIキーが必要です。`
@@ -344,7 +351,23 @@ export class SimpleAPIManagerV2 {
       throw new Error("OpenRouterからの応答が空です");
     }
 
-    return formatMessageContent(content, "readable");
+    // 使用量情報をログに出力
+    if (data.usage) {
+      console.log("📊 OpenRouter API使用量:", {
+        model: model,
+        promptTokens: data.usage.prompt_tokens,
+        completionTokens: data.usage.completion_tokens,
+        totalTokens: data.usage.total_tokens,
+        promptCost: data.usage.prompt_tokens * 0.000002, // 概算コスト
+        completionCost: data.usage.completion_tokens * 0.000002, // 概算コスト
+        totalCost: data.usage.total_tokens * 0.000002, // 概算コスト
+      });
+    }
+
+    return {
+      content: formatMessageContent(content, "readable"),
+      usage: data.usage,
+    };
   }
 
   /**
@@ -375,7 +398,7 @@ export class SimpleAPIManagerV2 {
     } else {
       // OpenRouterはストリーミング非対応のため通常生成
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
-      
+
       // OpenRouterではgoogle/プレフィックス付きで送信
       if (model.includes("gemini")) {
         if (!model.startsWith("google/")) {
@@ -383,7 +406,7 @@ export class SimpleAPIManagerV2 {
         }
         console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
       }
-      
+
       const result = await this.generateWithOpenRouter(
         systemPrompt,
         userMessage,
@@ -391,8 +414,8 @@ export class SimpleAPIManagerV2 {
         model,
         options
       );
-      onChunk(result); // 一度に全体を送信
-      return result;
+      onChunk(result.content); // 一度に全体を送信
+      return result.content;
     }
   }
 
