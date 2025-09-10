@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useMemo, useCallback, Suspense } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  Suspense,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
@@ -589,10 +596,16 @@ const ChatInterfaceContent: React.FC = () => {
             </div>
           );
         }
-        
+
         // キャラクター背景がない場合は設定の背景を表示
-        const { backgroundType, backgroundImage, backgroundGradient, backgroundOpacity, backgroundBlur } = useAppStore.getState().appearanceSettings;
-        
+        const {
+          backgroundType,
+          backgroundImage,
+          backgroundGradient,
+          backgroundOpacity,
+          backgroundBlur,
+        } = useAppStore.getState().appearanceSettings;
+
         return (
           <div
             className="fixed inset-0 overflow-hidden z-0"
@@ -604,14 +617,14 @@ const ChatInterfaceContent: React.FC = () => {
               opacity: backgroundOpacity / 100,
               filter: `blur(${backgroundBlur}px)`,
             }}>
-            {backgroundType === 'image' && backgroundImage ? (
+            {backgroundType === "image" && backgroundImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={backgroundImage}
                 alt="background"
                 className="w-full h-full object-cover"
               />
-            ) : backgroundType === 'gradient' ? (
+            ) : backgroundType === "gradient" ? (
               <div
                 className="w-full h-full"
                 style={{
@@ -622,7 +635,8 @@ const ChatInterfaceContent: React.FC = () => {
               <div
                 className="w-full h-full"
                 style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 }}
               />
             )}

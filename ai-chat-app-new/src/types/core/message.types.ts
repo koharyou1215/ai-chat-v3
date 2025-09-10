@@ -68,6 +68,10 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
   // 編集履歴
   edit_history: EditEntry[];
   regeneration_count: number;
+  
+  // 🔧 FIX: Progressive Message機能
+  progressiveData?: ProgressiveData;
+  stages?: ProgressiveStage[];
 }
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
@@ -132,4 +136,18 @@ export interface MessageEditEntry {
   timestamp: string;
   previous_content: string;
   edit_reason?: string;
+}
+
+// 🔧 FIX: Progressive Message Types
+export type ProgressiveStage = 'reflex' | 'context' | 'intelligence';
+
+export interface ProgressiveData {
+  totalTokens: number;
+  totalTime: number;
+  userSatisfactionPoint?: ProgressiveStage;
+  stageTimings: {
+    reflex?: number;
+    context?: number;
+    intelligence?: number;
+  };
 }

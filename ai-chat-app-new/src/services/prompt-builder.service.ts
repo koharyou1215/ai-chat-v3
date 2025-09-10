@@ -140,6 +140,51 @@ export class PromptBuilderService {
   }
 
   /**
+   * セッションデータの厳密な型チェック
+   */
+  private validateSessionData(session: UnifiedChatSession): void {
+    if (!session.participants?.characters?.[0]) {
+      throw new Error("Session must have at least one character");
+    }
+    if (!session.participants?.user) {
+      throw new Error("Session must have user information");
+    }
+  }
+
+  /**
+   * システム設定を一箇所で取得してキャッシュ
+   */
+  private getSystemSettings() {
+    const store = useAppStore.getState();
+    return {
+      systemPrompts: store.systemPrompts,
+      enableSystemPrompt: store.enableSystemPrompt,
+      enableJailbreakPrompt: store.enableJailbreakPrompt,
+      trackerManagers: store.trackerManagers,
+    };
+  }
+
+  /**
+   * テンプレートベースのプロンプト構築
+   */
+  private buildPromptTemplate(sections: Record<string, string>): string {
+    const template = [
+      sections.jailbreak && `<jailbreak>\n${sections.jailbreak}\n</jailbreak>`,
+      sections.character &&
+        `<character_information>\n${sections.character}\n</character_information>`,
+      sections.persona &&
+        `<persona_information>\n${sections.persona}\n</persona_information>`,
+      sections.relationship &&
+        `<relationship_state>\n${sections.relationship}\n</relationship_state>`,
+      sections.input && `## Current Input\n${sections.input}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    return template;
+  }
+
+  /**
    * プログレッシブプロンプト構築 - UIをブロックしない高速版
    */
   public async buildPromptProgressive(
@@ -149,42 +194,14 @@ export class PromptBuilderService {
   ): Promise<{ basePrompt: string; enhancePrompt: () => Promise<string> }> {
     const startTime = performance.now();
 
+    // セッションデータの厳密な型チェック
+    this.validateSessionData(session);
+
     // 1. 最小限のベースプロンプトを即座に構築 (50-100ms)
     const character = session.participants.characters[0];
     const user = session.participants.user;
 
-    // 🚨 緊急デバッグ：キャラクター情報の確認
-    console.log(
-      "🚨 [buildPromptProgressive] Debug - Character:",
-      character
-        ? {
-            id: character.id,
-            name: character.name,
-            personality: character.personality?.substring(0, 50) + "...",
-          }
-        : "UNDEFINED"
-    );
-    console.log(
-      "🚨 [buildPromptProgressive] Debug - User:",
-      user
-        ? {
-            id: user.id,
-            name: user.name,
-            description: user.description?.substring(0, 50) + "...",
-          }
-        : "UNDEFINED"
-    );
-
-    if (!character) {
-      console.error(
-        "🚨 CRITICAL: Character is undefined in buildPromptProgressive!"
-      );
-    }
-    if (!user) {
-      console.error(
-        "🚨 CRITICAL: User is undefined in buildPromptProgressive!"
-      );
-    }
+    // バリデーション済みなので、安全にアクセス可能
 
     // 軽量版: 基本情報のみ（重複しない内容）
     const basePrompt = this.buildBasicInfo(character, user, userInput);
@@ -218,12 +235,7 @@ export class PromptBuilderService {
     userInput: string
   ): string {
     // 🎯 システム設定を取得（永続化された設定を反映）
-    const store = useAppStore.getState();
-    const systemSettings = {
-      systemPrompts: store.systemPrompts,
-      enableSystemPrompt: store.enableSystemPrompt,
-      enableJailbreakPrompt: store.enableJailbreakPrompt,
-    };
+    const systemSettings = this.getSystemSettings();
 
     if (!character) {
       console.error(
@@ -243,20 +255,15 @@ export class PromptBuilderService {
 
     const userName = user?.name || "ユーザー";
 
-    let prompt = `AI={{char}}, User={{user}}
-
-`;
+    // セクションを構築
+    const sections: Record<string, string> = {};
 
     // 🎯 Jailbreak Prompt (設定で有効な場合)
     if (
       systemSettings.enableJailbreakPrompt &&
       systemSettings.systemPrompts?.jailbreak
     ) {
-      prompt += `<jailbreak>
-${systemSettings.systemPrompts.jailbreak}
-</jailbreak>
-
-`;
+      sections.jailbreak = systemSettings.systemPrompts.jailbreak;
     }
 
     // システムプロンプトはConversationManagerで処理されるため、重複を避けるためコメントアウト
@@ -296,7 +303,8 @@ ${systemInstructions}
 </system_instructions>
     */
 
-    prompt += `<character_information>
+    // キャラクター情報セクションを構築
+    sections.character = `<character_information>
 ## Basic Information
 Name: ${processedCharacter.name}
 ${processedCharacter.age ? `Age: ${processedCharacter.age}` : ""}
@@ -433,35 +441,18 @@ ${
 }
 </character_information>`;
 
-    // ペルソナ情報を追加（重要な関係性情報）
+    // ペルソナ情報セクションを構築（シンプル化）
     if (user) {
-      prompt += `
-
-<persona_information>
+      sections.persona = `<persona_information>
 Name: ${user.name || userName}
 ${user.role ? `Role: ${user.role}` : ""}
-${user.description ? `Description: ${user.description}` : ""}
-${
-  user.traits && user.traits.length > 0
-    ? `Traits: ${user.traits.join(", ")}`
-    : ""
-}
-${user.likes && user.likes.length > 0 ? `Likes: ${user.likes.join(", ")}` : ""}
-${
-  user.dislikes && user.dislikes.length > 0
-    ? `Dislikes: ${user.dislikes.join(", ")}`
-    : ""
-}
-${user.personality ? `Personality: ${user.personality}` : ""}
-${user.speaking_style ? `Speaking Style: ${user.speaking_style}` : ""}
-${user.background ? `Background: ${user.background}` : ""}
 ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}
 </persona_information>`;
     }
 
-    // 軽量トラッカー情報（キャラクター設定強化版）
+    // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
     const trackerManager =
-      character?.id && store.trackerManagers?.get(character.id);
+      character?.id && systemSettings.trackerManagers?.get(character.id);
     if (trackerManager) {
       try {
         // まず詳細版を試行、失敗したら軽量版にフォールバック
@@ -475,9 +466,7 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}
         }
 
         if (trackerInfo) {
-          prompt += `
-
-<relationship_state>
+          sections.relationship = `<relationship_state>
 ${trackerInfo}
 </relationship_state>`;
         }
@@ -486,11 +475,15 @@ ${trackerInfo}
       }
     }
 
-    prompt += `
-
-## Current Input
-{{user}}: ${replaceVariables(userInput, variableContext)}
+    // 入力セクションを構築
+    sections.input = `{{user}}: ${replaceVariables(userInput, variableContext)}
 {{char}}:`;
+
+    // テンプレートを使用してプロンプトを構築
+    let prompt =
+      `AI={{char}}, User={{user}}
+
+` + this.buildPromptTemplate(sections);
 
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
@@ -580,6 +573,9 @@ ${trackerInfo}
     const startTime = performance.now();
 
     try {
+      // セッションデータの厳密な型チェック
+      this.validateSessionData(session);
+
       // 最適化されたConversationManager取得
       const conversationManager = await this.getOrCreateManager(
         session.id,
@@ -588,12 +584,7 @@ ${trackerInfo}
       );
 
       // システム設定を取得（キャッシュしたいがリアクティブなため毎回取得）
-      const store = useAppStore.getState();
-      const systemSettings = {
-        systemPrompts: store.systemPrompts,
-        enableSystemPrompt: store.enableSystemPrompt,
-        enableJailbreakPrompt: store.enableJailbreakPrompt,
-      };
+      const systemSettings = this.getSystemSettings();
 
       const promptStartTime = performance.now();
       // ConversationManagerを使ってプロンプトを生成

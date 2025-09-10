@@ -1,200 +1,366 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, ExternalLink, Image as ImageIcon, Play } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useMemo, Suspense, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Image as ImageIcon,
+  Play,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useEffectSettings } from "@/contexts/EffectSettingsContext";
 
 // Lazy import for heavy markdown processing
-const MarkdownRenderer = React.lazy(() => 
-  import('./MarkdownRenderer').then(module => ({ default: module.MarkdownRenderer }))
-    .catch(() => ({ default: ({ content }: { content: string }) => <div>{content}</div> }))
+const MarkdownRenderer = React.lazy(() =>
+  import("./MarkdownRenderer")
+    .then((module) => ({ default: module.MarkdownRenderer }))
+    .catch(() => ({
+      default: ({ content }: { content: string }) => <div>{content}</div>,
+    }))
 );
 
 // Simple loading fallback for markdown
-const MarkdownLoadingFallback: React.FC<{ content: string }> = ({ content }) => (
+const MarkdownLoadingFallback: React.FC<{ content: string }> = ({
+  content,
+}) => (
   <div className="text-white/90 whitespace-pre-wrap break-words leading-relaxed">
-    {content.slice(0, 200)}{content.length > 200 ? '...' : ''}
+    {content.slice(0, 200)}
+    {content.length > 200 ? "..." : ""}
   </div>
 );
 
 interface RichMessageProps {
   content: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   isExpanded?: boolean;
   onToggleExpanded?: () => void;
+  isLatest?: boolean;
 }
 
-export const RichMessage: React.FC<RichMessageProps> = React.memo(({
-  content,
-  role,
-  isExpanded = false,
-  onToggleExpanded
-}) => {
-  const [showPreview, setShowPreview] = useState(false);
+export const RichMessage: React.FC<RichMessageProps> = React.memo(
+  ({
+    content,
+    role,
+    isExpanded = false,
+    onToggleExpanded,
+    isLatest = false,
+  }) => {
+    const [showPreview, setShowPreview] = useState(false);
+    const [displayedContent, setDisplayedContent] = useState(content);
+    const [isTyping, setIsTyping] = useState(false);
+    const { settings: effectSettings } = useEffectSettings();
 
-  // Performance optimization: Detect content types early
-  const contentAnalysis = useMemo(() => {
-    const hasMarkdown = /[*_`#\[\]]/g.test(content);
-    const hasUrls = /https?:\/\/[^\s]+/g.test(content);
-    const hasImages = /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(content);
-    const hasCode = /```[\s\S]*?```|`[^`]+`/g.test(content);
-    const isLong = content.length > 500;
-    
-    return {
-      hasMarkdown,
-      hasUrls,
-      hasImages,
-      hasCode,
-      isLong,
-      shouldUseMarkdown: hasMarkdown || hasCode || hasUrls
+    // タイプライター効果（最新メッセージのみ）
+    useEffect(() => {
+      if (!effectSettings.typewriterEffect || role === "user" || !isLatest) {
+        setDisplayedContent(content);
+        setIsTyping(false);
+        return;
+      }
+
+      const speed = Math.max(10, 100 - effectSettings.typewriterIntensity);
+      setIsTyping(true);
+      setDisplayedContent("");
+
+      const typeText = async () => {
+        const characters = content.split("");
+        let currentText = "";
+
+        for (let i = 0; i < characters.length; i++) {
+          currentText += characters[i];
+          setDisplayedContent(currentText);
+          await new Promise((resolve) => setTimeout(resolve, speed));
+        }
+        setIsTyping(false);
+      };
+
+      typeText();
+    }, [
+      content,
+      effectSettings.typewriterEffect,
+      effectSettings.typewriterIntensity,
+      role,
+      isLatest,
+    ]);
+
+    // Performance optimization: Detect content types early
+    const contentAnalysis = useMemo(() => {
+      const hasMarkdown = /[*_`#\[\]]/g.test(content);
+      const hasUrls = /https?:\/\/[^\s]+/g.test(content);
+      const hasImages = /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(content);
+      const hasCode = /```[\s\S]*?```|`[^`]+`/g.test(content);
+      const isLong = content.length > 500;
+
+      return {
+        hasMarkdown,
+        hasUrls,
+        hasImages,
+        hasCode,
+        isLong,
+        shouldUseMarkdown: hasMarkdown || hasCode || hasUrls,
+      };
+    }, [content]);
+
+    // Extract URLs for link previews
+    const urls = useMemo(() => {
+      const urlRegex = /https?:\/\/[^\s]+/g;
+      return content.match(urlRegex) || [];
+    }, [content]);
+
+    // Extract image URLs
+    const imageUrls = useMemo(() => {
+      return urls.filter((url) =>
+        /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(url)
+      );
+    }, [urls]);
+
+    // Truncate content for performance if too long
+    const displayContent = useMemo(() => {
+      const baseContent =
+        effectSettings.typewriterEffect && role !== "user"
+          ? displayedContent
+          : content;
+      if (!isExpanded && contentAnalysis.isLong) {
+        return baseContent.slice(0, 500) + "...";
+      }
+      return baseContent;
+    }, [
+      content,
+      displayedContent,
+      isExpanded,
+      contentAnalysis.isLong,
+      effectSettings.typewriterEffect,
+      role,
+    ]);
+
+    // 括弧内テキストの検出とエフェクト適用
+    const processedContent = useMemo(() => {
+      if (!displayContent) return displayContent;
+
+      // 「」内のテキストを検出して特別なエフェクトを適用
+      return displayContent.replace(/「([^」]+)」/g, (match, text) => {
+        // 感情に応じたエフェクトを決定
+        let effectClass = "";
+        let effectStyle = "";
+
+        // ポジティブな感情
+        if (
+          /愛|好き|うれしい|楽しい|幸せ|最高|素晴らしい|ありがとう|嬉しい|ドキドキ|ワクワク|キラキラ/.test(
+            text
+          )
+        ) {
+          effectClass = "positive-emotion";
+          effectStyle =
+            "color: #ff6b9d; text-shadow: 0 0 10px rgba(255, 107, 157, 0.6); font-weight: bold;";
+        }
+        // ネガティブな感情
+        else if (
+          /悲しい|寂しい|つらい|苦しい|嫌い|最悪|うざい|むかつく|怒り|泣き/.test(
+            text
+          )
+        ) {
+          effectClass = "negative-emotion";
+          effectStyle =
+            "color: #4a90e2; text-shadow: 0 0 10px rgba(74, 144, 226, 0.6); font-weight: bold;";
+        }
+        // 驚き・興奮
+        else if (
+          /えっ|まさか|すごい|びっくり|驚き|興奮|ドキドキ|ハラハラ/.test(text)
+        ) {
+          effectClass = "surprise-emotion";
+          effectStyle =
+            "color: #f39c12; text-shadow: 0 0 10px rgba(243, 156, 18, 0.6); font-weight: bold; animation: pulse 1s infinite;";
+        }
+        // 疑問・困惑
+        else if (
+          /？|\?|なんで|なぜ|どうして|どう|何|どれ|いつ|どこ|誰/.test(text)
+        ) {
+          effectClass = "question-emotion";
+          effectStyle =
+            "color: #9b59b6; text-shadow: 0 0 10px rgba(155, 89, 182, 0.6); font-style: italic;";
+        }
+        // その他の感情表現
+        else if (/！|!|〜|ー|…|\.\.\./.test(text)) {
+          effectClass = "general-emotion";
+          effectStyle =
+            "color: #e74c3c; text-shadow: 0 0 8px rgba(231, 76, 60, 0.5); font-weight: bold;";
+        }
+        // デフォルト（感情が検出されない場合）
+        else {
+          effectClass = "default-emotion";
+          effectStyle =
+            "color: #95a5a6; text-shadow: 0 0 5px rgba(149, 165, 166, 0.4);";
+        }
+
+        return `<span class="${effectClass}" style="${effectStyle}">「${text}」</span>`;
+      });
+    }, [displayContent]);
+
+    // フォントエフェクトのスタイル計算（特殊装飾効果）
+    const fontEffectStyles = useMemo(() => {
+      if (!effectSettings.fontEffects) return {};
+
+      const intensity = effectSettings.fontEffectsIntensity;
+      return {
+        // グラデーションテキスト効果
+        background:
+          intensity > 30
+            ? `linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)`
+            : "none",
+        backgroundClip: intensity > 30 ? "text" : "initial",
+        WebkitBackgroundClip: intensity > 30 ? "text" : "initial",
+        color: intensity > 30 ? "transparent" : "inherit",
+
+        // アニメーション効果
+        animation:
+          intensity > 50 ? "rainbow-text 3s ease-in-out infinite" : "none",
+
+        // テキストシャドウ（複数層）
+        textShadow:
+          intensity > 40
+            ? `0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3), 0 0 15px rgba(255,255,255,0.1)`
+            : "none",
+
+        // 変形効果
+        transform: intensity > 60 ? "perspective(100px) rotateX(5deg)" : "none",
+
+        // フィルター効果
+        filter:
+          intensity > 70
+            ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
+            : "none",
+      };
+    }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
+
+    const handleImageClick = (imageUrl: string) => {
+      setShowPreview(true);
+      // You could implement a proper image preview modal here
+      window.open(imageUrl, "_blank");
     };
-  }, [content]);
 
-  // Extract URLs for link previews
-  const urls = useMemo(() => {
-    const urlRegex = /https?:\/\/[^\s]+/g;
-    return content.match(urlRegex) || [];
-  }, [content]);
-
-  // Extract image URLs
-  const imageUrls = useMemo(() => {
-    return urls.filter(url => 
-      /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(url)
-    );
-  }, [urls]);
-
-  // Truncate content for performance if too long
-  const displayContent = useMemo(() => {
-    if (!isExpanded && contentAnalysis.isLong) {
-      return content.slice(0, 500) + '...';
-    }
-    return content;
-  }, [content, isExpanded, contentAnalysis.isLong]);
-
-  const handleImageClick = (imageUrl: string) => {
-    setShowPreview(true);
-    // You could implement a proper image preview modal here
-    window.open(imageUrl, '_blank');
-  };
-
-  return (
-    <div className="space-y-2">
-      {/* Main content */}
-      <div className="text-white/90 leading-relaxed">
-        {contentAnalysis.shouldUseMarkdown ? (
-          <Suspense fallback={<MarkdownLoadingFallback content={displayContent} />}>
-            <MarkdownRenderer content={displayContent} />
-          </Suspense>
-        ) : (
-          <div className="whitespace-pre-wrap break-words">
-            {displayContent}
-          </div>
-        )}
-      </div>
-
-      {/* Expand/Collapse button for long content */}
-      {contentAnalysis.isLong && onToggleExpanded && (
-        <button
-          onClick={onToggleExpanded}
-          className="flex items-center gap-1 text-xs text-white/50 hover:text-white/70 transition-colors"
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-3 h-3" />
-              折りたたむ
-            </>
+    return (
+      <div className="space-y-2">
+        {/* Main content */}
+        <div className="text-white/90 leading-relaxed" style={fontEffectStyles}>
+          {contentAnalysis.shouldUseMarkdown ? (
+            <Suspense
+              fallback={<MarkdownLoadingFallback content={processedContent} />}>
+              <MarkdownRenderer content={processedContent} />
+            </Suspense>
           ) : (
-            <>
-              <ChevronDown className="w-3 h-3" />
-              続きを読む
-            </>
-          )}
-        </button>
-      )}
-
-      {/* Image previews (lazy loaded) */}
-      {imageUrls.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {imageUrls.slice(0, 4).map((imageUrl, index) => (
             <div
-              key={index}
-              className="relative group cursor-pointer"
-              onClick={() => handleImageClick(imageUrl)}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl}
-                alt={`Image ${index + 1}`}
-                className="w-20 h-20 object-cover rounded-lg border border-white/10 hover:border-white/30 transition-colors"
-                loading="lazy"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                <ImageIcon className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          ))}
-          {imageUrls.length > 4 && (
-            <div className="w-20 h-20 rounded-lg border border-white/10 flex items-center justify-center text-white/50 text-xs">
-              +{imageUrls.length - 4}
-            </div>
+              className="whitespace-pre-wrap break-words"
+              dangerouslySetInnerHTML={{ __html: processedContent }}
+            />
+          )}
+          {effectSettings.typewriterEffect && isTyping && (
+            <span className="typewriter-cursor animate-pulse ml-1 text-purple-400">
+              |
+            </span>
           )}
         </div>
-      )}
 
-      {/* URL previews (non-image links) */}
-      {urls.filter(url => !imageUrls.includes(url)).length > 0 && (
-        <div className="space-y-1 mt-2">
-          {urls
-            .filter(url => !imageUrls.includes(url))
-            .slice(0, 3)
-            .map((url, index) => (
-              <a
+        {/* Expand/Collapse button for long content */}
+        {contentAnalysis.isLong && onToggleExpanded && (
+          <button
+            onClick={onToggleExpanded}
+            className="flex items-center gap-1 text-xs text-white/50 hover:text-white/70 transition-colors">
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-3 h-3" />
+                折りたたむ
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3 h-3" />
+                続きを読む
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Image previews (lazy loaded) */}
+        {imageUrls.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {imageUrls.slice(0, 4).map((imageUrl, index) => (
+              <div
                 key={index}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 transition-colors bg-blue-900/20 rounded px-2 py-1 border border-blue-400/20"
-              >
-                <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate max-w-48">
-                  {url.replace(/^https?:\/\//, '')}
-                </span>
-              </a>
-            ))}
-        </div>
-      )}
-
-      {/* Video detection and preview */}
-      {urls.some(url => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url)) && (
-        <div className="mt-2">
-          {urls
-            .filter(url => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url))
-            .slice(0, 2)
-            .map((videoUrl, index) => (
-              <div key={index} className="relative group">
-                <video
-                  src={videoUrl}
-                  className="w-full max-w-sm rounded-lg border border-white/10"
-                  controls
-                  preload="metadata"
-                >
-                  <source src={videoUrl} />
-                  お使いのブラウザは動画の再生に対応していません。
-                </video>
-                <div className="absolute top-2 right-2 bg-black/50 rounded px-2 py-1 text-xs text-white">
-                  <Play className="w-3 h-3 inline mr-1" />
-                  動画
+                className="relative group cursor-pointer"
+                onClick={() => handleImageClick(imageUrl)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl}
+                  alt={`Image ${index + 1}`}
+                  className="w-20 h-20 object-cover rounded-lg border border-white/10 hover:border-white/30 transition-colors"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                  <ImageIcon className="w-6 h-6 text-white" />
                 </div>
               </div>
             ))}
-        </div>
-      )}
-    </div>
-  );
-});
+            {imageUrls.length > 4 && (
+              <div className="w-20 h-20 rounded-lg border border-white/10 flex items-center justify-center text-white/50 text-xs">
+                +{imageUrls.length - 4}
+              </div>
+            )}
+          </div>
+        )}
 
-RichMessage.displayName = 'RichMessage';
+        {/* URL previews (non-image links) */}
+        {urls.filter((url) => !imageUrls.includes(url)).length > 0 && (
+          <div className="space-y-1 mt-2">
+            {urls
+              .filter((url) => !imageUrls.includes(url))
+              .slice(0, 3)
+              .map((url, index) => (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 transition-colors bg-blue-900/20 rounded px-2 py-1 border border-blue-400/20">
+                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-48">
+                    {url.replace(/^https?:\/\//, "")}
+                  </span>
+                </a>
+              ))}
+          </div>
+        )}
+
+        {/* Video detection and preview */}
+        {urls.some((url) => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url)) && (
+          <div className="mt-2">
+            {urls
+              .filter((url) => /\.(mp4|webm|ogg)(\?[^\s]*)?$/i.test(url))
+              .slice(0, 2)
+              .map((videoUrl, index) => (
+                <div key={index} className="relative group">
+                  <video
+                    src={videoUrl}
+                    className="w-full max-w-sm rounded-lg border border-white/10"
+                    controls
+                    preload="metadata">
+                    <source src={videoUrl} />
+                    お使いのブラウザは動画の再生に対応していません。
+                  </video>
+                  <div className="absolute top-2 right-2 bg-black/50 rounded px-2 py-1 text-xs text-white">
+                    <Play className="w-3 h-3 inline mr-1" />
+                    動画
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
+
+RichMessage.displayName = "RichMessage";

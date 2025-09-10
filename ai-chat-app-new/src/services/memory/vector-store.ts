@@ -104,7 +104,8 @@ export class VectorStore {
     }
 
     // 重要度が低いメッセージは embedding をスキップ（コスト最適化）
-    if (message.importance !== undefined && message.importance < 0.3) {
+    const importance = message.memory?.importance?.score ?? 0.5;
+    if (importance < 0.3) {
       this.messages.set(message.id, message);
       return;
     }
@@ -112,7 +113,15 @@ export class VectorStore {
     // ベクトル化とインデックス追加
     const embedding = await this.embed(message.content);
     this.embeddings.set(message.id, embedding);
-    this.messages.set(message.id, { ...message, embedding });
+    // 🔧 FIX: embeddingをmemory.embeddingに適切に格納
+    const messageWithEmbedding: UnifiedMessage = {
+      ...message,
+      memory: {
+        ...message.memory,
+        embedding
+      }
+    };
+    this.messages.set(message.id, messageWithEmbedding);
 
     // FAISSインデックスに追加
     // 実際: await this.pythonBridge.addToIndex(message.id, embedding);
@@ -310,12 +319,15 @@ export class VectorStore {
     const sortedMessages = Array.from(this.messages.values())
       .sort((a, b) => {
         // 重要度優先
-        if (a.importance !== b.importance) {
-          return (b.importance || 0) - (a.importance || 0);
+        const aImportance = a.memory?.importance?.score ?? 0.5;
+        const bImportance = b.memory?.importance?.score ?? 0.5;
+        if (aImportance !== bImportance) {
+          return bImportance - aImportance;
         }
         // タイムスタンプで比較
-        return new Date(b.timestamp).getTime() - 
-               new Date(a.timestamp).getTime();
+        const aTime = new Date(a.timestamp || a.created_at || Date.now()).getTime();
+        const bTime = new Date(b.timestamp || b.created_at || Date.now()).getTime();
+        return bTime - aTime; // 🔧 FIX: 適切なUnifiedMessage型対応
       });
 
     // 削除対象を決定

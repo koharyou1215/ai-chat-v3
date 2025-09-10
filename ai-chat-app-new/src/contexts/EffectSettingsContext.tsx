@@ -1,7 +1,13 @@
-'use client';
+"use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { EffectSettings } from '@/store/slices/settings.slice';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useContext,
+} from "react";
+import { EffectSettings } from "@/store/slices/settings.slice";
 
 interface EffectSettingsContextType {
   settings: EffectSettings;
@@ -9,7 +15,9 @@ interface EffectSettingsContextType {
   resetSettings: () => void;
 }
 
-const EffectSettingsContext = createContext<EffectSettingsContextType | undefined>(undefined);
+const EffectSettingsContext = createContext<
+  EffectSettingsContextType | undefined
+>(undefined);
 
 // デフォルト設定関数 - サーバーサイドでも安全
 const createDefaultSettings = (safeMode = false): EffectSettings => ({
@@ -18,80 +26,85 @@ const createDefaultSettings = (safeMode = false): EffectSettings => ({
   fontEffects: !safeMode,
   particleEffects: false, // パフォーマンス問題のため常に無効
   typewriterEffect: !safeMode,
-  
+
   // エフェクト強度設定 (0-100) - 追加
   colorfulBubblesIntensity: 50,
   fontEffectsIntensity: 50,
   particleEffectsIntensity: 30,
   typewriterIntensity: 70,
-  
+
   // 外観設定
   bubbleOpacity: 85,
   bubbleBlur: true,
-  
+
   // 3D機能 - 全て無効（パフォーマンス重視）
   hologramMessages: false,
   particleText: false,
   rippleEffects: false,
   backgroundParticles: false,
-  
+
   // 3Dエフェクト強度設定 (0-100) - 追加
   hologramIntensity: 40,
   particleTextIntensity: 35,
   rippleIntensity: 60,
   backgroundParticlesIntensity: 25,
-  
+
   // 感情分析 - 軽量なもののみ
   realtimeEmotion: !safeMode,
   emotionBasedStyling: false, // 震え問題回避のため一時無効
   autoReactions: false, // CPU負荷軽減のため無効
-  
+
   // 感情エフェクト強度設定 (0-100) - 追加
   emotionStylingIntensity: 45,
-  
+
   // トラッカー
   autoTrackerUpdate: !safeMode,
   showTrackers: true,
-  
+
   // パフォーマンス - 保守的な設定
-  effectQuality: safeMode ? 'low' : 'medium',
+  effectQuality: safeMode ? "low" : "medium",
   animationSpeed: safeMode ? 0 : 0.5, // より控えめな速度
-  
+
   // テキスト整形 - 追加
-  textFormatting: 'readable'
+  textFormatting: "readable",
 });
 
 interface EffectSettingsProviderProps {
   children: ReactNode;
 }
 
-export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ children }) => {
-  const [settings, setSettings] = useState<EffectSettings>(() => createDefaultSettings(false));
+export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({
+  children,
+}) => {
+  const [settings, setSettings] = useState<EffectSettings>(() =>
+    createDefaultSettings(false)
+  );
 
   // 設定をローカルストレージから読み込み
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
         // セーフモード検出をクライアントサイドで実行
-        const safeMode = localStorage.getItem('safe-mode') === 'true';
+        const safeMode = localStorage.getItem("safe-mode") === "true";
         const defaultSettings = createDefaultSettings(safeMode);
-        
-        const savedSettings = localStorage.getItem('effect-settings');
+
+        const savedSettings = localStorage.getItem("effect-settings");
         if (savedSettings && savedSettings.trim()) {
           const parsedSettings = JSON.parse(savedSettings);
-          if (parsedSettings && typeof parsedSettings === 'object') {
-            setSettings({ ...defaultSettings, ...parsedSettings });
+          if (parsedSettings && typeof parsedSettings === "object") {
+            const finalSettings = { ...defaultSettings, ...parsedSettings };
+            setSettings(finalSettings);
           }
         } else {
           setSettings(defaultSettings);
         }
       } catch (error) {
-        console.error('Failed to parse saved settings:', error);
+        console.error("Failed to parse saved settings:", error);
         // 破損した設定をクリア
         try {
-          localStorage.removeItem('effect-settings');
+          localStorage.removeItem("effect-settings");
         } catch (clearError) {
-          console.error('Failed to clear corrupted settings:', clearError);
+          console.error("Failed to clear corrupted settings:", clearError);
         }
         const safeMode = false; // フォールバック
         setSettings(createDefaultSettings(safeMode));
@@ -101,33 +114,35 @@ export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ 
 
   const updateSettings = (newSettings: EffectSettings) => {
     setSettings(newSettings);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
         const settingsJson = JSON.stringify(newSettings);
-        localStorage.setItem('effect-settings', settingsJson);
+        localStorage.setItem("effect-settings", settingsJson);
       } catch (error) {
-        console.error('Failed to save settings:', error);
+        console.error("Failed to save settings:", error);
       }
     }
   };
 
   const resetSettings = () => {
-    const safeMode = typeof window !== 'undefined' 
-      ? localStorage.getItem('safe-mode') === 'true' 
-      : false;
+    const safeMode =
+      typeof window !== "undefined"
+        ? localStorage.getItem("safe-mode") === "true"
+        : false;
     const defaultSettings = createDefaultSettings(safeMode);
     setSettings(defaultSettings);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        localStorage.removeItem('effect-settings');
+        localStorage.removeItem("effect-settings");
       } catch (error) {
-        console.error('Failed to reset settings:', error);
+        console.error("Failed to reset settings:", error);
       }
     }
   };
 
   return (
-    <EffectSettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>
+    <EffectSettingsContext.Provider
+      value={{ settings, updateSettings, resetSettings }}>
       {children}
     </EffectSettingsContext.Provider>
   );
@@ -136,7 +151,9 @@ export const EffectSettingsProvider: React.FC<EffectSettingsProviderProps> = ({ 
 export const useEffectSettings = () => {
   const context = useContext(EffectSettingsContext);
   if (context === undefined) {
-    throw new Error('useEffectSettings must be used within an EffectSettingsProvider');
+    throw new Error(
+      "useEffectSettings must be used within an EffectSettingsProvider"
+    );
   }
   return context;
 };

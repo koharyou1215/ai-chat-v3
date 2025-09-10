@@ -802,8 +802,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           content,
           [],
           { 
+            ...get().apiConfig,
             max_tokens: reflexPrompt.tokenLimit,
-            temperature: reflexPrompt.temperature
+            temperature: reflexPrompt.temperature,
+            openRouterApiKey: get().openRouterApiKey,
+            geminiApiKey: get().geminiApiKey,
+            useDirectGeminiAPI: get().useDirectGeminiAPI
           }
         );
         
@@ -900,8 +904,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           content,
           contextPrompt.conversationHistory || [],
           { 
+            ...get().apiConfig,
             max_tokens: contextPrompt.tokenLimit,
-            temperature: contextPrompt.temperature
+            temperature: contextPrompt.temperature,
+            openRouterApiKey: get().openRouterApiKey,
+            geminiApiKey: get().geminiApiKey,
+            useDirectGeminiAPI: get().useDirectGeminiAPI
           }
         );
         
@@ -1001,8 +1009,12 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
           content,
           intelligencePrompt.conversationHistory || [],
           { 
+            ...get().apiConfig,
             max_tokens: intelligencePrompt.tokenLimit,
-            temperature: intelligencePrompt.temperature
+            temperature: intelligencePrompt.temperature,
+            openRouterApiKey: get().openRouterApiKey,
+            geminiApiKey: get().geminiApiKey,
+            useDirectGeminiAPI: get().useDirectGeminiAPI
           }
         );
         
@@ -1167,7 +1179,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (set, 
         temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.3), // 上昇幅を0.3に増加
         seed: Math.floor(Math.random() * 1000000), // B案：ランダムなseedを追加
         openRouterApiKey: get().openRouterApiKey,
-        geminiApiKey: get().geminiApiKey
+        geminiApiKey: get().geminiApiKey,
+        useDirectGeminiAPI: get().useDirectGeminiAPI
       };
 
       const response = await fetch('/api/chat/generate', {

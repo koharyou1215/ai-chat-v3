@@ -32,6 +32,11 @@ import {
   APIConfig,
   APIProvider,
 } from "@/types/core/settings.types";
+import { getModelPricing } from "@/constants/model-pricing";
+import {
+  ModelPricingDisplay,
+  CompactModelPricing,
+} from "./ModelPricingDisplay";
 import {
   EffectSettings,
   AppearanceSettings,
@@ -73,6 +78,56 @@ const IntensitySlider: React.FC<IntensitySliderProps> = ({
           <span className="text-white/80 text-sm min-w-[3rem] text-right">
             {value}%
           </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// フォントエフェクト専用スライダーコンポーネント
+interface FontEffectSliderProps {
+  value: number;
+  onChange: (value: number) => void;
+}
+
+const FontEffectSlider: React.FC<FontEffectSliderProps> = ({
+  value,
+  onChange,
+}) => {
+  const getEffectDescription = (intensity: number) => {
+    if (intensity < 30) return "無効";
+    if (intensity < 40) return "基本グラデーション";
+    if (intensity < 50) return "グラデーション + シャドウ";
+    if (intensity < 60) return "グラデーション + シャドウ + アニメーション";
+    if (intensity < 70)
+      return "グラデーション + シャドウ + アニメーション + 3D変形";
+    return "全効果 + フィルター";
+  };
+
+  return (
+    <div className="flex items-center justify-between space-x-4 py-2">
+      <div className="flex-1">
+        <label className="text-sm text-white/70 mb-1 block">
+          フォントエフェクト強度
+        </label>
+        <div className="flex items-center space-x-3">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={value || 0}
+            onChange={(e) => onChange(parseInt(e.target.value))}
+            className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider-thumb:appearance-none slider-thumb:h-4 slider-thumb:w-4 slider-thumb:bg-blue-500 slider-thumb:rounded-full slider-thumb:cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, #ff6b6b 0%, #4ecdc4 25%, #45b7d1 50%, #96ceb4 75%, #feca57 100%)`,
+            }}
+          />
+          <span className="text-white/80 text-sm min-w-[3rem] text-right">
+            {value}%
+          </span>
+        </div>
+        <div className="text-xs text-gray-400 mt-1 text-center">
+          {getEffectDescription(value)}
         </div>
       </div>
     </div>
@@ -388,8 +443,7 @@ const EffectsPanel: React.FC<{
     />
     {settings.fontEffects && (
       <div className="ml-6 mb-4">
-        <IntensitySlider
-          label="フォントエフェクト強度"
+        <FontEffectSlider
           value={settings.fontEffectsIntensity}
           onChange={(value) => updateSetting("fontEffectsIntensity", value)}
         />
@@ -771,68 +825,94 @@ const AIPanel: React.FC<{
         <h4 className="text-lg font-medium text-white">API設定</h4>
 
         {/* モデル選択 */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">
-            モデル選択
-          </label>
-          <select
-            value={apiConfig.model}
-            onChange={(e) => handleModelChange(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
-            <optgroup label="Google">
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-2.5-flash-light">Gemini 2.5 Flash Light</option>
-            </optgroup>
-            <optgroup label="Anthropic (OpenRouter)">
-              <option value="anthropic/claude-opus-4">Claude Opus 4</option>
-              <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
-            </optgroup>
-            <optgroup label="xAI (OpenRouter)">
-              <option value="x-ai/grok-4">Grok-4</option>
-            </optgroup>
-            <optgroup label="OpenAI (OpenRouter)">
-              <option value="openai/gpt-5-chat">GPT-5</option>
-              <option value="openai/gpt-5-mini">GPT-5 Mini</option>
-            </optgroup>
-            <optgroup label="Standard (OpenRouter)">
-              <option value="deepseek/deepseek-chat-v3.1">
-                DeepSeek Chat v3
-              </option>
-              <option value="mistralai/mistral-medium-3.1">
-                Mistral Medium 3.1
-              </option>
-              <option value="meta-llama/llama-4-maverick">
-                Llama 4 Maverick
-              </option>
-            </optgroup>
-            <optgroup label="Specialized (OpenRouter)">
-              <option value="qwen/qwen3-max">qwen3-max</option>
-              <option value="qwen/qwen3-30b-a3b-thinking-2507">
-                Qwen3 30B A3B Thinking
-              </option>
-              <option value="qwen/qwen3-30b-a3b-instruct-2507">
-                Qwen3 30B A3B
-              </option>
-              <option value="x-ai/grok-code-fast-1">Grok Code Fast</option>
-              <option value="nousresearch/hermes-4-405b">Hermes 4 405B</option>
-              <option value="z-ai/glm-4.5">GLM-4.5</option>
-              <option value="moonshotai/kimi-k2-0905">Kimi K2</option>
-            </optgroup>
-          </select>
-          {isGemini ? (
-            <p className="text-xs text-blue-400 mt-1">
-              Gemini APIを使用します。APIキーは{" "}
-              <code className="bg-gray-700 px-1 rounded">
-                gemini-api-key.txt
-              </code>{" "}
-              から読み込まれます。
-            </p>
-          ) : (
-            <p className="text-xs text-purple-400 mt-1">
-              OpenRouter APIを使用します。
-            </p>
-          )}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              モデル選択
+            </label>
+            <select
+              value={apiConfig.model}
+              onChange={(e) => handleModelChange(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
+              <optgroup label="Google">
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-flash-light">
+                  Gemini 2.5 Flash Light
+                </option>
+              </optgroup>
+              <optgroup label="Anthropic (OpenRouter)">
+                <option value="anthropic/claude-opus-4">Claude Opus 4</option>
+                <option value="anthropic/claude-sonnet-4">
+                  Claude Sonnet 4
+                </option>
+              </optgroup>
+              <optgroup label="xAI (OpenRouter)">
+                <option value="x-ai/grok-4">Grok-4</option>
+              </optgroup>
+              <optgroup label="OpenAI (OpenRouter)">
+                <option value="openai/gpt-5-chat">GPT-5</option>
+                <option value="openai/gpt-5-mini">GPT-5 Mini</option>
+              </optgroup>
+              <optgroup label="Standard (OpenRouter)">
+                <option value="deepseek/deepseek-chat-v3.1">
+                  DeepSeek Chat v3
+                </option>
+                <option value="mistralai/mistral-medium-3.1">
+                  Mistral Medium 3.1
+                </option>
+                <option value="meta-llama/llama-4-maverick">
+                  Llama 4 Maverick
+                </option>
+              </optgroup>
+              <optgroup label="Specialized (OpenRouter)">
+                <option value="qwen/qwen3-max">qwen3-max</option>
+                <option value="qwen/qwen3-30b-a3b-thinking-2507">
+                  Qwen3 30B A3B Thinking
+                </option>
+                <option value="qwen/qwen3-30b-a3b-instruct-2507">
+                  Qwen3 30B A3B
+                </option>
+                <option value="x-ai/grok-code-fast-1">Grok Code Fast</option>
+                <option value="nousresearch/hermes-4-405b">
+                  Hermes 4 405B
+                </option>
+                <option value="z-ai/glm-4.5">GLM-4.5</option>
+                <option value="moonshotai/kimi-k2-0905">Kimi K2</option>
+              </optgroup>
+            </select>
+            {isGemini ? (
+              <p className="text-xs text-blue-400 mt-1">
+                Gemini APIを使用します。APIキーは{" "}
+                <code className="bg-gray-700 px-1 rounded">
+                  gemini-api-key.txt
+                </code>{" "}
+                から読み込まれます。
+              </p>
+            ) : (
+              <p className="text-xs text-purple-400 mt-1">
+                OpenRouter APIを使用します。
+              </p>
+            )}
+          </div>
+
+          {/* 選択されたモデルの価格情報 */}
+          {(() => {
+            const modelInfo = getModelPricing(apiConfig.model);
+            if (!modelInfo) return null;
+
+            return (
+              <div className="bg-slate-800/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-lg">
+                <h5 className="text-lg font-semibold text-white mb-4 flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Cpu className="w-5 h-5 text-purple-400" />
+                  </div>
+                  {modelInfo.name} - 価格情報
+                </h5>
+                <ModelPricingDisplay modelInfo={modelInfo} />
+              </div>
+            );
+          })()}
         </div>
 
         {/* Gemini API直接使用トグル */}
@@ -1296,33 +1376,39 @@ const ChatPanel: React.FC = () => {
 
       {/* プログレッシブモード設定 */}
       <div className="space-y-4">
-        <h4 className="text-lg font-medium text-white">プログレッシブ応答設定</h4>
-        
+        <h4 className="text-lg font-medium text-white">
+          プログレッシブ応答設定
+        </h4>
+
         {/* プログレッシブモード有効化 */}
         <div className="flex items-start space-x-3">
           <input
             type="checkbox"
             id="progressive-enabled"
             checked={chat.progressiveMode?.enabled || false}
-            onChange={(e) => 
+            onChange={(e) =>
               updateChatSettings({
                 progressiveMode: {
                   enabled: e.target.checked,
                   showIndicators: chat.progressiveMode?.showIndicators ?? true,
-                  highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                  glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                  highlightChanges:
+                    chat.progressiveMode?.highlightChanges ?? true,
+                  glowIntensity:
+                    chat.progressiveMode?.glowIntensity ?? "medium",
                   stageDelays: chat.progressiveMode?.stageDelays ?? {
                     reflex: 0,
                     context: 1000,
-                    intelligence: 2000
-                  }
-                }
+                    intelligence: 2000,
+                  },
+                },
               })
             }
             className="mt-1 w-4 h-4 text-blue-600 bg-gray-700 rounded border-gray-600 focus:ring-blue-500"
           />
           <div className="flex-1">
-            <label htmlFor="progressive-enabled" className="text-sm font-medium text-gray-300">
+            <label
+              htmlFor="progressive-enabled"
+              className="text-sm font-medium text-gray-300">
               3段階プログレッシブ応答を有効化
             </label>
             <p className="text-xs text-gray-400 mt-1">
@@ -1345,19 +1431,23 @@ const ChatPanel: React.FC = () => {
                     progressiveMode: {
                       enabled: chat.progressiveMode?.enabled ?? true,
                       showIndicators: e.target.checked,
-                      highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                      glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                      highlightChanges:
+                        chat.progressiveMode?.highlightChanges ?? true,
+                      glowIntensity:
+                        chat.progressiveMode?.glowIntensity ?? "medium",
                       stageDelays: chat.progressiveMode?.stageDelays ?? {
                         reflex: 0,
                         context: 1000,
-                        intelligence: 2000
-                      }
-                    }
+                        intelligence: 2000,
+                      },
+                    },
                   })
                 }
                 className="w-4 h-4 text-blue-600 bg-gray-700 rounded border-gray-600"
               />
-              <label htmlFor="show-indicators" className="text-sm text-gray-300">
+              <label
+                htmlFor="show-indicators"
+                className="text-sm text-gray-300">
                 ステージインジケーターを表示
               </label>
             </div>
@@ -1372,20 +1462,24 @@ const ChatPanel: React.FC = () => {
                   updateChatSettings({
                     progressiveMode: {
                       enabled: chat.progressiveMode?.enabled ?? true,
-                      showIndicators: chat.progressiveMode?.showIndicators ?? true,
+                      showIndicators:
+                        chat.progressiveMode?.showIndicators ?? true,
                       highlightChanges: e.target.checked,
-                      glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                      glowIntensity:
+                        chat.progressiveMode?.glowIntensity ?? "medium",
                       stageDelays: chat.progressiveMode?.stageDelays ?? {
                         reflex: 0,
                         context: 1000,
-                        intelligence: 2000
-                      }
-                    }
+                        intelligence: 2000,
+                      },
+                    },
                   })
                 }
                 className="w-4 h-4 text-blue-600 bg-gray-700 rounded border-gray-600"
               />
-              <label htmlFor="highlight-changes" className="text-sm text-gray-300">
+              <label
+                htmlFor="highlight-changes"
+                className="text-sm text-gray-300">
                 変更箇所をハイライト表示
               </label>
             </div>
@@ -1396,24 +1490,29 @@ const ChatPanel: React.FC = () => {
                 グロー効果強度
               </label>
               <select
-                value={chat.progressiveMode?.glowIntensity || 'medium'}
+                value={chat.progressiveMode?.glowIntensity || "medium"}
                 onChange={(e) =>
                   updateChatSettings({
                     progressiveMode: {
                       enabled: chat.progressiveMode?.enabled ?? true,
-                      showIndicators: chat.progressiveMode?.showIndicators ?? true,
-                      highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                      glowIntensity: e.target.value as 'none' | 'soft' | 'medium' | 'strong',
+                      showIndicators:
+                        chat.progressiveMode?.showIndicators ?? true,
+                      highlightChanges:
+                        chat.progressiveMode?.highlightChanges ?? true,
+                      glowIntensity: e.target.value as
+                        | "none"
+                        | "soft"
+                        | "medium"
+                        | "strong",
                       stageDelays: chat.progressiveMode?.stageDelays ?? {
                         reflex: 0,
                         context: 1000,
-                        intelligence: 2000
-                      }
-                    }
+                        intelligence: 2000,
+                      },
+                    },
                   })
                 }
-                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              >
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
                 <option value="none">なし</option>
                 <option value="soft">ソフト</option>
                 <option value="medium">ミディアム</option>
@@ -1439,15 +1538,22 @@ const ChatPanel: React.FC = () => {
                       updateChatSettings({
                         progressiveMode: {
                           enabled: chat.progressiveMode?.enabled ?? true,
-                          showIndicators: chat.progressiveMode?.showIndicators ?? true,
-                          highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                          glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                          showIndicators:
+                            chat.progressiveMode?.showIndicators ?? true,
+                          highlightChanges:
+                            chat.progressiveMode?.highlightChanges ?? true,
+                          glowIntensity:
+                            chat.progressiveMode?.glowIntensity ?? "medium",
                           stageDelays: {
                             reflex: parseInt(e.target.value),
-                            context: chat.progressiveMode?.stageDelays?.context ?? 1000,
-                            intelligence: chat.progressiveMode?.stageDelays?.intelligence ?? 2000
-                          }
-                        }
+                            context:
+                              chat.progressiveMode?.stageDelays?.context ??
+                              1000,
+                            intelligence:
+                              chat.progressiveMode?.stageDelays?.intelligence ??
+                              2000,
+                          },
+                        },
                       })
                     }
                     className="w-full px-2 py-1 bg-slate-800 border border-gray-600 rounded text-white text-sm"
@@ -1465,15 +1571,21 @@ const ChatPanel: React.FC = () => {
                       updateChatSettings({
                         progressiveMode: {
                           enabled: chat.progressiveMode?.enabled ?? true,
-                          showIndicators: chat.progressiveMode?.showIndicators ?? true,
-                          highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                          glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                          showIndicators:
+                            chat.progressiveMode?.showIndicators ?? true,
+                          highlightChanges:
+                            chat.progressiveMode?.highlightChanges ?? true,
+                          glowIntensity:
+                            chat.progressiveMode?.glowIntensity ?? "medium",
                           stageDelays: {
-                            reflex: chat.progressiveMode?.stageDelays?.reflex ?? 0,
+                            reflex:
+                              chat.progressiveMode?.stageDelays?.reflex ?? 0,
                             context: parseInt(e.target.value),
-                            intelligence: chat.progressiveMode?.stageDelays?.intelligence ?? 2000
-                          }
-                        }
+                            intelligence:
+                              chat.progressiveMode?.stageDelays?.intelligence ??
+                              2000,
+                          },
+                        },
                       })
                     }
                     className="w-full px-2 py-1 bg-slate-800 border border-gray-600 rounded text-white text-sm"
@@ -1486,20 +1598,28 @@ const ChatPanel: React.FC = () => {
                     min="0"
                     max="5000"
                     step="100"
-                    value={chat.progressiveMode?.stageDelays?.intelligence || 2000}
+                    value={
+                      chat.progressiveMode?.stageDelays?.intelligence || 2000
+                    }
                     onChange={(e) =>
                       updateChatSettings({
                         progressiveMode: {
                           enabled: chat.progressiveMode?.enabled ?? true,
-                          showIndicators: chat.progressiveMode?.showIndicators ?? true,
-                          highlightChanges: chat.progressiveMode?.highlightChanges ?? true,
-                          glowIntensity: chat.progressiveMode?.glowIntensity ?? 'medium',
+                          showIndicators:
+                            chat.progressiveMode?.showIndicators ?? true,
+                          highlightChanges:
+                            chat.progressiveMode?.highlightChanges ?? true,
+                          glowIntensity:
+                            chat.progressiveMode?.glowIntensity ?? "medium",
                           stageDelays: {
-                            reflex: chat.progressiveMode?.stageDelays?.reflex ?? 0,
-                            context: chat.progressiveMode?.stageDelays?.context ?? 1000,
-                            intelligence: parseInt(e.target.value)
-                          }
-                        }
+                            reflex:
+                              chat.progressiveMode?.stageDelays?.reflex ?? 0,
+                            context:
+                              chat.progressiveMode?.stageDelays?.context ??
+                              1000,
+                            intelligence: parseInt(e.target.value),
+                          },
+                        },
                       })
                     }
                     className="w-full px-2 py-1 bg-slate-800 border border-gray-600 rounded text-white text-sm"

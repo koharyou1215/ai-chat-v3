@@ -155,7 +155,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
 
     const FileUploader: React.FC<{
         label: string;
-        field: 'avatar_url' | 'background_url'; // field prop を追加
+        field: 'background_url'; // 🔧 FIX: avatar_url削除
         url?: string | null;
         onFileUpload: (file: File) => void;
         onUrlChange: (url: string) => void;

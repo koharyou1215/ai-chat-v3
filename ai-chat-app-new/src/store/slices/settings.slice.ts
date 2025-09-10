@@ -285,8 +285,8 @@ export const createSettingsSlice: StateCreator<
   initialSettingsTab: 'effects',
   
   apiConfig: {
-    provider: 'gemini',
-    model: 'gemini-2.5-flash', // Remove google/ prefix to prevent validation issues
+    provider: 'openrouter', // 🔧 FIX: Geminiデフォルト削除 - OpenRouterデフォルト
+    model: 'gpt-4o-mini', // 🔧 FIX: ユーザー選択モデル使用
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 1.0,

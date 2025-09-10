@@ -316,3 +316,135 @@ export const BackgroundParticles: React.FC = () => {
     </ClientOnly>
   );
 };
+
+/**
+ * タイプライターエフェクト
+ */
+const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
+  const { settings } = useEffectSettings();
+  const [displayedText, setDisplayedText] = useState('');
+  const [isActive, setIsActive] = useState(false);
+  const elementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!settings.typewriterEffect || !text) return;
+
+    const speed = Math.max(10, 100 - settings.typewriterIntensity);
+    setIsActive(true);
+    setDisplayedText('');
+
+    const typeText = async () => {
+      const characters = text.split('');
+      let currentText = '';
+      
+      for (let i = 0; i < characters.length; i++) {
+        currentText += characters[i];
+        setDisplayedText(currentText);
+        await new Promise(resolve => setTimeout(resolve, speed));
+      }
+      setIsActive(false);
+    };
+
+    typeText();
+  }, [text, settings.typewriterEffect, settings.typewriterIntensity]);
+
+  if (!settings.typewriterEffect) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <span ref={elementRef}>
+      {displayedText}
+      {isActive && <span className="animate-pulse ml-1 text-purple-400">|</span>}
+    </span>
+  );
+};
+
+/**
+ * フォントエフェクト
+ */
+const FontEffects: React.FC<{ text: string }> = ({ text }) => {
+  const { settings } = useEffectSettings();
+
+  if (!settings.fontEffects) {
+    return <span>{text}</span>;
+  }
+
+  const intensity = settings.fontEffectsIntensity;
+  
+  const effectStyles = {
+    textShadow: `
+      0 0 ${intensity * 0.1}px rgb(139, 92, 246),
+      0 0 ${intensity * 0.2}px rgb(139, 92, 246),
+      0 0 ${intensity * 0.3}px rgb(139, 92, 246)
+    `,
+    background: `linear-gradient(45deg, 
+      hsl(${intensity * 3.6}, 70%, 60%), 
+      hsl(${(intensity * 3.6 + 60) % 360}, 70%, 60%), 
+      hsl(${(intensity * 3.6 + 120) % 360}, 70%, 60%)
+    )`,
+    backgroundSize: '200% 200%',
+    backgroundClip: 'text',
+    WebkitBackgroundClip: 'text',
+    color: 'transparent',
+    animation: `rainbow ${3 - (intensity * 0.02)}s ease-in-out infinite`
+  };
+
+  return (
+    <>
+      <style jsx>{`
+        @keyframes rainbow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+      <span style={effectStyles}>{text}</span>
+    </>
+  );
+};
+
+/**
+ * 統合エフェクトコンポーネント
+ * タイプライター、フォントエフェクト、パーティクルなどを統合
+ */
+export const AdvancedEffects: React.FC<{ text: string }> = ({ text }) => {
+  const { settings } = useEffectSettings();
+
+  if (!text) return null;
+
+  let displayText = text;
+
+  return (
+    <ClientOnly>
+      <div className="relative">
+        {/* フォントエフェクト + タイプライター効果の組み合わせ */}
+        {settings.fontEffects ? (
+          <FontEffects text={displayText}>
+            {settings.typewriterEffect ? (
+              <TypewriterText text={displayText} />
+            ) : displayText}
+          </FontEffects>
+        ) : settings.typewriterEffect ? (
+          <TypewriterText text={displayText} />
+        ) : (
+          <span>{displayText}</span>
+        )}
+
+        {/* ホログラムエフェクト */}
+        {settings.hologramMessages && (
+          <div className="absolute inset-0 pointer-events-none">
+            <HologramMessage text={text} />
+          </div>
+        )}
+        
+        {/* パーティクルテキストエフェクト */}
+        {settings.particleText && (
+          <div className="absolute inset-0 pointer-events-none">
+            <ParticleText text={text} trigger={true} />
+          </div>
+        )}
+      </div>
+    </ClientOnly>
+  );
+};

@@ -287,6 +287,7 @@ export class InspirationService {
           apiConfig?.max_tokens || 2048
         } (設定値を使用)`
       );
+      console.log(`🔧 返信提案: AIタブのトグルで自動判定`);
 
       const response = await apiRequestQueue.enqueueInspirationRequest(
         async () => {
@@ -294,7 +295,7 @@ export class InspirationService {
             prompt,
             "返信提案を生成",
             [],
-            { ...apiConfig } // 設定のmax_tokensをそのまま使用
+            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
           );
           console.log(
             "📥 API応答受信（先頭200文字）:",
@@ -385,7 +386,7 @@ export class InspirationService {
             truncatedPrompt,
             "文章を強化",
             [],
-            { ...apiConfig } // 設定のmax_tokensをそのまま使用
+            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
           );
         }
       );

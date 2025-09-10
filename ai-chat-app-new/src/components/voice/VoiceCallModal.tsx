@@ -174,7 +174,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
   const character = {
     id: characterId || 'default',
     name: 'AI Assistant',
-    avatar_url: null
+    background_url: null // 🔧 FIX: avatar_url削除、background_url使用
   };
 
   // Audio playback queue and refs
@@ -638,9 +638,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         <div className="text-center mb-8">
           <div className="relative inline-block mb-6">
             <div className="w-40 h-40 rounded-full overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 border-4 border-gray-700 shadow-2xl">
-              {character?.avatar_url ? (
+              {character?.background_url ? (
                 <Image 
-                  src={character.avatar_url} 
+                  src={character.background_url} 
                   alt={character.name}
                   width={160}
                   height={160}

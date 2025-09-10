@@ -1,15 +1,15 @@
 // Automatic Memory Management Service
 // Automatically creates memory cards from conversations
 
-import { UnifiedMessage, MemoryCard } from '@/types';
+import { UnifiedMessage, MemoryCard } from "@/types";
 // Removed unused import
 
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;
   private messageBuffer: UnifiedMessage[] = [];
-  private readonly BUFFER_SIZE = 3;  // 3メッセージで積極的生成
-  private readonly IMPORTANCE_THRESHOLD = 0.15; // さらに低い閾値で頻繁に生成
-  private readonly TIME_THRESHOLD = 1 * 60 * 1000; // 1分に短縮
+  private readonly BUFFER_SIZE = 2; // 2メッセージで積極的生成
+  private readonly IMPORTANCE_THRESHOLD = 0.1; // さらに低い閾値で頻繁に生成
+  private readonly TIME_THRESHOLD = 30 * 1000; // 30秒に短縮
   private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
   private memoryCount: number = 0; // 生成されたメモリーの数
 
@@ -20,10 +20,14 @@ export class AutoMemoryManager {
     message: UnifiedMessage,
     sessionId: string,
     characterId?: string,
-    createMemoryCardFn?: (messageIds: string[], sessionId: string, characterId?: string) => Promise<MemoryCard>
+    createMemoryCardFn?: (
+      messageIds: string[],
+      sessionId: string,
+      characterId?: string
+    ) => Promise<MemoryCard>
   ): Promise<void> {
     this.messageBuffer.push(message);
-    
+
     // バッファサイズ制限
     if (this.messageBuffer.length > this.BUFFER_SIZE) {
       this.messageBuffer.shift();
@@ -31,29 +35,41 @@ export class AutoMemoryManager {
 
     // 連続生成防止のチェック（さらに短縮）
     const now = Date.now();
-    if (now - this.lastMemoryCreated < 2000) { // 2秒以内は生成しない（さらに短縮）
+    if (now - this.lastMemoryCreated < 2000) {
+      // 2秒以内は生成しない（さらに短縮）
       return;
     }
-    
+
     // 自動作成の条件をチェック
-    const shouldCreateMemory = await this.shouldCreateMemoryCard(message, this.messageBuffer);
-    
+    const shouldCreateMemory = await this.shouldCreateMemoryCard(
+      message,
+      this.messageBuffer
+    );
+
     if (shouldCreateMemory && createMemoryCardFn) {
       try {
         // 重要なメッセージを含む最近の会話を抽出
-        const relevantMessages = this.extractRelevantMessages(this.messageBuffer);
-        const messageIds = relevantMessages.map(msg => msg.id);
-        
+        const relevantMessages = this.extractRelevantMessages(
+          this.messageBuffer
+        );
+        const messageIds = relevantMessages.map((msg) => msg.id);
+
         await createMemoryCardFn(messageIds, sessionId, characterId);
         this.memoryCount++;
-        console.log(`🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`);
-        console.log(`📋 Relevant messages: ${relevantMessages.map(m => m.content.substring(0, 30) + '...').join(' | ')}`);
-        
+        console.log(
+          `🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`
+        );
+        console.log(
+          `📋 Relevant messages: ${relevantMessages
+            .map((m) => m.content.substring(0, 30) + "...")
+            .join(" | ")}`
+        );
+
         // 処理済みマーク
         this.lastProcessedMessageId = message.id;
         this.lastMemoryCreated = now; // 作成時刻を記録
       } catch (error) {
-        console.error('Failed to auto-create memory card:', error);
+        console.error("Failed to auto-create memory card:", error);
       }
     }
   }
@@ -67,12 +83,31 @@ export class AutoMemoryManager {
   ): Promise<boolean> {
     // 1. 重要キーワードの検出
     const importantKeywords = [
-      '重要', '大事', '忘れないで', '覚えておいて', '約束', '決定', '決めた',
-      '好き', '嫌い', '名前', '誕生日', '記念日', '住所', '電話', 
-      '仕事', '会社', '学校', '家族', '恋人', '友達', '結婚', '離婚'
+      "重要",
+      "大事",
+      "忘れないで",
+      "覚えておいて",
+      "約束",
+      "決定",
+      "決めた",
+      "好き",
+      "嫌い",
+      "名前",
+      "誕生日",
+      "記念日",
+      "住所",
+      "電話",
+      "仕事",
+      "会社",
+      "学校",
+      "家族",
+      "恋人",
+      "友達",
+      "結婚",
+      "離婚",
     ];
-    
-    const hasImportantKeywords = importantKeywords.some(keyword => 
+
+    const hasImportantKeywords = importantKeywords.some((keyword) =>
       currentMessage.content.toLowerCase().includes(keyword)
     );
 
@@ -90,25 +125,25 @@ export class AutoMemoryManager {
 
     // メッセージ数による基本スコア追加
     const messageCountBonus = Math.min(0.3, messageHistory.length * 0.05);
-    
+
     // 総合スコア計算（より寛容に）
-    const totalScore = 
-      (hasImportantKeywords ? 0.3 : 0) +
-      emotionalWeight * 0.3 +
-      conversationDepth * 0.25 +
-      userEmphasis * 0.2 +
-      timeImportance * 0.15 +
+    const totalScore =
+      (hasImportantKeywords ? 0.4 : 0) +
+      emotionalWeight * 0.4 +
+      conversationDepth * 0.3 +
+      userEmphasis * 0.3 +
+      timeImportance * 0.2 +
       messageCountBonus;
 
-    console.log('[AutoMemory] Importance calculation:', {
+    console.log("[AutoMemory] Importance calculation:", {
       hasImportantKeywords,
       emotionalWeight,
-      conversationDepth, 
+      conversationDepth,
       userEmphasis,
       timeImportance,
       totalScore,
       threshold: this.IMPORTANCE_THRESHOLD,
-      shouldCreate: totalScore >= this.IMPORTANCE_THRESHOLD
+      shouldCreate: totalScore >= this.IMPORTANCE_THRESHOLD,
     });
 
     return totalScore >= this.IMPORTANCE_THRESHOLD;
@@ -119,20 +154,46 @@ export class AutoMemoryManager {
    */
   private calculateEmotionalImportance(message: UnifiedMessage): number {
     const emotionalMarkers = [
-      '嬉しい', '悲しい', '怒り', '驚き', '心配', '安心', '感動', '失望',
-      '愛してる', '大好き', '最高', '最悪', '感謝', '申し訳', 'ありがとう'
+      "嬉しい",
+      "悲しい",
+      "怒り",
+      "驚き",
+      "心配",
+      "安心",
+      "感動",
+      "失望",
+      "愛してる",
+      "大好き",
+      "最高",
+      "最悪",
+      "感謝",
+      "申し訳",
+      "ありがとう",
     ];
 
-    const emotionalPunctuation = ['！！', '？？', '♪', '♡', '💕', '😊', '😢', '😠'];
+    const emotionalPunctuation = [
+      "！！",
+      "？？",
+      "♪",
+      "♡",
+      "💕",
+      "😊",
+      "😢",
+      "😠",
+    ];
 
     let score = 0;
-    
-    emotionalMarkers.forEach(marker => {
+
+    emotionalMarkers.forEach((marker) => {
       if (message.content.includes(marker)) score += 0.1;
     });
 
-    emotionalPunctuation.forEach(punct => {
-      const count = (message.content.match(new RegExp(punct.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+    emotionalPunctuation.forEach((punct) => {
+      const count = (
+        message.content.match(
+          new RegExp(punct.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")
+        ) || []
+      ).length;
       score += count * 0.05;
     });
 
@@ -148,25 +209,27 @@ export class AutoMemoryManager {
     // 連続した対話の回数
     let exchanges = 0;
     for (let i = 1; i < messages.length; i++) {
-      if (messages[i].role !== messages[i-1].role) {
+      if (messages[i].role !== messages[i - 1].role) {
         exchanges++;
       }
     }
 
     // 平均メッセージ長
-    const avgLength = messages.reduce((sum, msg) => sum + msg.content.length, 0) / messages.length;
+    const avgLength =
+      messages.reduce((sum, msg) => sum + msg.content.length, 0) /
+      messages.length;
 
-    return Math.min(1.0, (exchanges / 10) + (avgLength / 200));
+    return Math.min(1.0, exchanges / 10 + avgLength / 200);
   }
 
   /**
    * ユーザーの強調表現を検出
    */
   private detectUserEmphasis(message: UnifiedMessage): number {
-    if (message.role !== 'user') return 0;
+    if (message.role !== "user") return 0;
 
     let score = 0;
-    
+
     // 大文字の使用
     const capsCount = (message.content.match(/[A-Z]{2,}/g) || []).length;
     score += capsCount * 0.1;
@@ -176,8 +239,15 @@ export class AutoMemoryManager {
     score += exclamationCount * 0.1;
 
     // 強調語の使用
-    const emphasisWords = ['絶対', '必ず', '本当に', 'めちゃくちゃ', 'すごく', 'とても'];
-    emphasisWords.forEach(word => {
+    const emphasisWords = [
+      "絶対",
+      "必ず",
+      "本当に",
+      "めちゃくちゃ",
+      "すごく",
+      "とても",
+    ];
+    emphasisWords.forEach((word) => {
       if (message.content.includes(word)) score += 0.1;
     });
 
@@ -192,9 +262,11 @@ export class AutoMemoryManager {
 
     const firstMessage = messages[0];
     const lastMessage = messages[messages.length - 1];
-    
-    const timeDiff = new Date(lastMessage.created_at).getTime() - new Date(firstMessage.created_at).getTime();
-    
+
+    const timeDiff =
+      new Date(lastMessage.created_at).getTime() -
+      new Date(firstMessage.created_at).getTime();
+
     // 5分以上の会話は時間的に重要
     return Math.min(1.0, timeDiff / this.TIME_THRESHOLD);
   }
@@ -202,7 +274,9 @@ export class AutoMemoryManager {
   /**
    * 関連メッセージを抽出
    */
-  private extractRelevantMessages(messages: UnifiedMessage[]): UnifiedMessage[] {
+  private extractRelevantMessages(
+    messages: UnifiedMessage[]
+  ): UnifiedMessage[] {
     // 最新から遡って最大7メッセージを抽出
     return messages.slice(-7);
   }
@@ -234,7 +308,9 @@ export class AutoMemoryManager {
     // プログレッシブモードでは簡素化 - 空の配列を返す
     // 本格的な実装では、メッセージ内容とcurrentInputに基づいて
     // 関連するメモリカードを検索・返却する
-    console.log('🧠 [AutoMemory] getRelevantMemoriesForContext called (simplified for progressive mode)');
+    console.log(
+      "🧠 [AutoMemory] getRelevantMemoriesForContext called (simplified for progressive mode)"
+    );
     return [];
   }
 }

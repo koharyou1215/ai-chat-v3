@@ -630,7 +630,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         content: aiResponse,
         character_id: character.id,
         character_name: character.name,
-        character_avatar: character.avatar_url,
+        character_avatar: character.background_url, // 🔧 FIX: avatar_url削除によりbackground_url使用
         memory: {
           importance: { score: 0.6, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.7 } },
           is_pinned: false,
@@ -661,7 +661,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         content: '...',
         character_id: character.id,
         character_name: character.name,
-        character_avatar: character.avatar_url,
+        character_avatar: character.background_url, // 🔧 FIX: avatar_url削除によりbackground_url使用
         memory: {
           importance: { score: 0.3, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.3 } },
           is_pinned: false,

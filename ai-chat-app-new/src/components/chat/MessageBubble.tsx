@@ -49,6 +49,7 @@ import {
 } from "@/utils/variable-replacer";
 import { RichMessage } from "./RichMessage";
 import { ProgressiveMessageBubble } from "./ProgressiveMessageBubble";
+import { AdvancedEffects } from "./AdvancedEffects";
 
 // Lazy imports for heavy effect components
 import {
@@ -83,7 +84,44 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // **安全な個別セレクター（無限ループ回避）**
   const characters = useAppStore((state) => state.characters);
+  const effectSettings = useAppStore((state) => state.effectSettings);
   const getSelectedPersona = useAppStore((state) => state.getSelectedPersona);
+
+  // フォントエフェクトのスタイル計算（特殊装飾効果）
+  const fontEffectStyles = useMemo(() => {
+    if (!effectSettings.fontEffects) return {};
+
+    const intensity = effectSettings.fontEffectsIntensity;
+    return {
+      // グラデーションテキスト効果
+      background:
+        intensity > 30
+          ? `linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)`
+          : "none",
+      backgroundClip: intensity > 30 ? "text" : "initial",
+      WebkitBackgroundClip: intensity > 30 ? "text" : "initial",
+      color: intensity > 30 ? "transparent" : "inherit",
+
+      // アニメーション効果
+      animation:
+        intensity > 50 ? "rainbow-text 3s ease-in-out infinite" : "none",
+
+      // テキストシャドウ（複数層）
+      textShadow:
+        intensity > 40
+          ? `0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3), 0 0 15px rgba(255,255,255,0.1)`
+          : "none",
+
+      // 変形効果
+      transform: intensity > 60 ? "perspective(100px) rotateX(5deg)" : "none",
+
+      // フィルター効果
+      filter:
+        intensity > 70
+          ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
+          : "none",
+    };
+  }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
   const _deleteMessage = useAppStore((state) => state.deleteMessage);
   const regenerateLastMessage = useAppStore(
     (state) => state.regenerateLastMessage
@@ -106,7 +144,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       console.error("Failed to copy to clipboard:", err);
     }
   };
-  const effectSettings = useAppStore((state) => state.effectSettings);
   const appearanceSettings = useAppStore((state) => state.appearanceSettings);
   const voice = useAppStore((state) => state.voice);
 
@@ -333,8 +370,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   // 音声再生状態（isSpeakingを使用）
   const isPlaying = isSpeaking;
 
-  
-
   // メッセージ間の時間差計算
   const timeSincePrevious = useMemo(() => {
     if (!_previousMessage) return null;
@@ -463,44 +498,47 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // プログレッシブメッセージの場合は専用コンポーネントを使用
   // metadata.progressiveまたはmetadata.progressiveDataをチェック
-  const hasProgressiveMetadata = message.metadata && 
-    ('progressive' in message.metadata || 'progressiveData' in message.metadata);
-  
+  const hasProgressiveMetadata =
+    message.metadata &&
+    ("progressive" in message.metadata ||
+      "progressiveData" in message.metadata);
+
   if (isProgressiveMessage && hasProgressiveMetadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
-    const progressiveData = (message.metadata as any).progressiveData || message.metadata;
-    
+    const progressiveData =
+      (message.metadata as any).progressiveData || message.metadata;
+
     // デバッグログ
-    console.log('🔄 MessageBubble: Rendering progressive message', {
+    console.log("🔄 MessageBubble: Rendering progressive message", {
       messageId: message.id,
       currentStage: progressiveData?.currentStage,
-      hasStages: !!progressiveData?.stages
+      hasStages: !!progressiveData?.stages,
     });
     // progressiveDataが正しく取得できているか確認
-    console.log('🔍 MessageBubble: Progressive data check', {
+    console.log("🔍 MessageBubble: Progressive data check", {
       hasProgressiveData: !!progressiveData,
       stages: progressiveData?.stages,
       currentStage: progressiveData?.currentStage,
-      messageContent: message.content?.substring(0, 50)
+      messageContent: message.content?.substring(0, 50),
     });
-    
+
     const progressiveMessage = {
       ...message,
       stages: progressiveData?.stages || {}, // 空のオブジェクトに変更
-      currentStage: progressiveData?.currentStage || 'reflex',
+      currentStage: progressiveData?.currentStage || "reflex",
       transitions: progressiveData?.transitions || [],
-      ui: progressiveData?.ui || { 
-        isUpdating: false, 
-        glowIntensity: 'none', 
+      ui: progressiveData?.ui || {
+        isUpdating: false,
+        glowIntensity: "none",
         highlightChanges: false,
-        showIndicator: true 
+        showIndicator: true,
       },
       metadata: progressiveData?.metadata || message.metadata,
       content: message.content, // message.contentを確実に渡す
       // キャラクター情報を正しく設定
       character_name: character?.name,
     };
-    
+
     return (
       <ProgressiveMessageBubble
         message={progressiveMessage}
@@ -527,11 +565,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}>
         {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
-        <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
+        {!isUser && (
+          <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
             <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
               {character?.name?.[0] || "AI"}
             </div>
           </div>
+        )}
 
         <div
           className={cn(
@@ -560,22 +600,40 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
               isUser
                 ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30"
-                : "bg-slate-800/60 text-white border border-slate-600/30",
+                : effectSettings.colorfulBubbles
+                ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
+                : "bg-slate-800/50 backdrop-blur-sm text-white border border-slate-600/30",
               "hover:shadow-xl group-hover:scale-[1.02]",
               selectedText ? "ring-2 ring-yellow-400/50" : "",
               "overflow-visible" // メニューがはみ出すことを許可
-            )}>
+            )}
+            style={{
+              backgroundColor: `rgba(${
+                effectSettings.colorfulBubbles
+                  ? "147, 51, 234"
+                  : isUser
+                  ? "147, 51, 234"
+                  : "51, 65, 85"
+              }, ${
+                effectSettings.bubbleOpacity
+                  ? effectSettings.bubbleOpacity / 100
+                  : 0.85
+              })`,
+            }}>
             {/* リッチメッセージ表示 */}
-            <RichMessage
-              content={processedContent}
-              role={
-                message.role === "user" || message.role === "assistant"
-                  ? message.role
-                  : "assistant"
-              }
-              isExpanded={isExpanded}
-              onToggleExpanded={() => setIsExpanded(!isExpanded)}
-            />
+            <div style={fontEffectStyles}>
+              <RichMessage
+                content={processedContent}
+                role={
+                  message.role === "user" || message.role === "assistant"
+                    ? message.role
+                    : "assistant"
+                }
+                isExpanded={isExpanded}
+                onToggleExpanded={() => setIsExpanded(!isExpanded)}
+                isLatest={isLatest}
+              />
+            </div>
 
             {/* 感情表示（lazily loaded） */}
             {emotionResult && effectSettings.realtimeEmotion && (
@@ -629,9 +687,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             {(showMenu || isLatest) && (
               <div
                 className={cn(
-                  "absolute top-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
+                  "absolute bottom-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
                   isUser ? "right-full mr-1" : "left-full ml-1",
-                  !showMenu && isLatest ? "opacity-50 hover:opacity-100 transition-opacity" : ""
+                  !showMenu && isLatest
+                    ? "opacity-50 hover:opacity-100 transition-opacity"
+                    : ""
                 )}
                 onMouseEnter={() => {
                   // メニューにホバーしたらタイマーをクリア

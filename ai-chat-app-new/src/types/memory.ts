@@ -39,7 +39,7 @@ export interface MemoryLayer {
   capacity: number;
   retentionDays: number;
   compressionRatio: number;
-  messages: Message[];
+  messages: UnifiedMessage[]; // 🔧 FIX: Message[]からUnifiedMessage[]に変更
 }
 
 export interface MemoryConfig {

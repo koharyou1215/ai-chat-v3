@@ -72,7 +72,11 @@ export class StorageManager {
         if (sessions.length > 5) {
           parsed.state.sessions = this.formatMapData(
             sessions
-              .sort((a, b) => (b[1]?.updatedAt || 0) - (a[1]?.updatedAt || 0))
+              .sort((a, b) => {
+                const aTime = (b[1] && typeof b[1] === 'object' && 'updatedAt' in b[1]) ? (b[1] as { updatedAt: number }).updatedAt : 0;
+                const bTime = (a[1] && typeof a[1] === 'object' && 'updatedAt' in a[1]) ? (a[1] as { updatedAt: number }).updatedAt : 0;
+                return aTime - bTime; // 🔧 FIX: 適切な型ガード使用
+              })
               .slice(0, 5)
           );
           cleaned = true;
@@ -93,7 +97,11 @@ export class StorageManager {
         if (groupSessions.length > 3) {
           parsed.state.groupSessions = this.formatMapData(
             groupSessions
-              .sort((a, b) => (b[1]?.updated_at || 0) - (a[1]?.updated_at || 0))
+              .sort((a, b) => {
+                const aTime = (b[1] && typeof b[1] === 'object' && 'updated_at' in b[1]) ? (b[1] as { updated_at: number }).updated_at : 0;
+                const bTime = (a[1] && typeof a[1] === 'object' && 'updated_at' in a[1]) ? (a[1] as { updated_at: number }).updated_at : 0;
+                return aTime - bTime; // 🔧 FIX: 適切な型ガード使用
+              })
               .slice(0, 3)
           );
           cleaned = true;
@@ -186,8 +194,11 @@ export class StorageManager {
     if (data instanceof Map) {
       return Array.from(data.entries());
     }
-    if (data?._type === 'map' && data.value) {
-      return data.value;
+    if (data && typeof data === 'object' && '_type' in data && 'value' in data) { // 🔧 FIX: 適切な型ガード
+      const mapData = data as { _type: string; value: Array<[string, unknown]> };
+      if (mapData._type === 'map' && Array.isArray(mapData.value)) {
+        return mapData.value;
+      }
     }
     return [];
   }

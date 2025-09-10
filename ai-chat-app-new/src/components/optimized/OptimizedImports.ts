@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
 /**
  * Optimized Imports for Performance
- * 
+ *
  * This file provides optimized import patterns to reduce bundle size
  * and improve loading performance by using dynamic imports and
  * tree-shaking optimizations.
@@ -15,7 +15,7 @@
 
 export const createOptimizedMotion = async () => {
   // Only import what we need from framer-motion
-  const { motion, AnimatePresence } = await import('framer-motion');
+  const { motion, AnimatePresence } = await import("framer-motion");
   return { motion, AnimatePresence };
 };
 
@@ -24,7 +24,7 @@ export const createOptimizedMotion = async () => {
 // Create tree-shakeable icon imports
 export const getOptimizedIcons = async () => {
   // Lucide React is already tree-shakeable, but we can optimize common patterns
-  const lucideReact = await import('lucide-react');
+  const lucideReact = await import("lucide-react");
   return {
     // Core icons used everywhere
     X: lucideReact.X,
@@ -34,7 +34,7 @@ export const getOptimizedIcons = async () => {
     Settings: lucideReact.Settings,
     MoreHorizontal: lucideReact.MoreHorizontal,
     MoreVertical: lucideReact.MoreVertical,
-    
+
     // Action icons
     Edit: lucideReact.Edit,
     Delete: lucideReact.Trash2,
@@ -43,7 +43,7 @@ export const getOptimizedIcons = async () => {
     Upload: lucideReact.Upload,
     Copy: lucideReact.Copy,
     Share: lucideReact.Share,
-    
+
     // Navigation arrows
     ChevronLeft: lucideReact.ChevronLeft,
     ChevronRight: lucideReact.ChevronRight,
@@ -51,7 +51,7 @@ export const getOptimizedIcons = async () => {
     ChevronDown: lucideReact.ChevronDown,
     ArrowLeft: lucideReact.ArrowLeft,
     ArrowRight: lucideReact.ArrowRight,
-    
+
     // Status icons
     Check: lucideReact.Check,
     CheckCircle: lucideReact.CheckCircle,
@@ -59,7 +59,7 @@ export const getOptimizedIcons = async () => {
     AlertCircle: lucideReact.AlertCircle,
     Info: lucideReact.Info,
     AlertOctagon: lucideReact.AlertOctagon, // 🔧 FIX: Warning -> AlertOctagon
-    
+
     // Navigation icons
     Home: lucideReact.Home,
     User: lucideReact.User,
@@ -68,13 +68,13 @@ export const getOptimizedIcons = async () => {
     Bell: lucideReact.Bell,
     Heart: lucideReact.Heart,
     Star: lucideReact.Star,
-    
+
     // Media icons
     Image: lucideReact.Image,
     Video: lucideReact.Video,
     File: lucideReact.File,
     Folder: lucideReact.Folder,
-    
+
     // System icons
     Menu: lucideReact.Menu,
     XCircle: lucideReact.XCircle, // 🔧 FIX: Close -> XCircle
@@ -82,7 +82,7 @@ export const getOptimizedIcons = async () => {
     Minimize: lucideReact.Minimize,
     RotateCcw: lucideReact.RotateCcw,
     RotateCw: lucideReact.RotateCw,
-    
+
     // Specialized icons
     Sparkles: lucideReact.Sparkles,
     Wand2: lucideReact.Wand2,
@@ -96,29 +96,55 @@ export const getOptimizedUIComponents = async () => {
   const [
     { Button },
     { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle },
-    { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger },
+    {
+      Dialog,
+      DialogContent,
+      DialogDescription,
+      DialogFooter,
+      DialogHeader,
+      DialogTitle,
+      DialogTrigger,
+    },
     { Tabs, TabsContent, TabsList, TabsTrigger },
     { Select, SelectContent, SelectItem, SelectTrigger, SelectValue },
     { Input },
     { Label },
     { Textarea },
   ] = await Promise.all([
-    import('@/components/ui/button'),
-    import('@/components/ui/card'),
-    import('@/components/ui/dialog'),
-    import('@/components/ui/tabs'),
-    import('@/components/ui/select'),
-    import('@/components/ui/input'),
-    import('@/components/ui/label'),
-    import('@/components/ui/textarea'),
+    import("@/components/ui/button"),
+    import("@/components/ui/card"),
+    import("@/components/ui/dialog"),
+    import("@/components/ui/tabs"),
+    import("@/components/ui/select"),
+    import("@/components/ui/input"),
+    import("@/components/ui/label"),
+    import("@/components/ui/textarea"),
   ]);
 
   return {
     Button,
-    Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-    Tabs, TabsContent, TabsList, TabsTrigger,
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
     Input,
     Label,
     Textarea,
@@ -137,12 +163,12 @@ export const getChatComponents = async () => {
     { CharacterCard },
     { PersonaCard },
   ] = await Promise.all([
-    import('@/components/chat/MessageEffects'),
-    import('@/components/emotion/EmotionDisplay'),
-    import('@/components/tracker/TrackerDisplay'),
-    import('@/components/memory/MemoryCard'),
-    import('@/components/character/CharacterCard'),
-    import('@/components/persona/PersonaCard'),
+    import("@/components/chat/MessageEffects"),
+    import("@/components/emotion/EmotionDisplay"),
+    import("@/components/tracker/TrackerDisplay"),
+    import("@/components/memory/MemoryCard"),
+    import("@/components/character/CharacterCard"),
+    import("@/components/persona/PersonaCard"),
   ]);
 
   return {
@@ -168,13 +194,13 @@ export const getModalComponents = async () => {
     { EnhancementModal },
     { ScenarioSetupModal },
   ] = await Promise.all([
-    import('@/components/settings/SettingsModal'),
-    import('@/components/character/CharacterGalleryModal'),
-    import('@/components/persona/PersonaGalleryModal'),
-    import('@/components/history/ChatHistoryModal'),
-    import('@/components/chat/SuggestionModal'),
-    import('@/components/chat/EnhancementModal'),
-    import('@/components/chat/ScenarioSetupModal'),
+    import("@/components/settings/SettingsModal"),
+    import("@/components/character/CharacterGalleryModal"),
+    import("@/components/persona/PersonaGalleryModal"),
+    import("@/components/history/ChatHistoryModal"),
+    import("@/components/chat/SuggestionModal"),
+    import("@/components/chat/EnhancementModal"),
+    import("@/components/chat/ScenarioSetupModal"),
   ]);
 
   return {
@@ -198,9 +224,9 @@ export const getOptimizedServices = async () => {
     { simpleAPIManagerV2 },
     { autoMemoryManager },
   ] = await Promise.all([
-    import('@/services/prompt-builder.service'),
-    import('@/services/simple-api-manager-v2'),
-    import('@/services/memory/auto-memory-manager'),
+    import("@/services/prompt-builder.service"),
+    import("@/services/simple-api-manager-v2"),
+    import("@/services/memory/auto-memory-manager"),
   ]);
 
   return {
@@ -215,7 +241,7 @@ export const getOptimizedServices = async () => {
 // Form validation libraries can be large, so load on demand
 export const getFormValidation = async () => {
   // Example of dynamic form validation loading
-  const { z } = await import('zod');
+  const { z } = await import("zod");
   return { z };
 };
 
@@ -225,11 +251,8 @@ export const getFormValidation = async () => {
 export const getOptimizedUtilities = async () => {
   const [
     { cn },
-    { formatDistanceToNow, format } // Add date-fns if needed
-  ] = await Promise.all([
-    import('@/lib/utils'),
-    import('date-fns'),
-  ]);
+    { formatDistanceToNow, format }, // Add date-fns if needed
+  ] = await Promise.all([import("@/lib/utils"), import("date-fns")]);
 
   return {
     cn,

@@ -99,7 +99,7 @@ export class MemoryLayerManager {
     // まず古すぎるメッセージを削除
     const cutoffTime = now - (layer.retentionDays * 24 * 60 * 60 * 1000);
     layer.messages = layer.messages.filter(
-      m => new Date(m.timestamp).getTime() > cutoffTime
+      m => new Date(m.timestamp || m.created_at || Date.now()).getTime() > cutoffTime // 🔧 FIX: undefined対応
     );
 
     // まだ容量超過の場合、関連性スコアで削除
@@ -124,7 +124,7 @@ export class MemoryLayerManager {
     const timeDecay = Math.exp(-ageInHours / 24); // 24時間で約37%に減衰
     
     // 基本スコア（重要度 + 時間減衰）
-    const baseScore = (message.importance || 0.5) * timeDecay;
+    const baseScore = (message.memory?.importance?.score || 0.5) * timeDecay; // 🔧 FIX: UnifiedMessage型対応
     
     return baseScore;
   }
@@ -133,8 +133,8 @@ export class MemoryLayerManager {
    * Working Memoryに追加すべきか判定
    */
   private shouldAddToWorking(message: UnifiedMessage): boolean {
-    return (message.importance || 0) >= 0.4 || 
-           message.sender === 'user'; // ユーザー入力は常に保持
+    return (message.memory?.importance?.score || 0) >= 0.4 || 
+           message.role === 'user'; // 🔧 FIX: UnifiedMessage型対応
   }
 
   /**
@@ -142,10 +142,10 @@ export class MemoryLayerManager {
    */
   private shouldAddToEpisodic(message: UnifiedMessage): boolean {
     // 感情的な内容や特定のイベントを含む場合
-    const hasEmotionalContent = message.emotion !== undefined;
+    const hasEmotionalContent = message.expression?.emotion !== undefined; // 🔧 FIX: UnifiedMessage型対応
     
     return hasEmotionalContent || 
-           (message.importance || 0) >= 0.6;
+           (message.memory?.importance?.score || 0) >= 0.6; // 🔧 FIX: UnifiedMessage型対応
   }
 
   /**
@@ -156,7 +156,7 @@ export class MemoryLayerManager {
     const hasFactualContent = message.content.length > 100;
     
     return hasFactualContent || 
-           (message.importance || 0) >= 0.7;
+           (message.memory?.importance?.score || 0) >= 0.7; // 🔧 FIX: UnifiedMessage型対応
   }
 
   /**

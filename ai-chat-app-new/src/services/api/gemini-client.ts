@@ -399,17 +399,8 @@ export class GeminiClient {
       cleanModel = cleanModel.replace('-8b', '');
     }
     
-    // 古いモデル名を新しいモデル名にマップ (1.5 -> 2.5のみ)
-    const modelMapping: { [key: string]: string } = {
-      'gemini-1.5-flash': 'gemini-2.5-flash',
-      'gemini-1.5-flash-light': 'gemini-2.5-flash-light',
-      'gemini-1.5-pro': 'gemini-2.5-pro'
-    };
-    
-    if (modelMapping[cleanModel]) {
-      console.warn(`⚠️ 古いモデル名を新しいモデル名に変換: ${cleanModel} → ${modelMapping[cleanModel]}`);
-      cleanModel = modelMapping[cleanModel];
-    }
+    // 2.5系以外のモデル名は一切受け付けない
+    // モデル名の変換処理は削除
     
     // 有効なモデルかチェック
     const validModels = this.getAvailableModels();

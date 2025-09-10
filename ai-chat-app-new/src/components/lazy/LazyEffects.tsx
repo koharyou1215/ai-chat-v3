@@ -44,7 +44,9 @@ export const EmotionDisplay = lazy(() =>
 
 // Message effects
 export const MessageEffects = lazy(() => 
-  import('../chat/MessageEffects')
+  import('../chat/MessageEffects').then(module => ({ 
+    default: module.MessageEffects 
+  }))
 );
 
 // Rich message components

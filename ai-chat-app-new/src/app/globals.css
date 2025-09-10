@@ -2,6 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* フォントエフェクト用のアニメーション */
+@keyframes rainbow-text {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 括弧内テキストの感情エフェクト */
+.positive-emotion {
+  color: #ff6b9d !important;
+  text-shadow: 0 0 10px rgba(255, 107, 157, 0.6) !important;
+  font-weight: bold !important;
+}
+
+.negative-emotion {
+  color: #4a90e2 !important;
+  text-shadow: 0 0 10px rgba(74, 144, 226, 0.6) !important;
+  font-weight: bold !important;
+}
+
+.surprise-emotion {
+  color: #f39c12 !important;
+  text-shadow: 0 0 10px rgba(243, 156, 18, 0.6) !important;
+  font-weight: bold !important;
+  animation: pulse 1s infinite !important;
+}
+
+.question-emotion {
+  color: #9b59b6 !important;
+  text-shadow: 0 0 10px rgba(155, 89, 182, 0.6) !important;
+  font-style: italic !important;
+}
+
+.general-emotion {
+  color: #e74c3c !important;
+  text-shadow: 0 0 8px rgba(231, 76, 60, 0.5) !important;
+  font-weight: bold !important;
+}
+
+.default-emotion {
+  color: #95a5a6 !important;
+  text-shadow: 0 0 5px rgba(149, 165, 166, 0.4) !important;
+}
+
 @import "tw-animate-css";
 
 /* Safe Area support for iOS devices */
@@ -156,12 +206,9 @@
     overflow: hidden;
   }
   body {
-    @apply bg-background text-foreground;
-    /* 動的背景設定に対応 - デフォルトは温かみのあるグラデーション */
-    background: var(--background, linear-gradient(135deg, 
-      oklch(0.16 0.01 270) 0%, 
-      oklch(0.15 0.015 285) 50%, 
-      oklch(0.17 0.008 260) 100%));
+    @apply text-foreground;
+    /* 背景は透明にして、AppearanceProviderで制御 */
+    background: transparent !important;
     
     /* 日本語フォント対応 */
     font-family: var(--font-inter), 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', 'Yu Gothic Medium', 'Yu Gothic', sans-serif;
@@ -169,6 +216,30 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 背景画像設定 */
+  html[data-background-type="image"] {
+    background: var(--background) center center/cover no-repeat fixed !important;
+  }
+
+  html[data-background-type="gradient"] {
+    background: var(--background) !important;
+  }
+
+  html[data-background-type="solid"] {
+    background: var(--background) !important;
+  }
+
+
+  /* タイプライターエフェクト */
+  .typewriter-cursor {
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
   }
   
   /* 日本語テキストの改行とレイアウト */
@@ -248,11 +319,8 @@
     width: 100% !important;
     height: 100% !important;
     position: relative !important;
-    /* 動的背景設定に対応 */
-    background: var(--background, linear-gradient(135deg, 
-      oklch(0.16 0.01 270) 0%, 
-      oklch(0.15 0.015 285) 50%, 
-      oklch(0.17 0.008 260) 100%)) !important;
+    /* チャットエリアは透明にして、背景は後ろのレイヤーに任せる */
+    background: transparent !important;
   }
   
   /* Safari モバイルでメインコンテンツを強制表示 */

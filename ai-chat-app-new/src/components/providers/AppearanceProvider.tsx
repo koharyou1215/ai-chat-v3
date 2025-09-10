@@ -6,7 +6,7 @@ import { useAppStore } from "@/store";
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { appearanceSettings, getSelectedCharacter, selectedCharacterId } =
+  const { appearanceSettings, effectSettings, getSelectedCharacter, selectedCharacterId } =
     useAppStore();
   const currentCharacter = getSelectedCharacter();
 
@@ -105,17 +105,12 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     // 背景設定を適用 - bodyにdata属性も設定
     const body = document.body;
 
-    // キャラクター背景を最優先に適用
-    if (hasCharacterBackground) {
-      // キャラクター背景が存在する場合は最優先で適用
-      body.setAttribute("data-background-type", "character");
-      body.style.setProperty("background", "transparent", "important");
-      root.style.setProperty("--background", "transparent");
-    } else if (
+    // 背景設定を適用（キャラクター背景は優先しない）
+    if (
       appearanceSettings.backgroundType === "image" &&
       appearanceSettings.backgroundImage
     ) {
-      // キャラクター背景がない場合のみ外観設定の画像背景を適用
+      // 外観設定の画像背景を適用
       root.style.setProperty(
         "--background",
         `url(${appearanceSettings.backgroundImage})`
@@ -126,40 +121,25 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       root.style.setProperty(
         "--background-opacity",
-        `${appearanceSettings.backgroundOpacity}%`
+        `${appearanceSettings.backgroundOpacity}`
       );
-      body.setAttribute("data-background-type", "image");
-      body.style.setProperty(
-        "background",
-        `url(${appearanceSettings.backgroundImage})`,
-        "important"
-      );
-      body.style.setProperty("background-size", "cover", "important");
-      body.style.setProperty("background-position", "center", "important");
-      body.style.setProperty("background-repeat", "no-repeat", "important");
-      body.style.setProperty("background-attachment", "scroll", "important");
+      root.setAttribute("data-background-type", "image");
+      // body要素の背景をクリア
+      body.style.setProperty("background", "transparent", "important");
     } else if (appearanceSettings.backgroundType === "solid") {
       root.style.setProperty(
         "--background",
         appearanceSettings.backgroundColor
       );
-      body.setAttribute("data-background-type", "solid");
-      body.style.setProperty(
-        "background",
-        appearanceSettings.backgroundColor,
-        "important"
-      );
+      root.setAttribute("data-background-type", "solid");
+      body.style.setProperty("background", "transparent", "important");
     } else if (appearanceSettings.backgroundType === "gradient") {
       root.style.setProperty(
         "--background",
         appearanceSettings.backgroundGradient
       );
-      body.setAttribute("data-background-type", "gradient");
-      body.style.setProperty(
-        "background",
-        appearanceSettings.backgroundGradient,
-        "important"
-      );
+      root.setAttribute("data-background-type", "gradient");
+      body.style.setProperty("background", "transparent", "important");
     }
 
     // アニメーション設定を適用
@@ -177,6 +157,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       appearanceSettings.enableAnimations ? "1" : "0"
     );
 
+
     // カスタムCSSを適用
     const existingCustomStyle = document.getElementById(
       "custom-appearance-style"
@@ -191,7 +172,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       style.textContent = appearanceSettings.customCSS;
       document.head.appendChild(style);
     }
-  }, [appearanceSettings, selectedCharacterId, currentCharacter]);
+  }, [appearanceSettings, effectSettings, selectedCharacterId, currentCharacter]);
 
   // グローバルスタイルも追加
   useEffect(() => {
@@ -226,12 +207,45 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
         
         /* 背景適用 */
         body {
-          background: var(--background, var(--background-color)) !important;
+          background: var(--background-color) !important;
           color: var(--text-color) !important;
           font-family: var(--font-family) !important;
           font-size: var(--font-size) !important;
           font-weight: var(--font-weight) !important;
           line-height: var(--line-height) !important;
+        }
+        
+        /* 画像背景の場合は固定レイヤーとして適用 */
+        html[data-background-type="image"]::before {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: var(--background) !important;
+          background-size: cover !important;
+          background-position: center !important;
+          background-repeat: no-repeat !important;
+          z-index: -1;
+          pointer-events: none;
+        }
+        
+        /* 単色背景の場合 */
+        html[data-background-type="solid"] {
+          background: var(--background) !important;
+          min-height: 100vh !important;
+        }
+        
+        /* グラデーション背景の場合 */
+        html[data-background-type="gradient"] {
+          background: var(--background) !important;
+          min-height: 100vh !important;
+        }
+        
+        /* 背景画像のオーバーレイ効果を削除 */
+        html[data-background-type="image"]::before {
+          display: none !important;
         }
         
         /* チャット領域のスタイル適用 */
@@ -264,34 +278,14 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
           transition-duration: calc(var(--transition-duration) * var(--enable-animations));
         }
         
-        /* 画像背景の場合の特別処理 */
-        body[data-background-type="image"] {
-          background-size: cover !important;
-          background-position: center !important;
-          background-repeat: no-repeat !important;
-          background-attachment: scroll !important;
-        }
-        
-        body[data-background-type="image"]::before {
-          content: '';
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          backdrop-filter: blur(var(--background-blur, 0px));
-          opacity: calc(var(--background-opacity, 100%) / 100);
-          pointer-events: none;
-          z-index: -10;
-        }
       `;
       document.head.appendChild(style);
     }
   }, []);
 
-  // 背景タイプをbody要素に適用
+  // 背景タイプをhtml要素に適用
   useEffect(() => {
-    document.body.setAttribute(
+    document.documentElement.setAttribute(
       "data-background-type",
       appearanceSettings.backgroundType
     );
