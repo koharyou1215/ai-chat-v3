@@ -10,13 +10,17 @@
 
 // ===== FRAMER MOTION OPTIMIZATIONS =====
 
-// Instead of importing the entire framer-motion library,
-// we can create optimized motion components for common use cases
-
+// Import the new framer-motion optimization module
 export const createOptimizedMotion = async () => {
-  // Only import what we need from framer-motion
-  const { motion, AnimatePresence } = await import("framer-motion");
-  return { motion, AnimatePresence };
+  // Use the new optimized framer-motion module
+  const MotionLoaders = await import("@/components/optimized/FramerMotionOptimized");
+  return MotionLoaders.default;
+};
+
+// Legacy support for simple motion imports
+export const getMotionCore = async () => {
+  const { MotionLoaders } = await import("@/components/optimized/FramerMotionOptimized");
+  return await MotionLoaders.core();
 };
 
 // ===== ICON OPTIMIZATIONS =====
@@ -265,6 +269,7 @@ export const getOptimizedUtilities = async () => {
 
 export const OptimizedLoaders = {
   motion: createOptimizedMotion,
+  motionCore: getMotionCore,
   icons: getOptimizedIcons,
   ui: getOptimizedUIComponents,
   chat: getChatComponents,

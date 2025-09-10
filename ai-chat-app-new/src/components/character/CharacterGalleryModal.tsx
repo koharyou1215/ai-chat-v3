@@ -32,12 +32,37 @@ export const CharacterGalleryModal: React.FC<CharacterGalleryModalProps> = ({
     selectCharacter,
     addCharacter,
     startEditingCharacter, // startEditingCharacterを追加
+    isCharactersLoaded,
   } = useAppStore();
 
   const isOpen = isGroupEditingMode || isGroupCreationMode || showCharacterGallery;
   const handleClose = onClose || (() => setShowCharacterGallery(false));
 
+  // Debug logging
+  console.log('CharacterGalleryModal debug:', {
+    isGroupEditingMode,
+    isGroupCreationMode,
+    showCharacterGallery,
+    isOpen,
+    charactersSize: characters.size,
+    isCharactersLoaded
+  });
+
   if (!isOpen) return null;
+
+  // Show loading if characters are not loaded yet
+  if (isOpen && !isCharactersLoaded && characters.size === 0) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-xl p-6 shadow-2xl">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            <span className="text-white">キャラクターを読み込み中...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Convert Map to array for CharacterGallery component
   const charactersArray = Array.from(characters.values());

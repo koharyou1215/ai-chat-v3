@@ -70,8 +70,8 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     // Map型かオブジェクト型かを確認して対応
     if (characters instanceof Map) {
       character = characters.get(characterId);
-    } else if (typeof characters === 'object' && characters) {
-      character = (characters as any)[characterId];
+    } else if (typeof characters === 'object' && characters && characterId in characters) {
+      character = (characters as Record<string, Character>)[characterId];
     }
     
     const persona = get().getSelectedPersona();
@@ -94,9 +94,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     // Map型かオブジェクト型かを確認して対応
     if (characters instanceof Map) {
       return characters.get(selectedId) || null;
-    } else if (typeof characters === 'object' && characters) {
+    } else if (typeof characters === 'object' && characters && selectedId in characters) {
       // オブジェクトとして扱う（永続化後の場合）
-      return (characters as any)[selectedId] || null;
+      return (characters as Record<string, Character>)[selectedId] || null;
     }
     return null;
   },

@@ -66,7 +66,7 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
         
         // アクティブなものがない場合、デフォルトを探す
         const personasArray = Array.from(personas.values());
-        const defaultPersona = personasArray.find(p => p.is_default) || personasArray[0] || null;
+        const defaultPersona = personasArray.find(p => p.id === 'default-user') || personasArray[0] || null;
         console.log('🔍 [PersonaSlice] Falling back to default persona:', defaultPersona ? `${defaultPersona.name} (${defaultPersona.id})` : 'null');
         return defaultPersona;
     },
@@ -87,61 +87,29 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                 return;
             }
             
-            const personaFiles = await response.json();
-            console.log('persona.slice: Received persona files:', personaFiles);
+            const personas = await response.json();
+            console.log('persona.slice: Received personas:', personas);
             const personasMap = new Map<UUID, Persona>();
             
-            // まずデフォルトペルソナを追加
-            const defaultPersona: Persona = {
-                id: 'default-user',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                version: 1,
-                name: 'あなた',
-                description: 'デフォルトのユーザーペルソナ',
-                role: 'user',
-                traits: ['親しみやすい', '好奇心旺盛'],
-                likes: ['会話', '新しい発見'],
-                dislikes: ['退屈', '一方的な会話'],
-                other_settings: 'フレンドリーで親しみやすい性格です。',
-                is_active: true,
-                is_default: true
-            };
-            personasMap.set(defaultPersona.id, defaultPersona);
-            console.log('persona.slice: Default persona added.');
-            
-            // 各ペルソナファイルを読み込み（フォルダが空の場合はスキップ）
-            for (const filename of personaFiles) {
+            // APIから受け取ったPersonaオブジェクト配列を直接処理
+            for (const personaData of personas) {
                 try {
-                    const personaResponse = await fetch(`/personas/${encodeURIComponent(filename)}`);
-                    if (!personaResponse.ok) {
-                        console.warn(`persona.slice: Failed to fetch persona data for ${filename}`);
-                        continue;
-                    }
-                    
-                    const personaData = await personaResponse.json();
-                    console.log(`persona.slice: Successfully loaded data for ${filename}`);
-                    
-                    // JSONデータをPersona型に変換
+                    // personaDataは既にPersona型のオブジェクト（APIで変換済み）
                     const persona: Persona = {
-                        id: filename.replace('.json', ''),
-                        created_at: new Date().toISOString(),
-                        updated_at: personaData.lastModified || new Date().toISOString(),
+                        id: personaData.id,
+                        created_at: personaData.created_at,
+                        updated_at: new Date().toISOString(),
                         version: 1,
                         name: personaData.name || '名前なし',
-                        description: personaData.description || '',
                         role: personaData.role || 'user',
-                        traits: personaData.traits || [],
-                        likes: personaData.likes || [],
-                        dislikes: personaData.dislikes || [],
                         other_settings: personaData.other_settings || '',
-                        is_active: true,
-                        is_default: false
+                        avatar_path: personaData.avatar_path || null
                     };
                     
                     personasMap.set(persona.id, persona);
+                    console.log(`persona.slice: Added persona ${persona.name} (${persona.id})`);
                 } catch (error) {
-                    console.error(`persona.slice: Error processing persona file ${filename}:`, error);
+                    console.error(`persona.slice: Error processing persona:`, error, personaData);
                 }
             }
 
@@ -166,14 +134,9 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                 updated_at: new Date().toISOString(),
                 version: 1,
                 name: 'あなた',
-                description: 'デフォルトのユーザーペルソナ',
                 role: 'user',
-                traits: ['親しみやすい', '好奇心旺盛'],
-                likes: ['会話', '新しい発見'],
-                dislikes: ['退屈', '一方的な会話'],
-                other_settings: 'フレンドリーで親しみやすい性格です。',
-                is_active: true,
-                is_default: true
+                other_settings: 'フレンドリーで親しみやすい性格です。デフォルトのユーザーペルソナとして設定されています。',
+                avatar_path: null
             };
             
             const defaultMap = new Map<UUID, Persona>();

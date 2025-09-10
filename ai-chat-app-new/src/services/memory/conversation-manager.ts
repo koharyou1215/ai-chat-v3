@@ -489,12 +489,12 @@ export class ConversationManager {
       console.log(
         "🎭 [ConversationManager] Persona found:",
         persona.name,
-        persona.description
+        persona.other_settings
       );
       prompt += "<persona_information>\n";
       prompt += `Name: ${persona.name}\n`;
       prompt += `Role: ${persona.role}\n`;
-      prompt += `Description: ${persona.description}\n`;
+      prompt += `Other Settings: ${persona.other_settings}\n`;
 
       // Additional persona settings (if available)
       if (persona.other_settings && persona.other_settings.trim()) {

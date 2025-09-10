@@ -56,7 +56,7 @@ export const PersonaGallery: React.FC<PersonaGalleryProps> = ({
   const filteredAndSortedPersonas = useFilterAndSort({
     data: personas,
     searchTerm,
-    searchKeys: ['name', 'traits'],
+    searchKeys: ['name', 'other_settings'],
     sortOption: sortOption as any,
     sortKeys: {
       updated_at: (p: Persona) => p.updated_at ? new Date(p.updated_at).getTime() : 0,

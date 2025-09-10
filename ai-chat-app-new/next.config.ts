@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
     optimizeCss: true,
   },
   
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { isServer, dev, buildId }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -67,14 +67,6 @@ const nextConfig: NextConfig = {
             name: 'radix-ui',
             chunks: 'all',
             priority: 11,
-            reuseExistingChunk: true,
-          },
-          // Three.js optimization (for future use)
-          threejs: {
-            test: /[\\/]node_modules[\\/](three|@react-three)[\\/]/,
-            name: 'threejs',
-            chunks: 'async',
-            priority: 14,
             reuseExistingChunk: true,
           },
           // UI components chunk
@@ -123,21 +115,38 @@ const nextConfig: NextConfig = {
         },
       };
 
-      // Bundle analyzer for development
-      if (dev && process.env.ANALYZE === 'true') {
+      // Bundle analyzer configuration for both dev and production
+      if (process.env.ANALYZE === 'true') {
         try {
           const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
           config.plugins.push(
             new BundleAnalyzerPlugin({
-              analyzerMode: 'server',
+              analyzerMode: dev ? 'server' : 'static',
               openAnalyzer: false, // Don't auto-open in browser
-              analyzerPort: 8888,
+              analyzerPort: dev ? 8888 : undefined,
+              reportFilename: dev ? undefined : '../bundle-analysis/bundle-report.html',
+              generateStatsFile: !dev,
+              statsFilename: '../bundle-analysis/bundle-stats.json',
+              logLevel: 'info',
             })
           );
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           console.warn('Bundle analyzer not available:', errorMessage);
         }
+      }
+
+      // Performance budgets enforcement
+      if (!dev && process.env.NODE_ENV === 'production') {
+        config.performance = {
+          hints: 'warning',
+          maxAssetSize: 250000, // 250KB per asset
+          maxEntrypointSize: 500000, // 500KB per entrypoint
+          assetFilter: function(assetFilename: string) {
+            // Only monitor JS and CSS files
+            return /\.(js|css)$/.test(assetFilename);
+          }
+        };
       }
     }
     return config;

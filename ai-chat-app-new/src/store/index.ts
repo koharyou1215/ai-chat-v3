@@ -482,6 +482,9 @@ try {
     console.error("❌ Critical error: Could not create any store", fallbackError);
     // 最後の手段：最小限のストア
     useAppStore = create<AppStore>()((set, get) => ({
+      // Provide minimal implementations of all AppStore methods
+      ...combinedSlices(set, get, { name: 'fallback', persist: () => {}, getOptions: () => ({}) }),
+      // Override critical properties with safe defaults
       sessions: new Map(),
       active_session_id: null,
       characters: new Map(),
@@ -491,7 +494,7 @@ try {
       isPersonasLoaded: false,
       apiManager: simpleAPIManagerV2,
       promptBuilderService: promptBuilderService,
-    } as any));
+    }));
   }
 }
 

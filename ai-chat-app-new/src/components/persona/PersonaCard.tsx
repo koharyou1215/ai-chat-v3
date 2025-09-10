@@ -78,11 +78,7 @@ export const PersonaCard: React.FC<PersonaCardProps> = ({
             </div>
 
             <div className="w-8">
-              {persona.is_default && (
-                <div className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-300 rounded-full text-center">
-                  Default
-                </div>
-              )}
+              {/* is_default property removed from simplified Persona type */}
             </div>
           </div>
 

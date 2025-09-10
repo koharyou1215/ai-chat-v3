@@ -8,7 +8,8 @@ import React, {
   useCallback,
   Suspense,
 } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { MotionLoaders } from '@/components/optimized/FramerMotionOptimized';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -124,51 +125,73 @@ const EmptyState = () => {
   );
 };
 
-const ThinkingIndicator = () => (
-  <div className="flex items-center justify-center p-4">
-    <div className="flex items-center space-x-2">
-      <motion.div
-        className="w-2 h-2 bg-purple-400 rounded-full"
-        animate={{
-          scale: [1, 1.5, 1],
-          opacity: [0.5, 1, 0.5],
-        }}
-        transition={{
-          duration: 1,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-      <motion.div
-        className="w-2 h-2 bg-purple-400 rounded-full"
-        animate={{
-          scale: [1, 1.5, 1],
-          opacity: [0.5, 1, 0.5],
-        }}
-        transition={{
-          duration: 1,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.2,
-        }}
-      />
-      <motion.div
-        className="w-2 h-2 bg-purple-400 rounded-full"
-        animate={{
-          scale: [1, 1.5, 1],
-          opacity: [0.5, 1, 0.5],
-        }}
-        transition={{
-          duration: 1,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.4,
-        }}
-      />
-      <span className="text-sm text-white/60">AIが考え中...</span>
+// Optimized ThinkingIndicator with lazy motion loading
+const ThinkingIndicator = () => {
+  const [MotionDiv, setMotionDiv] = useState<any>(null);
+
+  useEffect(() => {
+    MotionLoaders.core().then(({ motion }) => {
+      setMotionDiv(() => motion.div);
+    });
+  }, []);
+
+  if (!MotionDiv) return (
+    <div className="flex items-center justify-center p-4">
+      <div className="flex items-center space-x-2">
+        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}} />
+        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}} />
+        <span className="text-sm text-white/60">AIが考え中...</span>
+      </div>
     </div>
-  </div>
-);
+  );
+
+  return (
+    <div className="flex items-center justify-center p-4">
+      <div className="flex items-center space-x-2">
+        <MotionDiv
+          className="w-2 h-2 bg-purple-400 rounded-full"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.5, 1, 0.5],
+          }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <MotionDiv
+          className="w-2 h-2 bg-purple-400 rounded-full"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.5, 1, 0.5],
+          }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.2,
+          }}
+        />
+        <MotionDiv
+          className="w-2 h-2 bg-purple-400 rounded-full"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.5, 1, 0.5],
+          }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.4,
+          }}
+        />
+        <span className="text-sm text-white/60">AIが考え中...</span>
+      </div>
+    </div>
+  );
+};
 
 // SSR安全なチャットインターフェースコンテンツ
 const ChatInterfaceContent: React.FC = () => {
@@ -225,6 +248,11 @@ const ChatInterfaceContent: React.FC = () => {
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 0
   );
+  // Motion components lazy loading
+  const [motionComponents, setMotionComponents] = useState<{
+    motion?: any;
+    AnimatePresence?: any;
+  }>({});
   const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
     []
   ); // 追加
@@ -235,6 +263,13 @@ const ChatInterfaceContent: React.FC = () => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Load motion components dynamically
+  useEffect(() => {
+    MotionLoaders.core().then(({ motion, AnimatePresence }) => {
+      setMotionComponents({ motion, AnimatePresence });
+    });
   }, []);
 
   // Timeout cleanup effect

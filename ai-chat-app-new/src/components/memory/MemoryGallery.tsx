@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -34,7 +34,12 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memory_cards, createMemoryCard, getActiveSession, ensureTrackerManagerExists } = useAppStore();
+  const { memory_cards, createMemoryCard, getActiveSession, ensureTrackerManagerExists, initializeMemoryCards } = useAppStore();
+
+  // Lazy initialize memory cards on mount
+  useEffect(() => {
+    initializeMemoryCards();
+  }, [initializeMemoryCards]);
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {

@@ -47,8 +47,58 @@ export async function GET(request: NextRequest) {
       file !== 'manifest.json'
     );
     
-    console.log(`Personas API: Loaded ${jsonFiles.length} personas from filesystem`);
-    return NextResponse.json(jsonFiles);
+    // 各JSONファイルの内容を読み取り、新旧フォーマットに対応
+    const personas: Persona[] = [];
+    
+    for (const file of jsonFiles) {
+      try {
+        console.log(`Personas API: Processing file ${file}`);
+        const filePath = path.join(personasDir, file);
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const jsonData = JSON.parse(fileContent);
+        
+        let persona: Persona;
+        
+        // 新フォーマット（name, role, other_settings, avatar_path）をチェック
+        if (jsonData.name && jsonData.role !== undefined) {
+          console.log(`Personas API: Using new format for ${file}`);
+          persona = {
+            id: path.basename(file, '.json'),
+            name: jsonData.name,
+            role: jsonData.role,
+            other_settings: jsonData.other_settings || '',
+            avatar_path: jsonData.avatar_path || null,
+            created_at: jsonData.created_at || new Date().toISOString(),
+          };
+        }
+        // 旧フォーマット（persona_information.Name等）をチェック
+        else if (jsonData.persona_information && jsonData.persona_information.Name) {
+          console.log(`Personas API: Using old format for ${file}`);
+          const info = jsonData.persona_information;
+          persona = {
+            id: path.basename(file, '.json'),
+            name: info.Name,
+            role: info.Role || 'user',
+            other_settings: info['Other Settings'] || '',
+            avatar_path: null,
+            created_at: jsonData.created_at || new Date().toISOString(),
+          };
+        }
+        // どちらでもない場合はスキップ
+        else {
+          console.warn(`Personas API: Invalid format in file ${file}`, Object.keys(jsonData));
+          continue;
+        }
+        
+        console.log(`Personas API: Successfully processed ${persona.name} from ${file}`);
+        personas.push(persona);
+      } catch (fileError) {
+        console.error(`Personas API: Error reading file ${file}:`, fileError);
+      }
+    }
+    
+    console.log(`Personas API: Loaded ${personas.length} personas from filesystem`);
+    return NextResponse.json(personas);
   } catch (error) {
     console.error('Personas API: Error reading personas:', error);
     return NextResponse.json([]);

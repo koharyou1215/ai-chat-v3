@@ -1,7 +1,6 @@
 {
-  "persona_information": {
-    "Name": "☕",
-    "Role": "",
-    "Other Settings": "Description: 至高の一杯と共に、恋人たちの幸福な瞬間を永遠に刻む、祝福の能力者。\nTraits: 聞き上手, 包容力がある, ロマンチスト, 人当たりが良い"
-  }
+  "name": "☕",
+  "role": "user",
+  "other_settings": "Description: 至高の一杯と共に、恋人たちの幸福な瞬間を永遠に刻む、祝福の能力者。\nTraits: 聞き上手, 包容力がある, ロマンチスト, 人当たりが良い",
+  "avatar_path": null
 }

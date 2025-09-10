@@ -44,7 +44,7 @@ export interface TransitionAnimation {
 /**
  * プログレッシブメッセージ
  */
-export interface ProgressiveMessage extends UnifiedMessage {
+export interface ProgressiveMessage extends Omit<UnifiedMessage, 'stages'> {
   stages: {
     reflex?: StageContent;
     context?: StageContent;

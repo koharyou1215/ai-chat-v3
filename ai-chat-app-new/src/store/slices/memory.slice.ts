@@ -60,6 +60,7 @@ export const createMemorySlice: StateCreator<
   // ローカルストレージからメモリーカードを読み込み
   const loadMemoryCards = () => {
     try {
+      if (typeof window === 'undefined') return; // SSR対応
       const stored = localStorage.getItem("memory_cards");
       if (stored) {
         const memoryCardsArray = JSON.parse(stored);
@@ -80,16 +81,25 @@ export const createMemorySlice: StateCreator<
   };
 
   return {
-    memory_cards: loadMemoryCards(),
+    memory_cards: new Map(), // Lazy load on first access
     pinned_memories: [],
+
+    // Lazy initialization method for memory cards
+    initializeMemoryCards: () => {
+      const currentState = get() as { memory_cards: Map<string, any> };
+      if (currentState.memory_cards.size === 0) {
+        const loadedCards = loadMemoryCards();
+        set((state) => ({ ...state, memory_cards: loadedCards }));
+      }
+    },
 
     createMemoryCard: async (message_ids, session_id, character_id) => {
       // セッションからメッセージを取得
-      const state = get() as any;
+      const state = get();
 
       // ソロチャットとグループチャットの両方をチェック
-      const soloSessions = state.sessions || new Map();
-      const groupSessions = state.group_sessions || new Map();
+      const soloSessions = (state as any).sessions || new Map();
+      const groupSessions = (state as any).group_sessions || new Map();
 
       const session =
         soloSessions.get(session_id) || groupSessions.get(session_id);

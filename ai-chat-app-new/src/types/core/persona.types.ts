@@ -6,9 +6,7 @@ export interface Persona extends Omit<BaseEntity, "created_at"> {
   name: string;
   role: string;
   other_settings: string;
-  avatar_path?: string; // アバター画像のファイルパス
-  // 感情分析用プロパティ追加
-  preferences?: Record<string, any>;
+  avatar_path?: string | null; // アバター画像のファイルパス
   // ソート用プロパティ追加 - override BaseEntity's required created_at
   created_at: string;
 }
