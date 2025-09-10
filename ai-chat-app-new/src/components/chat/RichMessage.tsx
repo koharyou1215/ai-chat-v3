@@ -135,12 +135,14 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       role,
     ]);
 
-    // 括弧内テキストの検出とエフェクト適用
+    // 括弧内テキストの検出とエフェクト適用、重要な単語にグラデーション適用
     const processedContent = useMemo(() => {
       if (!displayContent) return displayContent;
 
+      let processed = displayContent;
+      
       // 「」内のテキストを検出して特別なエフェクトを適用
-      return displayContent.replace(/「([^」]+)」/g, (match, text) => {
+      processed = processed.replace(/「([^」]+)」/g, (match, text) => {
         // 感情に応じたエフェクトを決定
         let effectClass = "";
         let effectStyle = "";
@@ -196,40 +198,50 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
 
         return `<span class="${effectClass}" style="${effectStyle}">「${text}」</span>`;
       });
-    }, [displayContent]);
+      
+      // フォントエフェクトが有効な場合、特定の重要な単語だけにグラデーションを適用
+      if (effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 30) {
+        // 重要な感情表現や強調語にだけグラデーションを適用
+        const importantWords = /(愛してる|大好き|最高|素晴らしい|完璧|美しい|キラキラ|ドキドキ|ワクワク|！|♡|♥|★|☆)/g;
+        processed = processed.replace(importantWords, (match) => {
+          const gradientStyle = `background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3); 
+            background-clip: text; 
+            -webkit-background-clip: text; 
+            color: transparent; 
+            font-weight: bold; 
+            text-shadow: none;`;
+          return `<span style="${gradientStyle}">${match}</span>`;
+        });
+      }
+      
+      return processed;
+    }, [displayContent, effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
 
-    // フォントエフェクトのスタイル計算（特殊装飾効果）
+    // フォントエフェクトのスタイル計算（全体の装飾効果、グラデーションは除外）
     const fontEffectStyles = useMemo(() => {
       if (!effectSettings.fontEffects) return {};
 
       const intensity = effectSettings.fontEffectsIntensity;
       return {
-        // グラデーションテキスト効果
-        background:
-          intensity > 30
-            ? `linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)`
-            : "none",
-        backgroundClip: intensity > 30 ? "text" : "initial",
-        WebkitBackgroundClip: intensity > 30 ? "text" : "initial",
-        color: intensity > 30 ? "transparent" : "inherit",
-
-        // アニメーション効果
+        // グラデーションは個別の単語に適用するため、ここでは適用しない
+        
+        // アニメーション効果（全体に適用）
         animation:
-          intensity > 50 ? "rainbow-text 3s ease-in-out infinite" : "none",
+          intensity > 70 ? "subtle-glow 4s ease-in-out infinite" : "none",
 
-        // テキストシャドウ（複数層）
+        // 微細なテキストシャドウ（全体の読みやすさ向上）
         textShadow:
           intensity > 40
-            ? `0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3), 0 0 15px rgba(255,255,255,0.1)`
+            ? `0 1px 2px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.1)`
             : "none",
 
-        // 変形効果
-        transform: intensity > 60 ? "perspective(100px) rotateX(5deg)" : "none",
+        // 変形効果（高強度時のみ）
+        transform: intensity > 80 ? "perspective(1000px) rotateX(2deg)" : "none",
 
-        // フィルター効果
+        // フィルター効果（控えめに）
         filter:
-          intensity > 70
-            ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
+          intensity > 60
+            ? "drop-shadow(0 0 2px rgba(255,255,255,0.2)) brightness(1.05)"
             : "none",
       };
     }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);

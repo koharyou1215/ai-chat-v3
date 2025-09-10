@@ -28,6 +28,8 @@ import {
   generateUserMessageId,
   generateAIMessageId,
 } from "@/utils/uuid";
+import { ChatErrorHandler } from "@/services/chat/error-handler.service";
+import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 
 // 🧠 感情から絵文字への変換ヘルパー
 const getEmotionEmoji = (emotion: string): string => {
@@ -98,19 +100,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
   set,
   get
 ) => {
-  // Helper function to safely get session from Map or Object
-  const getSessionSafely = (
-    sessions: any,
-    sessionId: string
-  ): UnifiedChatSession | undefined => {
-    if (!sessions || !sessionId) return undefined;
-    if (sessions instanceof Map) {
-      return sessions.get(sessionId);
-    } else if (typeof sessions === "object") {
-      return sessions[sessionId];
-    }
-    return undefined;
-  };
+  // Using imported getSessionSafely from @/utils/chat/map-helpers
+  // The imported version is more type-safe and feature-rich
 
   // Helper function to safely get tracker manager from Map or Object
   const getTrackerManagerSafely = (
@@ -126,16 +117,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
     return undefined;
   };
 
-  // Helper function to create a new Map from either Map or Object
-  const createMapSafely = (data: any): Map<string, any> => {
-    if (!data) return new Map();
-    if (data instanceof Map) {
-      return new Map(data);
-    } else if (typeof data === "object") {
-      return new Map(Object.entries(data));
-    }
-    return new Map();
-  };
+  // Using imported createMapSafely from @/utils/chat/map-helpers
+  // The imported version is more type-safe and feature-rich
 
   return {
     sessions: new Map(),
@@ -805,8 +788,20 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               });
           }, 0); // 次のEvent Loopで実行しUIをブロックしない
         } catch (error) {
-          console.error("AI応答生成エラー:", error);
-          // TODO: UIにエラーメッセージを表示
+          // 新しいエラーハンドラーを使用
+          const chatError = ChatErrorHandler.createChatError(error, 'send');
+          ChatErrorHandler.logError(error, 'sendMessage');
+          ChatErrorHandler.showUserFriendlyError(chatError.message);
+          
+          // ストアにエラー情報を保存
+          set({ 
+            lastError: {
+              type: 'send',
+              message: chatError.message,
+              timestamp: chatError.timestamp,
+              details: chatError.details as string
+            }
+          });
         } finally {
           set({ is_generating: false });
         }
@@ -1378,11 +1373,20 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
             intelligenceResponse.substring(0, 50) + "..."
           );
 
+          // 現在のメッセージを取得してStage 2のデータを確実に保持
+          const currentState = get();
+          const currentSession = getSessionSafely(currentState.sessions, activeSessionId);
+          const currentMessageIndex = currentSession?.messages.findIndex(
+            (m) => m.id === messageId
+          );
+          const currentMessage = currentSession?.messages[currentMessageIndex] as ProgressiveMessage;
+          
           // Progressive messageを更新（既存のstagesを保持しながら更新）
           progressiveMessage = {
             ...progressiveMessage,
             stages: {
-              ...progressiveMessage.stages,
+              reflex: currentMessage?.stages.reflex || progressiveMessage.stages.reflex,
+              context: currentMessage?.stages.context || progressiveMessage.stages.context,
               intelligence: {
                 content: intelligenceResponse,
                 timestamp: Date.now() - startTime,
@@ -1441,16 +1445,25 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               );
               if (messageIndex !== -1) {
                 const updatedMessages = [...session.messages];
+                const currentMessage = updatedMessages[messageIndex] as ProgressiveMessage;
+                
+                // Stage 2のデータを確実に保持しながらStage 3を追加
+                const finalStages = {
+                  reflex: currentMessage.stages.reflex,
+                  context: currentMessage.stages.context, // Stage 2を保持
+                  intelligence: progressiveMessage.stages.intelligence, // Stage 3を追加
+                };
+                
                 // ディープコピーを作成してReactが変更を検知できるようにする
                 updatedMessages[messageIndex] = {
                   ...progressiveMessage,
-                  stages: { ...progressiveMessage.stages },
+                  stages: finalStages,
                   metadata: {
                     ...progressiveMessage.metadata,
                     progressiveData: progressiveMessage.metadata.progressiveData
                       ? {
                           ...progressiveMessage.metadata.progressiveData,
-                          stages: { ...progressiveMessage.stages },
+                          stages: finalStages,
                           currentStage: progressiveMessage.currentStage,
                         }
                       : undefined,
@@ -1585,27 +1598,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           useDirectGeminiAPI: get().useDirectGeminiAPI,
         };
 
-        const response = await fetch("/api/chat/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemPrompt,
-            userMessage: lastUserMessage.content,
-            conversationHistory,
-            textFormatting: get().effectSettings.textFormatting,
-            apiConfig: regenerationApiConfig,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || "API request failed during regeneration"
-          );
-        }
-
-        const data = await response.json();
-        const aiResponseContent = data.response;
+        // simpleAPIManagerV2を使用して再生成
+        const { simpleAPIManagerV2 } = await import(
+          "@/services/simple-api-manager-v2"
+        );
+        
+        const aiResponseContent = await simpleAPIManagerV2.generateMessage(
+          systemPrompt,
+          lastUserMessage.content,
+          conversationHistory,
+          regenerationApiConfig
+        );
 
         const newAiMessage: UnifiedMessage = {
           ...session.messages[lastAiMessageIndex],
@@ -1703,25 +1706,14 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           : null;
 
         // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
-        const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。\n\n重要: あなたは指定されたキャラクターとして応答してください。ユーザーの行動や発言を勝手に出力してはいけません。キャラクターの視点から、キャラクターのセリフや行動のみを出力してください。`;
+        // 続き生成の指示をユーザープロンプトに含める（システムプロンプトには追加しない）
+        const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
 
         let systemPrompt = await promptBuilderService.buildPrompt(
           session,
           continuePrompt,
           trackerManager || undefined
         );
-
-        // 続き生成専用の指示を追加
-        const continueInstruction = `
-<continue_instruction>
-**重要**: これは続き生成リクエストです。
-- あなたは指定されたキャラクターとしてのみ応答してください
-- ユーザーの行動、発言、思考を勝手に描写してはいけません  
-- キャラクターの視点から、キャラクターのセリフと行動のみを出力してください
-- ユーザーとの境界を明確に保ち、キャラクターの役割に専念してください
-</continue_instruction>
-`;
-        systemPrompt += continueInstruction;
 
         const { simpleAPIManagerV2: apiManager } = await import(
           "@/services/simple-api-manager-v2"

@@ -8,8 +8,8 @@ import React, {
   useCallback,
   Suspense,
 } from "react";
-import { MotionLoaders } from '@/components/optimized/FramerMotionOptimized';
-import { motion, AnimatePresence } from 'framer-motion';
+import { MotionLoaders } from "@/components/optimized/FramerMotionOptimized";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -135,16 +135,23 @@ const ThinkingIndicator = () => {
     });
   }, []);
 
-  if (!MotionDiv) return (
-    <div className="flex items-center justify-center p-4">
-      <div className="flex items-center space-x-2">
-        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}} />
-        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}} />
-        <span className="text-sm text-white/60">AIが考え中...</span>
+  if (!MotionDiv)
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+          <div
+            className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+            style={{ animationDelay: "0.2s" }}
+          />
+          <div
+            className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+            style={{ animationDelay: "0.4s" }}
+          />
+          <span className="text-sm text-white/60">AIが考え中...</span>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="flex items-center justify-center p-4">
@@ -697,7 +704,12 @@ const ChatInterfaceContent: React.FC = () => {
       {isRightPanelOpen && windowWidth < 768 && (
         <div
           className="fixed inset-0 bg-black/50 z-50"
-          onClick={() => setRightPanelOpen(false)}
+          onClick={(e) => {
+            // 右サイドバー内のクリックは無視
+            if (e.target === e.currentTarget) {
+              setRightPanelOpen(false);
+            }
+          }}
         />
       )}
 
@@ -782,10 +794,10 @@ const ChatInterfaceContent: React.FC = () => {
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className={cn(
-                  "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full z-[60]",
+                  "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
                   windowWidth < 768
-                    ? "fixed right-0 top-0 w-full"
-                    : "fixed right-0 top-0 h-full w-[380px]"
+                    ? "fixed right-0 top-0 w-full z-[60]" // モバイルではオーバーレイより高いz-index
+                    : "fixed right-0 top-0 h-full w-[380px] z-[60]"
                 )}>
                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">記憶情報</h3>

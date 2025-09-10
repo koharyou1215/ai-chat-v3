@@ -358,18 +358,34 @@ export class InspirationService {
 
     let prompt: string;
     if (enhancePrompt) {
-      // {{user}}と{{char}}を適切に置換
+      // カスタムプロンプトのすべての変数形式を確実に置換
+      const userName = user.name || 'ユーザー';
+      const charName = character?.name || 'キャラクター';
+      
+      prompt = enhancePrompt
+        // 標準的な変数置換
+        .replace(/\{\{user\}\}/g, userName)
+        .replace(/\{\{char\}\}/g, charName)
+        .replace(/\{\{conversation\}\}/g, context)
+        .replace(/\{\{text\}\}/g, inputText)
+        // ${{ }}形式の変数置換（誤った形式も対応）
+        .replace(/\$\{\{\s*user\s*\}\}/g, userName)
+        .replace(/\$\{\{\s*char\s*\}\}/g, charName)
+        // ${ }形式の変数置換
+        .replace(/\$\{inputText\}/g, inputText)
+        .replace(/\$\{text\}/g, inputText)
+        .replace(/\$\{user\}/g, userName)
+        .replace(/\$\{char\}/g, charName);
+        
+      // さらにreplaceVariablesで処理
       const variableContext = { user, character };
-      prompt = replaceVariables(enhancePrompt, variableContext)
-        .replace(/{{conversation}}/g, context)
-        .replace(/{{text}}/g, inputText);
+      prompt = replaceVariables(prompt, variableContext);
     } else {
       prompt = this.buildEnhancementPrompt(inputText, context, user);
+      // デフォルトプロンプトも{{user}}と{{char}}を置換
+      const variableContext = { user, character };
+      prompt = replaceVariables(prompt, variableContext);
     }
-    
-    // デフォルトプロンプトも{{user}}と{{char}}を置換
-    const variableContext = { user, character };
-    prompt = replaceVariables(prompt, variableContext);
 
     // Check cache first
     const cacheKey = this.cache.generateCacheKey(
@@ -654,30 +670,21 @@ export class InspirationService {
   ): string {
     // プロンプトを大幅に短縮
     // {{user}}と{{char}}を使用したプロンプト（後で置換される）
-    return `{{user}}視点の文章をパワーアップさせる。:
+    return `あなたは{{user}}として、以下の短い文章を感情豊かに拡張・強化してください。
 
-あなたは感情表現のエキスパートです。  
-以下の文章を、{{user}}らしくキャラクターを保持したまま、元の意味を保持して強化し拡張しください。  
-
-条件:
 会話履歴:
-      ${context}
-      ###**分析すべき要素**
-      - 会話の文脈と話題の流れ
-      - {{user}}の発言意図と感情状態
-      - これまでの{{user}}のトーンとスタイル
-      - 会話相手との関係性  
-- 原文の意味や意図は保持すること  
-- {{user}}の口調やキャラクター性を尊重すること  
-- 語彙や表現を拡張し、豊かで自然に聞こえる文章にすること  
-- 必要に応じて原文の1.5～2倍に拡張してよい  
-- 不要な解説や注釈は含めず、強化後の文章のみを出力すること
+${context}
 
-入力文:  
-"${inputText}"
+元の文章: "${inputText}"
 
-出力文（強化後）:
-強化された文章のみ出力`;
+強化の要件:
+- {{user}}のキャラクター性と口調を完全に維持
+- 元の意図を保ちながら、詳細な感情表現・仕草・内面描写を追加
+- 自然で生き生きとした表現に拡張（1.5～2倍の長さ）
+- 五感を活かした描写を含める
+- 説明や注釈は含めず、強化された文章のみを出力
+
+強化後の文章:`;
   }
 
   /**
