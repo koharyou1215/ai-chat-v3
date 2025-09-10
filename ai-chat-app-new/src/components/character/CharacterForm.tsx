@@ -68,7 +68,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
         }
     };
     
-    const handleFileUpload = async (file: File, field: 'background_url') => {
+    const handleFileUpload = async (file: File, field: 'background_url' | 'avatar_url') => {
         if (!file) {
             console.log('No file provided to handleFileUpload');
             return;
@@ -155,7 +155,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
 
     const FileUploader: React.FC<{
         label: string;
-        field: 'background_url'; // 🔧 FIX: avatar_url削除
+        field: 'background_url' | 'avatar_url';
         url?: string | null;
         onFileUpload: (file: File) => void;
         onUrlChange: (url: string) => void;
@@ -416,6 +416,10 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                             />
                         </TabsContent>
                         <TabsContent value="appearance" className="space-y-8">
+                            <AppearancePanel
+                                formData={formData as Character | null}
+                                setFormData={setFormData}
+                            />
                             <div className="bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-6 rounded-xl border border-indigo-700/30">
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
@@ -856,13 +860,6 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                         </TabsContent>
                         )}
 
-                            {/* 外見・アバターカード - キャラクターのみ */}
-                            {mode === 'character' && (
-                                <AppearancePanel
-                                    formData={formData as Character | null}
-                                    setFormData={setFormData}
-                                />
-                            )}
 
                             {/* 性格・特性カード */}
                             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-6 rounded-xl border border-slate-700/50">

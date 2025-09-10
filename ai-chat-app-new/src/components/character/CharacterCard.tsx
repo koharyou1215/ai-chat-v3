@@ -107,11 +107,22 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               className="relative flex-shrink-0"
             >
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-400/50 shadow-xl relative">
-                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">
-                    {character.name.charAt(0)}
-                  </span>
-                </div>
+                {character.avatar_url ? (
+                  <Image
+                    src={character.avatar_url}
+                    alt={character.name}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">
+                      {character.name.charAt(0)}
+                    </span>
+                  </div>
+                )}
               </div>
               {isSelected && (
                 <motion.div

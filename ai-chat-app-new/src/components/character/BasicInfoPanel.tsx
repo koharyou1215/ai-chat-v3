@@ -14,7 +14,7 @@ interface BasicInfoPanelProps {
   formData: Character | Persona | null;
   setFormData: React.Dispatch<React.SetStateAction<Character | Persona | null>>;
   mode: 'character' | 'persona';
-  handleFileUpload: (file: File, field: 'background_url') => Promise<void>;
+  handleFileUpload: (file: File, field: 'background_url' | 'avatar_url') => Promise<void>;
 }
 
 export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
@@ -42,6 +42,78 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
           <h3 className="text-xl font-bold text-white">基本情報</h3>
         </div>
         <div className="space-y-4">
+          {/* アバター画像アップロード（キャラクターモードのみ） */}
+          {mode === 'character' && (
+            <div className="mb-6">
+              <label className="text-sm font-medium text-slate-300 block mb-2">キャラクターアイコン</label>
+              <div className="flex items-center gap-4">
+                <div 
+                  className="w-24 h-24 rounded-full overflow-hidden border-2 border-purple-400/50 bg-slate-800/50 cursor-pointer transition-all hover:border-purple-400"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('border-cyan-400', 'bg-cyan-500/10');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files[0] && files[0].type.startsWith('image/')) {
+                      await handleFileUpload(files[0], 'avatar_url');
+                    }
+                  }}
+                  onClick={() => {
+                    document.getElementById('avatar-upload')?.click();
+                  }}
+                  title="クリックまたはドラッグ＆ドロップで画像をアップロード"
+                >
+                  {(formData as Character)?.avatar_url ? (
+                    <img
+                      src={(formData as Character).avatar_url}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400 hover:text-slate-300">
+                      <span className="text-3xl">👤</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="avatar-upload"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        await handleFileUpload(file, 'avatar_url');
+                      }
+                    }}
+                  />
+                  <div className="text-xs text-slate-400">
+                    ドラッグ＆ドロップ<br/>または<br/>クリックで選択
+                  </div>
+                  {(formData as Character)?.avatar_url && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFormData(prev => prev ? {...prev, avatar_url: undefined} : null);
+                      }}
+                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">名前 *</label>

@@ -65,20 +65,35 @@ export const createMessageOperations: StateCreator<
   MessageOperations
 > = (set, get) => ({
   sendMessage: async (content, imageUrl) => {
+    console.log("🚀 [sendMessage] Called with content:", content?.substring(0, 50), "imageUrl:", !!imageUrl);
+    
     // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
-    const state = get();
-    if (state.is_group_mode && state.active_group_session_id) {
+    const state = get() as any;  // Type assertion for cross-slice access
+    console.log("📊 [sendMessage] State check - is_group_mode:", state.is_group_mode, "active_session_id:", state.active_session_id);
+    
+    if (state.is_group_mode && state.active_group_session_id && state.sendGroupMessage) {
+      console.log("🔄 [sendMessage] Redirecting to group chat");
       return await state.sendGroupMessage(content, imageUrl);
     }
 
     const activeSessionId = state.active_session_id;
-    if (!activeSessionId) return;
-    const activeSession = getSessionSafely(state.sessions, activeSessionId);
-    if (!activeSession) return;
-
-    if (state.is_generating) {
+    if (!activeSessionId) {
+      console.error("❌ [sendMessage] No active session ID");
       return;
     }
+    
+    const activeSession = getSessionSafely(state.sessions, activeSessionId);
+    if (!activeSession) {
+      console.error("❌ [sendMessage] No active session found for ID:", activeSessionId);
+      return;
+    }
+
+    if (state.is_generating) {
+      console.warn("⚠️ [sendMessage] Already generating, skipping");
+      return;
+    }
+    
+    console.log("✅ [sendMessage] Starting message generation");
     set({ is_generating: true });
 
     // 1. ユーザーメッセージを作成
@@ -228,6 +243,8 @@ export const createMessageOperations: StateCreator<
         // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
         const requestId = `${activeSessionId}-${Date.now()}`;
         const modelName = apiConfig.model || "gemini-2.5-flash";
+        console.log("🌐 [sendMessage] Enqueuing API request - model:", modelName, "requestId:", requestId);
+        
         const response = await apiRequestQueue.enqueueChatRequest(
           async () => {
             // 完全版プロンプトを非同期で準備
@@ -246,6 +263,9 @@ export const createMessageOperations: StateCreator<
 
             // 🔧 修正: 設定から会話履歴の上限を取得
             const maxContextMessages = get().chat?.memoryLimits?.max_context_messages || 20;
+            
+            console.log("📝 [sendMessage] Sending API request to /api/chat/generate");
+            console.log("📝 [sendMessage] Prompt length:", finalPrompt.length);
             
             // 完全版プロンプトでAPIリクエストを開始
             const initialResponse = await fetch("/api/chat/generate", {
@@ -298,9 +318,11 @@ export const createMessageOperations: StateCreator<
             // エラーチェック
             if (!initialResponse.ok) {
               const errorData = await initialResponse.json();
+              console.error("❌ [sendMessage] API request failed:", errorData);
               throw new Error(errorData.error || "API request failed");
             }
             
+            console.log("✅ [sendMessage] API request successful");
             return initialResponse;
           },
           requestId,
@@ -521,7 +543,7 @@ export const createMessageOperations: StateCreator<
         }, 0); // 次のEvent Loopで実行しUIをブロックしない
       } catch (error) {
         // より詳細なエラーログを追加
-        console.error("🚨 sendMessage error details:");
+        console.error("🚨 [sendMessage] Critical error occurred:");
         console.error("  - Error object:", error);
         console.error("  - Error type:", typeof error);
         console.error("  - Error constructor:", error?.constructor?.name);
@@ -532,6 +554,8 @@ export const createMessageOperations: StateCreator<
         if (error instanceof Error) {
           console.error("  - Error stack:", error.stack);
         }
+        console.error("  - Active session ID:", activeSessionId);
+        console.error("  - Was generating:", state.is_generating);
 
         // 新しいエラーハンドラーを使用
         const chatError = ChatErrorHandler.createChatError(error, "send");

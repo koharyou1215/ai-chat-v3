@@ -104,7 +104,8 @@
       "Bash(NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=\"--max-old-space-size=6144\" npm run build)",
       "Bash(jobs)",
       "Bash(BashOutput 7689e6)",
-      "Read(//c/AIチャットバックアップ/**)"
+      "Read(//c/AIチャットバックアップ/**)",
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": [],

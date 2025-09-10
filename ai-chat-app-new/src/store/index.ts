@@ -24,7 +24,10 @@ import { UISlice, createUISlice } from "./slices/ui.slice";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { StateCreator } from "zustand";
 import { StorageCleaner } from "@/utils/storage-cleaner";
-import { initializeModelMigration, migrateModelName } from "@/utils/model-migration";
+import {
+  initializeModelMigration,
+  migrateModelName,
+} from "@/utils/model-migration";
 
 export type AppStore = ChatSlice &
   GroupChatSlice &
@@ -36,6 +39,7 @@ export type AppStore = ChatSlice &
   SettingsSlice &
   SuggestionSlice &
   UISlice & {
+    trackerManagers: Map<string, TrackerManager>;
     apiManager: SimpleAPIManagerV2;
     promptBuilderService: PromptBuilderService;
     [key: string]: unknown; // Add index signature for generic operations
@@ -67,6 +71,8 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (
     ...createSettingsSlice(set, safeGet, api),
     ...createSuggestionSlice(set, safeGet, api),
     ...createUISlice(set, safeGet, api),
+    // トラッカーマネージャーの初期化
+    trackerManagers: new Map(),
     apiManager: simpleAPIManagerV2,
     promptBuilderService: promptBuilderService,
   };
@@ -118,17 +124,24 @@ const createStore = () => {
                     if (parsed.state?.apiConfig?.model) {
                       const currentModel = parsed.state.apiConfig.model;
                       const migratedModel = migrateModelName(currentModel);
-                      
+
                       if (currentModel !== migratedModel) {
-                        console.log(`🔄 Auto-migrating model: ${currentModel} → ${migratedModel}`);
+                        console.log(
+                          `🔄 Auto-migrating model: ${currentModel} → ${migratedModel}`
+                        );
                         parsed.state.apiConfig.model = migratedModel;
-                        
+
                         // 修正された設定を即座に保存
                         try {
                           localStorage.setItem(name, JSON.stringify(parsed));
-                          console.log("✅ Auto-migration saved to localStorage");
+                          console.log(
+                            "✅ Auto-migration saved to localStorage"
+                          );
                         } catch (saveError) {
-                          console.error("Failed to save auto-migrated settings:", saveError);
+                          console.error(
+                            "Failed to save auto-migrated settings:",
+                            saveError
+                          );
                         }
                       }
                     }
@@ -171,15 +184,20 @@ const createStore = () => {
                     if (parsed.state?.apiConfig?.model) {
                       const currentModel = parsed.state.apiConfig.model;
                       const migratedModel = migrateModelName(currentModel);
-                      
+
                       if (currentModel !== migratedModel) {
-                        console.log(`🔄 Preventing save of old model: ${currentModel} → ${migratedModel}`);
+                        console.log(
+                          `🔄 Preventing save of old model: ${currentModel} → ${migratedModel}`
+                        );
                         parsed.state.apiConfig.model = migratedModel;
                         value = JSON.stringify(parsed);
                       }
                     }
                   } catch (modelCheckError) {
-                    console.error("Model check error during save:", modelCheckError);
+                    console.error(
+                      "Model check error during save:",
+                      modelCheckError
+                    );
                   }
                 }
 
@@ -304,7 +322,7 @@ const createStore = () => {
                       hasSystemPrompts:
                         parsed.state?.systemPrompts !== undefined,
                       hasAPIConfig: parsed.state?.apiConfig !== undefined,
-                      model: parsed.state?.apiConfig?.model || 'unknown',
+                      model: parsed.state?.apiConfig?.model || "unknown",
                       hasEnableFlags:
                         parsed.state?.enableSystemPrompt !== undefined,
                     });
@@ -498,24 +516,29 @@ const createStore = () => {
 let useAppStore: ReturnType<typeof createStore>;
 
 // 🔧 モデル移行処理を初期化時に実行
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   try {
-    console.log('🔄 Initializing model migration system...');
+    console.log("🔄 Initializing model migration system...");
     const migrationResult = initializeModelMigration();
-    
+
     if (migrationResult.migrated) {
-      console.log('✅ Model migration completed during store initialization');
-      
+      console.log("✅ Model migration completed during store initialization");
+
       if (migrationResult.oldModel && migrationResult.newModel) {
-        console.log(`   Migrated: ${migrationResult.oldModel} → ${migrationResult.newModel}`);
+        console.log(
+          `   Migrated: ${migrationResult.oldModel} → ${migrationResult.newModel}`
+        );
       }
     }
-    
+
     if (migrationResult.errors.length > 0) {
-      console.error('⚠️ Migration errors during initialization:', migrationResult.errors);
+      console.error(
+        "⚠️ Migration errors during initialization:",
+        migrationResult.errors
+      );
     }
   } catch (migrationError) {
-    console.error('❌ Failed to initialize model migration:', migrationError);
+    console.error("❌ Failed to initialize model migration:", migrationError);
   }
 }
 
@@ -535,17 +558,27 @@ try {
 
   console.log("✅ Persisted store initialized successfully");
 } catch (error) {
-  console.error("⚠️ Failed to create persisted store, falling back to basic store:", error);
+  console.error(
+    "⚠️ Failed to create persisted store, falling back to basic store:",
+    error
+  );
   // フォールバック: 永続化なしのストアを作成
   try {
     useAppStore = create<AppStore>()(combinedSlices);
     console.log("⚠️ Using non-persisted store as fallback");
   } catch (fallbackError) {
-    console.error("❌ Critical error: Could not create any store", fallbackError);
+    console.error(
+      "❌ Critical error: Could not create any store",
+      fallbackError
+    );
     // 最後の手段：最小限のストア
     useAppStore = create<AppStore>()((set, get) => ({
       // Provide minimal implementations of all AppStore methods
-      ...combinedSlices(set, get, { name: 'fallback', persist: () => {}, getOptions: () => ({}) }),
+      ...combinedSlices(set, get, {
+        name: "fallback",
+        persist: () => {},
+        getOptions: () => ({}),
+      }),
       // Override critical properties with safe defaults
       sessions: new Map(),
       active_session_id: null,

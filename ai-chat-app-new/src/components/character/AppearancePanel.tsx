@@ -83,6 +83,78 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setF
         <p className="text-sm text-slate-400">キャラクターのビジュアル設定</p>
       </div>
       <div className="grid grid-cols-1 gap-6">
+        {/* 背景画像アップロード */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">背景画像</label>
+          <div className="bg-slate-800/50 border-2 border-dashed border-slate-600 rounded-lg p-4">
+            {formData?.background_url ? (
+              <div className="relative">
+                <img
+                  src={formData.background_url}
+                  alt="Background"
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <button
+                  onClick={() => setFormData(prev => prev ? {...(prev as Character), background_url: undefined} : prev)}
+                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg text-xs"
+                >
+                  削除
+                </button>
+              </div>
+            ) : (
+              <div
+                className="text-center py-8 cursor-pointer"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add('bg-slate-700/50');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove('bg-slate-700/50');
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove('bg-slate-700/50');
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files[0] && files[0].type.startsWith('image/')) {
+                    await handleFileUpload(files[0], 'background_url');
+                  }
+                }}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
+                      await handleFileUpload(file, 'background_url');
+                    }
+                  };
+                  input.click();
+                }}
+              >
+                <div className="text-slate-400 mb-2">
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto"></div>
+                  ) : (
+                    <>
+                      <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path
+                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <p className="text-sm">クリックまたはドラッグ＆ドロップで画像をアップロード</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* 外見の詳細 */}
         <div className="space-y-2">
             <label className="text-sm font-medium text-slate-300">外見の詳細</label>

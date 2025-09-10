@@ -32,7 +32,8 @@ export interface Character extends BaseEntity {
   
   // 外見・スタイル
   appearance: string;
-  background_url?: string;
+  avatar_url?: string;      // キャラクターアイコン画像
+  background_url?: string;   // チャット背景画像
   image_prompt?: string;
   negative_prompt?: string;
   

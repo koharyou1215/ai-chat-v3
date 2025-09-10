@@ -71,7 +71,7 @@ export interface UnifiedMessage extends BaseEntity, SoftDeletable, WithMetadata<
   
   // 🔧 FIX: Progressive Message機能
   progressiveData?: ProgressiveData;
-  stages?: ProgressiveStage[];
+  stages?: ProgressiveStage[] | any; // Allow flexible override in ProgressiveMessage
 }
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';

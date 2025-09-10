@@ -7,7 +7,7 @@ import {
   UnifiedMessage,
 } from "@/types";
 import { AppStore } from "@/store";
-import { TrackerManager } from "@/services/tracker/tracker-manager";
+// Import will be done dynamically to avoid circular dependencies
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import {
   generateSessionId,
@@ -45,7 +45,7 @@ export const createSessionManagement: StateCreator<
 
     // 🔧 修正: トラッカーマネージャーをキャラクターIDで管理
     const trackerManagers = get().trackerManagers;
-    let trackerManager: TrackerManager;
+    let trackerManager: any;
     
     // キャラクターごとにトラッカーマネージャーを管理
     if (!trackerManagers.has(character.id)) {
@@ -192,21 +192,23 @@ export const createSessionManagement: StateCreator<
         const character = session.participants.characters[0];
         
         if (character && !trackerManagers.has(character.id)) {
-          const trackerManager = new TrackerManager();
-          trackerManager.initializeTrackerSet(
-            character.id,
-            character.trackers
-          );
-          trackerManagers.set(character.id, trackerManager);
-          
-          // TrackerManagersを更新
-          set((_state) => ({
-            trackerManagers: new Map(trackerManagers),
-            active_session_id: sessionId,
-          }));
-        } else {
-          set({ active_session_id: sessionId });
+          // Async import in a sync function - defer initialization
+          import("@/services/tracker/tracker-manager").then(({ TrackerManager }) => {
+            const trackerManager = new TrackerManager();
+            trackerManager.initializeTrackerSet(
+              character.id,
+              character.trackers
+            );
+            trackerManagers.set(character.id, trackerManager);
+            
+            // TrackerManagersを更新
+            set((_state) => ({
+              trackerManagers: new Map(trackerManagers),
+            }));
+          });
         }
+        
+        set({ active_session_id: sessionId });
       } else {
         set({ active_session_id: sessionId });
       }
@@ -387,7 +389,7 @@ export const createSessionManagement: StateCreator<
   },
 
   // ヘルパー関数: トラッカーマネージャーの存在を確保
-  ensureTrackerManagerExists: (character) => {
+  ensureTrackerManagerExists: async (character) => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) return;
 
@@ -396,6 +398,9 @@ export const createSessionManagement: StateCreator<
     const hasTrackerManager = trackerManagers.has(character.id);
 
     if (!hasTrackerManager) {
+      const { TrackerManager } = await import(
+        "@/services/tracker/tracker-manager"
+      );
       const trackerManager = new TrackerManager();
       trackerManager.initializeTrackerSet(character.id, character.trackers);
       trackerManagers.set(character.id, trackerManager);

@@ -83,10 +83,10 @@ export const PersonaDetailModal: React.FC<PersonaDetailModalProps> = ({
                   アバター画像
                 </label>
                 <AvatarUploadWidget
-                  onUpload={(filePath) =>
+                  onAvatarChange={(filePath) =>
                     updatePersona({ avatar_path: filePath })
                   }
-                  currentImage={editingPersona.avatar_path}
+                  currentAvatar={editingPersona.avatar_path}
                   className="text-sm"
                 />
               </div>

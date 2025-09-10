@@ -272,6 +272,13 @@ export class PromptBuilderService {
     // 変数置換コンテキストを作成
     const variableContext = { user, character };
 
+    console.log("👤 [PromptBuilder] User persona info:", {
+      userName: user?.name,
+      userRole: user?.role,
+      userOtherSettings: user?.other_settings,
+      userAvatarPath: user?.avatar_path,
+    });
+
     // キャラクター情報に変数置換を適用
     const processedCharacter = replaceVariablesInCharacter(
       character,
@@ -458,27 +465,25 @@ ${
     if (user) {
       sections.persona = `Name: ${user.name || userName}
 ${user.role ? `Role: ${user.role}` : ""}
-${user.description ? `Description: ${user.description}` : ""}
-${user.personality ? `Personality: ${user.personality}` : ""}
-${user.appearance ? `Appearance: ${user.appearance}` : ""}
-${user.likes && user.likes.length > 0 ? `Likes: ${user.likes.join(", ")}` : ""}
-${
-  user.dislikes && user.dislikes.length > 0
-    ? `Dislikes: ${user.dislikes.join(", ")}`
-    : ""
-}
-${
-  user.hobbies && user.hobbies.length > 0
-    ? `Hobbies: ${user.hobbies.join(", ")}`
-    : ""
-}
 ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     }
 
     // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
+    console.log("🔍 [PromptBuilder] Checking tracker managers:", {
+      characterId: character?.id,
+      trackerManagers: systemSettings.trackerManagers,
+      trackerManagersSize: systemSettings.trackerManagers?.size || 0,
+      hasTrackerManager:
+        character?.id && systemSettings.trackerManagers?.has(character.id),
+    });
+
     const trackerManager =
       character?.id && systemSettings.trackerManagers?.get(character.id);
     if (trackerManager) {
+      console.log(
+        "✅ [PromptBuilder] Found tracker manager for character:",
+        character.id
+      );
       try {
         // まず詳細版を試行、失敗したら軽量版にフォールバック
         let trackerInfo = character?.id
@@ -490,6 +495,11 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
             : null;
         }
 
+        console.log("📊 [PromptBuilder] Tracker info:", {
+          hasTrackerInfo: !!trackerInfo,
+          trackerInfoLength: trackerInfo?.length || 0,
+        });
+
         if (trackerInfo) {
           sections.relationship = `<relationship_state>
 ${trackerInfo}
@@ -498,16 +508,67 @@ ${trackerInfo}
       } catch (error) {
         console.warn("Failed to get tracker info:", error);
       }
+    } else {
+      console.warn(
+        "❌ [PromptBuilder] No tracker manager found for character:",
+        character?.id
+      );
     }
 
-    // 🚨 メモリーカード情報を基本プロンプトに追加
+    // 🚨 メモリーカード情報を基本プロンプトに即座に追加
+    // 🔧 修正: プレースホルダーではなく実際のメモリーカードを取得
     try {
-      // メモリーカード情報を取得（非同期処理のため、ここではプレースホルダーを追加）
-      sections.memory = `<memory_context>
-[メモリーカード情報は拡張プロンプトで追加されます]
-</memory_context>`;
+      const store = useAppStore.getState();
+      const memoryCards = store.memory_cards || new Map();
+      const relevantCards: any[] = [];
+
+      console.log("🧠 [PromptBuilder] Checking memory cards:", {
+        memoryCardsSize: memoryCards.size,
+        characterId: character?.id,
+        memoryCards: Array.from(memoryCards.values()).map((card) => ({
+          id: card.id,
+          is_pinned: card.is_pinned,
+          character_id: card.character_id,
+          title: card.title,
+        })),
+      });
+
+      // ピン留めされたメモリーカードを取得
+      for (const card of memoryCards.values()) {
+        if (card.is_pinned || card.character_id === character?.id) {
+          relevantCards.push(card);
+        }
+      }
+
+      console.log("📌 [PromptBuilder] Relevant memory cards:", {
+        count: relevantCards.length,
+        cards: relevantCards.map((card) => ({
+          id: card.id,
+          title: card.title,
+          is_pinned: card.is_pinned,
+        })),
+      });
+
+      if (relevantCards.length > 0) {
+        let memoryContent = "";
+        relevantCards.slice(0, 5).forEach((card) => {
+          // 最大5件まで
+          memoryContent += `[${card.category || "general"}] ${card.title}: ${
+            card.summary
+          }\n`;
+          if (card.keywords && card.keywords.length > 0) {
+            memoryContent += `Keywords: ${card.keywords.join(", ")}\n`;
+          }
+        });
+        sections.memory = memoryContent.trim()
+          ? `<memory_context>\n${memoryContent}</memory_context>`
+          : "";
+      } else {
+        sections.memory = "";
+      }
     } catch (error) {
       console.warn("Failed to get memory info in basic prompt:", error);
+      sections.memory = "";
     }
 
     // 入力セクションを構築
@@ -522,6 +583,20 @@ ${trackerInfo}
 
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
+
+    // プロンプト構築結果の詳細ログ
+    console.log("📝 [PromptBuilder] Final prompt sections:", {
+      hasSystemInstructions: !!sections.system_instructions,
+      hasCharacterInfo: !!sections.character_info,
+      hasPersonaInfo: !!sections.persona_info,
+      hasMemorySystem: !!sections.memory_system,
+      hasRelationship: !!sections.relationship,
+      hasMemoryCards: !!sections.memory_cards,
+      hasContext: !!sections.context,
+      hasCurrentInteraction: !!sections.current_interaction,
+      totalSections: Object.keys(sections).length,
+      promptLength: prompt.length,
+    });
 
     // 開発環境でプロンプト全文をログ出力
     if (
@@ -560,8 +635,11 @@ ${trackerInfo}
       // 履歴情報のみを構築（基本情報は含まない）
       let historyPrompt = "";
 
-      // 会話履歴 - より多くのコンテキストを保持（5→20メッセージ）
-      const recentMessages = session.messages.slice(-20);
+      // 会話履歴 - 設定値を使用
+      const store = useAppStore.getState();
+      const maxContextMessages =
+        store.chat?.memory_limits?.max_context_messages || 20;
+      const recentMessages = session.messages.slice(-maxContextMessages);
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
         recentMessages.forEach((msg) => {
@@ -579,36 +657,8 @@ ${trackerInfo}
       // 🚨 メモリーカード情報を追加 - 欠落していた重要な情報
       try {
         console.log("🔍 [getHistoryInfo] Getting memory cards...");
-        // ピン留めメモリーカード
-        const pinnedMemoryCards =
-          await conversationManager.getPinnedMemoryCards();
-        if (pinnedMemoryCards.length > 0) {
-          historyPrompt += `<pinned_memory_cards>\n`;
-          pinnedMemoryCards.forEach((card) => {
-            historyPrompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
-            if (card.keywords.length > 0) {
-              historyPrompt += `Keywords: ${card.keywords.join(", ")}\n`;
-            }
-          });
-          historyPrompt += `</pinned_memory_cards>\n\n`;
-        }
-
-        // 関連メモリーカード
-        const relevantMemoryCards =
-          await conversationManager.getRelevantMemoryCards(
-            session.messages[session.messages.length - 1]?.content || "",
-            session.participants.characters[0]
-          );
-        if (relevantMemoryCards.length > 0) {
-          historyPrompt += `<relevant_memory_cards>\n`;
-          relevantMemoryCards.forEach((card) => {
-            historyPrompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
-            if (card.keywords.length > 0) {
-              historyPrompt += `Keywords: ${card.keywords.join(", ")}\n`;
-            }
-          });
-          historyPrompt += `</relevant_memory_cards>\n\n`;
-        }
+        // メモリーカード情報は基本プロンプトで処理済みのため、ここではスキップ
+        // プライベートメソッドの呼び出しを一時的に無効化
       } catch (error) {
         console.warn("Failed to get memory cards:", error);
       }
@@ -680,7 +730,7 @@ ${trackerInfo}
       console.log(
         "👤 [PromptBuilder] User persona being passed:",
         userPersona
-          ? `${userPersona.name} (${userPersona.description})`
+          ? `${userPersona.name} (${userPersona.role})`
           : "null/undefined"
       );
 

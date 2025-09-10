@@ -18,7 +18,7 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 
 ---
 
-## 🏗️ プロンプト生成システム現状 (2025年8月実装)
+## 🏗️ プロンプト生成システム現状 (2025年9月リファクタリング完了)
 
 ### ⚡ ソロチャット vs グループチャット - 実装差異
 
@@ -34,6 +34,7 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 │ • PromptBuilderService      │ • 直接生成(groupChat.slice.ts)    │
 │ • ConversationManager       │ • generateCompactGroupPrompt()    │
 │ • /api/chat/generate        │ • simpleAPIManagerV2直接呼び出し  │
+│ • ✅ リファクタリング済み    │ • グループチャット独立実装        │
 │                             │                                   │
 │ 🎭 プロンプト構造            │ 🎭 プロンプト構造                  │
 │ • 統一8段階構成             │ • コンパクト/フル自動切替          │
@@ -41,11 +42,17 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 │ • 再生成指示統合            │ • グループダイナミクス重視         │
 │                             │                                   │
 │ 🚀 フロー                   │ 🚀 フロー                         │
-│ 1. ChatSlice.sendMessage    │ 1. GroupChatSlice.sendMessage     │
-│ 2. PromptBuilderService     │ 2. generateCharacterResponse      │
-│ 3. ConversationManager      │ 3. 直接プロンプト生成             │
-│ 4. /api/chat/generate       │ 4. simpleAPIManagerV2.generateMessage │
-│ 5. SimpleAPIManagerV2       │ 5. GeminiClient                   │
+│ 1. chat-message-operations.sendMessage │ 1. GroupChatSlice.sendMessage     │
+│ 2. PromptBuilderService               │ 2. generateCharacterResponse      │
+│ 3. ConversationManager                │ 3. 直接プロンプト生成             │
+│ 4. /api/chat/generate                 │ 4. simpleAPIManagerV2.generateMessage │
+│ 5. SimpleAPIManagerV2                 │ 5. GeminiClient                   │
+│                                        │                                   │
+│ 📁 分割モジュール (2025年9月):          │                                   │
+│ • chat-message-operations.ts          │                                   │
+│ • chat-session-management.ts          │                                   │
+│ • chat-tracker-integration.ts         │                                   │
+│ • chat-progressive-handler.ts         │                                   │
 └─────────────────────────────┴───────────────────────────────────┘
 ```
 
@@ -71,6 +78,16 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 │ SuggestionSlice状態管理 → ReplySuggestions.tsx表示             │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**修正済み問題 (2025年9月10日):**
+- ❌ **旧:** chat.slice.ts 2239行の巨大ファイル → 保守性低下
+- ✅ **新:** 4つのモジュールに分割、83行のコアファイルに最適化
+- ❌ **旧:** メモリーカードが拡張プロンプトでのみ読み込み → 反映されない
+- ✅ **新:** 基本プロンプトで即座に読み込むように修正
+- ❌ **旧:** 会話履歴上限がハードコード → 設定値無視
+- ✅ **新:** `max_context_messages`設定値を全箇所で使用
+- ❌ **旧:** トラッカー管理がセッションベース → 不整合
+- ✅ **新:** キャラクターIDベースに統一
 
 **修正済み問題 (2025年8月31日):**
 - ❌ **旧:** 白い画面・全機能停止 → Zustand無限ループエラー
@@ -114,20 +131,26 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 
 ---
 
-## 📋 ソロチャット プロンプト構造 (統一8段階)
+## 📋 ソロチャット プロンプト構造 (統一8段階) ✅ 2025年9月リファクタリング完了
 
 **PromptBuilderService & ConversationManager統合フロー:**
 
 ```
 1. AI/User Definition          → AI={{char}}, User={{user}}
 2. System Instructions         → <system_instructions>...</system_instructions>
-3. Character Information       → <character_information>...</character_information>
-4. Persona Information         → <persona_information>...</persona_information>
-5. Memory System Information   → <pinned_memory_cards>, <relevant_memory_cards>
-6. Tracker Information         → <character_trackers>...</character_trackers>
-7. Context & History          → Recent conversation flow
-8. Current Interaction        → User input and response context
+3. Jailbreak (有効時)          → <jailbreak>...</jailbreak>
+4. Character Information       → <character_information>...</character_information>
+5. Persona Information         → <persona_information>...</persona_information>
+6. Relationship State          → <relationship_state>...</relationship_state> (トラッカー情報)
+7. Memory Context              → <memory_context>...</memory_context> (メモリーカード)
+8. Current Input               → ## Current Input\n{{user}}: [input]\n{{char}}:
 ```
+
+**🔧 2025年9月修正内容:**
+- ✅ メモリーカードが基本プロンプトで即座に読み込まれるように修正
+- ✅ 会話履歴上限が設定値(`max_context_messages`)を使用するように修正
+- ✅ ペルソナ情報の`nsfw_persona`参照を削除（存在しないプロパティ）
+- ✅ トラッカー管理をキャラクターIDベースに統一
 
 ---
 
@@ -519,7 +542,7 @@ Look for these log patterns:
 
 ---
 
-## 📁 Key Implementation Files
+## 📁 Key Implementation Files (✅ 2025年9月リファクタリング完了)
 
 | **Component** | **File Path** | **Responsibility** |
 |---------------|---------------|-------------------|
@@ -527,7 +550,11 @@ Look for these log patterns:
 | **Prompt Generator** | `src/services/memory/conversation-manager.ts` | Core prompt assembly |
 | **Character State** | `src/services/tracker/tracker-manager.ts` | Tracker value management |
 | **Data Processing** | `src/utils/variable-replacer.ts` | Character variable replacement |
-| **Chat Integration** | `src/store/slices/chat.slice.ts` | Prompt building integration |
+| **Chat Core** | `src/store/slices/chat.slice.ts` | Core state (83行) |
+| **Message Operations** | `src/store/slices/chat/chat-message-operations.ts` | メッセージ送信・再生成 |
+| **Session Management** | `src/store/slices/chat/chat-session-management.ts` | セッション管理 |
+| **Tracker Integration** | `src/store/slices/chat/chat-tracker-integration.ts` | トラッカー統合 |
+| **Progressive Handler** | `src/store/slices/chat/chat-progressive-handler.ts` | プログレッシブ応答 |
 | **API Communication** | `src/services/simple-api-manager-v2.ts` | Final prompt delivery |
 
 ---
