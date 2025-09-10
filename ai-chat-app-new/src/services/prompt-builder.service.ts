@@ -12,6 +12,7 @@ import {
   replaceVariablesInCharacter,
   getVariableContext,
 } from "@/utils/variable-replacer";
+import { DEFAULT_SYSTEM_PROMPT } from "@/constants/prompts";
 
 export class PromptBuilderService {
   // ConversationManager キャッシュ
@@ -165,10 +166,21 @@ export class PromptBuilderService {
   }
 
   /**
-   * テンプレートベースのプロンプト構築
+   * 🚨 テンプレート構築 - 順序変更厳禁
+   * PROMPT_VERIFICATION_GUIDE.md 117-130行目の8段階構成準拠
+   *
+   * 必須順序（絶対変更禁止）:
+   * 1. system_instructions
+   * 2. jailbreak (有効時)
+   * 3. character_information
+   * 4. persona_information
+   * 5. relationship_state
+   * 6. input
    */
   private buildPromptTemplate(sections: Record<string, string>): string {
     const template = [
+      sections.system &&
+        `<system_instructions>\n${sections.system}\n</system_instructions>`,
       sections.jailbreak && `<jailbreak>\n${sections.jailbreak}\n</jailbreak>`,
       sections.character &&
         `<character_information>\n${sections.character}\n</character_information>`,
@@ -176,6 +188,8 @@ export class PromptBuilderService {
         `<persona_information>\n${sections.persona}\n</persona_information>`,
       sections.relationship &&
         `<relationship_state>\n${sections.relationship}\n</relationship_state>`,
+      sections.memory &&
+        `<memory_context>\n${sections.memory}\n</memory_context>`,
       sections.input && `## Current Input\n${sections.input}`,
     ]
       .filter(Boolean)
@@ -227,7 +241,18 @@ export class PromptBuilderService {
   }
 
   /**
-   * 軽量版: 基本情報のみを生成（重複しない）
+   * 🚨 重要: プロンプト構築 - 絶対に簡略化・順序変更禁止
+   * PROMPT_VERIFICATION_GUIDE.mdの仕様を厳守すること
+   *
+   * 必須8段階構成（順序変更厳禁）:
+   * 1. AI/User Definition
+   * 2. System Instructions (絶対削除禁止)
+   * 3. Character Information (完全版必須)
+   * 4. Persona Information (全フィールド必須)
+   * 5. Memory System
+   * 6. Tracker Information
+   * 7. Context & History
+   * 8. Current Interaction
    */
   private buildBasicInfo(
     character: Character,
@@ -255,8 +280,32 @@ export class PromptBuilderService {
 
     const userName = user?.name || "ユーザー";
 
-    // セクションを構築
+    // 🚨 セクション構築 - 削除・簡略化・順序変更厳禁
+    // PROMPT_VERIFICATION_GUIDE.mdの仕様準拠必須
     const sections: Record<string, string> = {};
+
+    // 🚨 System Instructions - 絶対にコメントアウト・削除禁止
+    // DEFAULT_SYSTEM_PROMPTを基本として使用（重複排除）
+    let systemInstructions = DEFAULT_SYSTEM_PROMPT;
+
+    // キャラクター固有のシステムプロンプトを追加
+    if (
+      processedCharacter.system_prompt &&
+      processedCharacter.system_prompt.trim() !== ""
+    ) {
+      systemInstructions += `\n\n## キャラクター固有の指示\n${processedCharacter.system_prompt}`;
+    }
+
+    // カスタムシステムプロンプトが有効で内容がある場合は追加
+    if (
+      systemSettings.enableSystemPrompt &&
+      systemSettings.systemPrompts?.system &&
+      systemSettings.systemPrompts.system.trim() !== ""
+    ) {
+      systemInstructions += `\n\n## 追加指示\n${systemSettings.systemPrompts.system}`;
+    }
+
+    sections.system = systemInstructions;
 
     // 🎯 Jailbreak Prompt (設定で有効な場合)
     if (
@@ -266,45 +315,8 @@ export class PromptBuilderService {
       sections.jailbreak = systemSettings.systemPrompts.jailbreak;
     }
 
-    // システムプロンプトはConversationManagerで処理されるため、重複を避けるためコメントアウト
-    // 必要に応じて後で復元可能
-    /*
-    // 🎯 System Instructions (デフォルト + キャラクター固有 + カスタム追加)
-    let systemInstructions = `## 絶対厳守事項
-- **最優先**: 以下の<character_information>で定義された設定のみを厳密に維持し、他のいかなるキャラクター設定も混同しないこと。
-- **知識の制限**: キャラクター設定に書かれていない、あなたの内部知識やインターネット上の情報を絶対に使用しないこと。このキャラクターは、この対話のためだけのオリジナルな存在です。
-
-## 基本動作原則
-- **キャラクター一貫性**: 設定された性格・口調を厳密に維持
-- **自然な対話**: 人間らしい感情表現と自然な会話の流れ
-- **メタ発言禁止**: AIである事実やシステムについて言及しない
-- **設定逸脱禁止**: キャラクター設定から外れた行動・発言は避ける
-- **代弁禁止**: ユーザーの発言、行動、感情を勝手に決めつけない
-
-## 応答スタイル
-- 口調維持: 定義された話し方を一貫使用
-- 感情豊か: 適切な感情表現で機械的でない応答
-- 簡潔性: 長々と話し続けず、ユーザーの反応を待つ`;
-
-    // キャラクター固有のシステムプロンプトを追加
-    if (processedCharacter.system_prompt && processedCharacter.system_prompt.trim() !== '') {
-      systemInstructions += `\n\n## キャラクター固有の指示\n${processedCharacter.system_prompt}`;
-    }
-
-    // カスタムシステムプロンプトが有効で内容がある場合は追加
-    if (systemSettings.enableSystemPrompt && 
-        systemSettings.systemPrompts?.system && 
-        systemSettings.systemPrompts.system.trim() !== '') {
-      systemInstructions += `\n\n## 追加指示\n${systemSettings.systemPrompts.system}`;
-    }
-
-    prompt += `<system_instructions>
-${systemInstructions}
-</system_instructions>
-    */
-
     // キャラクター情報セクションを構築
-    sections.character = `<character_information>
+    sections.character = `
 ## Basic Information
 Name: ${processedCharacter.name}
 ${processedCharacter.age ? `Age: ${processedCharacter.age}` : ""}
@@ -441,13 +453,26 @@ ${
 }
 </character_information>`;
 
-    // ペルソナ情報セクションを構築（シンプル化）
+    // 🚨 ペルソナ情報セクション - 簡略化厳禁、全フィールド必須
+    // PROMPT_VERIFICATION_GUIDE.md 223-234行目準拠
     if (user) {
-      sections.persona = `<persona_information>
-Name: ${user.name || userName}
+      sections.persona = `Name: ${user.name || userName}
 ${user.role ? `Role: ${user.role}` : ""}
-${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}
-</persona_information>`;
+${user.description ? `Description: ${user.description}` : ""}
+${user.personality ? `Personality: ${user.personality}` : ""}
+${user.appearance ? `Appearance: ${user.appearance}` : ""}
+${user.likes && user.likes.length > 0 ? `Likes: ${user.likes.join(", ")}` : ""}
+${
+  user.dislikes && user.dislikes.length > 0
+    ? `Dislikes: ${user.dislikes.join(", ")}`
+    : ""
+}
+${
+  user.hobbies && user.hobbies.length > 0
+    ? `Hobbies: ${user.hobbies.join(", ")}`
+    : ""
+}
+${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     }
 
     // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
@@ -475,6 +500,16 @@ ${trackerInfo}
       }
     }
 
+    // 🚨 メモリーカード情報を基本プロンプトに追加
+    try {
+      // メモリーカード情報を取得（非同期処理のため、ここではプレースホルダーを追加）
+      sections.memory = `<memory_context>
+[メモリーカード情報は拡張プロンプトで追加されます]
+</memory_context>`;
+    } catch (error) {
+      console.warn("Failed to get memory info in basic prompt:", error);
+    }
+
     // 入力セクションを構築
     sections.input = `{{user}}: ${replaceVariables(userInput, variableContext)}
 {{char}}:`;
@@ -488,6 +523,16 @@ ${trackerInfo}
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
 
+    // 開発環境でプロンプト全文をログ出力
+    if (
+      typeof process !== "undefined" &&
+      process.env?.NODE_ENV === "development"
+    ) {
+      console.log("📝 === Full Prompt (Basic) ===");
+      console.log(prompt);
+      console.log("📝 === End of Prompt ===");
+    }
+
     return prompt;
   }
 
@@ -498,6 +543,12 @@ ${trackerInfo}
     session: UnifiedChatSession,
     trackerManager?: TrackerManager
   ): Promise<string> {
+    console.log(
+      "🔍 [getHistoryInfo] Called with session:",
+      session.id,
+      "trackerManager:",
+      !!trackerManager
+    );
     try {
       // ConversationManagerを使って履歴情報のみを取得
       const conversationManager = await this.getOrCreateManager(
@@ -509,8 +560,8 @@ ${trackerInfo}
       // 履歴情報のみを構築（基本情報は含まない）
       let historyPrompt = "";
 
-      // 会話履歴
-      const recentMessages = session.messages.slice(-5);
+      // 会話履歴 - より多くのコンテキストを保持（5→20メッセージ）
+      const recentMessages = session.messages.slice(-20);
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
         recentMessages.forEach((msg) => {
@@ -523,6 +574,43 @@ ${trackerInfo}
       // セッション要約（あれば）
       if (conversationManager["sessionSummary"]) {
         historyPrompt += `## Session Summary\n${conversationManager["sessionSummary"]}\n\n`;
+      }
+
+      // 🚨 メモリーカード情報を追加 - 欠落していた重要な情報
+      try {
+        console.log("🔍 [getHistoryInfo] Getting memory cards...");
+        // ピン留めメモリーカード
+        const pinnedMemoryCards =
+          await conversationManager.getPinnedMemoryCards();
+        if (pinnedMemoryCards.length > 0) {
+          historyPrompt += `<pinned_memory_cards>\n`;
+          pinnedMemoryCards.forEach((card) => {
+            historyPrompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
+            if (card.keywords.length > 0) {
+              historyPrompt += `Keywords: ${card.keywords.join(", ")}\n`;
+            }
+          });
+          historyPrompt += `</pinned_memory_cards>\n\n`;
+        }
+
+        // 関連メモリーカード
+        const relevantMemoryCards =
+          await conversationManager.getRelevantMemoryCards(
+            session.messages[session.messages.length - 1]?.content || "",
+            session.participants.characters[0]
+          );
+        if (relevantMemoryCards.length > 0) {
+          historyPrompt += `<relevant_memory_cards>\n`;
+          relevantMemoryCards.forEach((card) => {
+            historyPrompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
+            if (card.keywords.length > 0) {
+              historyPrompt += `Keywords: ${card.keywords.join(", ")}\n`;
+            }
+          });
+          historyPrompt += `</relevant_memory_cards>\n\n`;
+        }
+      } catch (error) {
+        console.warn("Failed to get memory cards:", error);
       }
 
       return historyPrompt;
@@ -596,12 +684,15 @@ ${trackerInfo}
           : "null/undefined"
       );
 
-      const prompt = await conversationManager.generatePrompt(
+      // 🚨 修正: buildPromptProgressiveを使用（ConversationManager.generatePromptは廃止）
+      const { basePrompt, enhancePrompt } = await this.buildPromptProgressive(
+        session,
         userInput,
-        session.participants.characters[0],
-        userPersona,
-        systemSettings
+        trackerManager
       );
+
+      // 拡張プロンプトを取得
+      const prompt = await enhancePrompt();
       const promptDuration = performance.now() - promptStartTime;
 
       const totalDuration = performance.now() - startTime;
@@ -614,6 +705,16 @@ ${trackerInfo}
           `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
           `generation: ${promptDuration.toFixed(1)}ms)`
       );
+
+      // 開発環境でプロンプト全文をログ出力
+      if (
+        typeof process !== "undefined" &&
+        process.env?.NODE_ENV === "development"
+      ) {
+        console.log("📝 === Full System Prompt ===");
+        console.log(prompt);
+        console.log("📝 === End of Prompt ===");
+      }
 
       return prompt;
     } catch (error) {

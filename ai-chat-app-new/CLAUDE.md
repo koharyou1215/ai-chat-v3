@@ -96,6 +96,22 @@ powershell "Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue"
 npm run dev
 ```
 
+## 🔒 永続化保護ルール（絶対遵守）
+
+### データ永続化の厳守事項
+- **LocalStorage破壊禁止**: ブラウザのLocalStorageを消去・リセットする処理を絶対に追加しない
+- **セッション永続化**: チャット履歴は必ずsrc/store/index.tsのpersist設定に含める
+- **設定値保護**: API設定、プロンプト設定、UI設定などすべての設定値を永続化対象に含める
+- **キャッシュ機能追加禁止**: インスピレーション機能など既存機能に新たなキャッシュを追加しない
+- **再生成ボタン保護**: メッセージ再生成、続き生成などのボタン機能を削除・無効化しない
+
+### 変更禁止項目リスト
+- **インスピレーション再生成ボタン**: 削除・無効化禁止
+- **チャット履歴の永続化設定**: sessionsは必ずpartializeに含める
+- **記憶システム設定**: memoryCards、memoryLayersの永続化を維持
+- **API設定**: apiConfig、各種APIキーの永続化を維持
+- **UI設定**: 背景設定、効果設定などの永続化を維持
+
 ## その他の設定
 
 - TypeScript strict モード使用

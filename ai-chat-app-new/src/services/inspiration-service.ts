@@ -14,237 +14,7 @@ export interface InspirationSuggestion {
   confidence: number;
 }
 
-// Cache entry interface
-interface CacheEntry<T> {
-  key: string;
-  data: T;
-  timestamp: number;
-  hitCount: number;
-}
-
-/**
- * High-performance API response cache for inspiration service
- * Features:
- * - 15-minute TTL for cached responses
- * - Prompt-based cache keys with hashing
- * - Automatic cleanup of expired entries
- * - Prevention of duplicate API requests
- * - In-memory storage with LRU eviction
- */
-class InspirationCache {
-  private cache: Map<string, CacheEntry<any>> = new Map();
-  private readonly cacheTTL: number = 15 * 60 * 1000; // 15 minutes in milliseconds
-  private readonly maxCacheSize: number = 100; // Maximum cache entries
-  private cleanupInterval: NodeJS.Timeout | null = null;
-
-  // Statistics for performance monitoring
-  private stats = {
-    hits: 0,
-    misses: 0,
-    evictions: 0,
-    totalRequests: 0,
-  };
-
-  constructor() {
-    this.initializeCleanup();
-  }
-
-  /**
-   * Get cached response if available and not expired
-   */
-  get<T>(key: string): T | null {
-    this.stats.totalRequests++;
-
-    const entry = this.cache.get(key);
-
-    if (!entry) {
-      this.stats.misses++;
-      console.log(
-        "💾❌ Inspiration cache miss for key:",
-        this.truncateKey(key)
-      );
-      return null;
-    }
-
-    // Check if entry is expired
-    if (this.isExpired(entry.timestamp)) {
-      this.cache.delete(key);
-      this.stats.misses++;
-      console.log("💾⏰ Expired cache entry removed:", this.truncateKey(key));
-      return null;
-    }
-
-    // Cache hit
-    entry.hitCount++;
-    this.stats.hits++;
-    console.log("💾✅ Inspiration cache hit:", this.truncateKey(key));
-    return entry.data;
-  }
-
-  /**
-   * Store response in cache
-   */
-  set<T>(key: string, data: T): void {
-    const entry: CacheEntry<T> = {
-      key,
-      data,
-      timestamp: Date.now(),
-      hitCount: 0,
-    };
-
-    this.cache.set(key, entry);
-    this.maintainCacheSize();
-
-    console.log("💾💿 Inspiration response cached:", this.truncateKey(key));
-  }
-
-  /**
-   * Generate cache key from prompt content
-   */
-  generateCacheKey(prompt: string, apiConfig?: Partial<APIConfig>): string {
-    // Create a hash from the prompt and relevant config options
-    const configHash = apiConfig
-      ? this.hashObject({
-          model: apiConfig.model,
-          temperature: apiConfig.temperature,
-          max_tokens: apiConfig.max_tokens,
-          top_p: apiConfig.top_p,
-        })
-      : "";
-
-    const promptHash = this.simpleHash(prompt);
-    return `inspiration_${promptHash}_${configHash}`;
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getStats() {
-    const hitRate =
-      this.stats.totalRequests > 0
-        ? Math.round((this.stats.hits / this.stats.totalRequests) * 100)
-        : 0;
-
-    return {
-      ...this.stats,
-      hitRate,
-      cacheSize: this.cache.size,
-      maxSize: this.maxCacheSize,
-    };
-  }
-
-  /**
-   * Clear all cache entries
-   */
-  clear(): void {
-    this.cache.clear();
-    console.log("💾🧹 Inspiration cache cleared");
-  }
-
-  /**
-   * Clear expired entries and get count
-   */
-  cleanupExpired(): number {
-    let cleanedCount = 0;
-    const now = Date.now();
-
-    // Use Array.from to ensure compatibility
-    const entries = Array.from(this.cache.entries());
-
-    for (let i = 0; i < entries.length; i++) {
-      const [key, entry] = entries[i];
-      if (this.isExpired(entry.timestamp, now)) {
-        this.cache.delete(key);
-        cleanedCount++;
-      }
-    }
-
-    if (cleanedCount > 0) {
-      console.log(
-        `💾🧹 Cleaned up ${cleanedCount} expired inspiration cache entries`
-      );
-    }
-
-    return cleanedCount;
-  }
-
-  // Private methods
-
-  private initializeCleanup(): void {
-    // Run cleanup every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpired();
-    }, 5 * 60 * 1000);
-
-    console.log("💾 Inspiration cache initialized with 15-minute TTL");
-  }
-
-  private isExpired(timestamp: number, now: number = Date.now()): boolean {
-    return now - timestamp > this.cacheTTL;
-  }
-
-  private maintainCacheSize(): void {
-    if (this.cache.size <= this.maxCacheSize) return;
-
-    // Find least recently used entry (LRU eviction)
-    let lruKey: string | null = null;
-    let lruHitCount = Infinity;
-    let oldestTime = Infinity;
-
-    // Use Array.from to ensure compatibility
-    const entries = Array.from(this.cache.entries());
-
-    for (let i = 0; i < entries.length; i++) {
-      const [key, entry] = entries[i];
-
-      // Prioritize expired entries for removal
-      if (this.isExpired(entry.timestamp)) {
-        lruKey = key;
-        break;
-      }
-
-      // Find entry with least hits or oldest timestamp
-      if (
-        entry.hitCount < lruHitCount ||
-        (entry.hitCount === lruHitCount && entry.timestamp < oldestTime)
-      ) {
-        lruKey = key;
-        lruHitCount = entry.hitCount;
-        oldestTime = entry.timestamp;
-      }
-    }
-
-    if (lruKey) {
-      this.cache.delete(lruKey);
-      this.stats.evictions++;
-      console.log(
-        "💾🗑️ Evicted inspiration cache entry:",
-        this.truncateKey(lruKey)
-      );
-    }
-  }
-
-  private simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
-  }
-
-  private hashObject(obj: any): string {
-    return this.simpleHash(JSON.stringify(obj));
-  }
-
-  private truncateKey(key: string): string {
-    return key.length > 50 ? key.substring(0, 50) + "..." : key;
-  }
-}
-
 export class InspirationService {
-  private cache = new InspirationCache();
 
   /**
    * 返信提案生成 - 3つのアプローチで150文字程度
@@ -280,22 +50,6 @@ export class InspirationService {
       );
     }
 
-    // Check cache first
-    const cacheKey = this.cache.generateCacheKey(prompt, apiConfig);
-    const cachedResponse = this.cache.get<string>(cacheKey);
-
-    if (cachedResponse) {
-      // Parse cached response
-      const suggestions = this.parseReplySuggestionsAdvanced(cachedResponse);
-
-      if (suggestions.length > 0) {
-        console.log(
-          `📥 Using cached reply suggestions (${suggestions.length} items)`
-        );
-        return suggestions;
-      }
-    }
-
     try {
       console.log("📤 返信提案API呼び出し開始");
       console.log(
@@ -320,9 +74,6 @@ export class InspirationService {
           return result;
         }
       );
-
-      // Cache the successful response
-      this.cache.set(cacheKey, response);
 
       // 成功例のパース方法を採用
       const suggestions = this.parseReplySuggestionsAdvanced(response);
@@ -387,22 +138,6 @@ export class InspirationService {
       prompt = replaceVariables(prompt, variableContext);
     }
 
-    // Check cache first
-    const cacheKey = this.cache.generateCacheKey(
-      prompt + "|enhance|" + inputText,
-      apiConfig
-    );
-    const cachedResponse = this.cache.get<string>(cacheKey);
-
-    if (cachedResponse) {
-      const enhancedText = this.parseEnhancedText(cachedResponse, inputText);
-      console.log("✅ 文章強化成功 (キャッシュ):", {
-        originalLength: inputText.length,
-        enhancedLength: enhancedText.length,
-      });
-      return enhancedText;
-    }
-
     try {
       console.log("📝 文章強化リクエスト:", {
         inputTextLength: inputText.length,
@@ -432,9 +167,6 @@ export class InspirationService {
         }
       );
 
-      // Cache the successful response
-      this.cache.set(cacheKey, response);
-
       const enhancedText = this.parseEnhancedText(response, inputText);
       console.log("✅ 文章強化成功:", {
         originalLength: inputText.length,
@@ -463,20 +195,6 @@ export class InspirationService {
         );
       }
     }
-  }
-
-  /**
-   * Get cache statistics for performance monitoring
-   */
-  getCacheStats() {
-    return this.cache.getStats();
-  }
-
-  /**
-   * Clear inspiration cache
-   */
-  clearCache(): void {
-    this.cache.clear();
   }
 
   /**

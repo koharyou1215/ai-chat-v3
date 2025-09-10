@@ -48,11 +48,7 @@ export class SimpleAPIManagerV2 {
           this.openRouterApiKey = parsed?.state?.openRouterApiKey || null;
           this.useDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI || false;
 
-          console.log("🔑 APIキー読み込み:", {
-            gemini: this.geminiApiKey ? "設定済み" : "未設定",
-            openRouter: this.openRouterApiKey ? "設定済み" : "未設定",
-            useDirectGeminiAPI: this.useDirectGeminiAPI,
-          });
+          // APIキー読み込み完了
         }
       } catch (error) {
         console.warn("APIキーの読み込みに失敗:", error);

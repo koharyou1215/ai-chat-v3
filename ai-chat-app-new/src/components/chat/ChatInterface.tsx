@@ -710,6 +710,15 @@ const ChatInterfaceContent: React.FC = () => {
               setRightPanelOpen(false);
             }
           }}
+          onTouchEnd={(e) => {
+            // タッチイベントでも同様の処理
+            // 右パネル自体へのタッチは無視
+            const target = e.target as HTMLElement;
+            if (!target.closest('.right-panel-content')) {
+              e.preventDefault();
+              setRightPanelOpen(false);
+            }
+          }}
         />
       )}
 
@@ -794,7 +803,7 @@ const ChatInterfaceContent: React.FC = () => {
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className={cn(
-                  "bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
+                  "right-panel-content bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
                   windowWidth < 768
                     ? "fixed right-0 top-0 w-full z-[60]" // モバイルではオーバーレイより高いz-index
                     : "fixed right-0 top-0 h-full w-[380px] z-[60]"

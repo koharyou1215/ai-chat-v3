@@ -131,6 +131,21 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
 
     createSession: async (character, persona) => {
       const sessionId = generateSessionId();
+
+      // トラッカーマネージャーを初期化
+      const trackerManagers = get().trackerManagers;
+      let trackerManager;
+      if (!trackerManagers.has(character.id)) {
+        const { TrackerManager } = await import(
+          "@/services/tracker/tracker-manager"
+        );
+        trackerManager = new TrackerManager();
+        trackerManager.initializeTrackerSet(character.id, character.trackers);
+        trackerManagers.set(character.id, trackerManager);
+      } else {
+        trackerManager = trackerManagers.get(character.id);
+      }
+
       const newSession: UnifiedChatSession = {
         id: sessionId,
         created_at: new Date().toISOString(),
@@ -240,7 +255,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         get().trackerManagers,
         character.id
       );
-      let trackerManager = existingTrackerManager;
+      trackerManager = existingTrackerManager;
 
       if (!trackerManager) {
         // 新しいキャラクターの場合のみTrackerManagerを作成
@@ -448,12 +463,26 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               //   }
               // }
 
-              // 軽量版で最初のAPIリクエストを開始
+              // 完全版プロンプトを非同期で準備
+              const fullPromptPromise = enhancePrompt();
+
+              // 完全版のプロンプトを待つ（ベースとエンハンスを統合）
+              let finalPrompt = basePrompt;
+              try {
+                finalPrompt = await fullPromptPromise;
+              } catch (error) {
+                console.warn(
+                  "⚠️ Enhanced prompt failed, using base prompt",
+                  error
+                );
+              }
+
+              // 完全版プロンプトでAPIリクエストを開始
               const initialResponse = await fetch("/api/chat/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  systemPrompt: basePrompt, // 最初はベースプロンプトで開始
+                  systemPrompt: finalPrompt, // 完全版プロンプトを使用
                   userMessage: content,
                   conversationHistory: (() => {
                     // 重複除去と履歴クリーンアップ
@@ -788,19 +817,32 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               });
           }, 0); // 次のEvent Loopで実行しUIをブロックしない
         } catch (error) {
+          // より詳細なエラーログを追加
+          console.error("🚨 sendMessage error details:");
+          console.error("  - Error object:", error);
+          console.error("  - Error type:", typeof error);
+          console.error("  - Error constructor:", error?.constructor?.name);
+          console.error(
+            "  - Error message:",
+            error instanceof Error ? error.message : String(error)
+          );
+          if (error instanceof Error) {
+            console.error("  - Error stack:", error.stack);
+          }
+
           // 新しいエラーハンドラーを使用
-          const chatError = ChatErrorHandler.createChatError(error, 'send');
-          ChatErrorHandler.logError(error, 'sendMessage');
+          const chatError = ChatErrorHandler.createChatError(error, "send");
+          ChatErrorHandler.logError(error, "sendMessage");
           ChatErrorHandler.showUserFriendlyError(chatError.message);
-          
+
           // ストアにエラー情報を保存
-          set({ 
+          set({
             lastError: {
-              type: 'send',
+              type: "send",
               message: chatError.message,
               timestamp: chatError.timestamp,
-              details: chatError.details as string
-            }
+              details: chatError.details as string,
+            },
           });
         } finally {
           set({ is_generating: false });
@@ -995,7 +1037,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
           const reflexPrompt = progressivePromptBuilder.buildReflexPrompt(
             content,
             activeSession.participants.characters[0],
-            activeSession.participants.user
+            activeSession.participants.user,
+            memoryCards
           );
 
           console.log("📝 Stage 1 Prompt built, calling API...");
@@ -1375,18 +1418,27 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
 
           // 現在のメッセージを取得してStage 2のデータを確実に保持
           const currentState = get();
-          const currentSession = getSessionSafely(currentState.sessions, activeSessionId);
+          const currentSession = getSessionSafely(
+            currentState.sessions,
+            activeSessionId
+          );
           const currentMessageIndex = currentSession?.messages.findIndex(
             (m) => m.id === messageId
           );
-          const currentMessage = currentSession?.messages[currentMessageIndex] as ProgressiveMessage;
-          
+          const currentMessage = currentSession?.messages[
+            currentMessageIndex
+          ] as ProgressiveMessage;
+
           // Progressive messageを更新（既存のstagesを保持しながら更新）
           progressiveMessage = {
             ...progressiveMessage,
             stages: {
-              reflex: currentMessage?.stages.reflex || progressiveMessage.stages.reflex,
-              context: currentMessage?.stages.context || progressiveMessage.stages.context,
+              reflex:
+                currentMessage?.stages.reflex ||
+                progressiveMessage.stages.reflex,
+              context:
+                currentMessage?.stages.context ||
+                progressiveMessage.stages.context,
               intelligence: {
                 content: intelligenceResponse,
                 timestamp: Date.now() - startTime,
@@ -1445,15 +1497,17 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
               );
               if (messageIndex !== -1) {
                 const updatedMessages = [...session.messages];
-                const currentMessage = updatedMessages[messageIndex] as ProgressiveMessage;
-                
+                const currentMessage = updatedMessages[
+                  messageIndex
+                ] as ProgressiveMessage;
+
                 // Stage 2のデータを確実に保持しながらStage 3を追加
                 const finalStages = {
                   reflex: currentMessage.stages.reflex,
                   context: currentMessage.stages.context, // Stage 2を保持
                   intelligence: progressiveMessage.stages.intelligence, // Stage 3を追加
                 };
-                
+
                 // ディープコピーを作成してReactが変更を検知できるようにする
                 updatedMessages[messageIndex] = {
                   ...progressiveMessage,
@@ -1602,7 +1656,7 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
         const { simpleAPIManagerV2 } = await import(
           "@/services/simple-api-manager-v2"
         );
-        
+
         const aiResponseContent = await simpleAPIManagerV2.generateMessage(
           systemPrompt,
           lastUserMessage.content,

@@ -24,6 +24,7 @@ import { UISlice, createUISlice } from "./slices/ui.slice";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { StateCreator } from "zustand";
 import { StorageCleaner } from "@/utils/storage-cleaner";
+import { initializeModelMigration, migrateModelName } from "@/utils/model-migration";
 
 export type AppStore = ChatSlice &
   GroupChatSlice &
@@ -113,6 +114,25 @@ const createStore = () => {
                       return null;
                     }
 
+                    // 🔧 モデル移行処理：読み込み時に古いモデル名を自動修正
+                    if (parsed.state?.apiConfig?.model) {
+                      const currentModel = parsed.state.apiConfig.model;
+                      const migratedModel = migrateModelName(currentModel);
+                      
+                      if (currentModel !== migratedModel) {
+                        console.log(`🔄 Auto-migrating model: ${currentModel} → ${migratedModel}`);
+                        parsed.state.apiConfig.model = migratedModel;
+                        
+                        // 修正された設定を即座に保存
+                        try {
+                          localStorage.setItem(name, JSON.stringify(parsed));
+                          console.log("✅ Auto-migration saved to localStorage");
+                        } catch (saveError) {
+                          console.error("Failed to save auto-migrated settings:", saveError);
+                        }
+                      }
+                    }
+
                     // 設定が確実に保存されるよう、stateが存在することを確認
                     if (!parsed.state) {
                       console.warn("Missing state in stored data");
@@ -143,6 +163,25 @@ const createStore = () => {
                 )
                   return;
                 if (!window.localStorage) return;
+
+                // 🔧 保存前のモデル名チェック：古いモデル名の保存を防止
+                if (name === "ai-chat-v3-storage") {
+                  try {
+                    const parsed = JSON.parse(value);
+                    if (parsed.state?.apiConfig?.model) {
+                      const currentModel = parsed.state.apiConfig.model;
+                      const migratedModel = migrateModelName(currentModel);
+                      
+                      if (currentModel !== migratedModel) {
+                        console.log(`🔄 Preventing save of old model: ${currentModel} → ${migratedModel}`);
+                        parsed.state.apiConfig.model = migratedModel;
+                        value = JSON.stringify(parsed);
+                      }
+                    }
+                  } catch (modelCheckError) {
+                    console.error("Model check error during save:", modelCheckError);
+                  }
+                }
 
                 // サイズチェック - 5MB制限 (localStorage limit is typically 5-10MB)
                 const sizeInBytes = new Blob([value]).size;
@@ -265,6 +304,7 @@ const createStore = () => {
                       hasSystemPrompts:
                         parsed.state?.systemPrompts !== undefined,
                       hasAPIConfig: parsed.state?.apiConfig !== undefined,
+                      model: parsed.state?.apiConfig?.model || 'unknown',
                       hasEnableFlags:
                         parsed.state?.enableSystemPrompt !== undefined,
                     });
@@ -456,6 +496,28 @@ const createStore = () => {
 
 // ストアの初期化を安全に行う
 let useAppStore: ReturnType<typeof createStore>;
+
+// 🔧 モデル移行処理を初期化時に実行
+if (typeof window !== 'undefined') {
+  try {
+    console.log('🔄 Initializing model migration system...');
+    const migrationResult = initializeModelMigration();
+    
+    if (migrationResult.migrated) {
+      console.log('✅ Model migration completed during store initialization');
+      
+      if (migrationResult.oldModel && migrationResult.newModel) {
+        console.log(`   Migrated: ${migrationResult.oldModel} → ${migrationResult.newModel}`);
+      }
+    }
+    
+    if (migrationResult.errors.length > 0) {
+      console.error('⚠️ Migration errors during initialization:', migrationResult.errors);
+    }
+  } catch (migrationError) {
+    console.error('❌ Failed to initialize model migration:', migrationError);
+  }
+}
 
 // 永続化付きストアを作成（失敗時はフォールバック）
 try {

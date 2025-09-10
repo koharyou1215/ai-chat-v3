@@ -1,106 +1,112 @@
-/**
- * Message Sender Service
- * チャットメッセージ送信ロジックをカプセル化
- * 
- * Phase 2の実装例 - 段階的にchat.sliceから移行
- */
-
-import { UnifiedMessage, UnifiedChatSession, UUID, Persona, Character } from '@/types';
+import { UUID } from '@/types';
+import { UnifiedMessage, UnifiedChatSession, Character, Persona } from '@/types';
 import { generateUserMessageId, generateAIMessageId } from '@/utils/uuid';
 import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptBuilderService } from '@/services/prompt-builder.service';
-import { ChatErrorHandler } from './error-handler.service';
-import { getSessionSafely } from '@/utils/chat/map-helpers';
 
-export interface MessageSenderConfig {
-  apiKey?: string;
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
+interface MessageSenderConfig {
+  maxRetries: number;
+  retryDelay: number;
+  enableProgressive: boolean;
+}
+
+// Simple error handler utility
+export class ChatErrorHandler {
+  static async withErrorHandling<T>(
+    operation: () => Promise<T>,
+    operationName: string = 'Operation',
+    maxRetries: number = 3
+  ): Promise<T> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`${operationName} failed (attempt ${attempt}/${maxRetries}):`, lastError);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    
+    throw lastError!;
+  }
 }
 
 export class MessageSenderService {
+  private config: MessageSenderConfig;
+  private getState: () => any;
+  private setState: (updater: (state: any) => any) => void;
+
   constructor(
-    private getState: () => any,
-    private setState: (state: any) => void,
-    private config?: MessageSenderConfig
-  ) {}
+    getState: () => any, 
+    setState: (updater: (state: any) => any) => void,
+    config?: Partial<MessageSenderConfig>
+  ) {
+    this.getState = getState;
+    this.setState = setState;
+    this.config = {
+      maxRetries: 3,
+      retryDelay: 1000,
+      enableProgressive: false,
+      ...config
+    };
+  }
 
   /**
-   * ユーザーメッセージを送信し、AI応答を生成
+   * メインのメッセージ送信メソッド
    */
-  async sendMessage(
+  public async sendMessage(
     content: string,
-    imageUrl?: string,
-    sessionId?: UUID
-  ): Promise<UnifiedMessage | null> {
-    try {
-      // 1. 入力検証
-      this.validateInput(content);
-
-      // 2. セッション取得
-      const session = this.getActiveSession(sessionId);
-      if (!session) {
-        throw new Error('アクティブなセッションが見つかりません');
-      }
-
-      // 3. ユーザーメッセージ作成
-      const userMessage = this.createUserMessage(
-        content,
-        session.id,
-        session.participants.user,
-        imageUrl
-      );
-
-      // 4. メッセージを履歴に追加
-      this.addMessageToSession(session.id, userMessage);
-
-      // 5. AI応答を生成
-      const aiResponse = await this.generateAIResponse(
-        userMessage,
-        session
-      );
-
-      // 6. AI応答を履歴に追加
-      this.addMessageToSession(session.id, aiResponse);
-
-      return aiResponse;
-    } catch (error) {
-      ChatErrorHandler.logError(error, 'MessageSenderService.sendMessage');
-      ChatErrorHandler.showUserFriendlyError(
-        ChatErrorHandler.getDetailedErrorMessage(error)
-      );
-      return null;
-    }
-  }
-
-  /**
-   * 入力検証
-   */
-  private validateInput(content: string): void {
-    if (!content || content.trim().length === 0) {
-      throw new Error('メッセージを入力してください');
-    }
-
-    if (content.length > 10000) {
-      throw new Error('メッセージが長すぎます（最大10000文字）');
-    }
-  }
-
-  /**
-   * アクティブセッション取得
-   */
-  private getActiveSession(sessionId?: UUID): UnifiedChatSession | null {
+    sessionId: UUID,
+    imageUrl?: string
+  ): Promise<{ userMessage: UnifiedMessage; aiMessage: UnifiedMessage }> {
     const state = this.getState();
-    const id = sessionId || state.active_session_id;
+    const session = state.sessions.get(sessionId);
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const user = state.personas.get(state.activePersonaId);
+    const character = state.characters.get(state.selectedCharacterId);
+
+    if (!user) {
+      throw new Error('No active persona found');
+    }
     
-    if (!id) return null;
-    
-    return getSessionSafely(state.sessions, id) || null;
+    if (!character) {
+      throw new Error('No character selected');
+    }
+
+    // ユーザーメッセージ作成
+    const userMessage = this.createUserMessage(
+      content,
+      sessionId,
+      user,
+      imageUrl
+    );
+
+    // セッションに追加
+    this.addMessageToSession(sessionId, userMessage);
+
+    // AI応答を生成
+    const aiMessage = await this.generateAIResponse(userMessage, session);
+
+    // AI応答をセッションに追加
+    this.addMessageToSession(sessionId, aiMessage);
+
+    return { userMessage, aiMessage };
   }
 
   /**
-   * ユーザーメッセージ作成
+   * ユーザーメッセージの作成
    */
   private createUserMessage(
     content: string,
@@ -116,7 +122,7 @@ export class MessageSenderService {
       session_id: sessionId,
       role: 'user' as const,
       content,
-      sender_id: user.id,
+      // Note: sender_id removed as it's not part of UnifiedMessage type
       memory: {
         importance: {
           score: 0.5,
@@ -141,6 +147,7 @@ export class MessageSenderService {
       is_deleted: false,
       metadata: {
         image_url: imageUrl,
+        user_id: user.id, // Store user info in metadata instead
       },
     };
   }
@@ -153,19 +160,11 @@ export class MessageSenderService {
     session: UnifiedChatSession
   ): Promise<UnifiedMessage> {
     const state = this.getState();
-    const character = session.participants.characters[0];
-    const user = session.participants.user;
-
-    // プロンプト構築
-    const systemPrompt = promptBuilderService.buildSystemPrompt(
-      character,
-      user,
-      {
-        // コンテキスト情報
-        session_id: session.id,
-        current_emotion: 'neutral',
-        recent_messages: session.messages.slice(-10),
-      }
+    
+    // プロンプト構築 - 正しい引数でbuildPromptを呼び出し
+    const systemPrompt = await promptBuilderService.buildPrompt(
+      session,
+      userMessage.content
     );
 
     // API呼び出し
@@ -174,36 +173,43 @@ export class MessageSenderService {
         return await simpleAPIManagerV2.generateMessage(
           systemPrompt,
           userMessage.content,
-          this.formatConversationHistory(session.messages),
-          {
-            ...this.config,
-            ...state.apiConfig,
-          }
+          this.formatConversationHistory(session.messages)
         );
       },
-      'AI Response Generation',
-      {
-        showToast: true,
-        retries: 2,
-        retryDelay: 1000,
-      }
+      'AI応答生成',
+      this.config.maxRetries
     );
 
     // AI応答メッセージ作成
+    return this.createAIMessage(
+      response,
+      session.id,
+      session.participants.characters[0]
+    );
+  }
+
+  /**
+   * AI応答メッセージの作成
+   */
+  private createAIMessage(
+    content: string,
+    sessionId: UUID,
+    character: Character
+  ): UnifiedMessage {
     return {
       id: generateAIMessageId(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
-      session_id: session.id,
+      session_id: sessionId,
       role: 'assistant' as const,
-      content: response,
-      character_id: character.id,
+      content,
+      character_name: character.name,
       memory: {
         importance: {
-          score: 0.6,
+          score: 0.7,
           factors: {
-            emotional_weight: 0.5,
+            emotional_weight: 0.7,
             repetition_count: 0,
             user_emphasis: 0.5,
             ai_judgment: 0.7,
@@ -214,14 +220,16 @@ export class MessageSenderService {
         keywords: [],
       },
       expression: {
-        emotion: { primary: 'neutral', intensity: 0.6, emoji: '💬' },
+        emotion: { primary: 'neutral', intensity: 0.5, emoji: '🤖' },
         style: { font_weight: 'normal', text_color: '#ffffff' },
         effects: [],
       },
       edit_history: [],
       regeneration_count: 0,
       is_deleted: false,
-      metadata: {},
+      metadata: {
+        character_id: character.id, // Store character info in metadata
+      },
     };
   }
 
@@ -235,7 +243,7 @@ export class MessageSenderService {
       .slice(-20) // 最新20件
       .filter(msg => !msg.is_deleted)
       .map(msg => ({
-        role: msg.role,
+        role: msg.role === 'user' ? 'user' : 'assistant', // Explicit type narrowing
         content: msg.content,
       }));
   }
@@ -247,83 +255,21 @@ export class MessageSenderService {
     sessionId: UUID,
     message: UnifiedMessage
   ): void {
-    const state = this.getState();
-    const session = getSessionSafely(state.sessions, sessionId);
-    
-    if (!session) return;
-
-    const updatedSession = {
-      ...session,
-      messages: [...session.messages, message],
-      message_count: session.message_count + 1,
-      updated_at: new Date().toISOString(),
-      last_message_at: new Date().toISOString(),
-    };
-
-    const updatedSessions = new Map(state.sessions);
-    updatedSessions.set(sessionId, updatedSession);
-
-    this.setState({
-      sessions: updatedSessions,
+    this.setState(state => {
+      const session = state.sessions.get(sessionId);
+      if (session) {
+        session.messages.push(message);
+        session.updated_at = new Date().toISOString();
+        session.message_count = session.messages.length;
+      }
+      return state;
     });
   }
 
   /**
-   * メッセージ再生成
+   * 設定更新
    */
-  async regenerateMessage(messageId: UUID): Promise<UnifiedMessage | null> {
-    try {
-      const session = this.getActiveSession();
-      if (!session) {
-        throw new Error('セッションが見つかりません');
-      }
-
-      const messageIndex = session.messages.findIndex(m => m.id === messageId);
-      if (messageIndex === -1) {
-        throw new Error('メッセージが見つかりません');
-      }
-
-      // 最後のユーザーメッセージを取得
-      const lastUserMessage = session.messages
-        .slice(0, messageIndex)
-        .reverse()
-        .find(m => m.role === 'user');
-
-      if (!lastUserMessage) {
-        throw new Error('再生成するユーザーメッセージが見つかりません');
-      }
-
-      // 新しいAI応答を生成
-      const newResponse = await this.generateAIResponse(lastUserMessage, session);
-
-      // 古いメッセージを置換
-      const updatedMessages = [...session.messages];
-      updatedMessages[messageIndex] = {
-        ...newResponse,
-        regeneration_count: (updatedMessages[messageIndex].regeneration_count || 0) + 1,
-      };
-
-      // セッション更新
-      const updatedSession = {
-        ...session,
-        messages: updatedMessages,
-        updated_at: new Date().toISOString(),
-      };
-
-      const updatedSessions = new Map(this.getState().sessions);
-      updatedSessions.set(session.id, updatedSession);
-
-      this.setState({
-        sessions: updatedSessions,
-      });
-
-      return newResponse;
-    } catch (error) {
-      ChatErrorHandler.logError(error, 'MessageSenderService.regenerateMessage');
-      ChatErrorHandler.showUserFriendlyError(
-        `再生成失敗: ${ChatErrorHandler.getDetailedErrorMessage(error)}`
-      );
-      return null;
-    }
+  public updateConfig(newConfig: Partial<MessageSenderConfig>): void {
+    this.config = { ...this.config, ...newConfig };
   }
 }

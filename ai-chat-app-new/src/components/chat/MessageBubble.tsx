@@ -602,7 +602,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30"
                 : effectSettings.colorfulBubbles
                 ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
-                : "bg-slate-800/50 backdrop-blur-sm text-white border border-slate-600/30",
+                : isUser
+                ? "bg-blue-600/20 backdrop-blur-sm text-white border border-blue-400/30" // ユーザーは青系
+                : "bg-purple-600/20 backdrop-blur-sm text-white border border-purple-400/30", // アシスタントは紫系
               "hover:shadow-xl group-hover:scale-[1.02]",
               selectedText ? "ring-2 ring-yellow-400/50" : "",
               "overflow-visible" // メニューがはみ出すことを許可

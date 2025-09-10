@@ -20,8 +20,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // API Managerに設定を適用
-    console.log("🔧 Applying API configuration:", apiConfig);
+    // API設定（モデル名のみ表示）
 
     // モデル名からプロバイダーを判定
     const model = apiConfig.model || "gemini-2.5-flash";
@@ -47,11 +46,7 @@ export async function POST(request: Request) {
       effectiveProvider = "openrouter";
     }
 
-    console.log("🔍 プロバイダー判定:", {
-      model: model,
-      originalProvider: apiConfig.provider,
-      effectiveProvider: effectiveProvider,
-    });
+    // プロバイダー判定（非表示）
 
     // 環境変数から API キーを取得
     const effectiveApiConfig = { ...apiConfig, provider: effectiveProvider };
@@ -60,13 +55,13 @@ export async function POST(request: Request) {
       // フロントエンドから送られてくる API キーを最優先で使用
       if (apiConfig.geminiApiKey) {
         effectiveApiConfig.geminiApiKey = apiConfig.geminiApiKey;
-        console.log("✅ Gemini API key provided from client");
+        // APIキー確認（ログ非表示）
       } else {
         // フォールバック: 環境変数から読み込み
         const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
         if (geminiKey) {
           effectiveApiConfig.geminiApiKey = geminiKey;
-          console.log("✅ Gemini API key loaded from environment (fallback)");
+          // 環境変数からのAPIキー読み込み（ログ非表示）
         } else {
           console.error("❌ No Gemini API key found (client or environment)");
           throw new Error("Gemini API キーが設定されていません");
@@ -79,7 +74,7 @@ export async function POST(request: Request) {
         throw new Error("OpenRouter API キーが設定されていません");
       }
       effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
-      console.log("✅ OpenRouter API key provided from client");
+      // OpenRouter APIキー確認（ログ非表示）
     }
 
     // API Managerに設定を適用
@@ -171,7 +166,7 @@ export async function POST(request: Request) {
         `\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`
       );
       if (conversationHistory && conversationHistory.length > 0) {
-        conversationHistory.slice(-3).forEach((msg: any, idx: number) => {
+        conversationHistory.slice(-3).forEach((msg: { role: 'user' | 'assistant'; content: string }, idx: number) => {
           const preview = msg.content.substring(0, 200);
           console.log(
             `${msg.role}: ${preview}${msg.content.length > 200 ? "..." : ""}`
@@ -192,14 +187,61 @@ export async function POST(request: Request) {
     let aiResponseContent: string;
 
     try {
-      console.log("🚀 API生成開始:", {
-        model: effectiveApiConfig.model,
-        provider: effectiveApiConfig.provider,
-        hasOpenRouterKey: !!effectiveApiConfig.openRouterApiKey,
-        hasGeminiKey: !!effectiveApiConfig.geminiApiKey,
-        useDirectGeminiAPI: effectiveApiConfig.useDirectGeminiAPI,
+      // プロンプト全体をログ出力
+      console.log("\n==== APIリクエスト ====");
+      console.log("🚀 モデル:", effectiveApiConfig.model);
+      
+      console.log("\n📝 ユーザーメッセージ:");
+      console.log(userMessage);
+      
+      // 会話履歴を表示
+      console.log("\n📚 会話履歴 (" + conversationHistory.length + "件):");
+      conversationHistory.slice(-10).forEach((msg: { role: 'user' | 'assistant'; content: string }, index: number) => {
+        console.log(`  ${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? "..." : ""}`);
       });
+      
+      // システムプロンプトから情報を抽出して表示
+      console.log("\n📦 システムプロンプト構成:");
+      
+      // キャラクター情報の抽出
+      const charMatch = systemPrompt.match(/<character_information>([\s\S]*?)<\/character_information>/);
+      if (charMatch) {
+        const charInfo = charMatch[1];
+        const nameMatch = charInfo.match(/Name: (.+)/);
+        console.log("  👤 キャラクター: " + (nameMatch ? nameMatch[1] : "不明"));
+      }
+      
+      // トラッカー情報の抽出
+      const trackerMatch = systemPrompt.match(/<character_trackers>([\s\S]*?)<\/character_trackers>/);
+      if (trackerMatch) {
+        const trackerInfo = trackerMatch[1];
+        // トラッカー名を正確に抽出
+        const trackerNames = trackerInfo.match(/Tracker Name: [^\n]+/g) || [];
+        console.log("  📊 トラッカー: " + trackerNames.length + "個");
+        trackerNames.slice(0, 5).forEach(tracker => {
+          console.log("    - " + tracker.replace('Tracker Name: ', ''));
+        });
+        if (trackerNames.length > 5) {
+          console.log("    ... 他" + (trackerNames.length - 5) + "個");
+        }
+      }
+      
+      // メモリーカード情報
+      const memoryMatch = systemPrompt.match(/<memory_cards>([\s\S]*?)<\/memory_cards>/);
+      if (memoryMatch) {
+        const memoryInfo = memoryMatch[1];
+        const memoryCount = (memoryInfo.match(/\[Memory \d+\]/g) || []).length;
+        console.log("  🧠 メモリーカード: " + memoryCount + "件");
+      }
+      
+      // システムプロンプトの実際の内容を表示
+      console.log("\n📦 システムプロンプト (先頭1000文字):");
+      console.log(systemPrompt.substring(0, 1000));
+      console.log("... [" + systemPrompt.length + "文字]\n");
 
+      // APIリクエスト送信
+      console.log("\n🚀 APIリクエスト送信中...");
+      
       aiResponseContent = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
@@ -213,19 +255,10 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    // レスポンスログ（開発環境での確認用）
-    const isDevelopment = process.env.NODE_ENV === "development";
-    if (isDevelopment) {
-      console.log(`\n[DEV]--- AI Response Generated ---`);
-      console.log(`[DEV][Response Length] ${aiResponseContent.length} chars`);
-      const preview = aiResponseContent.substring(0, 200);
-      console.log(
-        `[DEV][Response Preview] ${preview}${
-          aiResponseContent.length > 200 ? "..." : ""
-        }`
-      );
-      console.log("=====================================\n");
-    }
+    // レスポンスログ
+    console.log("\n🤖 AI応答 (先頭200文字):");
+    console.log(aiResponseContent.substring(0, 200) + (aiResponseContent.length > 200 ? "..." : ""));
+    console.log("==== リクエスト完了 ====\n");
 
     return NextResponse.json({ response: aiResponseContent });
   } catch (error) {

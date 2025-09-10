@@ -1,18 +1,18 @@
-import { StateCreator } from "zustand";
-import { MemoryCard, MemoryCategory, UUID, UnifiedMessage } from "@/types";
-import { memoryCardGenerator } from "@/services/memory/memory-card-generator";
-import { generateMemoryId } from "@/utils/uuid";
+import { StateCreator } from 'zustand';
+import { MemoryCard, UUID, UnifiedMessage } from '@/types';
+import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
+import { generateMemoryId } from '@/utils/uuid';
 
 export interface MemorySlice {
   memory_cards: Map<UUID, MemoryCard>;
   pinned_memories: MemoryCard[];
 
-  // メモリーカードの作成・管理
+  // メモリーカードの作成・管理 - null返却を許可
   createMemoryCard: (
     message_ids: UUID[],
     session_id: UUID,
     character_id?: UUID
-  ) => Promise<MemoryCard>;
+  ) => Promise<MemoryCard | null>;
   updateMemoryCard: (id: UUID, updates: Partial<MemoryCard>) => void;
   deleteMemoryCard: (id: UUID) => void;
 
@@ -28,17 +28,29 @@ export interface MemorySlice {
   sortMemoriesByImportance: (memories: MemoryCard[]) => MemoryCard[];
   sortMemoriesByDate: (memories: MemoryCard[]) => MemoryCard[];
 
-  // レイヤー管理
-  clearLayer: (layer: string) => void;
-  addMessageToLayers: (message: UnifiedMessage) => void;
+  // その他
+  togglePinMemory: (id: UUID) => void;
+  getMemoryStatistics: () => MemoryStatistics;
+  clearMemoryCards: () => void;
 
-  // 統計情報
-  getLayerStatistics: () => {
-    total: number;
-    pinned: number;
-    hidden: number;
-    categories: Record<string, number>;
-  };
+  // Lazy initialization
+  initializeMemoryCards: () => void;
+
+  // 新機能：メモリーレイヤー管理 (Memory Manager V2)
+  memoryLayers: Map<UUID, MemoryLayer>;
+  addMessageToLayers: (message: UnifiedMessage) => void;
+}
+
+export interface MemoryCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface MemoryStatistics {
+  totalCards: number;
+  pinnedCards: number;
+  categories: Record<string, number>;
 }
 
 export interface MemoryCardFilter {
@@ -51,6 +63,29 @@ export interface MemoryCardFilter {
   character_id?: UUID;
 }
 
+export interface MemoryLayer {
+  id: UUID;
+  created_at: string;
+  updated_at: string;
+  version: number;
+  session_id: UUID;
+  character_id?: UUID;
+  layer_type: 'working' | 'episodic' | 'semantic' | 'emotional';
+  priority: number;
+  content: {
+    facts: string[];
+    emotions: { type: string; intensity: number }[];
+    relationships: { entity: string; relation: string; strength: number }[];
+    context: Record<string, any>;
+  };
+  metadata: {
+    message_count: number;
+    last_accessed: string;
+    importance_score: number;
+    decay_rate: number;
+  };
+}
+
 export const createMemorySlice: StateCreator<
   MemorySlice,
   [],
@@ -58,9 +93,9 @@ export const createMemorySlice: StateCreator<
   MemorySlice
 > = (set, get) => {
   // ローカルストレージからメモリーカードを読み込み
-  const loadMemoryCards = () => {
+  const loadMemoryCards = (): Map<UUID, MemoryCard> => {
     try {
-      if (typeof window === 'undefined') return; // SSR対応
+      if (typeof window === 'undefined') return new Map(); // SSR対応
       const stored = localStorage.getItem("memory_cards");
       if (stored) {
         const memoryCardsArray = JSON.parse(stored);
@@ -68,14 +103,11 @@ export const createMemorySlice: StateCreator<
         memoryCardsArray.forEach((card: MemoryCard) => {
           memoryCardsMap.set(card.id, card);
         });
-        console.log(
-          "💾 [MemorySlice] Loaded memory cards from localStorage:",
-          memoryCardsMap.size
-        );
+        console.log(`✅ Loaded ${memoryCardsMap.size} memory cards from localStorage`);
         return memoryCardsMap;
       }
     } catch (error) {
-      console.warn("Failed to load memory cards from localStorage:", error);
+      console.error("Error loading memory cards:", error);
     }
     return new Map();
   };
@@ -116,7 +148,7 @@ export const createMemorySlice: StateCreator<
           "🔍 Available group sessions:",
           Array.from(groupSessions.keys()).slice(0, 3)
         );
-        return null; // エラーではなく警告として処理
+        return null; // 型に合わせてnull返却を許可
       }
 
       // 指定されたメッセージIDのメッセージを取得
@@ -125,7 +157,8 @@ export const createMemorySlice: StateCreator<
       );
 
       if (messages.length === 0) {
-        throw new Error("No messages found for the specified IDs");
+        console.warn("No messages found for the specified IDs");
+        return null; // エラーの代わりにnull返却
       }
 
       try {
@@ -162,164 +195,75 @@ export const createMemorySlice: StateCreator<
             `メッセージID: ${message_ids.join(", ")}`,
 
           // メタデータ
-          importance: generatedContent.importance || {
-            score: 0.5,
+          importance: {
+            score: generatedContent.importance_score || 5.0,
             factors: {
-              emotional_weight: 0.3,
-              repetition_count: 0,
-              user_emphasis: 0.5,
-              ai_judgment: 0.4,
+              emotional_weight: 5.0,
+              repetition_count: 1,
+              user_emphasis: 5.0,
+              ai_judgment: 5.0,
             },
           },
-          confidence: generatedContent.confidence || 0.7,
-
-          // ユーザー操作
-          is_edited: false,
           is_pinned: false,
-          is_hidden: false,
-          user_notes: undefined,
-
-          // 自動タグ
-          auto_tags: generatedContent.auto_tags || [
-            "auto-generated",
-            "conversation-summary",
-          ],
-          emotion_tags: generatedContent.emotion_tags || [],
+          is_bookmarked: false,
         };
 
+        // ストアに追加
         set((state) => {
           const newMemoryCards = new Map(state.memory_cards);
           newMemoryCards.set(newMemoryCard.id, newMemoryCard);
 
-          // ローカルストレージに保存
+          // ローカルストレージにも保存
           try {
             const memoryCardsArray = Array.from(newMemoryCards.values());
-            localStorage.setItem(
-              "memory_cards",
-              JSON.stringify(memoryCardsArray)
-            );
-            console.log("💾 [MemorySlice] Memory cards saved to localStorage");
+            localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
           } catch (error) {
-            console.warn("Failed to save memory cards to localStorage:", error);
+            console.error("Failed to save memory cards to localStorage:", error);
           }
 
           return {
+            ...state,
             memory_cards: newMemoryCards,
           };
         });
 
+        console.log(`✅ Created memory card: ${newMemoryCard.title}`);
         return newMemoryCard;
+
       } catch (error) {
-        console.error(
-          "Failed to generate memory card with AI, using fallback:",
-          error
-        );
-
-        // フォールバック処理
-        const newMemoryCard: MemoryCard = {
-          id: generateMemoryId(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          version: 1,
-          metadata: {},
-          session_id,
-          character_id,
-          source_message_ids: message_ids,
-          original_message_ids: message_ids,
-          is_verified: false,
-          original_content: messages
-            .map((m: UnifiedMessage) => `${m.role}: ${m.content}`)
-            .join("\n"),
-
-          // フォールバック内容
-          title: `会話の記録 ${new Date().toLocaleDateString("ja-JP")}`,
-          summary: `${messages.length}件のメッセージからなる会話の記録です。`,
-          keywords: ["会話", "記録", "フォールバック"],
-          category: "other",
-
-          // メタデータ
-          importance: {
-            score: 0.5,
-            factors: {
-              emotional_weight: 0.3,
-              repetition_count: 0,
-              user_emphasis: 0.5,
-              ai_judgment: 0.4,
-            },
-          },
-          confidence: 0.6,
-
-          // ユーザー操作
-          is_edited: false,
-          is_pinned: false,
-          is_hidden: false,
-          user_notes: undefined,
-
-          // 自動タグ
-          auto_tags: ["auto-generated", "fallback", "conversation-summary"],
-          emotion_tags: [],
-        };
-
-        set((state) => {
-          const newMemoryCards = new Map(state.memory_cards);
-          newMemoryCards.set(newMemoryCard.id, newMemoryCard);
-
-          return {
-            memory_cards: newMemoryCards,
-          };
-        });
-
-        return newMemoryCard;
+        console.error("Failed to create memory card:", error);
+        return null; // エラー時もnull返却
       }
     },
 
     updateMemoryCard: (id, updates) => {
       set((state) => {
         const memoryCard = state.memory_cards.get(id);
-        if (!memoryCard) return state;
+        if (!memoryCard) {
+          console.warn(`Memory card with id ${id} not found`);
+          return state;
+        }
 
-        const updatedMemoryCard = {
+        const updatedCard: MemoryCard = {
           ...memoryCard,
           ...updates,
           updated_at: new Date().toISOString(),
-          version: memoryCard.version + 1,
         };
 
         const newMemoryCards = new Map(state.memory_cards);
-        newMemoryCards.set(id, updatedMemoryCard);
+        newMemoryCards.set(id, updatedCard);
 
-        // ピン留め状態も更新
-        let newPinnedMemories = [...state.pinned_memories];
-        if (updates.is_pinned !== undefined) {
-          if (updates.is_pinned) {
-            if (!newPinnedMemories.find((m) => m.id === id)) {
-              newPinnedMemories.push(updatedMemoryCard);
-            }
-          } else {
-            newPinnedMemories = newPinnedMemories.filter((m) => m.id !== id);
-          }
-        }
-
-        // ローカルストレージに保存
+        // ローカルストレージにも保存
         try {
           const memoryCardsArray = Array.from(newMemoryCards.values());
-          localStorage.setItem(
-            "memory_cards",
-            JSON.stringify(memoryCardsArray)
-          );
-          console.log(
-            "💾 [MemorySlice] Memory card updated and saved to localStorage"
-          );
+          localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
         } catch (error) {
-          console.warn(
-            "Failed to save updated memory card to localStorage:",
-            error
-          );
+          console.error("Failed to save memory cards to localStorage:", error);
         }
 
         return {
+          ...state,
           memory_cards: newMemoryCards,
-          pinned_memories: newPinnedMemories,
         };
       });
     },
@@ -327,30 +271,28 @@ export const createMemorySlice: StateCreator<
     deleteMemoryCard: (id) => {
       set((state) => {
         const newMemoryCards = new Map(state.memory_cards);
-        newMemoryCards.delete(id);
+        const deleted = newMemoryCards.delete(id);
 
-        const newPinnedMemories = state.pinned_memories.filter(
-          (m) => m.id !== id
-        );
-
-        // ローカルストレージに保存
-        try {
-          const memoryCardsArray = Array.from(newMemoryCards.values());
-          localStorage.setItem(
-            "memory_cards",
-            JSON.stringify(memoryCardsArray)
-          );
-          console.log(
-            "💾 [MemorySlice] Memory card deleted and saved to localStorage"
-          );
-        } catch (error) {
-          console.warn(
-            "Failed to save after memory card deletion to localStorage:",
-            error
-          );
+        if (!deleted) {
+          console.warn(`Memory card with id ${id} not found for deletion`);
+          return state;
         }
 
+        // ローカルストレージからも削除
+        try {
+          const memoryCardsArray = Array.from(newMemoryCards.values());
+          localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
+        } catch (error) {
+          console.error("Failed to save memory cards to localStorage:", error);
+        }
+
+        // pinned_memoriesからも削除
+        const newPinnedMemories = state.pinned_memories.filter(
+          (memory) => memory.id !== id
+        );
+
         return {
+          ...state,
           memory_cards: newMemoryCards,
           pinned_memories: newPinnedMemories,
         };
@@ -358,44 +300,55 @@ export const createMemorySlice: StateCreator<
     },
 
     getMemoryCard: (id) => {
-      return get().memory_cards.get(id);
+      const state = get();
+      return state.memory_cards.get(id);
     },
 
     getPinnedMemories: () => {
-      return get().pinned_memories;
-    },
-
-    getMemoriesByCategory: (category) => {
-      const memories = Array.from(get().memory_cards.values());
-      return memories.filter((memory) => memory.category === category);
-    },
-
-    getMemoriesBySession: (session_id) => {
-      const memories = Array.from(get().memory_cards.values());
-      return memories.filter((memory) => memory.session_id === session_id);
-    },
-
-    searchMemories: (query) => {
-      const memories = Array.from(get().memory_cards.values());
-      const lowerQuery = query.toLowerCase();
-
-      return memories.filter(
-        (memory) =>
-          memory.title.toLowerCase().includes(lowerQuery) ||
-          memory.summary.toLowerCase().includes(lowerQuery) ||
-          memory.keywords.some((keyword) =>
-            keyword.toLowerCase().includes(lowerQuery)
-          ) ||
-          memory.auto_tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
+      const state = get();
+      return Array.from(state.memory_cards.values()).filter(
+        (memory) => memory.is_pinned
       );
     },
 
+    getMemoriesByCategory: (category) => {
+      const state = get();
+      return Array.from(state.memory_cards.values()).filter(
+        (memory) => memory.category === category
+      );
+    },
+
+    getMemoriesBySession: (session_id) => {
+      const state = get();
+      return Array.from(state.memory_cards.values()).filter(
+        (memory) => memory.session_id === session_id
+      );
+    },
+
+    searchMemories: (query) => {
+      const state = get();
+      const lowerQuery = query.toLowerCase();
+
+      return Array.from(state.memory_cards.values()).filter((memory) => {
+        return (
+          memory.title?.toLowerCase().includes(lowerQuery) ||
+          memory.summary?.toLowerCase().includes(lowerQuery) ||
+          memory.keywords?.some((keyword) =>
+            keyword.toLowerCase().includes(lowerQuery)
+          ) ||
+          memory.original_content?.toLowerCase().includes(lowerQuery)
+        );
+      });
+    },
+
     filterMemories: (filters) => {
-      let memories = Array.from(get().memory_cards.values());
+      const state = get();
+      let memories = Array.from(state.memory_cards.values());
 
       if (filters.categories && filters.categories.length > 0) {
+        const categoryIds = filters.categories.map((cat) => cat.id);
         memories = memories.filter((memory) =>
-          filters.categories!.includes(memory.category)
+          categoryIds.includes(memory.category)
         );
       }
 
@@ -407,24 +360,18 @@ export const createMemorySlice: StateCreator<
 
       if (filters.dateRange) {
         memories = memories.filter((memory) => {
-          const createdDate = new Date(memory.created_at);
+          const memoryDate = new Date(memory.created_at);
           return (
-            createdDate >= filters.dateRange!.start &&
-            createdDate <= filters.dateRange!.end
+            memoryDate >= filters.dateRange!.start &&
+            memoryDate <= filters.dateRange!.end
           );
         });
       }
 
       if (filters.keywords && filters.keywords.length > 0) {
         memories = memories.filter((memory) =>
-          filters.keywords!.some(
-            (keyword) =>
-              memory.keywords.some((k) =>
-                k.toLowerCase().includes(keyword.toLowerCase())
-              ) ||
-              memory.auto_tags.some((tag) =>
-                tag.toLowerCase().includes(keyword.toLowerCase())
-              )
+          filters.keywords!.some((keyword) =>
+            memory.keywords?.includes(keyword)
           )
         );
       }
@@ -463,29 +410,79 @@ export const createMemorySlice: StateCreator<
       );
     },
 
-    getLayerStatistics: () => {
-      const memories = Array.from(get().memory_cards.values());
+    togglePinMemory: (id) => {
+      set((state) => {
+        const memory = state.memory_cards.get(id);
+        if (!memory) {
+          console.warn(`Memory card with id ${id} not found for pin toggle`);
+          return state;
+        }
+
+        const updatedMemory: MemoryCard = {
+          ...memory,
+          is_pinned: !memory.is_pinned,
+          updated_at: new Date().toISOString(),
+        };
+
+        const newMemoryCards = new Map(state.memory_cards);
+        newMemoryCards.set(id, updatedMemory);
+
+        // pinned_memoriesも更新
+        let newPinnedMemories = [...state.pinned_memories];
+        if (updatedMemory.is_pinned) {
+          newPinnedMemories.push(updatedMemory);
+        } else {
+          newPinnedMemories = newPinnedMemories.filter(
+            (memory) => memory.id !== id
+          );
+        }
+
+        return {
+          ...state,
+          memory_cards: newMemoryCards,
+          pinned_memories: newPinnedMemories,
+        };
+      });
+    },
+
+    getMemoryStatistics: () => {
+      const state = get();
+      const memories = Array.from(state.memory_cards.values());
+
+      const categories: Record<string, number> = {};
+      memories.forEach((memory) => {
+        categories[memory.category] = (categories[memory.category] || 0) + 1;
+      });
+
       return {
-        total: memories.length,
-        pinned: memories.filter((m) => m.is_pinned).length,
-        hidden: memories.filter((m) => m.is_hidden).length,
-        categories: memories.reduce((acc, m) => {
-          acc[m.category] = (acc[m.category] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
+        totalCards: memories.length,
+        pinnedCards: memories.filter((memory) => memory.is_pinned).length,
+        categories,
       };
     },
 
-    clearLayer: (layer) => {
-      console.log(`Clearing memory layer: ${layer}`);
-      // 実装: 指定されたレイヤーのメモリーカードをクリア
-      // この実装は要件に応じて調整が必要
+    clearMemoryCards: () => {
+      set((state) => {
+        try {
+          localStorage.removeItem("memory_cards");
+        } catch (error) {
+          console.error("Failed to clear memory cards from localStorage:", error);
+        }
+
+        return {
+          ...state,
+          memory_cards: new Map(),
+          pinned_memories: [],
+        };
+      });
     },
 
+    // メモリーレイヤー管理 (Memory Manager V2)
+    memoryLayers: new Map(),
+
     addMessageToLayers: (message) => {
-      console.log(`Adding message to layers:`, message.id);
-      // 実装: メッセージをメモリーレイヤーに追加
-      // この実装は要件に応じて調整が必要
+      // この機能は必要に応じて実装
+      console.log('addMessageToLayers called with:', message.id);
     },
   };
 };
