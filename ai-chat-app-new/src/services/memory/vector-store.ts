@@ -47,7 +47,7 @@ export class VectorStore {
         const errorData = await response.json().catch(() => ({}));
         
         // OpenAI API key未設定の場合は警告のみでフォールバック
-        if (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY')) {
+        if (response.status === 503 || (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY'))) {
           console.warn('⚠️ OpenAI API key not configured, using fallback embedding');
         } else {
           console.error('🚨 Embedding API failed:', response.status, errorData);

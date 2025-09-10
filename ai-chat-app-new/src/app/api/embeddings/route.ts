@@ -34,11 +34,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const embedding = await generateEmbedding(text);
-      
-      return NextResponse.json({
-        embedding
-      } as EmbeddingResponse);
+      try {
+        const embedding = await generateEmbedding(text);
+        
+        return NextResponse.json({
+          embedding
+        } as EmbeddingResponse);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('OPENAI_API_KEY')) {
+          return NextResponse.json(
+            { error: 'OpenAI API key not configured. This feature requires OpenAI API access.' },
+            { status: 503 }
+          );
+        }
+        throw error;
+      }
     }
     
     // Batch text embeddings
@@ -66,11 +76,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const embeddings = await generateEmbeddingsBatch(texts);
-      
-      return NextResponse.json({
-        embeddings
-      } as BatchEmbeddingResponse);
+      try {
+        const embeddings = await generateEmbeddingsBatch(texts);
+        
+        return NextResponse.json({
+          embeddings
+        } as BatchEmbeddingResponse);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('OPENAI_API_KEY')) {
+          return NextResponse.json(
+            { error: 'OpenAI API key not configured. This feature requires OpenAI API access.' },
+            { status: 503 }
+          );
+        }
+        throw error;
+      }
     }
     
     return NextResponse.json(
