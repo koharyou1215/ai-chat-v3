@@ -58,6 +58,13 @@ export class PromptBuilderService {
       );
 
       manager = new ConversationManager(importantMessages, trackerManager);
+      
+      // Apply memory limits from settings
+      const store = useAppStore.getState();
+      if (store.chat?.memory_limits) {
+        manager.updateMemoryLimits(store.chat.memory_limits);
+      }
+      
       PromptBuilderService.managerCache.set(sessionId, manager);
       PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
 
@@ -66,6 +73,12 @@ export class PromptBuilderService {
       return manager;
     }
 
+    // Update memory limits when manager exists
+    const store = useAppStore.getState();
+    if (store.chat?.memory_limits) {
+      manager.updateMemoryLimits(store.chat.memory_limits);
+    }
+    
     // 増分更新: 新しいメッセージのみ処理
     const newMessages = messages.slice(lastProcessed);
     if (newMessages.length > 0) {
@@ -579,8 +592,10 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
       if (relevantCards.length > 0) {
         let memoryContent = "";
-        relevantCards.slice(0, 5).forEach((card) => {
-          // 最大5件まで
+        // Get max relevant memories from settings
+        const maxRelevantMemories = store.chat?.memory_limits?.max_relevant_memories || 5;
+        relevantCards.slice(0, maxRelevantMemories).forEach((card) => {
+          // 設定値に基づく最大件数
           memoryContent += `[${card.category || "general"}] ${card.title}: ${
             card.summary
           }\n`;

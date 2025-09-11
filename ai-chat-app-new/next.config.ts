@@ -173,6 +173,8 @@ const nextConfig: NextConfig = {
     // モバイル対応の画像最適化
     loader: "default",
     unoptimized: false,
+    // ローカルアップロードファイルの最適化を無効化
+    domains: [],
   },
 
   // ===== COMPRESSION AND CACHING =====
