@@ -149,7 +149,12 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
     <div className="h-full flex flex-col">
       {/* 操作エリア */}
       <div className="flex-shrink-0 p-4 border-b border-white/10 flex items-center gap-2">
-        {!isGroupMode ? (
+        {isGroupMode ? (
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">{isGroupCreationMode ? "新規グループ作成" : "グループメンバーを編集"}</h3>
+            <p className="text-sm text-slate-400">{selectedMemberIds.size}人 選択中</p>
+          </div>
+        ) : (
           <>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -183,25 +188,22 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
             <Button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="h-9 px-3 bg-transparent border border-slate-700 hover:bg-slate-700 text-white" title={viewMode === 'grid' ? 'リスト表示に切替' : 'グリッド表示に切替'}>
                 {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
             </Button>
-
-            <div className="h-5 w-px bg-white/10 mx-1"></div>
-
-            <Button asChild variant="ghost" className="h-9 px-3">
-              <label htmlFor="json-upload" className="cursor-pointer">
-                <Upload className="w-4 h-4" />
-                <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
-              </label>
-            </Button>
-            <Button variant="ghost" onClick={onCreateCharacter} className="h-9 px-3">
-              <Plus className="w-4 h-4" />
-            </Button>
           </>
-        ) : (
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">{isGroupCreationMode ? "新規グループ作成" : "グループメンバーを編集"}</h3>
-            <p className="text-sm text-slate-400">{selectedMemberIds.size}人 選択中</p>
-          </div>
         )}
+        
+        {/* アップロードと新規作成ボタンは常に表示 */}
+        <div className="h-5 w-px bg-white/10 mx-1"></div>
+        
+        <Button asChild variant="ghost" className="h-9 px-3" title="JSONファイルをインポート">
+          <label htmlFor="json-upload" className="cursor-pointer flex items-center">
+            <Upload className="w-4 h-4" />
+            <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
+          </label>
+        </Button>
+        
+        <Button variant="ghost" onClick={onCreateCharacter} className="h-9 px-3" title="新規キャラクター作成">
+          <Plus className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* ギャラリーエリア */}
