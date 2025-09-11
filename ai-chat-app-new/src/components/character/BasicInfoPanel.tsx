@@ -102,7 +102,7 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFormData(prev => prev ? {...prev, avatar_url: undefined} : null);
+                        setFormData(prev => prev ? {...prev, avatar_url: ""} : null);
                       }}
                       className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
                     >
