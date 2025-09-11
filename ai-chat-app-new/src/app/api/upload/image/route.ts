@@ -188,43 +188,32 @@ export async function POST(request: NextRequest) {
         blobError
       );
 
-      // Vercel Blobが失敗した場合はローカルストレージにフォールバック
+      // Vercel本番環境ではファイルシステムが読み取り専用なので、データURLを使用
       try {
-        const uploadDir = path.join(
-          process.cwd(),
-          "public",
-          "uploads",
-          "images"
-        );
-        await fs.mkdir(uploadDir, { recursive: true });
-
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const filePath = path.join(uploadDir, filename);
-
-        await fs.writeFile(filePath, buffer);
-
-        const url = `/uploads/images/${filename}`;
+        const base64 = buffer.toString('base64');
+        const dataUrl = `data:${file.type};base64,${base64}`;
+        
         console.log(
-          `✅ Upload API: Fallback to local storage successful. URL: ${url}`
+          `✅ Upload API: Fallback to data URL successful. Size: ${base64.length} bytes`
         );
-
+        
         return NextResponse.json({
           success: true,
-          url: url,
+          url: dataUrl,
           filename: filename,
           size: file.size,
           type: file.type,
+          isDataUrl: true,
         });
       } catch (fallbackError) {
         console.error(
-          "❌ Upload API: Both Vercel Blob and local storage failed:",
+          "❌ Upload API: Data URL fallback failed:",
           fallbackError
         );
         throw new Error(
-          `ファイルアップロードに失敗しました。Vercel Blob: ${
-            blobError instanceof Error ? blobError.message : "不明なエラー"
-          }, ローカルストレージ: ${
+          `ファイルアップロードに失敗しました: ${
             fallbackError instanceof Error
               ? fallbackError.message
               : "不明なエラー"
