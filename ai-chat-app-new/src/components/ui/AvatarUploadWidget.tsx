@@ -84,10 +84,20 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/upload/image", {
+        // Try external upload first for cross-browser compatibility
+        let response = await fetch("/api/upload/image-external", {
           method: "POST",
           body: formData,
         });
+        
+        // Fallback to regular upload if external fails
+        if (!response.ok) {
+          console.log("External upload failed, trying regular upload...");
+          response = await fetch("/api/upload/image", {
+            method: "POST",
+            body: formData,
+          });
+        }
 
         // Safe JSON parsing with comprehensive error handling
         let result;
