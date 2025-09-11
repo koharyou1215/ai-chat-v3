@@ -168,13 +168,20 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   };
 
   const handleUpdateTracker = (trackerName: string, value: string | number | boolean) => {
-    const latestTrackerManager = useAppStore.getState().trackerManagers.get(session_id);
+    console.log(`[TrackerDisplay] Updating tracker '${trackerName}' to:`, value);
+    
+    // キャラクターIDでトラッカーマネージャーを取得
+    const latestTrackerManager = useAppStore.getState().trackerManagers.get(character_id);
     if (latestTrackerManager) {
-      latestTrackerManager.updateTracker(character_id, trackerName, value as any);
+      const success = latestTrackerManager.updateTracker(character_id, trackerName, value as any);
+      console.log(`[TrackerDisplay] Update result for '${trackerName}':`, success);
+      
       // Force a state update in Zustand to trigger re-render
       useAppStore.setState(state => ({
         trackerManagers: new Map(state.trackerManagers)
       }));
+    } else {
+      console.error(`[TrackerDisplay] No tracker manager found for character: ${character_id}`);
     }
   };
 
@@ -219,13 +226,20 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div 
+      className="h-full flex flex-col"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div className="flex-1 overflow-y-auto space-y-4 p-2 md:p-4">
         {categories.map((category) => (
           <div key={category.name} className="space-y-2">
             {/* Category Header */}
             <motion.button
-              onClick={() => toggleCategory(category.name)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCategory(category.name);
+              }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
@@ -381,7 +395,10 @@ const NumericTracker: React.FC<{
                 key={i}
                 whileHover={{ scale: 1.2 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => onUpdate(tracker.name, i + 1)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate(tracker.name, i + 1);
+                }}
                 className="transition-colors duration-200"
               >
                 <Star 
@@ -424,7 +441,10 @@ const NumericTracker: React.FC<{
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => onUpdate(tracker.name, Math.max(minValue, value - step))}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(tracker.name, Math.max(minValue, value - step));
+              }}
               className="p-1 rounded-full text-red-400 hover:bg-red-500/20 transition-colors backdrop-blur-sm"
               disabled={value <= minValue}
             >
@@ -433,7 +453,10 @@ const NumericTracker: React.FC<{
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => onUpdate(tracker.name, Math.min(maxValue, value + step))}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(tracker.name, Math.min(maxValue, value + step));
+              }}
               className="p-1 rounded-full text-green-400 hover:bg-green-500/20 transition-colors backdrop-blur-sm"
               disabled={value >= maxValue}
             >
@@ -495,7 +518,10 @@ const StateTracker: React.FC<{
               key={stateObj.id}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => onUpdate(tracker.name, stateObj.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(tracker.name, stateObj.id);
+              }}
               className={cn(
                 "px-3 py-1 rounded-full text-xs font-medium transition-all duration-300",
                 isSelected 
@@ -563,7 +589,10 @@ const BooleanTracker: React.FC<{
   
   return (
     <motion.button
-      onClick={() => onUpdate(tracker.name, !value)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onUpdate(tracker.name, !value);
+      }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       animate={hasRecentChange ? { scale: [1, 1.05, 1] } : {}}

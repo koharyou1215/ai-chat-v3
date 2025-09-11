@@ -153,7 +153,11 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div 
+      className="h-full flex flex-col"
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}>
       {/* ヘッダー */}
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center justify-between mb-4">

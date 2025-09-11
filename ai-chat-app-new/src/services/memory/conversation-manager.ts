@@ -39,7 +39,7 @@ export class ConversationManager {
     maxRelevantMemories: 5,
     maxMemoryCards: 50,
     maxPromptTokens: 32000,
-    maxContextMessages: 20,
+    maxContextMessages: 40,
     summarizeInterval: 10, // 10メッセージごとに要約
     vectorSearchThreshold: 0.7,
     enablePinning: true,
@@ -505,6 +505,38 @@ export class ConversationManager {
     } else {
       console.warn(
         "⚠️ [ConversationManager] No persona provided to generatePrompt"
+      );
+    }
+
+    // 6. Tracker Information (関係性トラッカー)
+    if (this.trackerManager && character) {
+      try {
+        console.log(
+          "🔍 [ConversationManager] Getting tracker info for character:",
+          character.id
+        );
+        const trackerInfo = this.trackerManager.getDetailedTrackersForPrompt?.(
+          character.id
+        );
+        if (trackerInfo) {
+          console.log(
+            "✅ [ConversationManager] Tracker info found:",
+            trackerInfo.length,
+            "characters"
+          );
+          prompt += `<relationship_state>\n${trackerInfo}\n</relationship_state>\n\n`;
+        } else {
+          console.log("❌ [ConversationManager] No tracker info available");
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to get tracker info in ConversationManager:",
+          error
+        );
+      }
+    } else {
+      console.log(
+        "❌ [ConversationManager] No tracker manager or character available"
       );
     }
 
@@ -1017,10 +1049,27 @@ export class ConversationManager {
       const { useAppStore } = await import("@/store");
       const store = useAppStore.getState();
 
-      if (!store.memory_cards) return [];
+      // メモリーカードの初期化を確認
+      if (store.initializeMemoryCards) {
+        store.initializeMemoryCards();
+      }
 
-      return Array.from(store.memory_cards.values())
-        .filter((card) => card.is_pinned)
+      if (!store.memory_cards) {
+        console.log("📌 [ConversationManager] memory_cards not found in store");
+        return [];
+      }
+
+      const allCards = Array.from(store.memory_cards.values());
+      console.log(
+        `📌 [ConversationManager] Total memory cards in store: ${allCards.length}`
+      );
+
+      const pinnedCards = allCards.filter((card) => card.is_pinned);
+      console.log(
+        `📌 [ConversationManager] Pinned cards found: ${pinnedCards.length}`
+      );
+
+      return pinnedCards
         .sort((a, b) => b.importance.score - a.importance.score)
         .slice(0, 5); // 最大5件
     } catch (error) {
@@ -1041,11 +1090,28 @@ export class ConversationManager {
       const { useAppStore } = await import("@/store");
       const store = useAppStore.getState();
 
-      if (!store.memory_cards) return [];
+      // メモリーカードの初期化を確認
+      if (store.initializeMemoryCards) {
+        store.initializeMemoryCards();
+      }
 
-      const cards = Array.from(store.memory_cards.values()).filter(
+      if (!store.memory_cards) {
+        console.log("🔍 [ConversationManager] memory_cards not found in store");
+        return [];
+      }
+
+      const allCards = Array.from(store.memory_cards.values());
+      console.log(
+        `🔍 [ConversationManager] Total memory cards for relevance check: ${allCards.length}`
+      );
+
+      const cards = allCards.filter(
         (card) => !card.is_hidden
       ); // 非表示カードは除外
+      
+      console.log(
+        `🔍 [ConversationManager] Non-hidden cards: ${cards.length}`
+      );
 
       // スマートな関連度計算
       const relevantCards = cards

@@ -116,9 +116,14 @@ export class TrackerManager {
         // current_valueが無い場合のみデフォルト値を設定
         switch (normalizedDefinition.config.type) {
         case 'numeric':
-          // 数値型の場合、初期値をチェック
-          if (typeof normalizedDefinition.config.initial_value === 'number') {
-            currentValue = normalizedDefinition.config.initial_value;
+          // 数値型の場合、初期値をチェック（古いフォーマットも考慮）
+          const numericConfig = normalizedDefinition.config as any;
+          const oldFormatValue = (normalizedDefinition as any).initial_value;
+          
+          if (typeof numericConfig.initial_value === 'number') {
+            currentValue = numericConfig.initial_value;
+          } else if (typeof oldFormatValue === 'number') {
+            currentValue = oldFormatValue;
           } else {
             // min_value/max_valueが設定されていない場合のデフォルト値設定
             if (normalizedDefinition.config.min_value === undefined) {
@@ -147,7 +152,12 @@ export class TrackerManager {
           break;
         case 'state':
           // 状態型の場合、initial_stateまたは最初の可能な状態を使用
-          currentValue = normalizedDefinition.config.initial_state;
+          const stateConfig = normalizedDefinition.config as any;
+          currentValue = stateConfig.initial_state || 
+                       stateConfig.initial_value ||
+                       (stateConfig.possible_states && stateConfig.possible_states.length > 0 
+                         ? stateConfig.possible_states[0].id || stateConfig.possible_states[0]
+                         : '');
           
           // possible_statesが空の場合、トラッカー名と説明から推測して設定
           if ((!normalizedDefinition.config.possible_states || normalizedDefinition.config.possible_states.length === 0)) {
@@ -218,15 +228,21 @@ export class TrackerManager {
           }
           break;
         case 'boolean':
-          // ブール型の場合、initial_valueまたはfalseをデフォルトとして設定
-          currentValue = typeof normalizedDefinition.config.initial_value === 'boolean' 
-            ? normalizedDefinition.config.initial_value 
+          // ブール型の場合、initial_valueまたは変換時のinitial_booleanまたはfalseをデフォルトとして設定
+          const booleanConfig = normalizedDefinition.config as any;
+          currentValue = typeof booleanConfig.initial_value === 'boolean' 
+            ? booleanConfig.initial_value 
+            : typeof booleanConfig.initial_boolean === 'boolean'
+            ? booleanConfig.initial_boolean
             : false;
           break;
         case 'text':
-          // テキスト型の場合、initial_valueまたは空文字をデフォルトとして設定
-          currentValue = typeof normalizedDefinition.config.initial_value === 'string' 
-            ? normalizedDefinition.config.initial_value 
+          // テキスト型の場合、initial_valueまたは変換時のinitial_textまたは空文字をデフォルトとして設定
+          const textConfig = normalizedDefinition.config as any;
+          currentValue = typeof textConfig.initial_value === 'string' 
+            ? textConfig.initial_value 
+            : typeof textConfig.initial_text === 'string'
+            ? textConfig.initial_text
             : '未設定';
           break;
         default:
@@ -288,7 +304,7 @@ export class TrackerManager {
       return '';
     }
 
-    let promptText = '<character_trackers>\n';
+    let promptText = '';
     
     for (const tracker of trackerSet.trackers.values()) {
       const value = tracker.current_value ?? 'N/A';
@@ -329,7 +345,6 @@ export class TrackerManager {
       promptText += '\n';
     }
     
-    promptText += '</character_trackers>';
     return promptText;
   }
 
@@ -348,17 +363,17 @@ export class TrackerManager {
     trackerName: string,
     newValue: TrackerValue,
     reason?: string
-  ): void {
+  ): boolean {
     const trackerSet = this.trackerSets.get(characterId);
     if (!trackerSet) {
       console.error(`Tracker set for character ${characterId} not found.`);
-      return;
+      return false;
     }
 
     const tracker = trackerSet.trackers.get(trackerName);
     if (!tracker) {
       console.error(`Tracker ${trackerName} not found for character ${characterId}.`);
-      return;
+      return false;
     }
 
     const oldValue = tracker.current_value;
@@ -379,11 +394,15 @@ export class TrackerManager {
 
     trackerSet.history.push(update);
 
+    console.log(`[TrackerManager] Updated tracker '${trackerName}': ${oldValue} → ${newValue}`);
+
     // Notify listeners about the update
     this.notifyUpdate(update);
 
     // Update the map to ensure state changes are picked up by Zustand
     this.trackerSets.set(characterId, { ...trackerSet });
+    
+    return true;
   }
 
   /**
@@ -787,14 +806,77 @@ export class TrackerManager {
   /**
    * テキストトラッカーの分析
    */
-  private analyzeTextTracker(tracker: Tracker, content: string, _isUserMessage: boolean): { value: string; reason: string } | null {
+  private analyzeTextTracker(tracker: Tracker, content: string, isUserMessage: boolean): { value: string; reason: string } | null {
     const trackerName = tracker.name.toLowerCase();
+    const currentValue = tracker.current_value as string;
     
-    if (trackerName.includes('最後の話題') || trackerName.includes('topic')) {
-      // 質問文から話題を抽出
-      if (content.includes('？') || content.includes('?')) {
-        const topic = content.slice(0, 30); // 最初の30文字を話題として記録
-        return { value: topic, reason: '新しい話題の検出' };
+    // 最後の話題・現在の話題系
+    if (trackerName.includes('話題') || trackerName.includes('topic') || 
+        trackerName.includes('会話') || trackerName.includes('conversation')) {
+      // 質問文や新しい話題の検出
+      if (content.includes('？') || content.includes('?') || 
+          content.includes('について') || content.includes('のこと')) {
+        const topic = content.slice(0, 50).replace(/[\n\r]/g, ' '); // 最初の50文字を話題として記録
+        if (topic !== currentValue) {
+          return { value: topic + '...', reason: '新しい話題の検出' };
+        }
+      }
+    }
+    
+    // 場所・ロケーション系
+    if (trackerName.includes('場所') || trackerName.includes('location') || 
+        trackerName.includes('現在地')) {
+      const locationKeywords = ['公園', '家', '学校', '職場', 'オフィス', 'カフェ', 'レストラン', '駅'];
+      for (const keyword of locationKeywords) {
+        if (content.includes(keyword)) {
+          return { value: keyword, reason: `場所の変更: ${keyword}` };
+        }
+      }
+    }
+    
+    // 状況・シチュエーション系
+    if (trackerName.includes('状況') || trackerName.includes('situation') || 
+        trackerName.includes('シチュエーション')) {
+      // ユーザーのメッセージから状況を推測
+      if (isUserMessage) {
+        if (content.length > 20) {
+          const situation = content.slice(0, 40).replace(/[\n\r]/g, ' ');
+          if (situation !== currentValue) {
+            return { value: situation + '...', reason: '状況の更新' };
+          }
+        }
+      }
+    }
+    
+    // 気持ち・感情系のテキスト
+    if (trackerName.includes('気持ち') || trackerName.includes('feeling') || 
+        trackerName.includes('感情')) {
+      const emotionPhrases = [
+        '嬉しい', '楽しい', '悲しい', '寂しい', '怒って', '不安', 
+        '期待', 'わくわく', 'どきどき', '緊張'
+      ];
+      for (const phrase of emotionPhrases) {
+        if (content.includes(phrase)) {
+          return { value: phrase, reason: `感情の変化: ${phrase}` };
+        }
+      }
+    }
+    
+    // メモ・記録系（常に最新のメッセージ内容を保存）
+    if (trackerName.includes('メモ') || trackerName.includes('memo') || 
+        trackerName.includes('記録') || trackerName.includes('note')) {
+      // 最新のメッセージの要約を記録
+      const memo = content.slice(0, 60).replace(/[\n\r]/g, ' ');
+      if (memo !== currentValue && memo.length > 5) {
+        return { value: memo + '...', reason: '新しいメモの記録' };
+      }
+    }
+
+    // デフォルト：長いメッセージがあれば要約として記録
+    if (content.length > 30 && Math.random() > 0.7) {
+      const summary = content.slice(0, 40).replace(/[\n\r]/g, ' ') + '...';
+      if (summary !== currentValue) {
+        return { value: summary, reason: 'メッセージの要約' };
       }
     }
 

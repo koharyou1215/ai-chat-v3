@@ -190,6 +190,14 @@ export const createProgressiveHandler: StateCreator<
       ? getTrackerManagerSafely(get().trackerManagers, characterId)
       : null;
 
+    console.log("🔍 DEBUG: Tracker Manager Check", {
+      characterId,
+      trackerManager: !!trackerManager,
+      trackerManagers: Object.keys(get().trackerManagers),
+      hasGetDetailedTrackersForPrompt:
+        !!trackerManager?.getDetailedTrackersForPrompt,
+    });
+
     console.log("🧠 Starting memory retrieval...");
     let memoryCards = [];
     try {
@@ -206,9 +214,7 @@ export const createProgressiveHandler: StateCreator<
     }
 
     // 5. Stage 1: Reflex (即座に開始)
-    console.log(
-      "🚀 Starting Progressive Message Generation - Stage 1: Reflex"
-    );
+    console.log("🚀 Starting Progressive Message Generation - Stage 1: Reflex");
     (async () => {
       try {
         const reflexPrompt = progressivePromptBuilder.buildReflexPrompt(
@@ -355,13 +361,12 @@ export const createProgressiveHandler: StateCreator<
         "🚀 Starting Progressive Message Generation - Stage 2: Context"
       );
       try {
-        const contextPrompt =
-          await progressivePromptBuilder.buildContextPrompt(
-            content,
-            sessionWithUserMessage,
-            memoryCards,
-            trackerManager || undefined
-          );
+        const contextPrompt = await progressivePromptBuilder.buildContextPrompt(
+          content,
+          sessionWithUserMessage,
+          memoryCards,
+          trackerManager || undefined
+        );
 
         console.log("📝 Stage 2 Prompt built, calling API...");
 
@@ -429,9 +434,7 @@ export const createProgressiveHandler: StateCreator<
         );
 
         if (messageIndex === -1) {
-          console.error(
-            "❌ Progressive message not found for Stage 2 update"
-          );
+          console.error("❌ Progressive message not found for Stage 2 update");
           return;
         }
 
@@ -458,8 +461,7 @@ export const createProgressiveHandler: StateCreator<
           currentStage: "context",
           metadata: {
             ...currentProgressiveMessage.metadata,
-            progressiveData: currentProgressiveMessage.metadata
-              .progressiveData
+            progressiveData: currentProgressiveMessage.metadata.progressiveData
               ? {
                   ...currentProgressiveMessage.metadata.progressiveData,
                   stages: {
@@ -469,8 +471,7 @@ export const createProgressiveHandler: StateCreator<
                       timestamp: Date.now() - startTime,
                       tokens: contextPrompt.tokenLimit,
                       diff: messageTransitionService.detectChanges(
-                        currentProgressiveMessage.stages.reflex?.content ||
-                          "",
+                        currentProgressiveMessage.stages.reflex?.content || "",
                         contextResponse
                       ),
                       usage: contextUsage,
@@ -529,6 +530,14 @@ export const createProgressiveHandler: StateCreator<
       );
       try {
         const systemInstructions = get().systemPrompts.system;
+
+        console.log("🔍 DEBUG: buildIntelligencePrompt called with", {
+          content: content.substring(0, 50) + "...",
+          memoryCardsCount: memoryCards.length,
+          trackerManager: !!trackerManager,
+          systemInstructionsLength: systemInstructions?.length || 0,
+        });
+
         const intelligencePrompt =
           await progressivePromptBuilder.buildIntelligencePrompt(
             content,
@@ -611,8 +620,7 @@ export const createProgressiveHandler: StateCreator<
           ...progressiveMessage,
           stages: {
             reflex:
-              currentMessage?.stages.reflex ||
-              progressiveMessage.stages.reflex,
+              currentMessage?.stages.reflex || progressiveMessage.stages.reflex,
             context:
               currentMessage?.stages.context ||
               progressiveMessage.stages.context,

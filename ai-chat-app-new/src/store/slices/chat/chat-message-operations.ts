@@ -1,9 +1,5 @@
 import { StateCreator } from "zustand";
-import {
-  UnifiedMessage,
-  UUID,
-  UnifiedChatSession,
-} from "@/types";
+import { UnifiedMessage, UUID, UnifiedChatSession } from "@/types";
 import { AppStore } from "@/store";
 import { apiRequestQueue } from "@/services/api-request-queue";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
@@ -13,10 +9,8 @@ import { SoloEmotionAnalyzer } from "@/services/emotion/SoloEmotionAnalyzer";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { ChatErrorHandler } from "@/services/chat/error-handler.service";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
-import {
-  generateUserMessageId,
-  generateAIMessageId,
-} from "@/utils/uuid";
+import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
+import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
 
 // 🧠 感情から絵文字への変換ヘルパー
 export const getEmotionEmoji = (emotion: string): string => {
@@ -65,13 +59,29 @@ export const createMessageOperations: StateCreator<
   MessageOperations
 > = (set, get) => ({
   sendMessage: async (content, imageUrl) => {
-    console.log("🚀 [sendMessage] Called with content:", content?.substring(0, 50), "imageUrl:", !!imageUrl);
-    
+    debugLog("🚀 [sendMessage] Method called (to file)", {
+      content: content?.substring(0, 50) + "...",
+      imageUrl: !!imageUrl,
+    });
+    console.log("🚀 [sendMessage] Method called (to console)", {
+      content: content?.substring(0, 50) + "...",
+      imageUrl: !!imageUrl,
+    });
+
     // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
-    const state = get() as any;  // Type assertion for cross-slice access
-    console.log("📊 [sendMessage] State check - is_group_mode:", state.is_group_mode, "active_session_id:", state.active_session_id);
-    
-    if (state.is_group_mode && state.active_group_session_id && state.sendGroupMessage) {
+    const state = get() as any; // Type assertion for cross-slice access
+    console.log(
+      "📊 [sendMessage] State check - is_group_mode:",
+      state.is_group_mode,
+      "active_session_id:",
+      state.active_session_id
+    );
+
+    if (
+      state.is_group_mode &&
+      state.active_group_session_id &&
+      state.sendGroupMessage
+    ) {
       console.log("🔄 [sendMessage] Redirecting to group chat");
       return await state.sendGroupMessage(content, imageUrl);
     }
@@ -81,10 +91,13 @@ export const createMessageOperations: StateCreator<
       console.error("❌ [sendMessage] No active session ID");
       return;
     }
-    
+
     const activeSession = getSessionSafely(state.sessions, activeSessionId);
     if (!activeSession) {
-      console.error("❌ [sendMessage] No active session found for ID:", activeSessionId);
+      console.error(
+        "❌ [sendMessage] No active session found for ID:",
+        activeSessionId
+      );
       return;
     }
 
@@ -92,8 +105,9 @@ export const createMessageOperations: StateCreator<
       console.warn("⚠️ [sendMessage] Already generating, skipping");
       return;
     }
-    
+
     console.log("✅ [sendMessage] Starting message generation");
+    console.log("🔍 [sendMessage] About to call buildPromptProgressive...");
     set({ is_generating: true });
 
     // 1. ユーザーメッセージを作成
@@ -230,21 +244,39 @@ export const createMessageOperations: StateCreator<
         const trackerManager = characterId
           ? getTrackerManagerSafely(get().trackerManagers, characterId)
           : null;
+        
+        console.log("🔍 [sendMessage] TrackerManager check:", {
+          characterId,
+          hasTrackerManagers: !!get().trackerManagers,
+          trackerManagersSize: get().trackerManagers?.size || 0,
+          hasTrackerManager: !!trackerManager,
+          trackerManagerType: trackerManager ? trackerManager.constructor.name : "null"
+        });
 
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
+        console.log("🎯 [sendMessage] About to call buildPromptProgressive...");
         const { basePrompt, enhancePrompt } =
           await promptBuilderService.buildPromptProgressive(
             sessionWithUserMessage,
             content,
             trackerManager || undefined
           );
+        console.log(
+          "✅ [sendMessage] buildPromptProgressive completed, basePrompt length:",
+          basePrompt.length
+        );
 
         const apiConfig = get().apiConfig;
         // ⚡ 高優先度チャットリクエストをキューに追加（競合を防止）
         const requestId = `${activeSessionId}-${Date.now()}`;
         const modelName = apiConfig.model || "gemini-2.5-flash";
-        console.log("🌐 [sendMessage] Enqueuing API request - model:", modelName, "requestId:", requestId);
-        
+        console.log(
+          "🌐 [sendMessage] Enqueuing API request - model:",
+          modelName,
+          "requestId:",
+          requestId
+        );
+
         const response = await apiRequestQueue.enqueueChatRequest(
           async () => {
             // 完全版プロンプトを非同期で準備
@@ -262,11 +294,24 @@ export const createMessageOperations: StateCreator<
             }
 
             // 🔧 修正: 設定から会話履歴の上限を取得
-            const maxContextMessages = get().chat?.memoryLimits?.max_context_messages || 20;
-            
-            console.log("📝 [sendMessage] Sending API request to /api/chat/generate");
+            const maxContextMessages =
+              get().chat?.memoryLimits?.max_context_messages || 40;
+
+            console.log(
+              "📝 [sendMessage] Sending API request to /api/chat/generate"
+            );
             console.log("📝 [sendMessage] Prompt length:", finalPrompt.length);
-            
+            // 🚨 強制ログ: finalPrompt の内容を全て出力
+            debugLog(
+              "📝📝📝 [sendMessage] Final Prompt Content (full):",
+              finalPrompt
+            );
+            console.log(
+              "📝📝📝 [sendMessage] Final Prompt Content (full) (to console):"
+            );
+            console.log(finalPrompt);
+            console.log("📝📝📝 [sendMessage] End of Final Prompt Content.");
+
             // 完全版プロンプトでAPIリクエストを開始
             const initialResponse = await fetch("/api/chat/generate", {
               method: "POST",
@@ -276,7 +321,9 @@ export const createMessageOperations: StateCreator<
                 userMessage: content,
                 conversationHistory: (() => {
                   // 重複除去と履歴クリーンアップ - 設定値を使用
-                  const recentMessages = activeSession.messages.slice(-maxContextMessages); // 設定値を使用
+                  const recentMessages = activeSession.messages.slice(
+                    -maxContextMessages
+                  ); // 設定値を使用
                   const deduplicatedHistory: Array<{
                     role: "user" | "assistant";
                     content: string;
@@ -303,7 +350,9 @@ export const createMessageOperations: StateCreator<
                   }
 
                   // 最終的に設定値の半分の件数のみ返す（例: 20設定なら10件）
-                  return deduplicatedHistory.slice(-(Math.floor(maxContextMessages / 2)));
+                  return deduplicatedHistory.slice(
+                    -Math.floor(maxContextMessages / 2)
+                  );
                 })(),
                 textFormatting: state.effectSettings.textFormatting,
                 apiConfig: {
@@ -321,7 +370,7 @@ export const createMessageOperations: StateCreator<
               console.error("❌ [sendMessage] API request failed:", errorData);
               throw new Error(errorData.error || "API request failed");
             }
-            
+
             console.log("✅ [sendMessage] API request successful");
             return initialResponse;
           },
@@ -474,10 +523,7 @@ export const createMessageOperations: StateCreator<
           metadata: {},
         };
 
-        const finalSession = getSessionSafely(
-          get().sessions,
-          activeSessionId
-        )!;
+        const finalSession = getSessionSafely(get().sessions, activeSessionId)!;
         const sessionWithAiResponse = {
           ...finalSession,
           messages: [...finalSession.messages, aiResponse],
@@ -490,6 +536,32 @@ export const createMessageOperations: StateCreator<
             sessionWithAiResponse
           ),
         }));
+
+        // トラッカーの自動更新を実行
+        if (trackerManager && characterId) {
+          console.log("🎯 [sendMessage] Analyzing messages for tracker updates...");
+          try {
+            // ユーザーメッセージとAIレスポンスの両方を分析
+            const userUpdates = trackerManager.analyzeMessageForTrackerUpdates(
+              userMessage,
+              characterId
+            );
+            const aiUpdates = trackerManager.analyzeMessageForTrackerUpdates(
+              aiResponse,
+              characterId
+            );
+            const updatedTrackers = [...userUpdates, ...aiUpdates];
+            if (updatedTrackers && updatedTrackers.length > 0) {
+              console.log(`✅ [sendMessage] Updated ${updatedTrackers.length} tracker(s)`);
+              // Zustandの状態を更新してUIに反映
+              set((state) => ({
+                trackerManagers: new Map(state.trackerManagers)
+              }));
+            }
+          } catch (error) {
+            console.error("❌ [sendMessage] Failed to update trackers:", error);
+          }
+        }
 
         // パフォーマンス最適化: 後処理作業を完全にバックグラウンド化
         setTimeout(() => {
@@ -641,7 +713,8 @@ export const createMessageOperations: StateCreator<
       systemPrompt += regenerateInstruction;
 
       // 🔧 修正: 設定から会話履歴の上限を取得
-      const maxContextMessages = get().chat?.memoryLimits?.max_context_messages || 20;
+      const maxContextMessages =
+        get().chat?.memoryLimits?.max_context_messages || 40;
       const conversationHistory = messagesForPrompt
         .filter((msg) => msg.role === "user" || msg.role === "assistant")
         .slice(-maxContextMessages) // 設定値を使用
@@ -783,7 +856,8 @@ export const createMessageOperations: StateCreator<
       );
 
       // 🔧 修正: 設定から会話履歴の上限を取得
-      const maxContextMessages = get().chat?.memoryLimits?.max_context_messages || 20;
+      const maxContextMessages =
+        get().chat?.memoryLimits?.max_context_messages || 40;
       const conversationHistory = session.messages
         .filter((m) => !m.is_deleted)
         .slice(-maxContextMessages) // 設定値を使用
@@ -955,9 +1029,7 @@ export const createMessageOperations: StateCreator<
     const session = getSessionSafely(get().sessions, activeSessionId);
     if (!session) return;
 
-    const messageIndex = session.messages.findIndex(
-      (m) => m.id === message_id
-    );
+    const messageIndex = session.messages.findIndex((m) => m.id === message_id);
     if (messageIndex === -1) {
       console.error("Rollback failed: message not found");
       return;

@@ -700,27 +700,7 @@ const ChatInterfaceContent: React.FC = () => {
         />
       )}
 
-      {/* モバイルで右パネルが開いているときの背景オーバーレイ */}
-      {isRightPanelOpen && windowWidth < 768 && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50"
-          onClick={(e) => {
-            // 右サイドバー内のクリックは無視
-            if (e.target === e.currentTarget) {
-              setRightPanelOpen(false);
-            }
-          }}
-          onTouchEnd={(e) => {
-            // タッチイベントでも同様の処理
-            // 右パネル自体へのタッチは無視
-            const target = e.target as HTMLElement;
-            if (!target.closest('.right-panel-content')) {
-              e.preventDefault();
-              setRightPanelOpen(false);
-            }
-          }}
-        />
-      )}
+      {/* モバイルで右パネルが開いているときの背景オーバーレイ - 削除 */}
 
       <div
         className={cn(
@@ -794,20 +774,31 @@ const ChatInterfaceContent: React.FC = () => {
         <ClientOnlyProvider fallback={null}>
           <AnimatePresence>
             {isRightPanelOpen && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{
-                  width: windowWidth < 768 ? "100vw" : "380px",
-                  opacity: 1,
-                }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className={cn(
-                  "right-panel-content bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
-                  windowWidth < 768
-                    ? "fixed right-0 top-0 w-full z-[60]" // モバイルではオーバーレイより高いz-index
-                    : "fixed right-0 top-0 h-full w-[380px] z-[60]"
-                )}>
+              <>
+                {/* モバイル用の背景オーバーレイ */}
+                {windowWidth < 768 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 z-[55]"
+                    onClick={() => setRightPanelOpen(false)}
+                  />
+                )}
+                
+                {/* 右パネル本体 */}
+                <motion.div
+                  initial={{ x: "100%", opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: "100%", opacity: 0 }}
+                  transition={{ duration: 0.3, type: "spring", damping: 25 }}
+                  className={cn(
+                    "right-panel-content bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
+                    windowWidth < 768
+                      ? "fixed right-0 top-0 w-[85vw] h-full z-[60]" // モバイルでは画面の85%幅
+                      : "fixed right-0 top-0 h-full w-[380px] z-[60]"
+                  )}
+                  onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">記憶情報</h3>
                   <button
@@ -820,7 +811,10 @@ const ChatInterfaceContent: React.FC = () => {
                   {sidePanelTabs.map((tab) => (
                     <button
                       key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTab(tab.key);
+                      }}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
                         activeTab === tab.key
@@ -851,6 +845,7 @@ const ChatInterfaceContent: React.FC = () => {
                   </AnimatePresence>
                 </div>
               </motion.div>
+              </>
             )}
           </AnimatePresence>
         </ClientOnlyProvider>

@@ -1,7 +1,7 @@
 {
   "id": "valeria-betrayed-mage-001",
-  "created_at": "2025-09-10T21:06:22.764Z",
-  "updated_at": "2025-09-10T21:06:22.764Z",
+  "created_at": "2025-09-11T00:04:44.999Z",
+  "updated_at": "2025-09-11T00:04:44.999Z",
   "version": 1,
   "name": "ヴァレリア",
   "age": "22歳",
@@ -37,7 +37,7 @@
     "自己中心的な人間"
   ],
   "appearance": "長く艶やかな黒髪を緩く結び、紫色の瞳には常に不安の色が浮かんでいる。使い古されたローブを身に纏い、全体的に儚げで幸薄い印象を与える。しかし、その瞳の奥には時折、強い意志の光が宿る。",
-  "background_url": "/uploads/images/1757540465351-33fff2f66ae124ffcfbd98ae939804b2_high.webp",
+  "background_url": "/images/default-bg.jpg",
   "speaking_style": "自信がなく、声は小さく弱々しい。相手の顔色をうかがいながら、途切れ途切れに話すことが多い。語尾は「…です」「…ます」といった丁寧語だが、恐怖や混乱に陥るとどもったり、呟くような口調になる。",
   "first_person": "私",
   "second_person": "あなた",
@@ -61,8 +61,8 @@
   "trackers": [
     {
       "id": "trust",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T00:04:44.999Z",
+      "updated_at": "2025-09-11T00:04:44.999Z",
       "version": 1,
       "name": "trust",
       "display_name": "信頼度",
@@ -79,8 +79,8 @@
     },
     {
       "id": "mental_state",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T00:04:44.999Z",
+      "updated_at": "2025-09-11T00:04:44.999Z",
       "version": 1,
       "name": "mental_state",
       "display_name": "精神状態",
@@ -94,8 +94,8 @@
     },
     {
       "id": "revenge_lust",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T00:04:44.999Z",
+      "updated_at": "2025-09-11T00:04:44.999Z",
       "version": 1,
       "name": "revenge_lust",
       "display_name": "復讐心",
@@ -127,9 +127,8 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-09-10T21:06:22.764Z",
+    "last_used": "2025-09-11T00:04:44.999Z",
     "favorite_count": 0,
     "average_session_length": 0
-  },
-  "avatar_url": "/uploads/images/1757540454852-438fca0820644c4b466353d636c63454_high.webp"
+  }
 }

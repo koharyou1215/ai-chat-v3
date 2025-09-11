@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
+import { debugLog } from '@/utils/debug-logger'; // debugLogをインポート
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
+  debugLog("#### API Route: /api/chat/generate called (to file) ####"); // ファイルにログ出力
+  console.log("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
   try {
     const body = await request.json();
     const {
@@ -166,12 +169,21 @@ export async function POST(request: Request) {
         `\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`
       );
       if (conversationHistory && conversationHistory.length > 0) {
-        conversationHistory.slice(-3).forEach((msg: { role: 'user' | 'assistant'; content: string }, idx: number) => {
-          const preview = msg.content.substring(0, 200);
-          console.log(
-            `${msg.role}: ${preview}${msg.content.length > 200 ? "..." : ""}`
+        conversationHistory
+          .slice(-3)
+          .forEach(
+            (
+              msg: { role: "user" | "assistant"; content: string },
+              idx: number
+            ) => {
+              const preview = msg.content.substring(0, 200);
+              console.log(
+                `${msg.role}: ${preview}${
+                  msg.content.length > 200 ? "..." : ""
+                }`
+              );
+            }
           );
-        });
         if (conversationHistory.length > 3) {
           console.log(`[... ${conversationHistory.length - 3} older messages]`);
         }
@@ -190,50 +202,108 @@ export async function POST(request: Request) {
       // プロンプト全体をログ出力
       console.log("\n==== APIリクエスト ====");
       console.log("🚀 モデル:", effectiveApiConfig.model);
-      
+
       console.log("\n📝 ユーザーメッセージ:");
       console.log(userMessage);
-      
+
       // 会話履歴を表示
       console.log("\n📚 会話履歴 (" + conversationHistory.length + "件):");
-      conversationHistory.slice(-10).forEach((msg: { role: 'user' | 'assistant'; content: string }, index: number) => {
-        console.log(`  ${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? "..." : ""}`);
-      });
-      
+      conversationHistory
+        .slice(-10)
+        .forEach(
+          (
+            msg: { role: "user" | "assistant"; content: string },
+            index: number
+          ) => {
+            console.log(
+              `  ${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${
+                msg.content.length > 100 ? "..." : ""
+              }`
+            );
+          }
+        );
+
       // システムプロンプトから情報を抽出して表示
       console.log("\n📦 システムプロンプト構成:");
       
+      // ペルソナ情報の抽出（persona_informationタグを探す）
+      const personaMatch = systemPrompt.match(
+        /<persona_information>([\s\S]*?)<\/persona_information>/
+      );
+      if (personaMatch) {
+        console.log("  👥 ペルソナ情報: あり");
+        const personaInfo = personaMatch[1].substring(0, 100);
+        console.log("    " + personaInfo + "...");
+      } else {
+        console.log("  👥 ペルソナ情報: なし");
+      }
+
       // キャラクター情報の抽出
-      const charMatch = systemPrompt.match(/<character_information>([\s\S]*?)<\/character_information>/);
+      const charMatch = systemPrompt.match(
+        /<character_information>([\s\S]*?)<\/character_information>/
+      );
       if (charMatch) {
         const charInfo = charMatch[1];
         const nameMatch = charInfo.match(/Name: (.+)/);
-        console.log("  👤 キャラクター: " + (nameMatch ? nameMatch[1] : "不明"));
+        console.log(
+          "  👤 キャラクター: " + (nameMatch ? nameMatch[1] : "不明")
+        );
       }
-      
-      // トラッカー情報の抽出
-      const trackerMatch = systemPrompt.match(/<character_trackers>([\s\S]*?)<\/character_trackers>/);
+
+      // トラッカー情報の抽出（relationship_stateタグを探す）
+      const trackerMatch = systemPrompt.match(
+        /<relationship_state>([\s\S]*?)<\/relationship_state>/
+      );
       if (trackerMatch) {
         const trackerInfo = trackerMatch[1];
-        // トラッカー名を正確に抽出
-        const trackerNames = trackerInfo.match(/Tracker Name: [^\n]+/g) || [];
+        // トラッカー名を抽出（## で始まる行を探す）
+        const trackerNames = trackerInfo.match(/## [^\n]+/g) || [];
         console.log("  📊 トラッカー: " + trackerNames.length + "個");
-        trackerNames.slice(0, 5).forEach(tracker => {
-          console.log("    - " + tracker.replace('Tracker Name: ', ''));
+        trackerNames.slice(0, 5).forEach((tracker: string) => {
+          console.log("    - " + tracker.replace("## ", ""));
         });
         if (trackerNames.length > 5) {
           console.log("    ... 他" + (trackerNames.length - 5) + "個");
         }
+      } else {
+        console.log("  📊 トラッカー: 0個");
+      }
+
+      // メモリーカード情報（複数のタグを探す）
+      const pinnedMemoryMatch = systemPrompt.match(
+        /<pinned_memory_cards>([\s\S]*?)<\/pinned_memory_cards>/
+      );
+      const relevantMemoryMatch = systemPrompt.match(
+        /<relevant_memory_cards>([\s\S]*?)<\/relevant_memory_cards>/
+      );
+      const memoryContextMatch = systemPrompt.match(
+        /<memory_context>([\s\S]*?)<\/memory_context>/
+      );
+
+      let totalMemoryCards = 0;
+      
+      if (pinnedMemoryMatch) {
+        const pinnedLines = pinnedMemoryMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
+        totalMemoryCards += pinnedLines.length;
+        console.log("    📌 ピン留め: " + pinnedLines.length + "件");
       }
       
-      // メモリーカード情報
-      const memoryMatch = systemPrompt.match(/<memory_cards>([\s\S]*?)<\/memory_cards>/);
-      if (memoryMatch) {
-        const memoryInfo = memoryMatch[1];
-        const memoryCount = (memoryInfo.match(/\[Memory \d+\]/g) || []).length;
-        console.log("  🧠 メモリーカード: " + memoryCount + "件");
+      if (relevantMemoryMatch) {
+        const relevantLines = relevantMemoryMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
+        totalMemoryCards += relevantLines.length;
+        console.log("    🔍 関連: " + relevantLines.length + "件");
       }
       
+      if (memoryContextMatch) {
+        const memoryLines = memoryContextMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
+        console.log("    🧠 メモリーコンテキスト: " + memoryLines.length + "件");
+        if (totalMemoryCards === 0) {
+          totalMemoryCards = memoryLines.length;
+        }
+      }
+
+      console.log("  🧠 メモリーカード合計: " + totalMemoryCards + "件");
+
       // システムプロンプトの実際の内容を表示
       console.log("\n📦 システムプロンプト (先頭1000文字):");
       console.log(systemPrompt.substring(0, 1000));
@@ -241,7 +311,7 @@ export async function POST(request: Request) {
 
       // APIリクエスト送信
       console.log("\n🚀 APIリクエスト送信中...");
-      
+
       aiResponseContent = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
@@ -257,7 +327,10 @@ export async function POST(request: Request) {
 
     // レスポンスログ
     console.log("\n🤖 AI応答 (先頭200文字):");
-    console.log(aiResponseContent.substring(0, 200) + (aiResponseContent.length > 200 ? "..." : ""));
+    console.log(
+      aiResponseContent.substring(0, 200) +
+        (aiResponseContent.length > 200 ? "..." : "")
+    );
     console.log("==== リクエスト完了 ====\n");
 
     return NextResponse.json({ response: aiResponseContent });

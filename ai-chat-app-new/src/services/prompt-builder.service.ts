@@ -208,6 +208,14 @@ export class PromptBuilderService {
   ): Promise<{ basePrompt: string; enhancePrompt: () => Promise<string> }> {
     const startTime = performance.now();
 
+    // 強制的にログを出力（ターミナルで確認可能）
+    console.log("🚀🚀🚀 [PromptBuilder] buildPromptProgressive called 🚀🚀🚀");
+    console.log("Session ID:", session.id);
+    console.log("User Input:", userInput.substring(0, 50) + "...");
+    console.log("Character:", session.participants.characters[0]?.name);
+    console.log("User:", session.participants.user?.name);
+    console.log("Has Tracker Manager:", !!trackerManager);
+
     // セッションデータの厳密な型チェック
     this.validateSessionData(session);
 
@@ -218,7 +226,12 @@ export class PromptBuilderService {
     // バリデーション済みなので、安全にアクセス可能
 
     // 軽量版: 基本情報のみ（重複しない内容）
-    const basePrompt = this.buildBasicInfo(character, user, userInput);
+    console.log("🔧 [PromptBuilder] Calling buildBasicInfo...");
+    const basePrompt = this.buildBasicInfo(character, user, userInput, trackerManager);
+    console.log(
+      "✅ [PromptBuilder] buildBasicInfo completed, prompt length:",
+      basePrompt.length
+    );
 
     // 2. 拡張プロンプト関数（バックグラウンド実行用）
     const enhancePrompt = async (): Promise<string> => {
@@ -257,8 +270,15 @@ export class PromptBuilderService {
   private buildBasicInfo(
     character: Character,
     user: Persona,
-    userInput: string
+    userInput: string,
+    trackerManager?: TrackerManager
   ): string {
+    // 強制的にログを出力（ターミナルで確認可能）
+    console.log("💎💎💎 [PromptBuilder] buildBasicInfo called 💎💎💎");
+    console.log("Character:", character?.name);
+    console.log("User:", user?.name);
+    console.log("User Input:", userInput.substring(0, 50) + "...");
+
     // 🎯 システム設定を取得（永続化された設定を反映）
     const systemSettings = this.getSystemSettings();
 
@@ -323,8 +343,7 @@ export class PromptBuilderService {
     }
 
     // キャラクター情報セクションを構築
-    sections.character = `
-## Basic Information
+    sections.character = `## Basic Information
 Name: ${processedCharacter.name}
 ${processedCharacter.age ? `Age: ${processedCharacter.age}` : ""}
 ${
@@ -457,8 +476,7 @@ ${
   processedCharacter.scenario
     ? `Current Scenario: ${processedCharacter.scenario}`
     : ""
-}
-</character_information>`;
+}`;
 
     // 🚨 ペルソナ情報セクション - 簡略化厳禁、全フィールド必須
     // PROMPT_VERIFICATION_GUIDE.md 223-234行目準拠
@@ -469,41 +487,51 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     }
 
     // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
+    // 引数として渡されたtrackerManagerを優先的に使用
+    const effectiveTrackerManager = trackerManager || 
+      (character?.id && systemSettings.trackerManagers?.get(character.id));
+    
     console.log("🔍 [PromptBuilder] Checking tracker managers:", {
       characterId: character?.id,
-      trackerManagers: systemSettings.trackerManagers,
-      trackerManagersSize: systemSettings.trackerManagers?.size || 0,
-      hasTrackerManager:
-        character?.id && systemSettings.trackerManagers?.has(character.id),
+      hasPassedTrackerManager: !!trackerManager,
+      hasStoreTrackerManager: character?.id && systemSettings.trackerManagers?.has(character.id),
+      usingTrackerManager: !!effectiveTrackerManager,
     });
 
-    const trackerManager =
-      character?.id && systemSettings.trackerManagers?.get(character.id);
-    if (trackerManager) {
+    if (effectiveTrackerManager) {
       console.log(
         "✅ [PromptBuilder] Found tracker manager for character:",
-        character.id
+        character.id,
+        "Manager type:",
+        effectiveTrackerManager.constructor.name
       );
       try {
         // まず詳細版を試行、失敗したら軽量版にフォールバック
         let trackerInfo = character?.id
-          ? trackerManager.getDetailedTrackersForPrompt?.(character.id)
+          ? effectiveTrackerManager.getDetailedTrackersForPrompt?.(character.id)
           : null;
+        
+        console.log("🔍 [PromptBuilder] getDetailedTrackersForPrompt result:", {
+          hasMethod: !!effectiveTrackerManager.getDetailedTrackersForPrompt,
+          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+        });
+        
         if (!trackerInfo) {
           trackerInfo = character?.id
-            ? this.getEssentialTrackerInfo(trackerManager, character.id)
+            ? this.getEssentialTrackerInfo(effectiveTrackerManager, character.id)
             : null;
+          console.log("🔍 [PromptBuilder] getEssentialTrackerInfo result:", {
+            result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+          });
         }
 
-        console.log("📊 [PromptBuilder] Tracker info:", {
+        console.log("📊 [PromptBuilder] Final tracker info:", {
           hasTrackerInfo: !!trackerInfo,
           trackerInfoLength: trackerInfo?.length || 0,
         });
 
         if (trackerInfo) {
-          sections.relationship = `<relationship_state>
-${trackerInfo}
-</relationship_state>`;
+          sections.relationship = trackerInfo;
         }
       } catch (error) {
         console.warn("Failed to get tracker info:", error);
@@ -560,9 +588,7 @@ ${trackerInfo}
             memoryContent += `Keywords: ${card.keywords.join(", ")}\n`;
           }
         });
-        sections.memory = memoryContent.trim()
-          ? `<memory_context>\n${memoryContent}</memory_context>`
-          : "";
+        sections.memory = memoryContent.trim() || "";
       } else {
         sections.memory = "";
       }
@@ -583,17 +609,27 @@ ${trackerInfo}
 
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
+    
+    // 🔍 デバッグ: 各セクションの内容を確認
+    console.log("📝 [buildBasicInfo] Section contents:", {
+      systemLength: sections.system?.length || 0,
+      jailbreakLength: sections.jailbreak?.length || 0,
+      characterLength: sections.character?.length || 0,
+      personaLength: sections.persona?.length || 0,
+      relationshipLength: sections.relationship?.length || 0,
+      memoryLength: sections.memory?.length || 0,
+      inputLength: sections.input?.length || 0,
+    });
 
     // プロンプト構築結果の詳細ログ
     console.log("📝 [PromptBuilder] Final prompt sections:", {
-      hasSystemInstructions: !!sections.system_instructions,
-      hasCharacterInfo: !!sections.character_info,
-      hasPersonaInfo: !!sections.persona_info,
-      hasMemorySystem: !!sections.memory_system,
+      hasSystemInstructions: !!sections.system,
+      hasJailbreak: !!sections.jailbreak,
+      hasCharacterInfo: !!sections.character,
+      hasPersonaInfo: !!sections.persona,
       hasRelationship: !!sections.relationship,
-      hasMemoryCards: !!sections.memory_cards,
-      hasContext: !!sections.context,
-      hasCurrentInteraction: !!sections.current_interaction,
+      hasMemory: !!sections.memory,
+      hasInput: !!sections.input,
       totalSections: Object.keys(sections).length,
       promptLength: prompt.length,
     });
@@ -638,7 +674,7 @@ ${trackerInfo}
       // 会話履歴 - 設定値を使用
       const store = useAppStore.getState();
       const maxContextMessages =
-        store.chat?.memory_limits?.max_context_messages || 20;
+        store.chat?.memory_limits?.max_context_messages || 40;
       const recentMessages = session.messages.slice(-maxContextMessages);
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
@@ -709,6 +745,14 @@ ${trackerInfo}
     trackerManager?: TrackerManager
   ): Promise<string> {
     const startTime = performance.now();
+
+    // 強制的にログを出力（ターミナルで確認可能）
+    console.log("🔥🔥🔥 [PromptBuilder] buildPrompt called 🔥🔥🔥");
+    console.log("Session ID:", session.id);
+    console.log("User Input:", userInput.substring(0, 50) + "...");
+    console.log("Character:", session.participants.characters[0]?.name);
+    console.log("User:", session.participants.user?.name);
+    console.log("Has Tracker Manager:", !!trackerManager);
 
     try {
       // セッションデータの厳密な型チェック
