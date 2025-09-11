@@ -1,9 +1,18 @@
-'use client';
+"use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useRef, useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Video, ZoomIn, ZoomOut, RotateCw, Move } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useRef, useState, useEffect } from "react";
+import {
+  Upload,
+  X,
+  Image as ImageIcon,
+  Video,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Move,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ImageUploaderProps {
   url?: string;
@@ -15,7 +24,7 @@ interface ImageUploaderProps {
   placeholder?: string;
   supportVideo?: boolean;
   showPreviewControls?: boolean;
-  aspectRatio?: 'square' | '16:9' | '4:3' | 'auto';
+  aspectRatio?: "square" | "16:9" | "4:3" | "auto";
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
@@ -28,7 +37,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   placeholder = "画像・動画をドラッグ&ドロップまたはクリックして選択",
   supportVideo = true,
   showPreviewControls = true,
-  aspectRatio = 'auto'
+  aspectRatio = "auto",
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<HTMLImageElement | HTMLVideoElement>(null);
@@ -38,40 +47,58 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     scale: 1,
     rotation: 0,
     x: 0,
-    y: 0
+    y: 0,
   });
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (url) {
-      const isVideoFile = url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('video');
+      const isVideoFile =
+        url.includes(".mp4") ||
+        url.includes(".webm") ||
+        url.includes(".mov") ||
+        url.includes("video");
       setIsVideo(isVideoFile);
     }
   }, [url]);
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    // モバイル環境でのタッチ操作を最適化
+    if (fileInputRef.current) {
+      // モバイル環境では少し遅延を入れてタッチ操作を確実にする
+      if ("ontouchstart" in window) {
+        setTimeout(() => {
+          fileInputRef.current?.click();
+        }, 100);
+      } else {
+        fileInputRef.current.click();
+      }
+    }
   };
 
   const handleFileSelect = (file: File) => {
-    if (file && (file.type.startsWith('image/') || (supportVideo && file.type.startsWith('video/')))) {
+    if (
+      file &&
+      (file.type.startsWith("image/") ||
+        (supportVideo && file.type.startsWith("video/")))
+    ) {
       onFileUpload?.(file);
     }
   };
 
   // メディア変形コントロール
   const handleZoom = (delta: number) => {
-    setMediaTransform(prev => ({
+    setMediaTransform((prev) => ({
       ...prev,
-      scale: Math.max(0.1, Math.min(3, prev.scale + delta))
+      scale: Math.max(0.1, Math.min(3, prev.scale + delta)),
     }));
   };
 
   const handleRotate = () => {
-    setMediaTransform(prev => ({
+    setMediaTransform((prev) => ({
       ...prev,
-      rotation: prev.rotation + 90
+      rotation: prev.rotation + 90,
     }));
   };
 
@@ -84,15 +111,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (!showPreviewControls) return;
     e.preventDefault();
     setIsDraggingMedia(true);
-    setDragStart({ x: e.clientX - mediaTransform.x, y: e.clientY - mediaTransform.y });
+    setDragStart({
+      x: e.clientX - mediaTransform.x,
+      y: e.clientY - mediaTransform.y,
+    });
   };
 
   const handleMediaMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingMedia || !showPreviewControls) return;
-    setMediaTransform(prev => ({
+    setMediaTransform((prev) => ({
       ...prev,
       x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
+      y: e.clientY - dragStart.y,
     }));
   };
 
@@ -106,17 +136,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     e.preventDefault();
     const touch = e.touches[0];
     setIsDraggingMedia(true);
-    setDragStart({ x: touch.clientX - mediaTransform.x, y: touch.clientY - mediaTransform.y });
+    setDragStart({
+      x: touch.clientX - mediaTransform.x,
+      y: touch.clientY - mediaTransform.y,
+    });
   };
 
   const handleMediaTouchMove = (e: React.TouchEvent) => {
     if (!isDraggingMedia || !showPreviewControls) return;
     e.preventDefault();
     const touch = e.touches[0];
-    setMediaTransform(prev => ({
+    setMediaTransform((prev) => ({
       ...prev,
       x: touch.clientX - dragStart.x,
-      y: touch.clientY - dragStart.y
+      y: touch.clientY - dragStart.y,
     }));
   };
 
@@ -144,7 +177,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file) {
       handleFileSelect(file);
@@ -160,20 +193,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         onChange={handleFileInputChange}
         className="hidden"
       />
-      
+
       {url ? (
-        <div className={cn(
-          "relative group overflow-hidden rounded-lg border border-slate-600",
-          aspectRatio === 'square' && "aspect-square",
-          aspectRatio === '16:9' && "aspect-video",
-          aspectRatio === '4:3' && "aspect-[4/3]"
-        )}>
-          <div 
+        <div
+          className={cn(
+            "relative group overflow-hidden rounded-lg border border-slate-600",
+            aspectRatio === "square" && "aspect-square",
+            aspectRatio === "16:9" && "aspect-video",
+            aspectRatio === "4:3" && "aspect-[4/3]"
+          )}>
+          <div
             className="relative w-full h-full cursor-move overflow-hidden"
             onMouseMove={handleMediaMouseMove}
             onMouseUp={handleMediaMouseUp}
-            onMouseLeave={handleMediaMouseUp}
-          >
+            onMouseLeave={handleMediaMouseUp}>
             {isVideo ? (
               <video
                 ref={mediaRef as React.RefObject<HTMLVideoElement>}
@@ -185,8 +218,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 className="w-full h-full object-contain"
                 style={{
                   transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)`,
-                  transformOrigin: 'center',
-                  transition: isDraggingMedia ? 'none' : 'transform 0.1s ease-out'
+                  transformOrigin: "center",
+                  transition: isDraggingMedia
+                    ? "none"
+                    : "transform 0.1s ease-out",
                 }}
                 onMouseDown={handleMediaMouseDown}
                 onTouchStart={handleMediaTouchStart}
@@ -201,8 +236,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 className="w-full h-full object-contain"
                 style={{
                   transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)`,
-                  transformOrigin: 'center',
-                  transition: isDraggingMedia ? 'none' : 'transform 0.1s ease-out'
+                  transformOrigin: "center",
+                  transition: isDraggingMedia
+                    ? "none"
+                    : "transform 0.1s ease-out",
                 }}
                 onMouseDown={handleMediaMouseDown}
                 onTouchStart={handleMediaTouchStart}
@@ -211,48 +248,43 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               />
             )}
           </div>
-          
+
           {/* 操作コントロール */}
           {showPreviewControls && (
             <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-lg p-1">
               <button
                 onClick={() => handleZoom(0.1)}
                 className="p-1 text-white hover:text-blue-400 transition-colors"
-                title="拡大"
-              >
+                title="拡大">
                 <ZoomIn size={16} />
               </button>
               <button
                 onClick={() => handleZoom(-0.1)}
                 className="p-1 text-white hover:text-blue-400 transition-colors"
-                title="縮小"
-              >
+                title="縮小">
                 <ZoomOut size={16} />
               </button>
               <button
                 onClick={handleRotate}
                 className="p-1 text-white hover:text-blue-400 transition-colors"
-                title="回転"
-              >
+                title="回転">
                 <RotateCw size={16} />
               </button>
               <button
                 onClick={handleReset}
                 className="p-1 text-white hover:text-green-400 transition-colors"
-                title="リセット"
-              >
+                title="リセット">
                 <Move size={16} />
               </button>
             </div>
           )}
-          
+
           {onClear && (
             <button
               onClick={onClear}
               className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
               disabled={isUploading}
-              title="削除"
-            >
+              title="削除">
               <X size={16} />
             </button>
           )}
@@ -263,15 +295,29 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onTouchStart={(e) => {
+            // モバイル環境でのタッチ開始時の視覚的フィードバック
+            if ("ontouchstart" in window) {
+              e.currentTarget.classList.add("bg-slate-700/50");
+            }
+          }}
+          onTouchEnd={(e) => {
+            // タッチ終了時の視覚的フィードバックをクリア
+            if ("ontouchstart" in window) {
+              e.currentTarget.classList.remove("bg-slate-700/50");
+            }
+          }}
           className={cn(
             "w-full h-full border-2 border-dashed border-slate-600 rounded-lg",
             "flex flex-col items-center justify-center cursor-pointer",
             "hover:border-indigo-400 hover:bg-slate-800/30 transition-all",
             "text-slate-400 hover:text-slate-300",
+            "active:bg-slate-700/50 active:border-indigo-400", // モバイル用のアクティブ状態
+            "touch-manipulation", // モバイルでのタッチ操作最適化
+            "min-h-[120px] sm:min-h-[160px]", // モバイルでの最小高さ確保
             isDragging && "border-indigo-400 bg-slate-800/50",
             isUploading && "opacity-50 cursor-not-allowed"
-          )}
-        >
+          )}>
           {isUploading ? (
             <>
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-400 border-t-transparent mb-2" />
@@ -290,10 +336,19 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               </div>
               <p className="text-sm text-center px-4">{placeholder}</p>
               <p className="text-xs text-slate-500 mt-1">
-                {supportVideo ? "PNG, JPG, GIF, MP4, WebM対応" : "PNG, JPG, GIF対応"}
+                {supportVideo
+                  ? "PNG, JPG, GIF, MP4, WebM対応"
+                  : "PNG, JPG, GIF対応"}
               </p>
               {showPreviewControls && (
-                <p className="text-xs text-slate-400 mt-1">ドラッグ・ズーム・回転可能</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  <span className="hidden sm:inline">
+                    ドラッグ・ズーム・回転可能
+                  </span>
+                  <span className="sm:hidden">
+                    タップで選択・ズーム・回転可能
+                  </span>
+                </p>
               )}
             </>
           )}

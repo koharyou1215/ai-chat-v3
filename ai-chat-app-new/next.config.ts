@@ -9,20 +9,20 @@ const nextConfig: NextConfig = {
   eslint: {
     // ignoreDuringBuilds: false, // デフォルト値なので削除
   },
-  
+
   // ビルド最適化設定 - ✅ 安定化により有効化 + Performance enhancements
   experimental: {
     optimizePackageImports: [
-      'lucide-react', 
-      'framer-motion',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-dropdown-menu',
-      '@radix-ui/react-tabs',
+      "lucide-react",
+      "framer-motion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-tabs",
     ],
     // Optimize CSS
     optimizeCss: true,
   },
-  
+
   webpack: (config, { isServer, dev, buildId }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -32,56 +32,56 @@ const nextConfig: NextConfig = {
         net: false,
         tls: false,
       };
-      
+
       // Enhanced code splitting and chunk optimization
       config.optimization.splitChunks = {
-        chunks: 'all',
+        chunks: "all",
         cacheGroups: {
           // Vendor chunk for stable dependencies
           vendor: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
+            name: "vendors",
+            chunks: "all",
             priority: 10,
             reuseExistingChunk: true,
           },
           // Framer Motion chunk (heavy animation library)
           framerMotion: {
             test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
-            name: 'framer-motion',
-            chunks: 'all',
+            name: "framer-motion",
+            chunks: "all",
             priority: 15,
             reuseExistingChunk: true,
           },
           // Lucide icons chunk
           icons: {
             test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
-            name: 'icons',
-            chunks: 'all',
+            name: "icons",
+            chunks: "all",
             priority: 12,
             reuseExistingChunk: true,
           },
           // Radix UI components
           radix: {
             test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
-            name: 'radix-ui',
-            chunks: 'all',
+            name: "radix-ui",
+            chunks: "all",
             priority: 11,
             reuseExistingChunk: true,
           },
           // UI components chunk
           ui: {
             test: /[\\/]src[\\/]components[\\/]ui[\\/]/,
-            name: 'ui-components',
-            chunks: 'all',
+            name: "ui-components",
+            chunks: "all",
             priority: 8,
             reuseExistingChunk: true,
           },
           // Effects and animations chunk
           effects: {
             test: /[\\/]src[\\/]components[\\/](chat[\\/](AdvancedEffects|MessageEffects)|emotion|lazy[\\/]LazyEffects)[\\/]/,
-            name: 'effects',
-            chunks: 'async',
+            name: "effects",
+            chunks: "async",
             priority: 6,
             minSize: 20000,
             reuseExistingChunk: true,
@@ -89,8 +89,8 @@ const nextConfig: NextConfig = {
           // Gallery components chunk
           galleries: {
             test: /[\\/]src[\\/]components[\\/](character[\\/].*Gallery|persona[\\/].*Gallery|memory[\\/].*Gallery)[\\/]/,
-            name: 'galleries',
-            chunks: 'async',
+            name: "galleries",
+            chunks: "async",
             priority: 5,
             minSize: 10000,
             reuseExistingChunk: true,
@@ -98,17 +98,17 @@ const nextConfig: NextConfig = {
           // Modal components chunk
           modals: {
             test: /[\\/]src[\\/]components[\\/](settings[\\/].*Modal|voice[\\/].*Modal|character[\\/].*Form|history[\\/].*Modal)[\\/]/,
-            name: 'modals',
-            chunks: 'async',
+            name: "modals",
+            chunks: "async",
             priority: 4,
             minSize: 15000,
             reuseExistingChunk: true,
           },
           // Common chunk for shared utilities
           common: {
-            name: 'common',
+            name: "common",
             minChunks: 2,
-            chunks: 'all',
+            chunks: "all",
             priority: 1,
             reuseExistingChunk: true,
           },
@@ -116,45 +116,48 @@ const nextConfig: NextConfig = {
       };
 
       // Bundle analyzer configuration for both dev and production
-      if (process.env.ANALYZE === 'true') {
+      if (process.env.ANALYZE === "true") {
         try {
-          const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+          const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
           config.plugins.push(
             new BundleAnalyzerPlugin({
-              analyzerMode: dev ? 'server' : 'static',
+              analyzerMode: dev ? "server" : "static",
               openAnalyzer: false, // Don't auto-open in browser
               analyzerPort: dev ? 8888 : undefined,
-              reportFilename: dev ? undefined : '../bundle-analysis/bundle-report.html',
+              reportFilename: dev
+                ? undefined
+                : "../bundle-analysis/bundle-report.html",
               generateStatsFile: !dev,
-              statsFilename: '../bundle-analysis/bundle-stats.json',
-              logLevel: 'info',
+              statsFilename: "../bundle-analysis/bundle-stats.json",
+              logLevel: "info",
             })
           );
         } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.warn('Bundle analyzer not available:', errorMessage);
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          console.warn("Bundle analyzer not available:", errorMessage);
         }
       }
 
       // Performance budgets enforcement
-      if (!dev && process.env.NODE_ENV === 'production') {
+      if (!dev && process.env.NODE_ENV === "production") {
         config.performance = {
-          hints: 'warning',
+          hints: "warning",
           maxAssetSize: 250000, // 250KB per asset
           maxEntrypointSize: 500000, // 500KB per entrypoint
-          assetFilter: function(assetFilename: string) {
+          assetFilter: function (assetFilename: string) {
             // Only monitor JS and CSS files
             return /\.(js|css)$/.test(assetFilename);
-          }
+          },
         };
       }
     }
     return config;
   },
-  
-  // 画像最適化 - Enhanced for performance
+
+  // 画像最適化 - Enhanced for performance with mobile support
   images: {
-    formats: ['image/webp', 'image/avif'],
+    formats: ["image/webp", "image/avif"],
     minimumCacheTTL: 31536000, // 1 year cache
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
@@ -162,72 +165,81 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'example.com',
+        protocol: "https",
+        hostname: "example.com",
       },
       // Add more remote patterns as needed
     ],
+    // モバイル対応の画像最適化
+    loader: "default",
+    unoptimized: false,
   },
 
   // ===== COMPRESSION AND CACHING =====
   compress: true,
   poweredByHeader: false,
-  
+
   // ===== PERFORMANCE HEADERS =====
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: "/:path*",
         headers: [
           {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY'
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
-          }
-        ]
+            key: "Referrer-Policy",
+            value: "origin-when-cross-origin",
+          },
+          // モバイル対応のヘッダー
+          {
+            key: "X-Viewport-Meta",
+            value:
+              "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
+          },
+        ],
       },
       {
         // Cache static assets aggressively
-        source: '/(_next/static|images|icons)/:path*',
+        source: "/(_next/static|images|icons)/:path*",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable'
-          }
-        ]
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
       },
       {
         // Don't cache API routes
-        source: '/api/:path*',
+        source: "/api/:path*",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate'
-          }
-        ]
-      }
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
     ];
   },
-  
+
   // Railway デプロイ用設定
   env: {
-    PORT: process.env.PORT || '3000',
+    PORT: process.env.PORT || "3000",
     ANALYZE: process.env.ANALYZE,
   },
-  
+
   // 出力設定
-  output: 'standalone',
+  output: "standalone",
 };
 
 export default nextConfig;

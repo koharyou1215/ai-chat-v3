@@ -1,15 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useCallback } from 'react';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Camera, Link, User, X, Check, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useRef, useCallback } from "react";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Upload,
+  Camera,
+  Link,
+  User,
+  X,
+  Check,
+  AlertCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AvatarUploadWidgetProps {
   currentAvatar?: string;
   onAvatarChange: (url: string) => void;
-  size?: 'small' | 'medium' | 'large';
+  size?: "small" | "medium" | "large";
   name?: string;
   showUrlInput?: boolean;
   className?: string;
@@ -25,118 +33,135 @@ interface UploadState {
 export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
   currentAvatar,
   onAvatarChange,
-  size = 'medium',
-  name = '',
+  size = "medium",
+  name = "",
   showUrlInput = true,
-  className
+  className,
 }) => {
   const [uploadState, setUploadState] = useState<UploadState>({
     isUploading: false,
     progress: 0,
     error: null,
-    success: false
+    success: false,
   });
   const [dragActive, setDragActive] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
-  const [urlInput, setUrlInput] = useState(currentAvatar || '');
+  const [urlInput, setUrlInput] = useState(currentAvatar || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const successTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   // Size configurations
   const sizeConfig = {
-    small: { 
-      container: 'w-16 h-16',
-      icon: 'w-4 h-4',
-      text: 'text-xs'
+    small: {
+      container: "w-16 h-16",
+      icon: "w-4 h-4",
+      text: "text-xs",
     },
-    medium: { 
-      container: 'w-24 h-24',
-      icon: 'w-5 h-5',
-      text: 'text-sm'
+    medium: {
+      container: "w-24 h-24",
+      icon: "w-5 h-5",
+      text: "text-sm",
     },
-    large: { 
-      container: 'w-32 h-32',
-      icon: 'w-6 h-6',
-      text: 'text-base'
-    }
+    large: {
+      container: "w-32 h-32",
+      icon: "w-6 h-6",
+      text: "text-base",
+    },
   };
 
   const config = sizeConfig[size];
 
-  const uploadFile = useCallback(async (file: File) => {
-    setUploadState({
-      isUploading: true,
-      progress: 0,
-      error: null,
-      success: false
-    });
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        body: formData,
+  const uploadFile = useCallback(
+    async (file: File) => {
+      setUploadState({
+        isUploading: true,
+        progress: 0,
+        error: null,
+        success: false,
       });
 
-      // Safe JSON parsing with comprehensive error handling
-      let result;
       try {
-        if (!response.ok) {
-          // Try to get error text even if not JSON
-          const errorText = await response.text();
-          throw new Error(`アップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/upload/image", {
+          method: "POST",
+          body: formData,
+        });
+
+        // Safe JSON parsing with comprehensive error handling
+        let result;
+        try {
+          if (!response.ok) {
+            // Try to get error text even if not JSON
+            const errorText = await response.text();
+            throw new Error(
+              `アップロードに失敗しました (${response.status}): ${
+                errorText || response.statusText
+              }`
+            );
+          }
+
+          // Check content type before parsing JSON
+          const contentType = response.headers.get("content-type");
+          if (!contentType?.includes("application/json")) {
+            const errorText = await response.text();
+            throw new Error(
+              `サーバーがJSON以外のレスポンスを返しました: ${errorText}`
+            );
+          }
+
+          result = await response.json();
+        } catch (parseError) {
+          console.error("Avatar upload JSON parse error:", parseError);
+          if (parseError instanceof SyntaxError) {
+            throw new Error(
+              "サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。"
+            );
+          }
+          throw parseError;
         }
 
-        // Check content type before parsing JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType?.includes('application/json')) {
-          const errorText = await response.text();
-          throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
-        }
+        if (result && result.success && result.url) {
+          setUploadState({
+            isUploading: false,
+            progress: 100,
+            error: null,
+            success: true,
+          });
+          onAvatarChange(result.url);
 
-        result = await response.json();
-      } catch (parseError) {
-        console.error('Avatar upload JSON parse error:', parseError);
-        if (parseError instanceof SyntaxError) {
-          throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+          // Success feedback
+          const timeoutId = setTimeout(() => {
+            setUploadState((prev) => ({ ...prev, success: false }));
+          }, 2000);
+          successTimeoutsRef.current.push(timeoutId);
+        } else {
+          const errorMessage =
+            result?.error || "アップロードに失敗しました（詳細不明）";
+          throw new Error(errorMessage);
         }
-        throw parseError;
-      }
-      
-      if (result && result.success && result.url) {
+      } catch (error) {
         setUploadState({
           isUploading: false,
-          progress: 100,
-          error: null,
-          success: true
+          progress: 0,
+          error:
+            error instanceof Error
+              ? error.message
+              : "アップロードエラーが発生しました",
+          success: false,
         });
-        onAvatarChange(result.url);
-        
-        // Success feedback
-        const timeoutId = setTimeout(() => {
-          setUploadState(prev => ({ ...prev, success: false }));
-        }, 2000);
-        successTimeoutsRef.current.push(timeoutId);
-      } else {
-        const errorMessage = result?.error || 'アップロードに失敗しました（詳細不明）';
-        throw new Error(errorMessage);
       }
-    } catch (error) {
-      setUploadState({
-        isUploading: false,
-        progress: 0,
-        error: error instanceof Error ? error.message : 'アップロードエラーが発生しました',
-        success: false
-      });
-    }
-  }, [onAvatarChange]);
-  
+    },
+    [onAvatarChange]
+  );
+
   // Cleanup timeouts on unmount
   React.useEffect(() => {
     return () => {
-      successTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      successTimeoutsRef.current.forEach((timeoutId) =>
+        clearTimeout(timeoutId)
+      );
       successTimeoutsRef.current = [];
     };
   }, []);
@@ -158,36 +183,44 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
     setDragActive(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        uploadFile(file);
-      } else {
-        setUploadState(prev => ({ ...prev, error: '画像ファイルのみサポートしています' }));
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith("image/")) {
+          uploadFile(file);
+        } else {
+          setUploadState((prev) => ({
+            ...prev,
+            error: "画像ファイルのみサポートしています",
+          }));
+        }
       }
-    }
-  }, [uploadFile]);
+    },
+    [uploadFile]
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) {
       uploadFile(files[0]);
     }
+    // ファイル選択後にinputをリセット（同じファイルを再度選択できるように）
+    e.target.value = "";
   };
 
   const handleUrlSubmit = () => {
     if (urlInput.trim()) {
       onAvatarChange(urlInput.trim());
       setShowUrlModal(false);
-      setUploadState(prev => ({ ...prev, success: true, error: null }));
+      setUploadState((prev) => ({ ...prev, success: true, error: null }));
       const timeoutId = setTimeout(() => {
-        setUploadState(prev => ({ ...prev, success: false }));
+        setUploadState((prev) => ({ ...prev, success: false }));
       }, 2000);
       successTimeoutsRef.current.push(timeoutId);
     }
@@ -198,7 +231,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
       isUploading: false,
       progress: 0,
       error: null,
-      success: false
+      success: false,
     });
   };
 
@@ -208,6 +241,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
       <div
         className={cn(
           "relative rounded-full overflow-hidden border-2 border-slate-600 bg-slate-800/50 transition-all duration-300",
+          "cursor-pointer touch-manipulation", // モバイル用のタッチ操作最適化
           config.container,
           dragActive && "border-cyan-400 bg-cyan-500/10",
           uploadState.isUploading && "border-blue-400",
@@ -218,7 +252,27 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
         onDragLeave={handleDragOut}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-      >
+        onTouchStart={(e) => {
+          // モバイル環境でのタッチ開始時の視覚的フィードバック
+          if ("ontouchstart" in window && !uploadState.isUploading) {
+            e.currentTarget.classList.add("bg-cyan-500/10", "border-cyan-400");
+          }
+        }}
+        onTouchEnd={(e) => {
+          // タッチ終了時の視覚的フィードバックをクリア
+          if ("ontouchstart" in window) {
+            e.currentTarget.classList.remove(
+              "bg-cyan-500/10",
+              "border-cyan-400"
+            );
+          }
+        }}
+        onClick={() => {
+          // モバイル環境でのクリック/タップ処理
+          if (!uploadState.isUploading) {
+            fileInputRef.current?.click();
+          }
+        }}>
         {currentAvatar ? (
           <Image
             src={currentAvatar}
@@ -228,7 +282,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             unoptimized
             onError={(e) => {
-              e.currentTarget.style.display = 'none';
+              e.currentTarget.style.display = "none";
             }}
           />
         ) : (
@@ -244,8 +298,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 flex items-center justify-center"
-            >
+              className="absolute inset-0 bg-black/60 flex items-center justify-center">
               {uploadState.isUploading ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
@@ -267,8 +320,7 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
-              className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center"
-            >
+              className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
               <Check className="w-3 h-3 text-white" />
             </motion.div>
           )}
@@ -281,19 +333,17 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs"
-        >
+          className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs">
           <Camera className="w-3 h-3" />
           ファイル
         </motion.button>
-        
+
         {showUrlInput && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowUrlModal(true)}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs"
-          >
+            className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs">
             <Link className="w-3 h-3" />
             URL
           </motion.button>
@@ -307,14 +357,12 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full mt-2 left-0 right-0 bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-xs text-red-300 flex items-center gap-2"
-          >
+            className="absolute top-full mt-2 left-0 right-0 bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-xs text-red-300 flex items-center gap-2">
             <AlertCircle className="w-3 h-3" />
             <span>{uploadState.error}</span>
             <button
               onClick={resetUploadState}
-              className="ml-auto text-red-300 hover:text-red-200"
-            >
+              className="ml-auto text-red-300 hover:text-red-200">
               <X className="w-3 h-3" />
             </button>
           </motion.div>
@@ -338,16 +386,16 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
-            onClick={() => setShowUrlModal(false)}
-          >
+            onClick={() => setShowUrlModal(false)}>
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-slate-800 border border-slate-600 rounded-lg p-6 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-white mb-4">画像URL設定</h3>
+              onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                画像URL設定
+              </h3>
               <div className="space-y-4">
                 <input
                   type="text"
@@ -359,14 +407,12 @@ export const AvatarUploadWidget: React.FC<AvatarUploadWidgetProps> = ({
                 <div className="flex gap-2">
                   <button
                     onClick={handleUrlSubmit}
-                    className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg transition-colors"
-                  >
+                    className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg transition-colors">
                     設定
                   </button>
                   <button
                     onClick={() => setShowUrlModal(false)}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors"
-                  >
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors">
                     キャンセル
                   </button>
                 </div>

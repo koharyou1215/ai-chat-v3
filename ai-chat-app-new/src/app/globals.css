@@ -369,6 +369,37 @@
     pointer-events: auto;
   }
   
+  /* モバイル対応のファイルアップロード最適化 */
+  .mobile-upload-optimized {
+    /* タッチ操作の最適化 */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* タップハイライトの無効化 */
+    -webkit-tap-highlight-color: transparent;
+    /* モバイルでの最小タップサイズ確保 */
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* モバイル環境でのファイル選択UI最適化 */
+  .mobile-file-input {
+    /* ファイル選択ボタンの見た目を改善 */
+    position: relative;
+    overflow: hidden;
+    /* タッチ操作の最適化 */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    /* モバイルでの視覚的フィードバック */
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .mobile-file-input:active {
+    transform: scale(0.98);
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  
   /* モバイルでのビューポートハイト調整 */
   @supports (height: 100dvh) {
     .h-dynamic-screen {

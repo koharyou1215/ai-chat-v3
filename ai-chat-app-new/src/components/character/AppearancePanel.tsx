@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
-import { Character } from '@/types/core/character.types';
-import { Persona } from '@/types/core/persona.types';
+import React, { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Character } from "@/types/core/character.types";
+import { Persona } from "@/types/core/persona.types";
 
 // 親コンポーネントから受け取るpropsの型を定義
 interface AppearancePanelProps {
@@ -11,21 +11,28 @@ interface AppearancePanelProps {
   setFormData: React.Dispatch<React.SetStateAction<Character | Persona | null>>;
 }
 
-export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setFormData }) => {
+export const AppearancePanel: React.FC<AppearancePanelProps> = ({
+  formData,
+  setFormData,
+}) => {
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileUpload = async (file: File, field: 'background_url') => {
+  const handleFileUpload = async (file: File, field: "background_url") => {
     setIsUploading(true);
-    console.log('Starting file upload:', { field, fileName: file.name, fileSize: file.size });
-    
+    console.log("Starting file upload:", {
+      field,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+
     try {
       const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
+      uploadFormData.append("file", file);
 
-      console.log('Sending request to /api/upload/image');
-      const response = await fetch('/api/upload/image', {
-          method: 'POST',
-          body: uploadFormData,
+      console.log("Sending request to /api/upload/image");
+      const response = await fetch("/api/upload/image", {
+        method: "POST",
+        body: uploadFormData,
       });
 
       // Safe JSON parsing with comprehensive error handling
@@ -34,42 +41,54 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setF
         if (!response.ok) {
           // Try to get error text even if not JSON
           const errorText = await response.text();
-          console.error('File upload failed:', { 
-              status: response.status, 
-              statusText: response.statusText,
-              errorBody: errorText
+          console.error("File upload failed:", {
+            status: response.status,
+            statusText: response.statusText,
+            errorBody: errorText,
           });
-          throw new Error(`ファイルアップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+          throw new Error(
+            `ファイルアップロードに失敗しました (${response.status}): ${
+              errorText || response.statusText
+            }`
+          );
         }
 
         // Check content type before parsing JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType?.includes('application/json')) {
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
           const errorText = await response.text();
-          console.error('Non-JSON response received:', errorText);
-          throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
+          console.error("Non-JSON response received:", errorText);
+          throw new Error(
+            `サーバーがJSON以外のレスポンスを返しました: ${errorText}`
+          );
         }
 
         result = await response.json();
       } catch (parseError) {
-        console.error('JSON parse error during file upload:', parseError);
+        console.error("JSON parse error during file upload:", parseError);
         if (parseError instanceof SyntaxError) {
-          throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+          throw new Error(
+            "サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。"
+          );
         }
         throw parseError;
       }
 
       if (!result || !result.url) {
-        console.error('Invalid response structure:', result);
-        throw new Error('アップロードは完了しましたが、ファイルURLの取得に失敗しました。');
+        console.error("Invalid response structure:", result);
+        throw new Error(
+          "アップロードは完了しましたが、ファイルURLの取得に失敗しました。"
+        );
       }
 
-      console.log('File upload successful, URL:', result.url);
-      setFormData(prev => prev ? {...(prev as Character), [field]: result.url} : prev);
+      console.log("File upload successful, URL:", result.url);
+      setFormData((prev) =>
+        prev ? { ...(prev as Character), [field]: result.url } : prev
+      );
     } catch (error) {
-        console.error('An error occurred during file upload:', error);
+      console.error("An error occurred during file upload:", error);
     } finally {
-        setIsUploading(false);
+      setIsUploading(false);
     }
   };
 
@@ -95,50 +114,77 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setF
                   className="w-full h-32 object-cover rounded-lg"
                 />
                 <button
-                  onClick={() => setFormData(prev => prev ? {...(prev as Character), background_url: undefined} : prev)}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg text-xs"
-                >
+                  onClick={() =>
+                    setFormData((prev) =>
+                      prev
+                        ? { ...(prev as Character), background_url: undefined }
+                        : prev
+                    )
+                  }
+                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg text-xs">
                   削除
                 </button>
               </div>
             ) : (
               <div
-                className="text-center py-8 cursor-pointer"
+                className="text-center py-8 cursor-pointer touch-manipulation min-h-[120px] sm:min-h-[160px]"
                 onDragOver={(e) => {
                   e.preventDefault();
-                  e.currentTarget.classList.add('bg-slate-700/50');
+                  e.currentTarget.classList.add("bg-slate-700/50");
                 }}
                 onDragLeave={(e) => {
                   e.preventDefault();
-                  e.currentTarget.classList.remove('bg-slate-700/50');
+                  e.currentTarget.classList.remove("bg-slate-700/50");
                 }}
                 onDrop={async (e) => {
                   e.preventDefault();
-                  e.currentTarget.classList.remove('bg-slate-700/50');
+                  e.currentTarget.classList.remove("bg-slate-700/50");
                   const files = Array.from(e.dataTransfer.files);
-                  if (files[0] && files[0].type.startsWith('image/')) {
-                    await handleFileUpload(files[0], 'background_url');
+                  if (files[0] && files[0].type.startsWith("image/")) {
+                    await handleFileUpload(files[0], "background_url");
+                  }
+                }}
+                onTouchStart={(e) => {
+                  // モバイル環境でのタッチ開始時の視覚的フィードバック
+                  if ("ontouchstart" in window) {
+                    e.currentTarget.classList.add("bg-slate-700/50");
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  // タッチ終了時の視覚的フィードバックをクリア
+                  if ("ontouchstart" in window) {
+                    e.currentTarget.classList.remove("bg-slate-700/50");
                   }
                 }}
                 onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*';
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
                   input.onchange = async (e) => {
                     const file = (e.target as HTMLInputElement).files?.[0];
                     if (file) {
-                      await handleFileUpload(file, 'background_url');
+                      await handleFileUpload(file, "background_url");
                     }
                   };
-                  input.click();
-                }}
-              >
+                  // モバイル環境でのタッチ操作を最適化
+                  if ("ontouchstart" in window) {
+                    setTimeout(() => {
+                      input.click();
+                    }, 100);
+                  } else {
+                    input.click();
+                  }
+                }}>
                 <div className="text-slate-400 mb-2">
                   {isUploading ? (
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto"></div>
                   ) : (
                     <>
-                      <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <svg
+                        className="mx-auto h-12 w-12"
+                        stroke="currentColor"
+                        fill="none"
+                        viewBox="0 0 48 48">
                         <path
                           d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
                           strokeWidth={2}
@@ -146,7 +192,14 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setF
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <p className="text-sm">クリックまたはドラッグ＆ドロップで画像をアップロード</p>
+                      <p className="text-sm">
+                        <span className="hidden sm:inline">
+                          クリックまたはドラッグ＆ドロップで画像をアップロード
+                        </span>
+                        <span className="sm:hidden">
+                          タップで画像をアップロード
+                        </span>
+                      </p>
                     </>
                   )}
                 </div>
@@ -157,14 +210,20 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ formData, setF
 
         {/* 外見の詳細 */}
         <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">外見の詳細</label>
-            <Textarea 
-                placeholder="身長、髪型、服装、特徴的な外見など詳しく記述してください..." 
-                value={formData?.appearance || ''} 
-                onChange={e => setFormData(prev => prev ? {...prev, appearance: e.target.value} : prev)}
-                rows={6}
-                className="bg-slate-800/50 border-slate-600 focus:border-indigo-400 resize-none"
-            />
+          <label className="text-sm font-medium text-slate-300">
+            外見の詳細
+          </label>
+          <Textarea
+            placeholder="身長、髪型、服装、特徴的な外見など詳しく記述してください..."
+            value={formData?.appearance || ""}
+            onChange={(e) =>
+              setFormData((prev) =>
+                prev ? { ...prev, appearance: e.target.value } : prev
+              )
+            }
+            rows={6}
+            className="bg-slate-800/50 border-slate-600 focus:border-indigo-400 resize-none"
+          />
         </div>
       </div>
     </div>

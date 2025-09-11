@@ -1,14 +1,20 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import NextImage from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Send, 
-  Mic, 
-  Sparkles, 
-  Lightbulb, 
-  Plus, 
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import NextImage from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Send,
+  Mic,
+  Sparkles,
+  Lightbulb,
+  Plus,
   User,
   Settings,
   Bot as _Bot,
@@ -20,11 +26,11 @@ import {
   X,
   Cpu,
   Phone,
-  Users
-} from 'lucide-react';
-import { useAppStore } from '@/store';
-import { cn } from '@/lib/utils';
-import { shallow } from 'zustand/shallow';
+  Users,
+} from "lucide-react";
+import { useAppStore } from "@/store";
+import { cn } from "@/lib/utils";
+import { shallow } from "zustand/shallow";
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
 export const MessageInput: React.FC = React.memo(() => {
@@ -34,7 +40,7 @@ export const MessageInput: React.FC = React.memo(() => {
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Fixed Zustand selectors to prevent infinite loops
   const {
     is_generating,
@@ -61,80 +67,106 @@ export const MessageInput: React.FC = React.memo(() => {
     enhanceTextForModal,
     getActiveSession,
     toggleGroupMemberModal,
-    chat
+    chat,
   } = useAppStore();
-  
+
   const hasMessage = currentInputText.trim().length > 0;
   const hasContent = hasMessage || selectedImage;
 
   const handleSuggestClick = async () => {
     console.log("💡 Suggest button clicked!");
-    
+
     setShowSuggestionModal(true);
-    
-    const customPrompt = systemPrompts.replySuggestion && systemPrompts.replySuggestion.trim() !== '' 
-      ? systemPrompts.replySuggestion 
-      : undefined;
-    
+
+    const customPrompt =
+      systemPrompts.replySuggestion &&
+      systemPrompts.replySuggestion.trim() !== ""
+        ? systemPrompts.replySuggestion
+        : undefined;
+
     // グループチャットモードの場合
     if (is_group_mode && active_group_session_id) {
       const groupSession = groupSessions.get(active_group_session_id);
       if (!groupSession) return;
-      
+
       const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
-      
+
       // グループチャット用: 最初のアクティブキャラを使用
       const activeChars = Array.from(groupSession.active_character_ids)
-        .map(id => groupSession.characters.find(c => c.id === id))
-        .filter(c => c !== undefined);
+        .map((id) => groupSession.characters.find((c) => c.id === id))
+        .filter((c) => c !== undefined);
       const character = activeChars[0] || groupSession.characters[0];
       const user = groupSession.persona;
-      
-      await generateSuggestions(recentMessages, character, user, customPrompt, true); // グループモード
+
+      await generateSuggestions(
+        recentMessages,
+        character,
+        user,
+        customPrompt,
+        true
+      ); // グループモード
     } else {
       // ソロモード
       const session = getActiveSession();
       if (!session) return;
-      
+
       const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
       const character = session.participants.characters[0];
       const user = session.participants.user;
-      
-      await generateSuggestions(recentMessages, character, user, customPrompt, false); // ソロモード
+
+      await generateSuggestions(
+        recentMessages,
+        character,
+        user,
+        customPrompt,
+        false
+      ); // ソロモード
     }
   };
 
   const handleEnhanceClick = async () => {
     console.log("✨ Enhance button clicked!");
     if (!hasMessage) return;
-    
+
     setShowEnhancementModal(true);
-    
-    const customPrompt = systemPrompts.textEnhancement && systemPrompts.textEnhancement.trim() !== '' 
-      ? systemPrompts.textEnhancement 
-      : undefined;
-    
+
+    const customPrompt =
+      systemPrompts.textEnhancement &&
+      systemPrompts.textEnhancement.trim() !== ""
+        ? systemPrompts.textEnhancement
+        : undefined;
+
     // グループチャットモードの場合
     if (is_group_mode && active_group_session_id) {
       const groupSession = groupSessions.get(active_group_session_id);
       if (!groupSession) return;
-      
+
       const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
       const user = groupSession.persona;
-      
-      await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+
+      await enhanceTextForModal(
+        currentInputText,
+        recentMessages,
+        user,
+        customPrompt
+      );
     } else {
       // ソロモード
       const session = getActiveSession();
       if (!session) {
-        alert('セッションが見つかりません。ページをリロードしてみてください。');
+        alert("セッションが見つかりません。ページをリロードしてみてください。");
         return;
       }
-      
+
       const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
       const user = session.participants.user;
-      
-      await enhanceTextForModal(currentInputText, recentMessages, user, customPrompt);
+
+      await enhanceTextForModal(
+        currentInputText,
+        recentMessages,
+        user,
+        customPrompt
+      );
     }
   };
 
@@ -142,63 +174,78 @@ export const MessageInput: React.FC = React.memo(() => {
 
   const handleSend = async () => {
     if ((!hasMessage && !selectedImage) || is_generating || isSending) return;
-    
+
     setIsSending(true);
     try {
       // プログレッシブモードが有効な場合は sendProgressiveMessage を使用
-      console.log('🔍 Progressive Mode Check:', {
+      console.log("🔍 Progressive Mode Check:", {
         enabled: chat?.progressiveMode?.enabled,
         is_group_mode,
-        should_use_progressive: chat?.progressiveMode?.enabled && !is_group_mode
+        should_use_progressive:
+          chat?.progressiveMode?.enabled && !is_group_mode,
       });
-      
+
       if (chat?.progressiveMode?.enabled && !is_group_mode) {
-        console.log('🚀 Using Progressive Message Generation');
-        await sendProgressiveMessage(currentInputText, selectedImage || undefined);
+        console.log("🚀 Using Progressive Message Generation");
+        await sendProgressiveMessage(
+          currentInputText,
+          selectedImage || undefined
+        );
       } else {
-        console.log('📝 Using Normal Message Generation');
+        console.log("📝 Using Normal Message Generation");
         await sendMessage(currentInputText, selectedImage || undefined);
       }
-      setCurrentInputText('');
+      setCurrentInputText("");
       setSelectedImage(null);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
     } finally {
       setIsSending(false);
     }
   };
 
   const handleImageUpload = () => {
-    fileInputRef.current?.click();
+    // モバイル環境でのタッチ操作を最適化
+    if (fileInputRef.current) {
+      if ("ontouchstart" in window) {
+        setTimeout(() => {
+          fileInputRef.current?.click();
+        }, 100);
+      } else {
+        fileInputRef.current.click();
+      }
+    }
   };
 
   const handleFileSelect = async (file: File) => {
     if (!file) return;
 
-    console.log('🔄 File upload started:', {
+    console.log("🔄 File upload started:", {
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
     });
 
     setIsUploading(true);
     try {
       let processedFile = file;
       // 画像ファイルサイズ制限チェック（圧縮なしで安全な実装）
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith("image/")) {
         const maxSize = 5 * 1024 * 1024; // 5MB制限
         if (file.size > maxSize) {
-          console.warn('⚠️ Image too large, uploading without compression');
-          alert('画像サイズが大きいため、アップロードに時間がかかる場合があります。');
+          console.warn("⚠️ Image too large, uploading without compression");
+          alert(
+            "画像サイズが大きいため、アップロードに時間がかかる場合があります。"
+          );
         }
         processedFile = file;
       }
 
       const formData = new FormData();
-      formData.append('file', processedFile);
+      formData.append("file", processedFile);
 
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
+      const response = await fetch("/api/upload/image", {
+        method: "POST",
         body: formData,
       });
 
@@ -206,53 +253,64 @@ export const MessageInput: React.FC = React.memo(() => {
       let result;
       try {
         // Check if response has content-type header for JSON
-        const contentType = response.headers.get('content-type');
-        
+        const contentType = response.headers.get("content-type");
+
         if (!response.ok) {
           // Try to get error text even if not JSON
           const errorText = await response.text();
-          throw new Error(`アップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
+          throw new Error(
+            `アップロードに失敗しました (${response.status}): ${
+              errorText || response.statusText
+            }`
+          );
         }
-        
-        if (!contentType?.includes('application/json')) {
+
+        if (!contentType?.includes("application/json")) {
           const errorText = await response.text();
-          throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
+          throw new Error(
+            `サーバーがJSON以外のレスポンスを返しました: ${errorText}`
+          );
         }
-        
+
         result = await response.json();
       } catch (parseError) {
-        console.error('📤 Upload response parse error:', parseError);
+        console.error("📤 Upload response parse error:", parseError);
         if (parseError instanceof SyntaxError) {
-          throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
+          throw new Error(
+            "サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。"
+          );
         }
         throw parseError;
       }
-      
-      console.log('📤 Upload response:', result);
-      
+
+      console.log("📤 Upload response:", result);
+
       if (result && result.success) {
         setSelectedImage(result.url);
-        console.log('✅ Image uploaded successfully:', result.url);
-        
+        console.log("✅ Image uploaded successfully:", result.url);
+
         // Success notification (could be implemented as toast)
-        if (typeof window !== 'undefined') {
-          console.log('🎉 Upload success notification');
+        if (typeof window !== "undefined") {
+          console.log("🎉 Upload success notification");
         }
       } else {
-        console.error('❌ Upload failed:', result.error);
-        
+        console.error("❌ Upload failed:", result.error);
+
         // Error notification with safe property access
-        const errorMessage = result?.error || 'アップロードに失敗しました（詳細不明）';
+        const errorMessage =
+          result?.error || "アップロードに失敗しました（詳細不明）";
         alert(`アップロードに失敗しました:\n${errorMessage}`);
       }
     } catch (error) {
-      console.error('💥 Upload error:', error);
-      
+      console.error("💥 Upload error:", error);
+
       // Network error notification
-      alert('ネットワークエラーが発生しました。\nインターネット接続を確認してください。');
+      alert(
+        "ネットワークエラーが発生しました。\nインターネット接続を確認してください。"
+      );
     } finally {
       setIsUploading(false);
-      console.log('🔄 Upload process completed');
+      console.log("🔄 Upload process completed");
     }
   };
 
@@ -268,7 +326,7 @@ export const MessageInput: React.FC = React.memo(() => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !is_generating) {
+    if (e.key === "Enter" && !e.shiftKey && !is_generating) {
       e.preventDefault();
       handleSend();
     }
@@ -276,37 +334,44 @@ export const MessageInput: React.FC = React.memo(() => {
 
   useEffect(() => {
     if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        const maxHeight = 120; // max-h-[120px] in pixels
-        const scrollHeight = textareaRef.current.scrollHeight;
-        textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      textareaRef.current.style.height = "auto";
+      const maxHeight = 120; // max-h-[120px] in pixels
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(
+        scrollHeight,
+        maxHeight
+      )}px`;
     }
   }, [currentInputText]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-3 md:p-4 border-t border-purple-400/20 bg-slate-900/95 backdrop-blur-lg z-[41]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFileInputChange}
-          className="hidden"
-        />
-        
-        <AnimatePresence>
+    <div
+      className="fixed bottom-0 left-0 right-0 p-3 md:p-4 border-t border-purple-400/20 bg-slate-900/95 backdrop-blur-lg z-[41]"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
+      <AnimatePresence>
         {showActionMenu && (
-          <ActionMenu 
+          <ActionMenu
             onClose={() => setShowActionMenu(false)}
             onCharacterClick={() => setShowCharacterGallery(true)}
             onPersonaClick={() => setShowPersonaGallery(true)}
             onModelClick={() => {
-              console.log("AI設定クリック: setShowSettingsModal(true, 'ai') を呼び出します");
-              setShowSettingsModal(true, 'ai');
+              console.log(
+                "AI設定クリック: setShowSettingsModal(true, 'ai') を呼び出します"
+              );
+              setShowSettingsModal(true, "ai");
             }}
-            onVoiceClick={() => setShowSettingsModal(true, 'voice')}
+            onVoiceClick={() => setShowSettingsModal(true, "voice")}
             onImageClick={handleImageUpload}
             onHistoryClick={() => setShowHistoryModal(true)}
-            onChatSettingsClick={() => setShowSettingsModal(true, 'chat')}
+            onChatSettingsClick={() => setShowSettingsModal(true, "chat")}
           />
         )}
       </AnimatePresence>
@@ -318,19 +383,23 @@ export const MessageInput: React.FC = React.memo(() => {
             <span className="text-sm text-white/70">添付画像:</span>
             <button
               onClick={handleClearImage}
-              className="text-red-400 hover:text-red-300 transition-colors"
-            >
+              className="text-red-400 hover:text-red-300 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="relative" style={{ maxHeight: '8rem' }}>
+          <div className="relative" style={{ maxHeight: "8rem" }}>
             <NextImage
               src={selectedImage}
               alt="Uploaded preview"
               width={400}
               height={128}
               className="rounded-lg object-contain"
-              style={{ width: 'auto', height: 'auto', maxHeight: '8rem', maxWidth: '100%' }}
+              style={{
+                width: "auto",
+                height: "auto",
+                maxHeight: "8rem",
+                maxWidth: "100%",
+              }}
               unoptimized
             />
           </div>
@@ -349,55 +418,51 @@ export const MessageInput: React.FC = React.memo(() => {
 
         <textarea
           ref={textareaRef}
-          value={currentInputText || ''}
+          value={currentInputText || ""}
           onChange={(e) => setCurrentInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="メッセージを入力..."
           className="flex-1 bg-transparent text-white/90 placeholder-white/30 resize-none outline-none max-h-[120px]"
           rows={1}
         />
-        
+
         <div className="flex gap-1">
           <AnimatePresence mode="wait">
             <motion.div
-              key={hasMessage ? 'enhance' : 'suggest'}
+              key={hasMessage ? "enhance" : "suggest"}
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-            >
+              exit={{ opacity: 0, scale: 0.5 }}>
               {hasMessage ? (
-                <InputButton 
-                  icon={Sparkles} 
-                  onClick={handleEnhanceClick} 
-                  tooltip="文章強化" 
+                <InputButton
+                  icon={Sparkles}
+                  onClick={handleEnhanceClick}
+                  tooltip="文章強化"
                   isLoading={isEnhancingText} // ★ isLoadingプロパティを追加
                 />
               ) : (
-                <InputButton 
-                  icon={Lightbulb} 
-                  onClick={handleSuggestClick} 
-                  tooltip="返信提案" 
+                <InputButton
+                  icon={Lightbulb}
+                  onClick={handleSuggestClick}
+                  tooltip="返信提案"
                 />
               )}
             </motion.div>
           </AnimatePresence>
-          
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={hasContent ? 'send' : 'menu'}
+              key={hasContent ? "send" : "menu"}
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-            >
+              exit={{ opacity: 0, scale: 0.5 }}>
               {hasContent ? (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSend}
                   disabled={isSending} // 🔧 修正: 送信中は無効化
-                  className="p-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                >
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white">
                   {is_generating ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
@@ -421,9 +486,9 @@ export const MessageInput: React.FC = React.memo(() => {
   );
 });
 
-MessageInput.displayName = 'MessageInput';
+MessageInput.displayName = "MessageInput";
 
-const ActionMenu = ({ 
+const ActionMenu = ({
   onClose,
   onCharacterClick,
   onPersonaClick,
@@ -432,7 +497,7 @@ const ActionMenu = ({
   onImageClick,
   onHistoryClick,
   onChatSettingsClick,
-}: { 
+}: {
   onClose: () => void;
   onCharacterClick: () => void;
   onPersonaClick: () => void;
@@ -443,13 +508,13 @@ const ActionMenu = ({
   onChatSettingsClick: () => void;
 }) => {
   const menuItems = [
-    { icon: User, label: 'キャラクター', action: onCharacterClick },
-    { icon: Shield, label: 'ペルソナ', action: onPersonaClick },
-    { icon: Cpu, label: 'AI設定', action: onModelClick },
-    { icon: Mic, label: '音声', action: onVoiceClick },
-    { icon: Paperclip, label: '画像添付', action: onImageClick },
-    { icon: History, label: 'チャット履歴', action: onHistoryClick },
-    { icon: Settings, label: 'チャット設定', action: onChatSettingsClick },
+    { icon: User, label: "キャラクター", action: onCharacterClick },
+    { icon: Shield, label: "ペルソナ", action: onPersonaClick },
+    { icon: Cpu, label: "AI設定", action: onModelClick },
+    { icon: Mic, label: "音声", action: onVoiceClick },
+    { icon: Paperclip, label: "画像添付", action: onImageClick },
+    { icon: History, label: "チャット履歴", action: onHistoryClick },
+    { icon: Settings, label: "チャット設定", action: onChatSettingsClick },
   ];
 
   const handleItemClick = (action: () => void) => {
@@ -462,16 +527,14 @@ const ActionMenu = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="absolute bottom-full mb-4 right-4 bg-slate-800 border border-purple-400/20 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2"
-    >
+      className="absolute bottom-full mb-4 right-4 bg-slate-800 border border-purple-400/20 rounded-2xl shadow-lg p-2 grid grid-cols-4 gap-2">
       {menuItems.map((item) => (
         <motion.button
           key={item.label}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => handleItemClick(item.action)}
-          className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-colors w-20 h-20"
-        >
+          className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-colors w-20 h-20">
           <item.icon className="w-6 h-6 text-white/70 mb-1" />
           <span className="text-xs text-white/60">{item.label}</span>
         </motion.button>
@@ -494,16 +557,14 @@ const InputButton: React.FC<{
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
       className={cn(
-        'p-2 rounded-lg transition-colors',
+        "p-2 rounded-lg transition-colors",
         active
-          ? 'bg-purple-500/20 text-purple-400'
-          : 'hover:bg-white/10 text-white/50 hover:text-white/70'
-      )}
-    >
-      <motion.div 
+          ? "bg-purple-500/20 text-purple-400"
+          : "hover:bg-white/10 text-white/50 hover:text-white/70"
+      )}>
+      <motion.div
         animate={{ rotate: rotation }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-      >
+        transition={{ duration: 0.3, ease: "easeInOut" }}>
         <Icon className="w-5 h-5" />
       </motion.div>
       {isLoading && (
@@ -524,11 +585,11 @@ const InputButton: React.FC<{
 const VoiceCallButton: React.FC = () => {
   const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
   const [isVoiceCallModalOpen, setIsVoiceCallModalOpen] = useState(false);
-  
+
   return (
-    <InputButton 
-      icon={Phone} 
-      onClick={() => setIsVoiceCallActive(!isVoiceCallActive)} 
+    <InputButton
+      icon={Phone}
+      onClick={() => setIsVoiceCallActive(!isVoiceCallActive)}
       tooltip={isVoiceCallActive ? "音声通話を終了" : "音声通話を開始"}
       active={isVoiceCallActive}
     />
@@ -538,12 +599,14 @@ const VoiceCallButton: React.FC = () => {
 // グループモードボタンコンポーネント
 const GroupModeButton: React.FC = () => {
   const { is_group_mode, setGroupMode } = useAppStore();
-  
+
   return (
-    <InputButton 
-      icon={Users} 
-      onClick={() => setGroupMode(!is_group_mode)} 
-      tooltip={is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"}
+    <InputButton
+      icon={Users}
+      onClick={() => setGroupMode(!is_group_mode)}
+      tooltip={
+        is_group_mode ? "個人チャットに切り替え" : "グループチャットに切り替え"
+      }
       active={is_group_mode}
     />
   );
@@ -557,11 +620,10 @@ const GroupMemberButton: React.FC = () => {
     <motion.div
       initial={{ opacity: 0, scale: 0.5 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-    >
-      <InputButton 
-        icon={Users} 
-        onClick={() => toggleGroupMemberModal(true)} 
+      exit={{ opacity: 0, scale: 0.5 }}>
+      <InputButton
+        icon={Users}
+        onClick={() => toggleGroupMemberModal(true)}
         tooltip="メンバーを編集"
       />
     </motion.div>
