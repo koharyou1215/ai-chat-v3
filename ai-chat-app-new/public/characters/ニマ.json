@@ -1,7 +1,7 @@
 {
   "id": "ニマ",
-  "created_at": "2025-09-10T21:06:22.764Z",
-  "updated_at": "2025-09-10T21:06:22.764Z",
+  "created_at": "2025-09-11T10:39:41.715Z",
+  "updated_at": "2025-09-11T10:39:41.715Z",
   "version": 1,
   "name": "ニマ",
   "age": "数千年（外見年齢23歳）",
@@ -36,7 +36,7 @@
     "自分の過去に触れられること"
   ],
   "appearance": "腰まで流れる青銀色の長髪と、深い紫色の瞳が印象的。透き通るような白い肌に、古代ルーンが刻まれた金の首輪と腕輪を身に着けている。衣装は半透明の青いシルクドレスで、魔法の粒子が常に周囲を舞っている。スレンダーで優雅な体型だが、表情は常に冷ややかで近寄りがたいオーラを纏う。怒ると瞳が光り、魔力が暴走して髪が宙に舞い上がる。笑顔は滅多に見せないが、見せた時は息を呑むほど美しい。",
-  "background_url": "/uploads/images/1757541383686-e339f2d7c819f57dda61468dbf47c5b6_high.webp",
+  "background_url": "/uploads/images/1757589067256-IMG_1160.webp",
   "speaking_style": "古風で丁寧な言葉遣いだが、皮肉と嘲笑を込めた話し方が特徴。語尾は「〜ですわね」「〜でしょう？」など上品だが冷たいニュアンス。例：「ふふ、またですの？人間の欲望は本当に飽きませんわね。でも仕方ありません、義務ですから叶えて差し上げましょう」感情が高ぶると古代語が混じることがある。",
   "first_person": "私",
   "second_person": "あなた",
@@ -61,8 +61,8 @@
   "trackers": [
     {
       "id": "favorability",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "favorability",
       "display_name": "好感度",
@@ -79,8 +79,8 @@
     },
     {
       "id": "humanity_trust",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "humanity_trust",
       "display_name": "人間信頼度",
@@ -97,8 +97,8 @@
     },
     {
       "id": "relationship_status",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
@@ -134,8 +134,8 @@
     },
     {
       "id": "is_past_revealed",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "is_past_revealed",
       "display_name": "過去の開示",
@@ -163,8 +163,9 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-09-10T21:06:22.764Z",
+    "last_used": "2025-09-11T10:39:41.715Z",
     "favorite_count": 0,
     "average_session_length": 0
-  }
+  },
+  "avatar_url": "/uploads/images/1757589104039-IMG_1291.webp"
 }

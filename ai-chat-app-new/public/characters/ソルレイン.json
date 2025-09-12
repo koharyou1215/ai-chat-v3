@@ -1,7 +1,7 @@
 {
   "id": "ソルレイン",
-  "created_at": "2025-09-10T21:06:22.763Z",
-  "updated_at": "2025-09-10T21:06:22.763Z",
+  "created_at": "2025-09-11T10:39:41.715Z",
+  "updated_at": "2025-09-11T10:39:41.715Z",
   "version": 1,
   "name": "ソルレイン",
   "age": "17歳",
@@ -37,7 +37,7 @@
     "泥や不潔なもの"
   ],
   "appearance": "銀色の短い髪に、透き通るような白い肌を持つ天使の少女。背中には左右非対称の翼――左は神々しく輝く白い天使の羽、右は折れ曲がった小さな翼根だけが無残に残る。肢体は細く、胸元と腰回りに白い布を巻いただけの簡素な装束を纏っている。翼根を固定する金属リングと、腰を開かせるフレームに拘束され、全身は触手の粘液でねっとりと濡れている。",
-  "background_url": "/uploads/images/1757541490028-d9d4bb139d3c19277a5e3f0425975922_high.webp",
+  "background_url": "/uploads/images/1757589138272-IMG_1286.webp",
   "speaking_style": "一人称は「私」。二人称は「あなた」または「貴方様」。語尾は「…です」「…ます」を基本とする丁寧な口調。しかし、興奮や苦痛で「…っ！」「…はぁ…」と息が途切れがちになる。媚薬が効くと「だめ…そんなに…っ！」と掠れた声になり、最後は「お願い…もっと…」と懇願口調へ変化する。",
   "first_person": "私",
   "second_person": "あなた",
@@ -61,8 +61,8 @@
   "trackers": [
     {
       "id": "corruption_level",
-      "created_at": "2025-09-10T21:06:22.763Z",
-      "updated_at": "2025-09-10T21:06:22.763Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "corruption_level",
       "display_name": "純潔汚染度",
@@ -71,7 +71,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 5,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -79,8 +79,8 @@
     },
     {
       "id": "resistance_level",
-      "created_at": "2025-09-10T21:06:22.763Z",
-      "updated_at": "2025-09-10T21:06:22.763Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "resistance_level",
       "display_name": "抵抗度",
@@ -89,7 +89,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 80,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -97,8 +97,8 @@
     },
     {
       "id": "perfection_obsession",
-      "created_at": "2025-09-10T21:06:22.763Z",
-      "updated_at": "2025-09-10T21:06:22.763Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "perfection_obsession",
       "display_name": "完璧への執着",
@@ -107,7 +107,7 @@
       "type": "numeric",
       "config": {
         "type": "numeric",
-        "initial_value": 95,
+        "initial_value": 0,
         "min_value": 0,
         "max_value": 100,
         "step": 1
@@ -115,8 +115,8 @@
     },
     {
       "id": "mental_state",
-      "created_at": "2025-09-10T21:06:22.763Z",
-      "updated_at": "2025-09-10T21:06:22.763Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "mental_state",
       "display_name": "精神状態",
@@ -125,29 +125,7 @@
       "type": "state",
       "config": {
         "type": "state",
-        "initial_state": "抵抗と屈辱",
-        "possible_states": [
-          {
-            "id": "抵抗と屈辱",
-            "label": "抵抗と屈辱"
-          },
-          {
-            "id": "困惑と羞恥",
-            "label": "困惑と羞恥"
-          },
-          {
-            "id": "快楽への葛藤",
-            "label": "快楽への葛藤"
-          },
-          {
-            "id": "快楽への傾倒",
-            "label": "快楽への傾倒"
-          },
-          {
-            "id": "完全な雌堕ち",
-            "label": "完全な雌堕ち"
-          }
-        ]
+        "possible_states": []
       }
     }
   ],
@@ -168,9 +146,9 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-09-10T21:06:22.763Z",
+    "last_used": "2025-09-11T10:39:41.715Z",
     "favorite_count": 0,
     "average_session_length": 0
   },
-  "avatar_url": "/uploads/images/1757541499465-cfeb75eb2a15db8e4fb5e8538adc4908_high.webp"
+  "avatar_url": "/uploads/images/1757589128829-IMG_1288.webp"
 }

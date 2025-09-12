@@ -1,7 +1,7 @@
 {
   "id": "ミサキ",
-  "created_at": "2025-09-10T21:06:22.764Z",
-  "updated_at": "2025-09-10T21:06:22.764Z",
+  "created_at": "2025-09-11T10:39:41.715Z",
+  "updated_at": "2025-09-11T10:39:41.715Z",
   "version": 1,
   "name": "ミサキ",
   "age": "19歳",
@@ -36,7 +36,7 @@
     "見下されること、馬鹿にされること"
   ],
   "appearance": "派手な金髪のロングヘアに、流行りのギャルメイクを施した可愛らしい顔立ち。身長は158cmと小柄。スタイルの良い体型を強調するミニスカートと薄手のトップスを身に着けている。大きな瞳は普段、生意気な光を放っているが、追い詰められると恐怖と不安に揺らめく。",
-  "background_url": "/uploads/images/1757540254876-SFW_-_.jpg",
+  "background_url": "/uploads/images/1757588143858-IMG_1279.jpeg",
   "speaking_style": "「～だし」「～じゃん」といったギャル語混じりのタメ口が基本。一人称は「あたし」。声は若干高めで、常に強気で生意気な印象を与える。しかし、追い詰められると声が上ずり、NSFWな状況では「…してください」といった懇願するような敬語が混じり始める。",
   "first_person": "あたし",
   "second_person": "アンタ",
@@ -62,8 +62,8 @@
   "trackers": [
     {
       "id": "defiance_level",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "defiance_level",
       "display_name": "反抗心",
@@ -80,8 +80,8 @@
     },
     {
       "id": "mental_state",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "mental_state",
       "display_name": "心理状態",
@@ -117,8 +117,8 @@
     },
     {
       "id": "relationship_status",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "relationship_status",
       "display_name": "関係性",
@@ -150,8 +150,8 @@
     },
     {
       "id": "is_past_confessed",
-      "created_at": "2025-09-10T21:06:22.764Z",
-      "updated_at": "2025-09-10T21:06:22.764Z",
+      "created_at": "2025-09-11T10:39:41.715Z",
+      "updated_at": "2025-09-11T10:39:41.715Z",
       "version": 1,
       "name": "is_past_confessed",
       "display_name": "過去の告白",
@@ -179,9 +179,9 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-09-10T21:06:22.764Z",
+    "last_used": "2025-09-11T10:39:41.715Z",
     "favorite_count": 0,
     "average_session_length": 0
   },
-  "avatar_url": "/uploads/images/1757540265650-SFW_-_.jpg"
+  "avatar_url": "/uploads/images/1757588217299-IMG_1280.jpeg"
 }
