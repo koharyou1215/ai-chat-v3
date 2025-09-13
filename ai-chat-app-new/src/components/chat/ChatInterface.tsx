@@ -248,6 +248,16 @@ const ChatInterfaceContent: React.FC = () => {
   useVH(); // Safari対応版のVHフックを使用
   const session = getActiveSession();
   const character = getSelectedCharacter(); // character を取得
+
+  // デバッグ用ログ
+  console.log("🔍 ChatInterface Debug:", {
+    session: session?.id,
+    character: character?.name,
+    characterId: character?.id,
+    avatarUrl: character?.avatar_url,
+    backgroundUrl: character?.background_url
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<
     "memory" | "tracker" | "history" | "layers"

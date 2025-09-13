@@ -440,17 +440,48 @@ const createStore = () => {
             },
           }
         ),
-        version: 1, // 新しいバージョン番号
+        version: 3, // バージョンを3に更新
         migrate: (persistedState: unknown, version: number) => {
-          if (version === 0) {
-            // version 0から1へのマイグレーション
-            // 今回は単純にcharactersのキャッシュをクリアする
-            const state = persistedState as Record<string, unknown>;
-            state.characters = new Map();
-            state.isCharactersLoaded = false;
-            return state;
+          const state = persistedState as Record<string, unknown>;
+
+          // version 2以下から3へのマイグレーション
+          if (version < 3) {
+            // isCharactersLoadedを削除（常にファイルから読み込むため）
+            delete state.isCharactersLoaded;
+
+            // 古いキャラクターデータをクリーンアップ
+            // IDが "貴族令嬢" のキャラクターを削除
+            if (state.characters) {
+              if (state.characters instanceof Map ||
+                  (typeof state.characters === 'object' &&
+                   state.characters &&
+                   '_type' in state.characters &&
+                   state.characters._type === 'map')) {
+
+                const entries = state.characters instanceof Map
+                  ? Array.from(state.characters.entries())
+                  : state.characters.value;
+
+                const filtered = entries.filter(([id, char]) => {
+                  // 削除されたファイルのキャラクターを除外
+                  return id !== '貴族令嬢' && id !== 'kizoku-reijou';
+                });
+
+                if (state.characters instanceof Map) {
+                  state.characters = new Map(filtered);
+                } else {
+                  state.characters = {
+                    _type: 'map',
+                    value: filtered
+                  };
+                }
+              }
+            }
+
+            console.log("🔄 Migration v3: Cleaned up old character data");
           }
-          return persistedState;
+
+          return state;
         },
         // Only persist state, not actions (functions)
         // UI状態はハイドレーション問題を避けるため永続化しない
@@ -469,6 +500,8 @@ const createStore = () => {
           // Characters and Personas
           characters: state.characters,
           selectedCharacterId: state.selectedCharacterId,
+          // Note: isCharactersLoaded is intentionally NOT persisted
+          // This forces a refresh from files on each startup
           personas: state.personas,
           activePersonaId: state.activePersonaId,
 

@@ -193,26 +193,14 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
         tracker_history: newHistory
       };
     });
-    
-    // トラッカー値変更後、関連キャラクターを自動保存
-    setTimeout(async () => {
-      try {
-        const instance = get().tracker_instances.get(instance_id);
-        if (instance?.character_id) {
-          // キャラクタースライスから保存機能を呼び出す
-          const store = get() as Record<string, unknown>; // AppStoreにアクセス
-          if (store.characters && store.saveCharacterToFile) {
-            const character = store.characters.get(instance.character_id);
-            if (character) {
-              console.log(`🔄 Auto-saving character ${character.name} after tracker update`);
-              await store.saveCharacterToFile(character);
-            }
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Auto-save after tracker update failed:', error);
-      }
-    }, 1000); // 1秒後に実行（デバウンス効果）
+
+    // トラッカー値はセッション固有のデータのため、キャラクター定義ファイルには保存しない
+    // キャラクター定義ファイルにはトラッカーの定義（名前、タイプ、初期値など）のみを保存し、
+    // 実際の値（current_value）はセッションデータとして管理する
+    //
+    // 注意: 以前のバージョンではトラッカー更新時に自動保存していたが、
+    // これは設計上の誤りであったため削除しました。
+    // トラッカー値はチャット履歴とともにセッションデータとして保存されます。
   },
   
   getTrackerInstance: (id) => {

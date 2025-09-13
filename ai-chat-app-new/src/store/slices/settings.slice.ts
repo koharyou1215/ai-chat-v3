@@ -12,7 +12,7 @@ import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
 import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_JAILBREAK_PROMPT,
-  DETAILED_ROLEPLAY_PROMPT,
+  DETAILED_SYSTEM_PROMPT,
 } from "@/constants/prompts";
 import { EmotionalIntelligenceFlags } from "@/types/core/emotional-intelligence.types";
 
@@ -549,7 +549,7 @@ export const createSettingsSlice: StateCreator<
     set({
       systemPrompts: {
         ...get().systemPrompts,
-        system: DETAILED_ROLEPLAY_PROMPT,
+        system: DETAILED_SYSTEM_PROMPT,
       },
       enableSystemPrompt: true,
     });

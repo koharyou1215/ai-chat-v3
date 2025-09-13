@@ -19,7 +19,8 @@ export interface CharacterSlice {
     startEditingCharacter: (character: Character) => void; // 編集開始
     closeCharacterForm: () => void; // フォームを閉じる
     saveCharacter: (character: Character) => void; // 保存
-    loadCharactersFromPublic: () => Promise<void>;
+    loadCharactersFromPublic: (forceReload?: boolean) => Promise<void>;
+    reloadCharacters: () => Promise<void>; // 手動リロード機能追加
 }
 
 export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice> = (set, get) => ({
@@ -132,11 +133,10 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     }
   },
 
-  loadCharactersFromPublic: async () => {
-    if (get().isCharactersLoaded) {
-      return;
-    }
-    
+  loadCharactersFromPublic: async (forceReload = false) => {
+    // Always load from files on startup to get latest character data
+    // Then merge with persisted data (for user-uploaded images)
+
     try {
       const response = await fetch('/api/characters');
       if (!response.ok) {
@@ -175,8 +175,11 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             dislikes: Array.isArray(characterData.dislikes) ? characterData.dislikes : (typeof characterData.dislikes === 'string' ? characterData.dislikes.split(',').map((s: string) => s.trim()) : []),
             
             appearance: characterData.appearance || '',
-            background_url: (characterData.background_url && typeof characterData.background_url === 'string' && characterData.background_url.trim() !== '') 
-              ? characterData.background_url 
+            avatar_url: (characterData.avatar_url && typeof characterData.avatar_url === 'string' && characterData.avatar_url.trim() !== '')
+              ? characterData.avatar_url
+              : '',
+            background_url: (characterData.background_url && typeof characterData.background_url === 'string' && characterData.background_url.trim() !== '')
+              ? characterData.background_url
               : '/images/default-bg.jpg',
 
             speaking_style: characterData.speaking_style || '',
@@ -192,9 +195,27 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             
             tags: Array.isArray(characterData.tags) ? characterData.tags : (typeof characterData.tags === 'string' ? characterData.tags.split(',').map((s: string) => s.trim()) : []),
             trackers: Array.isArray(characterData.trackers) ? characterData.trackers.reduce((acc: TrackerDefinition[], t: Record<string, unknown>) => {
-              if (!t || typeof t.name !== 'string' || typeof t.type !== 'string') {
+              if (!t || typeof t.name !== 'string') {
                   // Skipping invalid tracker data
                   return acc;
+              }
+
+              // Support both old format (direct fields) and new format (config object)
+              const hasConfig = t.config && typeof t.config === 'object';
+              const trackerType = hasConfig
+                ? (t.config as any).type
+                : t.type;
+
+              if (!trackerType || typeof trackerType !== 'string') {
+                  console.log(`⚠️ Skipping tracker "${t.name}" - no valid type found`);
+                  return acc;
+              }
+
+              // Debug log to track which format is being used
+              if (hasConfig) {
+                console.log(`📋 Processing tracker "${t.name}" with NEW format (config object)`);
+              } else {
+                console.log(`📋 Processing tracker "${t.name}" with OLD format (direct fields)`);
               }
 
               const definition: Partial<TrackerDefinition> = {
@@ -205,43 +226,90 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 name: t.name,
                 display_name: String(t.display_name || ''),
                 description: String(t.description || ''),
-                category: t.category as TrackerCategory,
-                type: t.type as TrackerType,
+                category: (hasConfig ? (t.config as any).category : t.category) as TrackerCategory || 'status',
+                type: trackerType as TrackerType,
               };
 
               let isValid = true;
-              switch (t.type) {
-                case 'numeric':
-                  definition.config = {
-                    type: 'numeric',
-                    initial_value: Number(t.initial_value) || 0,
-                    min_value: Number(t.min_value) || 0,
-                    max_value: Number(t.max_value) || 100,
-                    step: Number(t.step) || 1,
-                  };
-                  break;
-                case 'state':
-                  definition.config = {
-                    type: 'state',
-                    initial_state: t.initial_state as string,
-                    possible_states: Array.isArray(t.possible_states) ? t.possible_states.map((s: unknown) => ({ id: String(s), label: String(s) })) : [],
-                  };
-                  break;
-                case 'boolean':
-                  definition.config = {
-                    type: 'boolean',
-                    initial_value: Boolean(t.initial_boolean),
-                  };
-                  break;
-                case 'text':
-                  definition.config = {
-                    type: 'text',
-                    initial_value: String(t.initial_text || ''),
-                  };
-                  break;
-                default:
-                  isValid = false;
-                  // Skipping tracker with unknown type
+
+              // Extract values from either old format or new format (config object)
+              if (hasConfig) {
+                // New format with config object
+                const config = t.config as any;
+                switch (trackerType) {
+                  case 'numeric':
+                    definition.config = {
+                      type: 'numeric',
+                      initial_value: Number(config.initial_value) || 0,
+                      min_value: Number(config.min_value) || 0,
+                      max_value: Number(config.max_value) || 100,
+                      step: Number(config.step) || 1,
+                    };
+                    break;
+                  case 'state':
+                    definition.config = {
+                      type: 'state',
+                      initial_state: config.initial_state as string,
+                      possible_states: Array.isArray(config.possible_states)
+                        ? config.possible_states.map((s: any) =>
+                            typeof s === 'object' ? s : { id: String(s), label: String(s) }
+                          )
+                        : [],
+                    };
+                    break;
+                  case 'boolean':
+                    definition.config = {
+                      type: 'boolean',
+                      initial_value: Boolean(config.initial_value !== undefined ? config.initial_value : config.initial_boolean),
+                    };
+                    break;
+                  case 'text':
+                    definition.config = {
+                      type: 'text',
+                      initial_value: String(config.initial_value || config.initial_text || ''),
+                    };
+                    break;
+                  default:
+                    isValid = false;
+                }
+              } else {
+                // Old format with direct fields
+                switch (trackerType) {
+                  case 'numeric':
+                    definition.config = {
+                      type: 'numeric',
+                      initial_value: Number(t.initial_value) || 0,
+                      min_value: Number(t.min_value) || 0,
+                      max_value: Number(t.max_value) || 100,
+                      step: Number(t.step) || 1,
+                    };
+                    break;
+                  case 'state':
+                    definition.config = {
+                      type: 'state',
+                      initial_state: t.initial_state as string,
+                      possible_states: Array.isArray(t.possible_states)
+                        ? t.possible_states.map((s: unknown) =>
+                            typeof s === 'string' ? { id: String(s), label: String(s) } : s
+                          )
+                        : [],
+                    };
+                    break;
+                  case 'boolean':
+                    definition.config = {
+                      type: 'boolean',
+                      initial_value: Boolean(t.initial_boolean !== undefined ? t.initial_boolean : t.initial_value),
+                    };
+                    break;
+                  case 'text':
+                    definition.config = {
+                      type: 'text',
+                      initial_value: String(t.initial_text || t.initial_value || ''),
+                    };
+                    break;
+                  default:
+                    isValid = false;
+                }
               }
 
               if (isValid) {
@@ -265,14 +333,47 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
           console.error(`character.slice: Error processing character data:`, error);
         }
       }
-      
-      set({ 
-        characters: charactersMap, 
-        isCharactersLoaded: true 
+
+      // Merge with existing persisted data (for user-uploaded images)
+      const existingCharacters = get().characters;
+      if (existingCharacters && existingCharacters.size > 0) {
+        console.log('📋 Merging with existing character data...');
+
+        // Preserve user-uploaded images from existing data
+        existingCharacters.forEach((existingChar, id) => {
+          const newChar = charactersMap.get(id);
+          if (newChar) {
+            // Preserve user-uploaded avatar and background if they exist
+            if (existingChar.avatar_url && existingChar.avatar_url.includes('/uploads/')) {
+              newChar.avatar_url = existingChar.avatar_url;
+            }
+            if (existingChar.background_url && existingChar.background_url.includes('/uploads/')) {
+              newChar.background_url = existingChar.background_url;
+            }
+            charactersMap.set(id, newChar);
+          } else {
+            // New character that doesn't exist in files - preserve it
+            // This handles manually added characters
+            console.log(`📝 Preserving manually added character: ${existingChar.name}`);
+            charactersMap.set(id, existingChar);
+          }
+        });
+      }
+
+      set({
+        characters: charactersMap,
+        isCharactersLoaded: true
       });
       
     } catch (error) {
       console.error('character.slice: Error in loadCharactersFromPublic:', error);
     }
+  },
+
+  // 手動リロード機能
+  reloadCharacters: async () => {
+    const { loadCharactersFromPublic } = get();
+    console.log('🔄 Manually reloading characters...');
+    await loadCharactersFromPublic(true);
   }
 });

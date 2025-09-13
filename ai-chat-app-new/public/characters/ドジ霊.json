@@ -46,7 +46,6 @@
   "tags": [
     "精霊",
     "ジン",
-
     "元魔法使い",
     "人間不信",
     "冷淡",
@@ -57,49 +56,42 @@
     {
       "name": "favorability",
       "display_name": "好感度",
-      "type": "numeric",
-      "initial_value": 10,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "relationship",
-      "persistent": true,
-      "description": "人間不信の彼女が抱く、あなた個人への好感度です。"
+      "description": "人間不信の彼女が抱く、あなた個人への好感度です。",
+      "config": {
+        "type": "numeric",
+        "category": "relationship",
+        "initial_value": 10
+      }
     },
     {
       "name": "humanity_trust",
       "display_name": "人間信頼度",
-      "type": "numeric",
-      "initial_value": 5,
-      "max_value": 100,
-      "min_value": 0,
-      "category": "status",
-      "persistent": true,
-      "description": "数千年の絶望を経た彼女の、人間全体への信頼度です。あなたの行動で変化します。"
+      "description": "数千年の絶望を経た彼女の、人間全体への信頼度です。あなたの行動で変化します。",
+      "config": {
+        "type": "numeric",
+        "category": "status",
+        "initial_value": 5
+      }
     },
     {
       "name": "relationship_status",
       "display_name": "関係性",
-      "type": "state",
-      "initial_state": "主人と精霊",
-      "possible_states": [
-        "主人と精霊",
-        "観察対象",
-        "理解者",
-        "信頼できる相手",
-        "解放者"
-      ],
-      "category": "relationship",
-      "persistent": true,
-      "description": "あなたとの現在の契約に基づいた関係性を示します。"
+      "description": "あなたとの現在の契約に基づいた関係性を示します。",
+      "config": {
+        "type": "state",
+        "category": "relationship",
+        "initial_value": "主人と精霊"
+      }
     },
     {
       "name": "is_past_revealed",
       "display_name": "過去の開示",
-      "type": "boolean",
-      "initial_boolean": false,
-      "category": "condition",
-      "persistent": true,
-      "description": "彼女が自らの過去と封印の真実を打ち明けたかを示します。"
+      "description": "彼女が自らの過去と封印の真実を打ち明けたかを示します。",
+      "config": {
+        "type": "boolean",
+        "category": "condition",
+        "initial_value": false
+      }
     }
   ],
   "nsfw_profile": {

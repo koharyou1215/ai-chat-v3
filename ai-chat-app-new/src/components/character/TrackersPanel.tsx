@@ -121,7 +121,8 @@ export const TrackersPanel: React.FC<TrackersPanelProps> = ({
         </Button>
       </div>
       <div className="space-y-4">
-        {(mode === 'character' && formData ? (formData as Character).trackers : [])?.map((tracker: TrackerDefinition, index: number) => (
+        {mode === 'character' && formData && (formData as Character).trackers && (formData as Character).trackers.length > 0 ? (
+          (formData as Character).trackers.map((tracker: TrackerDefinition, index: number) => (
           <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <div className="flex justify-between items-center cursor-pointer" onClick={() => setExpandedTracker(expandedTracker === index ? null : index)}>
               <span className="font-semibold text-white">{tracker.display_name}</span>
@@ -154,12 +155,14 @@ export const TrackersPanel: React.FC<TrackersPanelProps> = ({
             )}
             </AnimatePresence>
           </div>
-        ))}
-        {!formData || mode !== 'character' || !(formData as Character).trackers || (formData as Character).trackers.length === 0 ? (
-          <p className="text-slate-500 text-center py-4">
-            このキャラクターにはトラッカーが設定されていません。
-          </p>
-        ) : null}
+        ))
+        ) : (
+          mode === 'character' && (
+            <p className="text-slate-500 text-center py-4">
+              このキャラクターにはトラッカーが設定されていません。
+            </p>
+          )
+        )}
       </div>
     </div>
   );

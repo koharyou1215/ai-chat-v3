@@ -8,6 +8,7 @@ import { StorageCleaner } from "@/utils/storage-cleaner";
 import { checkStorageUsage } from "@/utils/check-storage";
 import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
 import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
+import { clearCharacterCache } from "@/utils/clear-character-cache";
 
 interface AppInitializerProps {
   children: ReactNode;

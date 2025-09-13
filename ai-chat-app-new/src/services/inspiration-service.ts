@@ -5,7 +5,6 @@ import { UnifiedMessage } from "@/types/memory";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
 import { apiRequestQueue } from "@/services/api-request-queue";
 import { APIConfig, Character, Persona } from "@/types";
-import { replaceVariables } from "@/utils/variable-replacer";
 
 export interface InspirationSuggestion {
   id: string;
@@ -14,7 +13,237 @@ export interface InspirationSuggestion {
   confidence: number;
 }
 
+// Cache entry interface
+interface CacheEntry<T> {
+  key: string;
+  data: T;
+  timestamp: number;
+  hitCount: number;
+}
+
+/**
+ * High-performance API response cache for inspiration service
+ * Features:
+ * - 15-minute TTL for cached responses
+ * - Prompt-based cache keys with hashing
+ * - Automatic cleanup of expired entries
+ * - Prevention of duplicate API requests
+ * - In-memory storage with LRU eviction
+ */
+class InspirationCache {
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private readonly cacheTTL: number = 15 * 60 * 1000; // 15 minutes in milliseconds
+  private readonly maxCacheSize: number = 100; // Maximum cache entries
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  // Statistics for performance monitoring
+  private stats = {
+    hits: 0,
+    misses: 0,
+    evictions: 0,
+    totalRequests: 0,
+  };
+
+  constructor() {
+    this.initializeCleanup();
+  }
+
+  /**
+   * Get cached response if available and not expired
+   */
+  get<T>(key: string): T | null {
+    this.stats.totalRequests++;
+
+    const entry = this.cache.get(key);
+
+    if (!entry) {
+      this.stats.misses++;
+      console.log(
+        "💾❌ Inspiration cache miss for key:",
+        this.truncateKey(key)
+      );
+      return null;
+    }
+
+    // Check if entry is expired
+    if (this.isExpired(entry.timestamp)) {
+      this.cache.delete(key);
+      this.stats.misses++;
+      console.log("💾⏰ Expired cache entry removed:", this.truncateKey(key));
+      return null;
+    }
+
+    // Cache hit
+    entry.hitCount++;
+    this.stats.hits++;
+    console.log("💾✅ Inspiration cache hit:", this.truncateKey(key));
+    return entry.data;
+  }
+
+  /**
+   * Store response in cache
+   */
+  set<T>(key: string, data: T): void {
+    const entry: CacheEntry<T> = {
+      key,
+      data,
+      timestamp: Date.now(),
+      hitCount: 0,
+    };
+
+    this.cache.set(key, entry);
+    this.maintainCacheSize();
+
+    console.log("💾💿 Inspiration response cached:", this.truncateKey(key));
+  }
+
+  /**
+   * Generate cache key from prompt content
+   */
+  generateCacheKey(prompt: string, apiConfig?: Partial<APIConfig>): string {
+    // Create a hash from the prompt and relevant config options
+    const configHash = apiConfig
+      ? this.hashObject({
+          model: apiConfig.model,
+          temperature: apiConfig.temperature,
+          max_tokens: apiConfig.max_tokens,
+          top_p: apiConfig.top_p,
+        })
+      : "";
+
+    const promptHash = this.simpleHash(prompt);
+    return `inspiration_${promptHash}_${configHash}`;
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats() {
+    const hitRate =
+      this.stats.totalRequests > 0
+        ? Math.round((this.stats.hits / this.stats.totalRequests) * 100)
+        : 0;
+
+    return {
+      ...this.stats,
+      hitRate,
+      cacheSize: this.cache.size,
+      maxSize: this.maxCacheSize,
+    };
+  }
+
+  /**
+   * Clear all cache entries
+   */
+  clear(): void {
+    this.cache.clear();
+    console.log("💾🧹 Inspiration cache cleared");
+  }
+
+  /**
+   * Clear expired entries and get count
+   */
+  cleanupExpired(): number {
+    let cleanedCount = 0;
+    const now = Date.now();
+
+    // Use Array.from to ensure compatibility
+    const entries = Array.from(this.cache.entries());
+
+    for (let i = 0; i < entries.length; i++) {
+      const [key, entry] = entries[i];
+      if (this.isExpired(entry.timestamp, now)) {
+        this.cache.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(
+        `💾🧹 Cleaned up ${cleanedCount} expired inspiration cache entries`
+      );
+    }
+
+    return cleanedCount;
+  }
+
+  // Private methods
+
+  private initializeCleanup(): void {
+    // Run cleanup every 5 minutes
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupExpired();
+    }, 5 * 60 * 1000);
+
+    console.log("💾 Inspiration cache initialized with 15-minute TTL");
+  }
+
+  private isExpired(timestamp: number, now: number = Date.now()): boolean {
+    return now - timestamp > this.cacheTTL;
+  }
+
+  private maintainCacheSize(): void {
+    if (this.cache.size <= this.maxCacheSize) return;
+
+    // Find least recently used entry (LRU eviction)
+    let lruKey: string | null = null;
+    let lruHitCount = Infinity;
+    let oldestTime = Infinity;
+
+    // Use Array.from to ensure compatibility
+    const entries = Array.from(this.cache.entries());
+
+    for (let i = 0; i < entries.length; i++) {
+      const [key, entry] = entries[i];
+
+      // Prioritize expired entries for removal
+      if (this.isExpired(entry.timestamp)) {
+        lruKey = key;
+        break;
+      }
+
+      // Find entry with least hits or oldest timestamp
+      if (
+        entry.hitCount < lruHitCount ||
+        (entry.hitCount === lruHitCount && entry.timestamp < oldestTime)
+      ) {
+        lruKey = key;
+        lruHitCount = entry.hitCount;
+        oldestTime = entry.timestamp;
+      }
+    }
+
+    if (lruKey) {
+      this.cache.delete(lruKey);
+      this.stats.evictions++;
+      console.log(
+        "💾🗑️ Evicted inspiration cache entry:",
+        this.truncateKey(lruKey)
+      );
+    }
+  }
+
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  private hashObject(obj: any): string {
+    return this.simpleHash(JSON.stringify(obj));
+  }
+
+  private truncateKey(key: string): string {
+    return key.length > 50 ? key.substring(0, 50) + "..." : key;
+  }
+}
+
 export class InspirationService {
+  private cache = new InspirationCache();
 
   /**
    * 返信提案生成 - 3つのアプローチで150文字程度
@@ -50,6 +279,22 @@ export class InspirationService {
       );
     }
 
+    // Check cache first
+    const cacheKey = this.cache.generateCacheKey(prompt, apiConfig);
+    const cachedResponse = this.cache.get<string>(cacheKey);
+
+    if (cachedResponse) {
+      // Parse cached response
+      const suggestions = this.parseReplySuggestionsAdvanced(cachedResponse);
+
+      if (suggestions.length > 0) {
+        console.log(
+          `📥 Using cached reply suggestions (${suggestions.length} items)`
+        );
+        return suggestions;
+      }
+    }
+
     try {
       console.log("📤 返信提案API呼び出し開始");
       console.log(
@@ -75,6 +320,9 @@ export class InspirationService {
         }
       );
 
+      // Cache the successful response
+      this.cache.set(cacheKey, response);
+
       // 成功例のパース方法を採用
       const suggestions = this.parseReplySuggestionsAdvanced(response);
 
@@ -84,18 +332,8 @@ export class InspirationService {
       }
 
       return suggestions;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ 返信提案生成エラー:", error);
-      
-      // エラーメッセージをユーザーに伝える
-      if (error.message?.includes("Quota exceeded") || error.message?.includes("使用制限")) {
-        console.warn("⚠️ API使用制限に達しました。しばらく待ってから再試行してください。");
-      } else if (error.message?.includes("is not a valid model")) {
-        console.warn("⚠️ 無効なモデルIDが検出されました。設定を確認してください。");
-      } else if (error.message?.includes("APIキーが設定されていません")) {
-        console.warn("⚠️ APIキーが設定されていません。設定画面で確認してください。");
-      }
-      
       return this.getFallbackSuggestions();
     }
   }
@@ -108,8 +346,7 @@ export class InspirationService {
     recentMessages: UnifiedMessage[],
     user: Persona,
     enhancePrompt?: string,
-    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string },
-    character?: Character
+    apiConfig?: Partial<APIConfig> & { openRouterApiKey?: string }
   ): Promise<string> {
     if (!inputText.trim()) {
       throw new Error("入力テキストが空です");
@@ -119,33 +356,28 @@ export class InspirationService {
 
     let prompt: string;
     if (enhancePrompt) {
-      // カスタムプロンプトのすべての変数形式を確実に置換
-      const userName = user.name || 'ユーザー';
-      const charName = character?.name || 'キャラクター';
-      
       prompt = enhancePrompt
-        // 標準的な変数置換
-        .replace(/\{\{user\}\}/g, userName)
-        .replace(/\{\{char\}\}/g, charName)
-        .replace(/\{\{conversation\}\}/g, context)
-        .replace(/\{\{text\}\}/g, inputText)
-        // ${{ }}形式の変数置換（誤った形式も対応）
-        .replace(/\$\{\{\s*user\s*\}\}/g, userName)
-        .replace(/\$\{\{\s*char\s*\}\}/g, charName)
-        // ${ }形式の変数置換
-        .replace(/\$\{inputText\}/g, inputText)
-        .replace(/\$\{text\}/g, inputText)
-        .replace(/\$\{user\}/g, userName)
-        .replace(/\$\{char\}/g, charName);
-        
-      // さらにreplaceVariablesで処理
-      const variableContext = { user, character };
-      prompt = replaceVariables(prompt, variableContext);
+        .replace(/{{conversation}}/g, context)
+        .replace(/{{user}}/g, inputText)
+        .replace(/{{text}}/g, inputText);
     } else {
       prompt = this.buildEnhancementPrompt(inputText, context, user);
-      // デフォルトプロンプトも{{user}}と{{char}}を置換
-      const variableContext = { user, character };
-      prompt = replaceVariables(prompt, variableContext);
+    }
+
+    // Check cache first
+    const cacheKey = this.cache.generateCacheKey(
+      prompt + "|enhance|" + inputText,
+      apiConfig
+    );
+    const cachedResponse = this.cache.get<string>(cacheKey);
+
+    if (cachedResponse) {
+      const enhancedText = this.parseEnhancedText(cachedResponse, inputText);
+      console.log("✅ 文章強化成功 (キャッシュ):", {
+        originalLength: inputText.length,
+        enhancedLength: enhancedText.length,
+      });
+      return enhancedText;
     }
 
     try {
@@ -176,6 +408,9 @@ export class InspirationService {
           );
         }
       );
+
+      // Cache the successful response
+      this.cache.set(cacheKey, response);
 
       const enhancedText = this.parseEnhancedText(response, inputText);
       console.log("✅ 文章強化成功:", {
@@ -208,17 +443,25 @@ export class InspirationService {
   }
 
   /**
+   * Get cache statistics for performance monitoring
+   */
+  getCacheStats() {
+    return this.cache.getStats();
+  }
+
+  /**
+   * Clear inspiration cache
+   */
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  /**
    * 高度な返信提案パース（成功例から移植）
    */
   private parseReplySuggestionsAdvanced(
     content: string
   ): InspirationSuggestion[] {
-    // 空のコンテンツや明らかに短すぎる場合は早期リターン
-    if (!content || content.trim().length < 10) {
-      console.warn("⚠️ AI応答が空または短すぎます");
-      return [];
-    }
-    
     console.log(
       "🔍 AI応答をパース中（先頭200文字）:",
       content.substring(0, 200)
@@ -359,17 +602,16 @@ export class InspirationService {
     const speaker = isGroupMode ? character.name : user.name;
     const target = isGroupMode ? "グループ全体" : character.name;
 
-    return `あなたは{{user}}そのものであり、感情と欲望を隠さずに{{char}}へ反応してくださ  　　い。
-    
+    return `あなたは{{user}}そのものであり、感情と欲望を隠さずに{{char}}へ反応してくださ 
 
 
       会話履歴:
       ${context}
       ###**分析すべき要素**
       - 会話の文脈と話題の流れ
-      - {{user}}の発言意図と感情状態
-      - これまでの{{user}}のトーンとスタイル
-      - 会話相手との関係性  
+      - {{user}}と発言意図と感情状態
+      - これまでの{{user}}とトーンとスタイル
+      - {{char}}との関係性  
       ###生成する4つのアプローチ 
       - ${speaker}の性格を反映させること
      - 各提案頭には番号を付けて、150～300字で、濃密かつ描写的に。  
@@ -403,22 +645,32 @@ export class InspirationService {
     user: Persona
   ): string {
     // プロンプトを大幅に短縮
-    // {{user}}と{{char}}を使用したプロンプト（後で置換される）
-    return `あなたは{{user}}として、以下の短い文章を感情豊かに拡張・強化してください。
+    return `{{user}}視点の文章をパワーアップさせる。:
 
+あなたは感情表現のエキスパートです。  
+以下の文章を、${{
+      user,
+    }}らしくキャラクターを保持したまま、元の意味を保持して強化し拡張しください。  
+
+条件:
 会話履歴:
-${context}
+      ${context}
+      ###**分析すべき要素**
+      - 会話の文脈と話題の流れ
+      - {{user}}と発言意図と感情状態
+      - これまでの{{user}}とトーンとスタイル
+      - {{char}}との関係性  
+- 原文の意味や意図は保持すること  
+- ${{ user }}の口調やキャラクター性を尊重すること  
+- 語彙や表現を拡張し、豊かで自然に聞こえる文章にすること  
+- 必要に応じて原文の1.5～2倍に拡張してよい  
+- 不要な解説や注釈は含めず、強化後の文章のみを出力すること
 
-元の文章: "${inputText}"
+入力文:  
+"${inputText}"
 
-強化の要件:
-- {{user}}のキャラクター性と口調を完全に維持
-- 元の意図を保ちながら、詳細な感情表現・仕草・内面描写を追加
-- 自然で生き生きとした表現に拡張（1.5～2倍の長さ）
-- 五感を活かした描写を含める
-- 説明や注釈は含めず、強化された文章のみを出力
-
-強化後の文章:`;
+出力文（強化後）:
+強化された文章のみ出力`;
   }
 
   /**

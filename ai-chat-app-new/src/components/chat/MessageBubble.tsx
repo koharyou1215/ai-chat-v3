@@ -39,6 +39,7 @@ import {
   X,
   MoreVertical,
   ChevronRight,
+  Image,
 } from "lucide-react";
 import { UnifiedMessage } from "@/types";
 import { useAppStore } from "@/store";
@@ -63,6 +64,7 @@ import {
 import { EmotionReactions } from "@/components/emotion/EmotionDisplay";
 import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -80,7 +82,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   // ローディング・再生状態
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
+  const { generateImage } = useImageGeneration();
 
   // **安全な個別セレクター（無限ループ回避）**
   const characters = useAppStore((state) => state.characters);
@@ -302,6 +306,86 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     active_group_session_id,
     continueLastGroupMessage,
     continueLastMessage,
+  ]);
+
+  // メッセージアクション: 画像生成
+  const handleGenerateImage = useCallback(async () => {
+    if (!isAssistant) return;
+
+    setIsGeneratingImage(true);
+    try {
+      // 現在のキャラクターを取得
+      const character = getSelectedCharacter();
+      if (!character) {
+        console.error("キャラクターが選択されていません");
+        return;
+      }
+
+      // 現在のセッションのメッセージを取得
+      const sessions = useAppStore.getState().sessions;
+      const currentSession = sessions.get(activeSessionId || '');
+      if (!currentSession) {
+        console.error("セッションが見つかりません");
+        return;
+      }
+
+      // トラッカーの値を取得
+      const trackerManager = trackerManagers.get(activeSessionId || '');
+      const trackers = [];
+      if (trackerManager && character.trackers) {
+        const trackerSet = trackerManager.getTrackerSet(character.id);
+        if (trackerSet) {
+          for (const trackerDef of character.trackers) {
+            const tracker = trackerSet.trackers.get(trackerDef.name);
+            if (tracker) {
+              // configのtypeを使用し、composite型は除外
+              const trackerType = trackerDef.config?.type;
+              if (trackerType && trackerType !== 'composite') {
+                trackers.push({
+                  name: trackerDef.name,
+                  value: tracker.current_value,
+                  type: trackerType as 'numeric' | 'state' | 'boolean' | 'text'
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // 画像を生成
+      const imageUrl = await generateImage(
+        character,
+        currentSession.messages,
+        trackers
+      );
+
+      // 生成された画像をメッセージとして追加
+      if (imageUrl && addMessage) {
+        addMessage({
+          id: Date.now().toString(),
+          content: `![Generated Image](${imageUrl})`,
+          role: "assistant",
+          timestamp: Date.now(),
+          character_id: character.id,
+          metadata: {
+            type: 'image',
+            generated: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error("画像生成に失敗しました:", error);
+      alert("画像生成に失敗しました。Stable Diffusion APIが起動していることを確認してください。");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [
+    isAssistant,
+    getSelectedCharacter,
+    activeSessionId,
+    trackerManagers,
+    generateImage,
+    addMessage
   ]);
 
   // メッセージアクション: 削除
@@ -767,6 +851,22 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         className={cn(
                           "w-4 h-4",
                           isContinuing && "animate-pulse"
+                        )}
+                      />
+                    </button>
+                  )}
+
+                  {/* 画像生成（アシスタントメッセージのみ） */}
+                  {isAssistant && (
+                    <button
+                      onClick={handleGenerateImage}
+                      className="p-2 rounded-md hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 transition-colors"
+                      title="シーンを画像生成"
+                      disabled={isGeneratingImage}>
+                      <Image
+                        className={cn(
+                          "w-4 h-4",
+                          isGeneratingImage && "animate-pulse"
                         )}
                       />
                     </button>
