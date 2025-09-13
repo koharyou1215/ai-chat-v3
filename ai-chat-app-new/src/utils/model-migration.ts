@@ -47,7 +47,7 @@ export function migrateModelName(modelName: string): string {
   }
 
   // google/プレフィックスを除去
-  let cleanModel = modelName.startsWith('google/') 
+  const cleanModel = modelName.startsWith('google/') 
     ? modelName.substring(7) 
     : modelName;
 

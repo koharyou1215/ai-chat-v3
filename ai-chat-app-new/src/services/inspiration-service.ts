@@ -84,8 +84,18 @@ export class InspirationService {
       }
 
       return suggestions;
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ 返信提案生成エラー:", error);
+      
+      // エラーメッセージをユーザーに伝える
+      if (error.message?.includes("Quota exceeded") || error.message?.includes("使用制限")) {
+        console.warn("⚠️ API使用制限に達しました。しばらく待ってから再試行してください。");
+      } else if (error.message?.includes("is not a valid model")) {
+        console.warn("⚠️ 無効なモデルIDが検出されました。設定を確認してください。");
+      } else if (error.message?.includes("APIキーが設定されていません")) {
+        console.warn("⚠️ APIキーが設定されていません。設定画面で確認してください。");
+      }
+      
       return this.getFallbackSuggestions();
     }
   }
@@ -203,6 +213,12 @@ export class InspirationService {
   private parseReplySuggestionsAdvanced(
     content: string
   ): InspirationSuggestion[] {
+    // 空のコンテンツや明らかに短すぎる場合は早期リターン
+    if (!content || content.trim().length < 10) {
+      console.warn("⚠️ AI応答が空または短すぎます");
+      return [];
+    }
+    
     console.log(
       "🔍 AI応答をパース中（先頭200文字）:",
       content.substring(0, 200)

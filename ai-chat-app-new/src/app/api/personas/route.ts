@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
             other_settings: jsonData.other_settings || '',
             avatar_path: jsonData.avatar_path || null,
             created_at: jsonData.created_at || new Date().toISOString(),
+            updated_at: jsonData.updated_at || new Date().toISOString(),
+            version: jsonData.version || 1,
           };
         }
         // 旧フォーマット（persona_information.Name等）をチェック
@@ -82,6 +84,8 @@ export async function GET(request: NextRequest) {
             other_settings: info['Other Settings'] || '',
             avatar_path: null,
             created_at: jsonData.created_at || new Date().toISOString(),
+            updated_at: jsonData.updated_at || new Date().toISOString(),
+            version: jsonData.version || 1,
           };
         }
         // どちらでもない場合はスキップ

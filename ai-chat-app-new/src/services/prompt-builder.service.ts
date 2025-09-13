@@ -203,6 +203,8 @@ export class PromptBuilderService {
         `<relationship_state>\n${sections.relationship}\n</relationship_state>`,
       sections.memory &&
         `<memory_context>\n${sections.memory}\n</memory_context>`,
+      sections.conversation &&
+        `<conversation_history>\n${sections.conversation}\n</conversation_history>`,
       sections.input && `## Current Input\n${sections.input}`,
     ]
       .filter(Boolean)
@@ -324,9 +326,21 @@ export class PromptBuilderService {
     // PROMPT_VERIFICATION_GUIDE.mdの仕様準拠必須
     const sections: Record<string, string> = {};
 
-    // 🚨 System Instructions - 絶対にコメントアウト・削除禁止
-    // DEFAULT_SYSTEM_PROMPTを基本として使用（重複排除）
-    let systemInstructions = DEFAULT_SYSTEM_PROMPT;
+    // 🚨 System Instructions - カスタムプロンプトが優先
+    let systemInstructions = "";
+
+    // カスタムシステムプロンプトが有効で内容がある場合は置き換え（追加ではない）
+    if (
+      systemSettings.enableSystemPrompt &&
+      systemSettings.systemPrompts?.system &&
+      systemSettings.systemPrompts.system.trim() !== ""
+    ) {
+      // カスタムプロンプトで完全に置き換える
+      systemInstructions = systemSettings.systemPrompts.system;
+    } else {
+      // カスタムプロンプトがない場合のみデフォルトを使用
+      systemInstructions = DEFAULT_SYSTEM_PROMPT;
+    }
 
     // キャラクター固有のシステムプロンプトを追加
     if (
@@ -334,15 +348,6 @@ export class PromptBuilderService {
       processedCharacter.system_prompt.trim() !== ""
     ) {
       systemInstructions += `\n\n## キャラクター固有の指示\n${processedCharacter.system_prompt}`;
-    }
-
-    // カスタムシステムプロンプトが有効で内容がある場合は追加
-    if (
-      systemSettings.enableSystemPrompt &&
-      systemSettings.systemPrompts?.system &&
-      systemSettings.systemPrompts.system.trim() !== ""
-    ) {
-      systemInstructions += `\n\n## 追加指示\n${systemSettings.systemPrompts.system}`;
     }
 
     sections.system = systemInstructions;

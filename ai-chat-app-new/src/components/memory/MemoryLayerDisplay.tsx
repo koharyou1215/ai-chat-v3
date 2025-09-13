@@ -45,7 +45,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
     // getLayeredContext,
     getLayerStatistics,
     clearLayer
-  } = useAppStore();
+  } = useAppStore() as any;
   
   // セッション固有のレイヤーデータ（現在はグローバル）
   const sessionLayers = {

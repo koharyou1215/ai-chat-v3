@@ -10,7 +10,7 @@ import {
 } from "@/types/progressive-message.types";
 import { replaceVariables } from "@/utils/variable-replacer";
 import { TrackerManager } from "./tracker/tracker-manager";
-import { MemoryCard } from "@/types/memory.types";
+import { MemoryCard } from "@/types";
 
 export class ProgressivePromptBuilder {
   /**
@@ -76,8 +76,16 @@ ${charName}:`;
     return {
       stage: "reflex",
       prompt: replaceVariables(prompt, {
-        char: charName,
-        user: userName,
+        character,
+        user: persona || { 
+          id: 'default', 
+          name: userName, 
+          role: 'user', 
+          other_settings: '', 
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 1
+        } as Persona,
       }),
       tokenLimit: 100,
       temperature: 0.9,
@@ -167,7 +175,7 @@ ${recentMessages
     // トラッカー情報（あれば）
     const trackerInfo =
       trackerManager && character.id
-        ? trackerManager.getEssentialTrackersForPrompt?.(character.id)
+        ? trackerManager.getTrackersForPrompt?.(character.id)
         : null;
 
     const trackerSection = trackerInfo
@@ -199,8 +207,16 @@ ${charName}:`;
     return {
       stage: "context",
       prompt: replaceVariables(prompt, {
-        char: charName,
-        user: userName,
+        character,
+        user: persona || { 
+          id: 'default', 
+          name: userName, 
+          role: 'user', 
+          other_settings: '', 
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 1
+        } as Persona,
       }),
       tokenLimit: 500,
       temperature: 0.7,
@@ -254,7 +270,6 @@ ${charName}:`;
 ## Basic Information
 Name: ${character.name}
 Age: ${character.age || "Not specified"}
-Gender: ${character.gender || "Not specified"}
 Personality: ${character.personality || "Not specified"}
 Occupation: ${character.occupation || "Not specified"}
 
@@ -289,7 +304,7 @@ ${character.scenario || "No specific scenario"}
 
 ## Special Context
 ${
-  character.nsfw_profile?.is_enabled
+  character.nsfw_profile
     ? `
 NSFW Profile Active
 Persona: ${character.nsfw_profile.persona || "Standard"}
@@ -306,29 +321,11 @@ Preferences: ${character.nsfw_profile.kinks?.join(", ") || "None specified"}
 ## User Profile
 Name: ${persona.name}
 Role: ${persona.role || "User"}
-Description: ${persona.description || "No description"}
+Settings: ${persona.other_settings || "No additional settings"}
 
 ## Characteristics
-${
-  persona.traits && persona.traits.length > 0
-    ? `Traits: ${persona.traits.join(", ")}`
-    : ""
-}
-${
-  persona.likes && persona.likes.length > 0
-    ? `Likes: ${persona.likes.join(", ")}`
-    : ""
-}
-${
-  persona.dislikes && persona.dislikes.length > 0
-    ? `Dislikes: ${persona.dislikes.join(", ")}`
-    : ""
-}
 
 ## Additional Information
-${persona.personality ? `Personality: ${persona.personality}` : ""}
-${persona.speaking_style ? `Speaking Style: ${persona.speaking_style}` : ""}
-${persona.background ? `Background: ${persona.background}` : ""}
 ${persona.other_settings ? `Other Settings: ${persona.other_settings}` : ""}
 </persona_information>`
       : "";
@@ -425,8 +422,16 @@ ${charName}:`;
     return {
       stage: "intelligence",
       prompt: replaceVariables(prompt, {
-        char: charName,
-        user: userName,
+        character,
+        user: persona || { 
+          id: 'default', 
+          name: userName, 
+          role: 'user', 
+          other_settings: '', 
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 1
+        } as Persona,
       }),
       tokenLimit: 2000,
       temperature: 0.7,

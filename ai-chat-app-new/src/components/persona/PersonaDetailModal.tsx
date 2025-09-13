@@ -86,7 +86,7 @@ export const PersonaDetailModal: React.FC<PersonaDetailModalProps> = ({
                   onAvatarChange={(filePath) =>
                     updatePersona({ avatar_path: filePath })
                   }
-                  currentAvatar={editingPersona.avatar_path}
+                  currentAvatar={editingPersona.avatar_path || undefined}
                   className="text-sm"
                 />
               </div>

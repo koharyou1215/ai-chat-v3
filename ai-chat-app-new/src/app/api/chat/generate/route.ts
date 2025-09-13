@@ -223,22 +223,22 @@ export async function POST(request: Request) {
           }
         );
 
-      // システムプロンプトから情報を抽出して表示
-      console.log("\n📦 システムプロンプト構成:");
-      
-      // ペルソナ情報の抽出（persona_informationタグを探す）
-      const personaMatch = systemPrompt.match(
-        /<persona_information>([\s\S]*?)<\/persona_information>/
-      );
-      if (personaMatch) {
-        console.log("  👥 ペルソナ情報: あり");
-        const personaInfo = personaMatch[1].substring(0, 100);
-        console.log("    " + personaInfo + "...");
-      } else {
-        console.log("  👥 ペルソナ情報: なし");
-      }
+      // システムプロンプトから情報を抽出して表示（PROMPT_VERIFICATION_GUIDE.mdの順序に従う）
+      console.log("\n📦 システムプロンプト構成（正しい順序）:");
 
-      // キャラクター情報の抽出
+      // 1. System Instructions (必須)
+      const systemInstructionsMatch = systemPrompt.match(
+        /<system_instructions>([\s\S]*?)<\/system_instructions>/
+      );
+      console.log("  1️⃣ System Instructions: " + (systemInstructionsMatch ? "✅ あり" : "❌ なし"));
+
+      // 2. Jailbreak (オプション)
+      const jailbreakMatch = systemPrompt.match(
+        /<jailbreak>([\s\S]*?)<\/jailbreak>/
+      );
+      console.log("  2️⃣ Jailbreak: " + (jailbreakMatch ? "✅ あり" : "➖ なし（オプション）"));
+
+      // 3. Character Information（必須）
       const charMatch = systemPrompt.match(
         /<character_information>([\s\S]*?)<\/character_information>/
       );
@@ -246,11 +246,25 @@ export async function POST(request: Request) {
         const charInfo = charMatch[1];
         const nameMatch = charInfo.match(/Name: (.+)/);
         console.log(
-          "  👤 キャラクター: " + (nameMatch ? nameMatch[1] : "不明")
+          "  3️⃣ Character Information: ✅ " + (nameMatch ? nameMatch[1] : "キャラクター名不明")
         );
+      } else {
+        console.log("  3️⃣ Character Information: ❌ なし");
       }
 
-      // トラッカー情報の抽出（relationship_stateタグを探す）
+      // 4. Persona Information（必須）
+      const personaMatch = systemPrompt.match(
+        /<persona_information>([\s\S]*?)<\/persona_information>/
+      );
+      if (personaMatch) {
+        console.log("  4️⃣ Persona Information: ✅ あり");
+        const personaInfo = personaMatch[1].substring(0, 100);
+        console.log("    " + personaInfo.replace(/\n/g, ' ').substring(0, 80) + "...");
+      } else {
+        console.log("  4️⃣ Persona Information: ❌ なし");
+      }
+
+      // 5. Relationship State（トラッカー情報）
       const trackerMatch = systemPrompt.match(
         /<relationship_state>([\s\S]*?)<\/relationship_state>/
       );
@@ -258,7 +272,7 @@ export async function POST(request: Request) {
         const trackerInfo = trackerMatch[1];
         // トラッカー名を抽出（## で始まる行を探す）
         const trackerNames = trackerInfo.match(/## [^\n]+/g) || [];
-        console.log("  📊 トラッカー: " + trackerNames.length + "個");
+        console.log("  5️⃣ Relationship State: ✅ トラッカー" + trackerNames.length + "個");
         trackerNames.slice(0, 5).forEach((tracker: string) => {
           console.log("    - " + tracker.replace("## ", ""));
         });
@@ -266,43 +280,31 @@ export async function POST(request: Request) {
           console.log("    ... 他" + (trackerNames.length - 5) + "個");
         }
       } else {
-        console.log("  📊 トラッカー: 0個");
+        console.log("  5️⃣ Relationship State: ➖ トラッカーなし");
       }
 
-      // メモリーカード情報（複数のタグを探す）
-      const pinnedMemoryMatch = systemPrompt.match(
-        /<pinned_memory_cards>([\s\S]*?)<\/pinned_memory_cards>/
-      );
-      const relevantMemoryMatch = systemPrompt.match(
-        /<relevant_memory_cards>([\s\S]*?)<\/relevant_memory_cards>/
-      );
+      // 6. Memory Context（メモリーカード）
       const memoryContextMatch = systemPrompt.match(
         /<memory_context>([\s\S]*?)<\/memory_context>/
       );
 
       let totalMemoryCards = 0;
-      
-      if (pinnedMemoryMatch) {
-        const pinnedLines = pinnedMemoryMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
-        totalMemoryCards += pinnedLines.length;
-        console.log("    📌 ピン留め: " + pinnedLines.length + "件");
-      }
-      
-      if (relevantMemoryMatch) {
-        const relevantLines = relevantMemoryMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
-        totalMemoryCards += relevantLines.length;
-        console.log("    🔍 関連: " + relevantLines.length + "件");
-      }
-      
       if (memoryContextMatch) {
-        const memoryLines = memoryContextMatch[1].split('\n').filter((line: string) => line.trim() && line.includes('['));
-        console.log("    🧠 メモリーコンテキスト: " + memoryLines.length + "件");
-        if (totalMemoryCards === 0) {
-          totalMemoryCards = memoryLines.length;
-        }
+        // 正確にカードをカウント: [category] title: のパターンを探す
+        const cardPattern = /^\s*\[([^\]]+)\]\s+[^:]+:/gm;
+        const cards = memoryContextMatch[1].match(cardPattern);
+        totalMemoryCards = cards ? cards.length : 0;
+        console.log("  6️⃣ Memory Context: " + (totalMemoryCards > 0 ? "✅ " + totalMemoryCards + "件" : "➖ なし"));
+      } else {
+        console.log("  6️⃣ Memory Context: ➖ なし");
       }
 
-      console.log("  🧠 メモリーカード合計: " + totalMemoryCards + "件");
+      // 7. Current Input（必須 - プロンプトの最後にあるはず）
+      const currentInputMatch = systemPrompt.match(/## Current Input[\s\S]*$/);
+      console.log("  7️⃣ Current Input: " + (currentInputMatch ? "✅ あり" : "❌ なし"));
+
+      console.log("\n📊 プロンプト順序の検証:");
+      console.log("  " + (systemInstructionsMatch && charMatch && personaMatch ? "✅ 正しい順序" : "❌ 順序に問題あり"));
 
       // システムプロンプトの実際の内容を表示
       console.log("\n📦 システムプロンプト (先頭1000文字):");

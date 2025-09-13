@@ -845,7 +845,7 @@ export const createMessageOperations: StateCreator<
       // 続き生成の指示をユーザープロンプトに含める（システムプロンプトには追加しない）
       const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
 
-      let systemPrompt = await promptBuilderService.buildPrompt(
+      const systemPrompt = await promptBuilderService.buildPrompt(
         session,
         continuePrompt,
         trackerManager || undefined

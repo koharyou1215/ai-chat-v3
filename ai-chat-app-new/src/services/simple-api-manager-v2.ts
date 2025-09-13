@@ -11,6 +11,7 @@
 import { geminiClient } from "./api/gemini-client";
 import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
+import { migrateModelName } from "@/utils/model-migration";
 
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
@@ -182,12 +183,19 @@ export class SimpleAPIManagerV2 {
       // 🚨 修正: GeminiモデルをOpenRouterに送信しない
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
 
-      // OpenRouterではgoogle/プレフィックス付きで送信
-      if (model.includes("gemini")) {
+      // Geminiモデルの場合のみモデル名を移行（古いGeminiモデル名を新しいものに変換）
+      if (model.includes("gemini") || model.includes("google/gemini")) {
+        model = migrateModelName(model);
+
+        // OpenRouterではgoogle/プレフィックス付きで送信
         if (!model.startsWith("google/")) {
           model = "google/" + model;
         }
         console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
+      }
+      // Gemini以外のモデル（deepseek等）はそのまま使用
+      else {
+        console.log("✅ OpenRouter用モデル（そのまま使用）:", model);
       }
 
       const result = await this.generateWithOpenRouter(
@@ -236,6 +244,14 @@ export class SimpleAPIManagerV2 {
 
           // 現在のAPIConfigも更新（モデル設定を反映）
           if (currentApiConfig && currentApiConfig.model) {
+            // モデル名の自動移行
+            const migratedModel = migrateModelName(currentApiConfig.model);
+            if (migratedModel !== currentApiConfig.model) {
+              console.log(
+                `🔄 モデル名を自動移行: ${currentApiConfig.model} → ${migratedModel}`
+              );
+              currentApiConfig.model = migratedModel;
+            }
             this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
             console.log(
               "🔄 APIConfig更新（モデル:",
@@ -267,7 +283,8 @@ export class SimpleAPIManagerV2 {
 
     console.log("🔥 Using Gemini API directly");
 
-    const model = options?.model || "gemini-2.5-flash";
+    // モデル名の自動移行
+    const model = migrateModelName(options?.model || "gemini-2.5-flash");
     const cleanModel = model.replace("google/", ""); // google/プレフィックス削除
 
     geminiClient.setApiKey(this.geminiApiKey);
@@ -395,12 +412,19 @@ export class SimpleAPIManagerV2 {
       // OpenRouterはストリーミング非対応のため通常生成
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
 
-      // OpenRouterではgoogle/プレフィックス付きで送信
-      if (model.includes("gemini")) {
+      // Geminiモデルの場合のみモデル名を移行
+      if (model.includes("gemini") || model.includes("google/gemini")) {
+        model = migrateModelName(model);
+
+        // OpenRouterではgoogle/プレフィックス付きで送信
         if (!model.startsWith("google/")) {
           model = "google/" + model;
         }
         console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
+      }
+      // Gemini以外のモデル（deepseek等）はそのまま使用
+      else {
+        console.log("✅ OpenRouter用モデル（そのまま使用）:", model);
       }
 
       const result = await this.generateWithOpenRouter(
@@ -439,6 +463,9 @@ export class SimpleAPIManagerV2 {
           { id: "openai/gpt-4", name: "GPT-4" },
           { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
           { id: "meta-llama/llama-3.1-405b", name: "Llama 3.1 405B" },
+          { id: "deepseek/deepseek-chat-v3.1", name: "DeepSeek Chat V3.1" },
+          { id: "qwen/qwen3-next-80b-a3b-thinking", name: "Qwen3 Next 80B Thinking" },
+          { id: "qwen/qwen3-next-80b-a3b-instruct", name: "Qwen3 Next 80B Instruct" },
         ],
       },
     ];

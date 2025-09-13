@@ -128,8 +128,8 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
               <label className="text-sm font-medium text-slate-300">役割</label>
               <Input 
                 placeholder="役割を入力" 
-                value={formData?.role || ''} 
-                onChange={e => setFormData(prev => prev ? {...prev, role: e.target.value} : null)}
+                value={mode === 'persona' && formData && 'role' in formData ? formData.role : ''} 
+                onChange={e => setFormData(prev => prev && mode === 'persona' ? {...prev, role: e.target.value} : prev)}
                 className="bg-slate-800/50 border-slate-600 focus:border-purple-400"
               />
             </div>
@@ -138,8 +138,8 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
             <label className="text-sm font-medium text-slate-300">詳細設定</label>
             <Textarea 
               placeholder="その他の設定や詳細情報" 
-              value={formData?.other_settings || ''} 
-              onChange={e => setFormData(prev => prev ? {...prev, other_settings: e.target.value} : null)}
+              value={mode === 'persona' && formData && 'other_settings' in formData ? formData.other_settings : ''} 
+              onChange={e => setFormData(prev => prev && mode === 'persona' ? {...prev, other_settings: e.target.value} : prev)}
               className="bg-slate-800/50 border-slate-600 focus:border-purple-400 resize-none"
               rows={4}
             />

@@ -413,18 +413,14 @@ export const AdvancedEffects: React.FC<{ text: string }> = ({ text }) => {
 
   if (!text) return null;
 
-  let displayText = text;
+  const displayText = text;
 
   return (
     <ClientOnly>
       <div className="relative">
         {/* フォントエフェクト + タイプライター効果の組み合わせ */}
         {settings.fontEffects ? (
-          <FontEffects text={displayText}>
-            {settings.typewriterEffect ? (
-              <TypewriterText text={displayText} />
-            ) : displayText}
-          </FontEffects>
+          <FontEffects text={displayText} />
         ) : settings.typewriterEffect ? (
           <TypewriterText text={displayText} />
         ) : (
