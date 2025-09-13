@@ -41,6 +41,7 @@ import { ClientOnlyProvider } from "../ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
 import useVH from "@/hooks/useVH";
+import { SDTestButton } from "../debug/SDTestButton";
 
 // メッセージ入力欄ラッパーコンポーネント
 const MessageInputWrapper: React.FC = () => {

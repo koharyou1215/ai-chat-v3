@@ -300,27 +300,38 @@ export class SDImageGenerator {
    * Stable Diffusion APIを呼び出し
    */
   private async callSDAPI(params: SDGenerationParams): Promise<SDResponse> {
-    const endpoint = `${this.baseUrl}/sdapi/v1/txt2img`;
+    try {
+      console.log('🎨 Calling SD API via Next.js route');
+      console.log('📝 Request params:', {
+        ...params,
+        prompt: params.prompt.substring(0, 100) + '...' // Log truncated prompt
+      });
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json'
-    };
+      // Next.js APIルートを経由してSD APIを呼び出す（CORS回避）
+      const response = await fetch('/api/sd/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(params)
+      });
 
-    if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ SD API Error Response:', errorData);
+        throw new Error(errorData.error || `SD API Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ SD API Success, received image');
+      return result;
+    } catch (error) {
+      console.error('❌ SD API Call Failed:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Cannot connect to API. Please check your connection');
+      }
+      throw error;
     }
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(params)
-    });
-
-    if (!response.ok) {
-      throw new Error(`SD API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   /**

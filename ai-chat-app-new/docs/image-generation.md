@@ -26,12 +26,21 @@ AI Chat V3にStable Diffusion APIと連携した文脈認識型画像生成機�
 ```bash
 # Stable Diffusion WebUIを起動（API有効化）
 python launch.py --api --listen
+
+# CORS対策が必要な場合
+python launch.py --api --cors-allow-origins="*" --listen
 ```
 
 ### 2. 環境変数の設定
 `.env.local`ファイルを作成：
 ```env
 NEXT_PUBLIC_SD_API_URL=http://localhost:7860
+```
+
+### 3. API動作確認
+ブラウザで以下のURLにアクセスしてAPIが有効か確認：
+```
+http://localhost:7860/docs
 ```
 
 ## 使用方法

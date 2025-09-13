@@ -39,6 +39,8 @@ const categoryIcons = {
   relationship: Heart,
   status: BarChart3,
   condition: Activity,
+  emotion: Star,
+  progress: TrendingUp,
   other: Target
 };
 
@@ -46,6 +48,8 @@ const categoryColors = {
   relationship: 'text-pink-400',
   status: 'text-blue-400',
   condition: 'text-green-400',
+  emotion: 'text-yellow-400',
+  progress: 'text-orange-400',
   other: 'text-purple-400'
 };
 
@@ -53,6 +57,8 @@ const categoryGradients = {
   relationship: 'from-pink-500/30 via-rose-500/20 to-pink-500/30',
   status: 'from-blue-500/30 via-indigo-500/20 to-blue-500/30',
   condition: 'from-green-500/30 via-emerald-500/20 to-green-500/30',
+  emotion: 'from-yellow-500/30 via-amber-500/20 to-yellow-500/30',
+  progress: 'from-orange-500/30 via-red-500/20 to-orange-500/30',
   other: 'from-purple-500/30 via-violet-500/20 to-purple-500/30'
 };
 
@@ -145,7 +151,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({ session_id, char
 
   // Group trackers by category
   const categorizedTrackers = useMemo(() => trackers.reduce((acc, tracker) => {
-    const category = tracker.category || 'other';
+    // カテゴリーはconfigの中にある
+    const category = (tracker.config as any)?.category || tracker.category || 'other';
     if (!acc[category]) acc[category] = [];
     acc[category].push(tracker);
     return acc;
