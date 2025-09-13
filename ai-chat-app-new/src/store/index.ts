@@ -24,10 +24,7 @@ import { UISlice, createUISlice } from "./slices/ui.slice";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { StateCreator } from "zustand";
 import { StorageCleaner } from "@/utils/storage-cleaner";
-import {
-  initializeModelMigration,
-  migrateModelName,
-} from "@/utils/model-migration";
+// Model migration removed - no auto-conversion
 
 export type AppStore = ChatSlice &
   GroupChatSlice &
@@ -548,32 +545,7 @@ const createStore = () => {
 // ストアの初期化を安全に行う
 let useAppStore: ReturnType<typeof createStore>;
 
-// 🔧 モデル移行処理を初期化時に実行
-if (typeof window !== "undefined") {
-  try {
-    console.log("🔄 Initializing model migration system...");
-    const migrationResult = initializeModelMigration();
-
-    if (migrationResult.migrated) {
-      console.log("✅ Model migration completed during store initialization");
-
-      if (migrationResult.oldModel && migrationResult.newModel) {
-        console.log(
-          `   Migrated: ${migrationResult.oldModel} → ${migrationResult.newModel}`
-        );
-      }
-    }
-
-    if (migrationResult.errors.length > 0) {
-      console.error(
-        "⚠️ Migration errors during initialization:",
-        migrationResult.errors
-      );
-    }
-  } catch (migrationError) {
-    console.error("❌ Failed to initialize model migration:", migrationError);
-  }
-}
+// Model migration removed - no auto-conversion
 
 // 永続化付きストアを作成（失敗時はフォールバック）
 try {

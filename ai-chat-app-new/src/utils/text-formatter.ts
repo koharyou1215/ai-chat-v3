@@ -145,8 +145,56 @@ export const FORMATTING_PRESETS = {
 };
 
 /**
+ * 文字化けを修正
+ */
+function fixCharacterEncoding(text: string): string {
+  // 一般的な文字化けパターンを修正
+  let fixed = text;
+
+  // UTF-8として正しくデコード
+  try {
+    // 既に文字化けしている場合の修正パターン
+    const patterns = [
+      // 日本語の文字化けパターン
+      { from: /ã/g, to: 'あ' },
+      { from: /ã/g, to: 'い' },
+      { from: /ã/g, to: 'う' },
+      { from: /ã/g, to: 'え' },
+      { from: /ã/g, to: 'お' },
+      // 他の一般的な文字化けパターン
+      { from: /Ã¡/g, to: 'á' },
+      { from: /Ã©/g, to: 'é' },
+      { from: /Ã­/g, to: 'í' },
+      { from: /Ã³/g, to: 'ó' },
+      { from: /Ãº/g, to: 'ú' },
+      { from: /Ã±/g, to: 'ñ' },
+      { from: /Â¿/g, to: '¿' },
+      { from: /Â¡/g, to: '¡' },
+    ];
+
+    patterns.forEach(pattern => {
+      fixed = fixed.replace(pattern.from, pattern.to);
+    });
+
+    // エンコーディングエラーの一般的なマーカーをチェック
+    if (fixed.includes('�')) {
+      console.warn('Character encoding issues detected, attempting to fix...');
+      // 不正な文字を除去または置換
+      fixed = fixed.replace(/�/g, '');
+    }
+  } catch (error) {
+    console.error('Error fixing character encoding:', error);
+  }
+
+  return fixed;
+}
+
+/**
  * ユーザー設定に基づいてテキストを整形
  */
 export function formatMessageContent(content: string, preset: keyof typeof FORMATTING_PRESETS = 'readable'): string {
-  return formatAIResponse(content, FORMATTING_PRESETS[preset]);
+  // まず文字化けを修正
+  const fixedContent = fixCharacterEncoding(content);
+  // その後、通常の整形を適用
+  return formatAIResponse(fixedContent, FORMATTING_PRESETS[preset]);
 }

@@ -27,46 +27,100 @@ export async function POST(request: NextRequest) {
     console.log('🎨 Server: Calling SD API:', endpoint);
     console.log('📝 Prompt (first 100 chars):', params.prompt?.substring(0, 100));
 
-    // Stable Diffusion APIを呼び出し（タイムアウト設定追加）
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+    // Stable Diffusion APIを呼び出し（リトライとタイムアウト設定）
+    const timeout = parseInt(process.env.SD_API_TIMEOUT || '120000'); // デフォルト120秒
+    let lastError: any = null;
+    const maxRetries = 3;
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params),
-        signal: controller.signal
-      });
+    // リトライ処理
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      clearTimeout(timeoutId);
+      try {
+        console.log(`🔄 SD API attempt ${attempt}/${maxRetries}`);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ SD API Error:', response.status, errorText);
-        return NextResponse.json(
-          { error: `SD API Error: ${response.status} - ${errorText}` },
-          { status: response.status }
-        );
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(params),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ SD API Success, images count:', result.images?.length);
+
+          // SD APIレスポンスの構造をログ出力（デバッグ用）
+          if (result.images && result.images.length > 0) {
+            console.log('📸 Image data received, first 100 chars:',
+              result.images[0].substring(0, 100));
+          } else {
+            console.warn('⚠️ No images in SD API response');
+          }
+
+          return NextResponse.json(result);
+        }
+
+        // エラーレスポンスの処理
+        let errorMessage = `SD API Error: ${response.status}`;
+        try {
+          const errorText = await response.text();
+          console.error('❌ SD API Error:', response.status, errorText);
+          if (errorText) {
+            errorMessage = `SD API Error: ${response.status} - ${errorText.substring(0, 500)}`;
+          }
+        } catch (readError) {
+          console.error('❌ Failed to read error response:', readError);
+        }
+
+        lastError = new Error(errorMessage);
+
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+
+        if (fetchError.name === 'AbortError') {
+          console.error(`❌ SD API Timeout after ${timeout/1000} seconds (attempt ${attempt}/${maxRetries})`);
+          lastError = new Error(`SD API timeout after ${timeout/1000} seconds`);
+        } else if (fetchError.code === 'ECONNRESET' || fetchError.code === 'ECONNREFUSED') {
+          console.error(`❌ Connection error (attempt ${attempt}/${maxRetries}):`, fetchError.code);
+          lastError = new Error('Cannot connect to SD API. Please check if Stable Diffusion is running.');
+
+          // 接続エラーの場合、少し待ってからリトライ
+          if (attempt < maxRetries) {
+            console.log('⏳ Waiting 2 seconds before retry...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        } else {
+          console.error(`❌ SD API Error (attempt ${attempt}/${maxRetries}):`, fetchError);
+          lastError = fetchError;
+        }
       }
 
-      const result = await response.json();
-      console.log('✅ SD API Success, images count:', result.images?.length);
-
-      return NextResponse.json(result);
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error('❌ SD API Timeout after 30 seconds');
-        return NextResponse.json(
-          { error: 'SD API timeout - ensure Stable Diffusion is running and responsive' },
-          { status: 504 }
-        );
+      // リトライする場合はループ継続、最後の試行の場合はエラーを返す
+      if (attempt === maxRetries) {
+        break;
       }
-      throw fetchError;
     }
+
+    // すべてのリトライが失敗した場合
+    console.error('❌ All SD API attempts failed');
+
+    if (lastError instanceof TypeError && lastError.message.includes('fetch')) {
+      return NextResponse.json(
+        { error: 'Cannot connect to Stable Diffusion API. Please ensure SD WebUI is running with --api flag on http://localhost:7860' },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: lastError?.message || 'SD API request failed after multiple attempts' },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('❌ Server SD API Error:', error);
 

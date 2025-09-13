@@ -48,8 +48,19 @@ export function useImageGeneration(options: UseImageGenerationOptions = {}) {
         customPrompt
       );
 
+      console.log('🔍 Received base64 image in hook, length:', base64Image?.length);
+      console.log('🎨 Base64 preview (first 100 chars):', base64Image?.substring(0, 100));
+
       // Base64画像をData URLに変換
-      const imageUrl = `data:image/png;base64,${base64Image}`;
+      // SD APIからのBase64データが正しいか確認
+      if (!base64Image || base64Image.length === 0) {
+        throw new Error('Received empty image data from SD API');
+      }
+
+      // すでにdata:imageで始まっている場合はそのまま使用
+      const imageUrl = base64Image.startsWith('data:image')
+        ? base64Image
+        : `data:image/png;base64,${base64Image}`;
       setGeneratedImage(imageUrl);
 
       return imageUrl;

@@ -72,12 +72,21 @@ export async function POST(request: Request) {
       }
     } else if (effectiveProvider === "openrouter") {
       // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
-      if (!apiConfig.openRouterApiKey) {
-        console.error("❌ OpenRouter API key not provided");
-        throw new Error("OpenRouter API キーが設定されていません");
+      if (apiConfig.openRouterApiKey) {
+        effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
+        console.log("✅ OpenRouter API key provided from client");
+      } else {
+        // フォールバック: 環境変数から読み込み
+        const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        if (openRouterKey) {
+          effectiveApiConfig.openRouterApiKey = openRouterKey;
+          console.log("✅ OpenRouter API key loaded from environment");
+        } else {
+          console.error("❌ OpenRouter API key not provided (client or environment)");
+          // エラーにせず、simpleAPIManagerV2のデフォルト処理に任せる
+          console.log("⚠️ Proceeding without explicit OpenRouter API key - will use manager's default");
+        }
       }
-      effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
-      // OpenRouter APIキー確認（ログ非表示）
     }
 
     // API Managerに設定を適用
@@ -337,11 +346,29 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ response: aiResponseContent });
   } catch (error) {
-    console.error("Error in /api/chat/generate:", error);
+    console.error("❌❌❌ Critical Error in /api/chat/generate:", error);
+    console.error("🔍 Error type:", typeof error);
+    console.error("🔍 Error message:", (error as Error).message);
+    console.error("🔍 Error stack:", (error as Error).stack);
+
+    // APIキーの状態を確認
+    console.error("🔑 API Key Status:");
+    console.error("  - OpenRouter key provided:", !!apiConfig?.openRouterApiKey);
+    console.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);
+    console.error("  - Use Direct Gemini:", apiConfig?.useDirectGeminiAPI);
+    console.error("  - Model:", apiConfig?.model);
+    console.error("  - Provider:", apiConfig?.provider);
+
     return NextResponse.json(
       {
         error: "Failed to generate AI response",
         details: (error as Error).message,
+        debugInfo: {
+          hasOpenRouterKey: !!apiConfig?.openRouterApiKey,
+          hasGeminiKey: !!apiConfig?.geminiApiKey,
+          model: apiConfig?.model,
+          provider: apiConfig?.provider
+        }
       },
       { status: 500 }
     );

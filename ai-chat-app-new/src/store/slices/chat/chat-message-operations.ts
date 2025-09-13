@@ -50,6 +50,7 @@ export interface MessageOperations {
   deleteMessage: (message_id: UUID) => void;
   rollbackSession: (message_id: UUID) => void;
   resetGeneratingState: () => void;
+  addMessage: (message: UnifiedMessage) => void;
 }
 
 export const createMessageOperations: StateCreator<
@@ -359,6 +360,7 @@ export const createMessageOperations: StateCreator<
                   ...apiConfig,
                   openRouterApiKey: get().openRouterApiKey,
                   geminiApiKey: get().geminiApiKey,
+                  useDirectGeminiAPI: get().useDirectGeminiAPI,
                 },
                 useEnhancedPrompt: false, // フラグで制御
               }),
@@ -1075,5 +1077,37 @@ export const createMessageOperations: StateCreator<
   // 🚨 緊急修復機能: 生成状態を強制リセット
   resetGeneratingState: () => {
     set({ is_generating: false });
+  },
+
+  // 📝 メッセージを直接追加（画像生成などで使用）
+  addMessage: (message: UnifiedMessage) => {
+    const activeSessionId = get().active_session_id;
+    if (!activeSessionId) {
+      console.error("❌ No active session to add message");
+      return;
+    }
+
+    const session = getSessionSafely(get().sessions, activeSessionId);
+    if (!session) {
+      console.error("❌ Session not found:", activeSessionId);
+      return;
+    }
+
+    // メッセージを追加
+    const updatedSession: UnifiedChatSession = {
+      ...session,
+      messages: [...session.messages, message],
+      updatedAt: Date.now(),
+    };
+
+    // セッションを更新
+    set((state) => ({
+      sessions: createMapSafely(state.sessions).set(
+        activeSessionId,
+        updatedSession
+      ),
+    }));
+
+    console.log("✅ Message added to session:", message.id);
   },
 });

@@ -202,9 +202,14 @@ export class GeminiClient {
           errorMessage = errorData.error?.message || errorMessage;
           
           // Quota exceededエラーの特別処理
-          if (errorMessage.includes('Quota exceeded')) {
-            console.error('⚠️ Gemini API使用制限に達しました。しばらく待ってから再試行してください。');
-            throw new Error('Gemini APIの使用制限に達しました。しばらく待ってから再試行するか、別のAPIキーを使用してください。');
+          if (errorMessage.includes('Quota exceeded') || response.status === 429) {
+            console.error('⚠️ Gemini API使用制限に達しました。');
+
+            // リトライ情報を含むエラーをスロー
+            const quotaError = new Error('Gemini APIの使用制限に達しました。約1分後に再試行してください。');
+            (quotaError as any).retryAfter = 60000; // 60秒後にリトライ
+            (quotaError as any).isQuotaError = true;
+            throw quotaError;
           }
           
           // モデルが見つからないエラー
@@ -319,9 +324,14 @@ export class GeminiClient {
           errorMessage = errorData.error?.message || errorMessage;
           
           // Quota exceededエラーの特別処理
-          if (errorMessage.includes('Quota exceeded')) {
-            console.error('⚠️ Gemini API使用制限に達しました。しばらく待ってから再試行してください。');
-            throw new Error('Gemini APIの使用制限に達しました。しばらく待ってから再試行するか、別のAPIキーを使用してください。');
+          if (errorMessage.includes('Quota exceeded') || response.status === 429) {
+            console.error('⚠️ Gemini API使用制限に達しました。');
+
+            // リトライ情報を含むエラーをスロー
+            const quotaError = new Error('Gemini APIの使用制限に達しました。約1分後に再試行してください。');
+            (quotaError as any).retryAfter = 60000; // 60秒後にリトライ
+            (quotaError as any).isQuotaError = true;
+            throw quotaError;
           }
           
           // モデルが見つからないエラー

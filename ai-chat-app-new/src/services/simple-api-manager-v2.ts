@@ -11,7 +11,7 @@
 import { geminiClient } from "./api/gemini-client";
 import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
-import { migrateModelName } from "@/utils/model-migration";
+import { validateGeminiModel, formatModelForProvider } from "@/utils/model-migration";
 
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
@@ -162,9 +162,30 @@ export class SimpleAPIManagerV2 {
     options?: Partial<APIConfig>
   ): Promise<string> {
     console.log("🔧 [SimpleAPIManagerV2] generateMessage called");
+    console.log("🔍 Options provided:", {
+      hasOptions: !!options,
+      model: options?.model,
+      provider: options?.provider,
+      hasOpenRouterKey: !!options?.openRouterApiKey,
+      hasGeminiKey: !!options?.geminiApiKey,
+    });
 
     // 🔧 リアルタイムでAPIキーを取得（Zustandストアから）
     this.refreshApiKeys();
+
+    // optionsからAPIキーを優先的に使用
+    if (options?.openRouterApiKey) {
+      this.openRouterApiKey = options.openRouterApiKey;
+      console.log("✅ Using OpenRouter API key from options");
+    }
+    if (options?.geminiApiKey) {
+      this.geminiApiKey = options.geminiApiKey;
+      console.log("✅ Using Gemini API key from options");
+    }
+    if (options?.useDirectGeminiAPI !== undefined) {
+      this.useDirectGeminiAPI = options.useDirectGeminiAPI;
+      console.log("🔄 useDirectGeminiAPI set to:", options.useDirectGeminiAPI);
+    }
 
     // AIタブのuseDirectGeminiAPIトグルのみで判断
     if (this.useDirectGeminiAPI && this.geminiApiKey) {
@@ -180,18 +201,23 @@ export class SimpleAPIManagerV2 {
       console.log(
         "🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)"
       );
+      console.log("🔑 OpenRouter API key available:", !!this.openRouterApiKey);
       // 🚨 修正: GeminiモデルをOpenRouterに送信しない
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
 
-      // Geminiモデルの場合のみモデル名を移行（古いGeminiモデル名を新しいものに変換）
-      if (model.includes("gemini") || model.includes("google/gemini")) {
-        model = migrateModelName(model);
-
-        // OpenRouterではgoogle/プレフィックス付きで送信
-        if (!model.startsWith("google/")) {
-          model = "google/" + model;
+      // Geminiモデルの場合のみ検証とフォーマット
+      if (model.includes("gemini")) {
+        // 有効性チェック（自動変換なし）
+        if (!validateGeminiModel(model)) {
+          throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
         }
-        console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
+        // OpenRouter用にフォーマット
+        const formattedModel = formatModelForProvider(model, 'openrouter');
+        if (!formattedModel) {
+          throw new Error(`❌ モデルフォーマットエラー: ${model}`);
+        }
+        model = formattedModel;
+        console.log("📍 OpenRouter用Geminiモデル:", model);
       }
       // Gemini以外のモデル（deepseek等）はそのまま使用
       else {
@@ -244,20 +270,18 @@ export class SimpleAPIManagerV2 {
 
           // 現在のAPIConfigも更新（モデル設定を反映）
           if (currentApiConfig && currentApiConfig.model) {
-            // モデル名の自動移行
-            const migratedModel = migrateModelName(currentApiConfig.model);
-            if (migratedModel !== currentApiConfig.model) {
+            // Geminiモデルの場合のみ検証
+            if (currentApiConfig.model.includes('gemini') && !validateGeminiModel(currentApiConfig.model)) {
+              console.error(`❌ 無効なGeminiモデル設定: ${currentApiConfig.model}`);
+              // 無効なモデルは使用しない
+            } else {
+              this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
               console.log(
-                `🔄 モデル名を自動移行: ${currentApiConfig.model} → ${migratedModel}`
+                "🔄 APIConfig更新（モデル:",
+                currentApiConfig.model,
+                "）"
               );
-              currentApiConfig.model = migratedModel;
             }
-            this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
-            console.log(
-              "🔄 APIConfig更新（モデル:",
-              currentApiConfig.model,
-              "）"
-            );
           }
         }
       } catch (error) {
@@ -283,9 +307,16 @@ export class SimpleAPIManagerV2 {
 
     console.log("🔥 Using Gemini API directly");
 
-    // モデル名の自動移行
-    const model = migrateModelName(options?.model || "gemini-2.5-flash");
-    const cleanModel = model.replace("google/", ""); // google/プレフィックス削除
+    // モデル名の検証とフォーマット
+    const requestedModel = options?.model || "gemini-2.5-flash";
+    if (!validateGeminiModel(requestedModel)) {
+      throw new Error(`❌ 無効なGeminiモデル: ${requestedModel}. Gemini 2.5シリーズのみ使用可能です。`);
+    }
+    const formattedModel = formatModelForProvider(requestedModel, 'gemini');
+    if (!formattedModel) {
+      throw new Error(`❌ モデルフォーマットエラー: ${requestedModel}`);
+    }
+    const cleanModel = formattedModel; // 直接API用はプレフィックスなし
 
     geminiClient.setApiKey(this.geminiApiKey);
     geminiClient.setModel(cleanModel);
@@ -412,15 +443,19 @@ export class SimpleAPIManagerV2 {
       // OpenRouterはストリーミング非対応のため通常生成
       let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
 
-      // Geminiモデルの場合のみモデル名を移行
-      if (model.includes("gemini") || model.includes("google/gemini")) {
-        model = migrateModelName(model);
-
-        // OpenRouterではgoogle/プレフィックス付きで送信
-        if (!model.startsWith("google/")) {
-          model = "google/" + model;
+      // Geminiモデルの場合のみ検証とフォーマット
+      if (model.includes("gemini")) {
+        // 有効性チェック（自動変換なし）
+        if (!validateGeminiModel(model)) {
+          throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
         }
-        console.log("⚠️ OpenRouter用にgoogle/プレフィックス追加:", model);
+        // OpenRouter用にフォーマット
+        const formattedModel = formatModelForProvider(model, 'openrouter');
+        if (!formattedModel) {
+          throw new Error(`❌ モデルフォーマットエラー: ${model}`);
+        }
+        model = formattedModel;
+        console.log("📍 OpenRouter用Geminiモデル:", model);
       }
       // Gemini以外のモデル（deepseek等）はそのまま使用
       else {

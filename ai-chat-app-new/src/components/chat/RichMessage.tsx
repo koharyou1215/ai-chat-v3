@@ -92,6 +92,9 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       const hasImages = /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(content);
       const hasCode = /```[\s\S]*?```|`[^`]+`/g.test(content);
       const isLong = content.length > 500;
+      // Data URL画像の検出（SD API生成画像用）
+      const hasDataUrlImage = /!\[.*?\]\(data:image\/[^)]+\)/g.test(content);
+      const hasGeneratedImage = hasDataUrlImage || /!\[Generated Image\]/i.test(content);
 
       return {
         hasMarkdown,
@@ -99,7 +102,9 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         hasImages,
         hasCode,
         isLong,
-        shouldUseMarkdown: hasMarkdown || hasCode || hasUrls,
+        hasGeneratedImage,
+        hasDataUrlImage,
+        shouldUseMarkdown: hasMarkdown || hasCode || hasUrls || hasGeneratedImage,
       };
     }, [content]);
 
@@ -109,12 +114,26 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       return content.match(urlRegex) || [];
     }, [content]);
 
-    // Extract image URLs
+    // Extract image URLs and Data URLs
     const imageUrls = useMemo(() => {
-      return urls.filter((url) =>
+      const normalImages = urls.filter((url) =>
         /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(url)
       );
-    }, [urls]);
+
+      // Data URL画像を抽出
+      const dataUrlMatch = content.match(/!\[.*?\]\((data:image\/[^)]+)\)/g);
+      const dataUrls = [];
+      if (dataUrlMatch) {
+        dataUrlMatch.forEach(match => {
+          const urlMatch = match.match(/!\[.*?\]\((data:image\/[^)]+)\)/);
+          if (urlMatch && urlMatch[1]) {
+            dataUrls.push(urlMatch[1]);
+          }
+        });
+      }
+
+      return [...normalImages, ...dataUrls];
+    }, [urls, content]);
 
     // Truncate content for performance if too long
     const displayContent = useMemo(() => {

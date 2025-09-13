@@ -48,8 +48,9 @@
 - **エラーメッセージを明確に表示**: APIエラーは隠さず、ユーザーに原因を明確に伝える
 - **対応モデル制限**: `gemini-2.5-flash`, `gemini-2.5-flash-light`, `gemini-2.5-pro` の3種類のみ**絶対遵守**
 - **Gemini 2.5以外絶対書かない**: 上記3機種以外のモデル名は一切使用・記述・参照しない
-- **モデル名の自動修正**: 古いモデル名（1.5系）は2.5系に自動変換するが、それ以外のモデルは拒否
-- **解決済みエラー**: `google/gemini-1.5-flash-8b is not a valid model ID`、`Quota exceeded`、`JSON parsing`問題は完全解決済み
+- **自動変換・フォールバック禁止**: モデル名の自動変換や自動修正は一切行わない
+- **OpenRouterでGemini 2.5は使用可能**: OpenRouterは`google/gemini-2.5-flash`等をサポート（公式サイトで確認済み）
+- **解決済みエラー**: OpenRouter API エラー、`Quota exceeded`、`JSON parsing`問題は完全解決済み
 
 ### 3. 設定永続化の確実性
 - **設定が勝手に変更されることを防ぐ**: モデル設定、プロンプト設定等の自動変更を禁止
@@ -123,10 +124,10 @@ npm run dev
 ### 🔧 既知のビルドエラー対応（修正済み・心配不要）
 - **BOMエラー**: `kusuguri.json`と`いじめ母.json`のBOM（Byte Order Mark）エラー → **修正済み**
 - **Gemini API Key未設定エラー**: `❌ GEMINI_API_KEY not found` → **正常動作（APIキー未設定時の正常な警告）**
-- **古いモデル名エラー**: `google/gemini-1.5-flash-8b` → **修正済み（自動変換処理実装済み）**
+- **無効なモデル名エラー**: 無効なモデル指定時はエラー表示（自動変換なし）
 - **Geminiインスピレーション機能エラー**: OpenRouter/Quota/JSON関連 → **完全解決済み（14回目で根本解決）**
 - **Claude Codeシステム問題**: Claude Codeがクリア・コンパクト処理後に必ず同じビルドエラーに突撃する → **システム的な繰り返し問題として認識**
-- **ビルドエラー全般**: `google/gemini-1.5-flash-8b`、`Quota exceeded`、`JSON parsing` → **完全解決済み**
+- **ビルドエラー全般**: OpenRouter API エラー、`Quota exceeded`、`JSON parsing` → **完全解決済み**
 - **キャラクター読み込みエラー**: 本番環境での文字化けと読み込み失敗 → **修正済み**
 
 ## 🔒 **重要な修正ルール（絶対遵守）**

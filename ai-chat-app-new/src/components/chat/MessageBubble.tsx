@@ -318,6 +318,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       const character = getSelectedCharacter();
       if (!character) {
         console.error("キャラクターが選択されていません");
+        alert('キャラクターが選択されていません');
         return;
       }
 
@@ -326,6 +327,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       const currentSession = sessions.get(activeSessionId || '');
       if (!currentSession) {
         console.error("セッションが見つかりません");
+        alert('セッションが見つかりません');
         return;
       }
 
@@ -359,23 +361,38 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         trackers
       );
 
+      console.log('🖼️ Generated image URL:', imageUrl?.substring(0, 100));
+
       // 生成された画像をメッセージとして追加
-      if (imageUrl && addMessage) {
-        addMessage({
-          id: Date.now().toString(),
-          content: `![Generated Image](${imageUrl})`,
-          role: "assistant",
-          timestamp: Date.now(),
-          character_id: character.id,
-          metadata: {
-            type: 'image',
-            generated: true
-          }
-        });
+      if (imageUrl) {
+        // addMessageが存在するか確認
+        if (addMessage) {
+          console.log('📨 Adding image message to chat');
+          const newMessage = {
+            id: Date.now().toString(),
+            content: `![Generated Image](${imageUrl})`,
+            role: "assistant" as const,
+            timestamp: Date.now(),
+            character_id: character.id,
+            metadata: {
+              type: 'image',
+              generated: true
+            }
+          };
+          console.log('📝 New message:', newMessage);
+          addMessage(newMessage);
+        } else {
+          console.error('❌ addMessage function not found');
+          // 代替案：アラートで画像を表示
+          alert('画像生成に成功しましたが、チャットに追加できませんでした。');
+        }
+      } else {
+        console.error('❌ No image URL returned from generateImage');
       }
     } catch (error) {
       console.error("画像生成に失敗しました:", error);
-      alert("画像生成に失敗しました。Stable Diffusion APIが起動していることを確認してください。");
+      const errorMessage = error instanceof Error ? error.message : '画像生成に失敗しました';
+      alert(`画像生成エラー: ${errorMessage}`);
     } finally {
       setIsGeneratingImage(false);
     }
