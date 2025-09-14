@@ -69,6 +69,13 @@ import { useImageGeneration } from "@/hooks/useImageGeneration";
 interface MessageBubbleProps {
   message: UnifiedMessage;
   previousMessage?: UnifiedMessage;
+  isLastMessage?: boolean;
+  onRegenerate?: (messageId: string) => void;
+  onContinue?: (messageId: string) => void;
+  onDelete?: (messageId: string) => void;
+  onEdit?: (messageId: string, newContent: string) => void;
+  showActions?: boolean;
+  className?: string;
   isLatest: boolean;
   isGroupChat?: boolean;
 }
@@ -886,6 +893,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                           "w-4 h-4",
                           isGeneratingImage && "animate-pulse"
                         )}
+                        alt="Generated Image"
                       />
                     </button>
                   )}

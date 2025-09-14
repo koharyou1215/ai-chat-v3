@@ -28,6 +28,7 @@ import TokenUsageDisplay from "@/components/ui/TokenUsageDisplay";
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
   isLatest?: boolean;
+  isGroupChat?: boolean; // 追加
 }
 
 export const ProgressiveMessageBubble: React.FC<
@@ -180,7 +181,7 @@ export const ProgressiveMessageBubble: React.FC<
 
     // フォールバック
     return "";
-  }, [selectedStage, stages, message.content]);
+  }, [selectedStage, stages]);
 
   // タイプライター効果
   useEffect(() => {
