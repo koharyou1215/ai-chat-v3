@@ -65,6 +65,7 @@ import { EmotionReactions } from "@/components/emotion/EmotionDisplay";
 import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { ImageGenerationProgress } from "@/components/media/ImageGenerationProgress";
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -90,6 +91,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageGenerationProgress, setImageGenerationProgress] = useState(0);
+  const [imageGenerationStatus, setImageGenerationStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   const { generateImage } = useImageGeneration();
 
@@ -320,6 +325,22 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     if (!isAssistant) return;
 
     setIsGeneratingImage(true);
+    setImageGenerationStatus('processing');
+    setImageGenerationProgress(0);
+    setImageGenerationError(null);
+    setGeneratedImageUrl(null);
+
+    // 擬似的な進捗更新（実際のSD APIから進捗を取得する場合は置き換える）
+    const progressInterval = setInterval(() => {
+      setImageGenerationProgress((prev) => {
+        if (prev >= 0.9) {
+          clearInterval(progressInterval);
+          return 0.95;
+        }
+        return prev + 0.1;
+      });
+    }, 500);
+
     try {
       // 現在のキャラクターを取得
       const character = getSelectedCharacter();
@@ -372,6 +393,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
       // 生成された画像をメッセージとして追加
       if (imageUrl) {
+        clearInterval(progressInterval);
+        setImageGenerationProgress(1);
+        setImageGenerationStatus('completed');
+        setGeneratedImageUrl(imageUrl);
+
         // addMessageが存在するか確認
         if (addMessage) {
           console.log("📨 Adding image message to chat");
@@ -393,13 +419,25 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           // 代替案：アラートで画像を表示
           alert("画像生成に成功しましたが、チャットに追加できませんでした。");
         }
+
+        // 3秒後に状態をリセット
+        setTimeout(() => {
+          setImageGenerationStatus('pending');
+          setGeneratedImageUrl(null);
+        }, 3000);
       } else {
         console.error("❌ No image URL returned from generateImage");
+        clearInterval(progressInterval);
+        setImageGenerationStatus('failed');
+        setImageGenerationError('画像URLが返されませんでした');
       }
     } catch (error) {
       console.error("画像生成に失敗しました:", error);
+      clearInterval(progressInterval);
+      setImageGenerationStatus('failed');
       const errorMessage =
         error instanceof Error ? error.message : "画像生成に失敗しました";
+      setImageGenerationError(errorMessage);
       alert(`画像生成エラー: ${errorMessage}`);
     } finally {
       setIsGeneratingImage(false);
@@ -970,6 +1008,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           </motion.div>
         )}
       </motion.div>
+
+      {/* 画像生成プログレス表示 */}
+      <ImageGenerationProgress
+        isGenerating={isGeneratingImage}
+        progress={imageGenerationProgress}
+        status={imageGenerationStatus}
+        error={imageGenerationError || undefined}
+        imageUrl={generatedImageUrl || undefined}
+      />
     </AnimatePresence>
   );
 };

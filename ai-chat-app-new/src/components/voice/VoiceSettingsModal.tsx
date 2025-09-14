@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TestTube2 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { AvatarUploadWidget } from '@/components/ui/AvatarUploadWidget';
+import { MediaOrchestrator } from '@/services/media';
 
 // ... (Assuming detailed VoiceSettings type is in the store)
 
@@ -19,12 +20,12 @@ const SettingRow: React.FC<{ label: string; description?: string; children: Reac
 );
 
 const Slider: React.FC<{ value: number; onChange: (value: number) => void; min: number; max: number; step: number; }> = ({ value, onChange, ...props }) => (
-    <input 
-        type="range" 
-        value={value} 
-        onChange={e => onChange(parseFloat(e.target.value))} 
+    <input
+        type="range"
+        value={value}
+        onChange={e => onChange(parseFloat(e.target.value))}
         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-        {...props} 
+        {...props}
     />
 );
 
@@ -38,9 +39,9 @@ const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void;
 );
 
 export const VoiceSettingsModal: React.FC = () => {
-  const { 
-    showVoiceSettingsModal, 
-    setShowVoiceSettingsModal, 
+  const {
+    showVoiceSettingsModal,
+    setShowVoiceSettingsModal,
     voice,
     updateVoiceSettings,
     getSelectedPersona,
@@ -50,97 +51,59 @@ export const VoiceSettingsModal: React.FC = () => {
   const persona = getSelectedPersona();
 
   const [isPlaying, setIsPlaying] = useState(false);
-  
+  const orchestratorRef = useRef<MediaOrchestrator | null>(null);
+
+  // MediaOrchestratorのインスタンスを取得
+  useEffect(() => {
+    orchestratorRef.current = MediaOrchestrator.getInstance();
+    orchestratorRef.current.initialize().catch(console.error);
+  }, []);
+
   const handleTestVoice = async () => {
+    if (!orchestratorRef.current) {
+      console.error('MediaOrchestrator not initialized');
+      alert('音声システムが初期化されていません');
+      return;
+    }
+
     setIsPlaying(true);
     const text = 'こんにちは、音声テスト中です。';
 
     try {
-      if (voice.provider === 'system') {
-        // --- System Speech Synthesis ---
-        const utterance = new SpeechSynthesisUtterance(text);
-        // TODO: Map system voices and settings
-        speechSynthesis.speak(utterance);
-        utterance.onend = () => setIsPlaying(false);
+      console.log('🔊 音声テスト開始:', {
+        provider: voice.provider,
+        text
+      });
 
-      } else {
-        // --- API-based Speech Synthesis ---
-        const apiEndpoint = voice.provider === 'voicevox' ? '/api/voice/voicevox' : '/api/voice/elevenlabs';
-        
-        let requestBody;
-        if (voice.provider === 'voicevox') {
-            console.log('🔊 VoiceVox test request:', {
-                text,
-                speaker: voice.voicevox.speaker,
-                settings: voice.voicevox
-            });
-            requestBody = {
-                text,
-                speaker: voice.voicevox.speaker, // 修正: speakerId → speaker
-                settings: voice.voicevox,
-            };
-        } else { // ElevenLabs
-            requestBody = {
-                text,
-                voiceId: voice.elevenlabs.voiceId,
-                settings: voice.elevenlabs,
-            };
-        }
+      // MediaOrchestratorを使用して音声再生
+      const voiceType = voice.provider === 'voicevox' ? 'voicevox' as const : 'browser' as const;
 
-        const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
+      const options = {
+        voiceType,
+        speakerId: voice.voicevox?.speaker || 1,
+        speed: voice.voicevox?.speed || 1.0,
+        pitch: voice.voicevox?.pitch || 1.0,
+        volume: voice.voicevox?.volume || 1.0,
+        lang: 'ja-JP',
+      };
 
-        console.log('🔊 API Response:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        });
+      await orchestratorRef.current.playAudio(text, undefined, options);
 
-        // Safe JSON parsing with proper error handling
-        let data;
-        try {
-          // Check if response is JSON before parsing
-          const contentType = response.headers.get('content-type');
-          if (!contentType?.includes('application/json')) {
-            const errorText = await response.text();
-            throw new Error(`APIがJSON以外のレスポンスを返しました: ${errorText}`);
-          }
-          
-          data = await response.json();
-        } catch (jsonError) {
-          console.error('❌ JSON parsing error:', jsonError);
-          if (jsonError instanceof SyntaxError) {
-            throw new Error('APIレスポンスの形式が無効です。サーバーエラーの可能性があります。');
-          }
-          throw jsonError;
-        }
-        
-        console.log('🔊 Response data:', data);
-
-        if (data && data.success && data.audioData) {
-          console.log('✅ 音声合成成功。再生を開始します。');
-          const audio = new Audio(data.audioData);
-          audio.play();
-          audio.onended = () => {
-            console.log('🎵 音声再生完了');
-            setIsPlaying(false);
-          };
-          audio.onerror = (e) => {
-            console.error('❌ 音声の再生に失敗しました:', e);
-            alert('音声の再生に失敗しました。');
-            setIsPlaying(false);
-          };
-        } else {
-          console.error('❌ 音声合成リクエスト失敗:', data.error || 'APIから音声データが返されませんでした。');
-          alert(`音声合成に失敗しました:\n${data.error || 'APIから音声データが返されませんでした。'}`);
-          setIsPlaying(false);
-        }
-      }
+      console.log('✅ 音声テスト完了');
+      setIsPlaying(false);
     } catch (err: unknown) {
       console.error('音声テスト中にエラーが発生しました:', err);
+
+      let errorMessage = '音声合成に失敗しました';
+      if (err instanceof Error) {
+        if (err.message.includes('VOICEVOX')) {
+          errorMessage = 'VOICEVOXエンジンに接続できません。エンジンが起動していることを確認してください。';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      alert(errorMessage);
       setIsPlaying(false);
     }
   };
@@ -148,157 +111,152 @@ export const VoiceSettingsModal: React.FC = () => {
   if (!showVoiceSettingsModal) return null;
 
   return (
-    <AnimatePresence>
-      {showVoiceSettingsModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full max-w-2xl max-h-[80vh] flex flex-col bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl"
-          >
-            {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10">
-              <div className="flex items-center gap-4">
-                
-                <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <TestTube2 className="w-6 h-6" />
-                    音声設定
-                  </h2>
-                  {persona && (
-                    <p className="text-sm text-white/60">{persona.name}の音声設定</p>
-                  )}
-                </div>
-              </div>
-              <button
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
                 onClick={() => setShowVoiceSettingsModal(false)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              <Tabs defaultValue="basic" className="p-4">
-                <TabsList className="grid w-full grid-cols-4 mb-4">
-                  <TabsTrigger value="basic">基本設定</TabsTrigger>
-                  <TabsTrigger value="voicevox">VoiceVox</TabsTrigger>
-                  <TabsTrigger value="elevenlabs">ElevenLabs</TabsTrigger>
-                  <TabsTrigger value="system">システム音声</TabsTrigger>
-                  <TabsTrigger value="advanced">高度な設定</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="basic">
-                    <div className="space-y-4">
-                        <SettingRow label="音声エンジン">
-                            <select
-                                value={voice.provider}
-                                onChange={(e) => updateVoiceSettings({ provider: e.target.value as 'voicevox' | 'elevenlabs' | 'system' })}
-                                className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white"
-                            >
-                                <option value="voicevox">VoiceVox</option>
-                                <option value="elevenlabs">ElevenLabs</option>
-                                <option value="system">システム音声</option>
-                            </select>
-                        </SettingRow>
-                        <SettingRow label="自動再生" description="AIからの応答を自動で再生します">
-                            <Toggle checked={voice.autoPlay} onChange={checked => updateVoiceSettings({ autoPlay: checked })} />
-                        </SettingRow>
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-white/10"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-white">音声設定</h2>
+                        <button onClick={() => setShowVoiceSettingsModal(false)} className="text-white/50 hover:text-white transition-colors">
+                            <X size={24} />
+                        </button>
                     </div>
-                </TabsContent>
-                <TabsContent value="voicevox">
-                    <div className="space-y-4">
-                        <SettingRow label={`話者ID: ${voice.voicevox.speaker}`}>
-                            <Slider value={voice.voicevox.speaker} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, speaker: v }})} min={0} max={50} step={1} />
-                        </SettingRow>
-                        <SettingRow label={`速度: ${voice.voicevox.speed}`}>
-                            <Slider value={voice.voicevox.speed} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, speed: v }})} min={0.5} max={2.0} step={0.1} />
-                        </SettingRow>
-                        <SettingRow label={`ピッチ: ${voice.voicevox.pitch}`}>
-                            <Slider value={voice.voicevox.pitch} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, pitch: v }})} min={-0.15} max={0.15} step={0.01} />
-                        </SettingRow>
-                        <SettingRow label={`抑揚: ${voice.voicevox.intonation}`}>
-                            <Slider value={voice.voicevox.intonation} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, intonation: v }})} min={0} max={2} step={0.1} />
-                        </SettingRow>
-                        <SettingRow label={`音量: ${voice.voicevox.volume}`}>
-                            <Slider value={voice.voicevox.volume} onChange={v => updateVoiceSettings({ voicevox: { ...voice.voicevox, volume: v }})} min={0} max={2} step={0.1} />
-                        </SettingRow>
-                    </div>
-                </TabsContent>
-                <TabsContent value="elevenlabs">
-                    <div className="space-y-4">
-                        <SettingRow label="Voice ID" description="ElevenLabsのボイスIDを入力します">
-                            <Input value={voice.elevenlabs.voiceId} onChange={e => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, voiceId: e.target.value }})} />
-                        </SettingRow>
-                        <SettingRow label={`安定性: ${voice.elevenlabs.stability}`}>
-                            <Slider value={voice.elevenlabs.stability} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, stability: v }})} min={0} max={1} step={0.05} />
-                        </SettingRow>
-                        <SettingRow label={`類似度: ${voice.elevenlabs.similarity}`}>
-                            <Slider value={voice.elevenlabs.similarity} onChange={v => updateVoiceSettings({ elevenlabs: { ...voice.elevenlabs, similarity: v }})} min={0} max={1} step={0.05} />
-                        </SettingRow>
-                    </div>
-                </TabsContent>
-                <TabsContent value="system">
-                    <div className="space-y-4">
-                        <SettingRow label="システム音声" description="OSにインストールされている音声を使用します">
-                            <select
-                                value={voice.system.voice}
-                                onChange={(e) => updateVoiceSettings({ system: { ...voice.system, voice: e.target.value }})}
-                                className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white"
-                            >
-                                {/* TODO: Populate with system voices */}
-                                <option value="">利用可能な音声が見つかりません</option>
-                            </select>
-                        </SettingRow>
-                        <SettingRow label={`速度: ${voice.system.rate}`}>
-                            <Slider value={voice.system.rate} onChange={v => updateVoiceSettings({ system: { ...voice.system, rate: v }})} min={0.5} max={2.0} step={0.1} />
-                        </SettingRow>
-                        <SettingRow label={`ピッチ: ${voice.system.pitch}`}>
-                            <Slider value={voice.system.pitch} onChange={v => updateVoiceSettings({ system: { ...voice.system, pitch: v }})} min={0} max={2} step={0.1} />
-                        </SettingRow>
-                        <SettingRow label={`音量: ${voice.system.volume}`}>
-                            <Slider value={voice.system.volume} onChange={v => updateVoiceSettings({ system: { ...voice.system, volume: v }})} min={0} max={1} step={0.1} />
-                        </SettingRow>
-                    </div>
-                </TabsContent>
-                <TabsContent value="advanced">
-                    <div className="space-y-4">
-                        <SettingRow label="ノーマライゼーション" description="音声の音量を均一化します">
-                            <Toggle checked={voice.advanced.normalization} onChange={c => updateVoiceSettings({ advanced: { ...voice.advanced, normalization: c }})} />
-                        </SettingRow>
-                        <SettingRow label="ノイズリダクション" description="背景ノイズを低減します">
-                            <Toggle checked={voice.advanced.noiseReduction} onChange={c => updateVoiceSettings({ advanced: { ...voice.advanced, noiseReduction: c }})} />
-                        </SettingRow>
-                    </div>
-                </TabsContent>
-              </Tabs>
-            </div>
 
-            {/* Footer */}
-            <div className="flex-shrink-0 p-4 border-t border-white/10 flex justify-between items-center">
-              <span className="text-xs text-white/50">変更は自動的に保存されます</span>
-              <button
-                onClick={handleTestVoice}
-                disabled={isPlaying}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors disabled:opacity-50"
-              >
-                {isPlaying ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-                    再生中...
-                  </>
-                ) : (
-                  <>
-                    <TestTube2 className="w-4 h-4" />
-                    音声テスト
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
+                    <Tabs defaultValue="general" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 rounded-lg p-1">
+                            <TabsTrigger value="general" className="data-[state=active]:bg-purple-600 text-white">一般</TabsTrigger>
+                            <TabsTrigger value="voicevox" className="data-[state=active]:bg-purple-600 text-white">VOICEVOX</TabsTrigger>
+                            <TabsTrigger value="persona" className="data-[state=active]:bg-purple-600 text-white">ペルソナ音声</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="general" className="space-y-4 mt-4">
+                            <SettingRow label="音声プロバイダー" description="使用する音声合成エンジンを選択">
+                                <select
+                                    value={voice.provider}
+                                    onChange={e => updateVoiceSettings({ provider: e.target.value as any })}
+                                    className="w-full p-2 bg-slate-700 text-white rounded-md"
+                                >
+                                    <option value="system">システム音声</option>
+                                    <option value="voicevox">VOICEVOX</option>
+                                    <option value="elevenlabs">ElevenLabs</option>
+                                </select>
+                            </SettingRow>
+
+                            <SettingRow label="自動再生" description="新しいメッセージを自動的に読み上げ">
+                                <Toggle checked={voice.autoPlay} onChange={checked => updateVoiceSettings({ autoPlay: checked })} />
+                            </SettingRow>
+
+                            <button
+                                onClick={handleTestVoice}
+                                disabled={isPlaying}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors disabled:opacity-50"
+                            >
+                                <TestTube2 size={16} />
+                                {isPlaying ? '再生中...' : '音声テスト'}
+                            </button>
+                        </TabsContent>
+
+                        <TabsContent value="voicevox" className="space-y-4 mt-4">
+                            <SettingRow label="スピーカーID" description="VOICEVOX話者を選択 (0-50)">
+                                <Input
+                                    type="number"
+                                    value={voice.voicevox.speaker}
+                                    onChange={e => updateVoiceSettings({ voicevox: { ...voice.voicevox, speaker: parseInt(e.target.value) } })}
+                                    min={0}
+                                    max={50}
+                                    className="bg-slate-700 text-white"
+                                />
+                            </SettingRow>
+
+                            <SettingRow label="速度" description={`現在: ${voice.voicevox.speed.toFixed(2)}`}>
+                                <Slider
+                                    value={voice.voicevox.speed}
+                                    onChange={value => updateVoiceSettings({ voicevox: { ...voice.voicevox, speed: value } })}
+                                    min={0.5}
+                                    max={2.0}
+                                    step={0.1}
+                                />
+                            </SettingRow>
+
+                            <SettingRow label="ピッチ" description={`現在: ${voice.voicevox.pitch.toFixed(2)}`}>
+                                <Slider
+                                    value={voice.voicevox.pitch}
+                                    onChange={value => updateVoiceSettings({ voicevox: { ...voice.voicevox, pitch: value } })}
+                                    min={-0.15}
+                                    max={0.15}
+                                    step={0.01}
+                                />
+                            </SettingRow>
+
+                            <SettingRow label="イントネーション" description={`現在: ${voice.voicevox.intonation.toFixed(2)}`}>
+                                <Slider
+                                    value={voice.voicevox.intonation}
+                                    onChange={value => updateVoiceSettings({ voicevox: { ...voice.voicevox, intonation: value } })}
+                                    min={0.0}
+                                    max={2.0}
+                                    step={0.1}
+                                />
+                            </SettingRow>
+
+                            <SettingRow label="音量" description={`現在: ${voice.voicevox.volume.toFixed(2)}`}>
+                                <Slider
+                                    value={voice.voicevox.volume}
+                                    onChange={value => updateVoiceSettings({ voicevox: { ...voice.voicevox, volume: value } })}
+                                    min={0.0}
+                                    max={1.0}
+                                    step={0.1}
+                                />
+                            </SettingRow>
+                        </TabsContent>
+
+                        <TabsContent value="persona" className="space-y-4 mt-4">
+                            {persona && (
+                                <>
+                                    <SettingRow label="ペルソナ名">
+                                        <p className="text-white/80">{persona.name}</p>
+                                    </SettingRow>
+
+                                    <SettingRow label="音声キャラクター">
+                                        <Input
+                                            value={persona.voice_character || ''}
+                                            onChange={e => updatePersona(persona.id, { voice_character: e.target.value })}
+                                            placeholder="例: ずんだもん"
+                                            className="bg-slate-700 text-white"
+                                        />
+                                    </SettingRow>
+
+                                    <SettingRow label="音声スタイル">
+                                        <Input
+                                            value={persona.voice_style || ''}
+                                            onChange={e => updatePersona(persona.id, { voice_style: e.target.value })}
+                                            placeholder="例: 優しい、元気、落ち着いた"
+                                            className="bg-slate-700 text-white"
+                                        />
+                                    </SettingRow>
+
+                                    <SettingRow label="アバター画像">
+                                        <AvatarUploadWidget
+                                            currentAvatar={persona.avatar_url || '/cat.png'}
+                                            onAvatarChange={(avatarData) => updatePersona(persona.id, { avatar_url: avatarData })}
+                                        />
+                                    </SettingRow>
+                                </>
+                            )}
+                        </TabsContent>
+                    </Tabs>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
 };
