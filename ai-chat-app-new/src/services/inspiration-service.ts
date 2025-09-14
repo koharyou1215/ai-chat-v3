@@ -1,4 +1,4 @@
-// Inspiration Service v3 - 成功例を基にした改良版
+// Inspiration Service v3 - キャッシュ削除版
 // 返信提案と文章強化機能のためのサービス
 
 import { UnifiedMessage } from "@/types/memory";
@@ -12,41 +12,6 @@ export interface InspirationSuggestion {
   content: string;
   confidence: number;
 }
-
-// Cache entry interface
-interface CacheEntry<T> {
-  key: string;
-  data: T;
-  timestamp: number;
-  hitCount: number;
-}
-
-/**
- * High-performance API response cache for inspiration service
- * Features:
- * - 15-minute TTL for cached responses
- * - Prompt-based cache keys with hashing
- * - Automatic cleanup of expired entries
- * - Prevention of duplicate API requests
- * - In-memory storage with LRU eviction
- */
-class InspirationCache {
-  private cache: Map<string, CacheEntry<any>> = new Map();
-  private readonly cacheTTL: number = 15 * 60 * 1000; // 15 minutes in milliseconds
-  private readonly maxCacheSize: number = 100; // Maximum cache entries
-  private cleanupInterval: NodeJS.Timeout | null = null;
-
-  // Statistics for performance monitoring
-  private stats = {
-    hits: 0,
-    misses: 0,
-    evictions: 0,
-    totalRequests: 0,
-  };
-
-  constructor() {
-    this.initializeCleanup();
-  }
 
   /**
    * Get cached response if available and not expired
