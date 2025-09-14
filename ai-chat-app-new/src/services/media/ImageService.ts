@@ -182,7 +182,14 @@ export class ImageService {
     current_image: string | null;
   } | null> {
     try {
-      return await this.sdGenerator.getProgress();
+      const progress = await this.sdGenerator.getProgress();
+      if (!progress) return null;
+
+      // SD APIの返り値にcurrent_imageがない場合はnullを設定
+      return {
+        ...progress,
+        current_image: progress.current_image || null
+      };
     } catch (error) {
       console.error('❌ ImageService: Failed to get progress', error);
       return null;
