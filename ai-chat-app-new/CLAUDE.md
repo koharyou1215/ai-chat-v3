@@ -49,6 +49,7 @@
 - **対応モデル制限**: `gemini-2.5-flash`, `gemini-2.5-flash-light`, `gemini-2.5-pro` の3種類のみ**絶対遵守**
 - **Gemini 2.5以外絶対書かない**: 上記3機種以外のモデル名は一切使用・記述・参照しない
 - **自動変換・フォールバック禁止**: モデル名の自動変換や自動修正は一切行わない
+- **migrateModelName関連の完全削除**: migrateModelName関数とその関連ロジックは全て削除・使用禁止
 - **OpenRouterでGemini 2.5は使用可能**: OpenRouterは`google/gemini-2.5-flash`等をサポート（公式サイトで確認済み）
 - **解決済みエラー**: OpenRouter API エラー、`Quota exceeded`、`JSON parsing`問題は完全解決済み
 
@@ -133,10 +134,12 @@ npm run dev
 ## 🔒 **重要な修正ルール（絶対遵守）**
 
 ### **🚨 Character型とPersona型の保護ルール**
-- **avatar_url完全削除**: キャラクター・ペルソナ型から`avatar_url`プロパティは永続的に削除
+- **avatar_url復活**: キャラクター型に`avatar_url`プロパティを使用（アイコン表示用）
 - **Character型準拠**: 必ず`Character,User Persona Type Definitive Format.md`に完全準拠
-- **background_url使用**: 画像表示が必要な場合は`background_url`を使用
+- **画像URL使用**: `avatar_url`（アイコン）と`background_url`（背景）を適切に使用
 - **型定義一貫性**: Character/Persona型の変更は全関連ファイルに反映必須
+- **nsfw_profile はCharacterのみ**: `nsfw_profile`はCharacter型専用、UserPersonaには存在しない
+- **nsfw_profile.persona混同禁止**: `nsfw_profile`内の`persona`フィールドはキャラクターのNSFW人格設定であり、UserPersona型と混同しない
 
 ### **🚨 API設定保護ルール（絶対遵守）**
 - **Geminiデフォルト絶対禁止**: `provider: "gemini"`をデフォルト設定に使用禁止

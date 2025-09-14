@@ -155,7 +155,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   const trackersMap = useAppStore((state) => {
     // キャラクターIDで直接トラッカーマネージャーを取得
     const manager = state.trackerManagers.get(character_id);
-    const set = manager?.getTrackerSet(); // 引数からcharacter_idを削除
+    const set = manager?.getTrackerSet(character_id); // character_idを引数として渡す
     return set ? (set.trackers as Map<string, TrackerWithValue>) : undefined;
   });
 

@@ -1,0 +1,8 @@
+[33mff967f4a[m feat: メニュー位置調整、リファ前
+[33m19e55223[m feat: メニュー位置調整、リファ前
+[33m3717563d[m feat: メニュー位置調整、リファ前
+[33maf5e6f6a[m fix: グループチャットのメニューとスクロール問題を修正
+[33m7f760535[m fix: グループチャットの問題を修正とVercelデプロイ設定改善
+[33m544922d5[m 🎨 Fix message bubble menu overflow and compactness
+[33mb29bf709[m 🎯 Fix tracker initialization and improve message bubble menu
+[33m8b7de4bb[m 🔧 Fix VOICEVOX deployment and improve mobile UI
