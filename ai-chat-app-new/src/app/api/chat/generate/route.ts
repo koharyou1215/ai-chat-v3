@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
-import { debugLog } from '@/utils/debug-logger'; // debugLogをインポート
+import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
   debugLog("#### API Route: /api/chat/generate called (to file) ####"); // ファイルにログ出力
   console.log("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
+  let apiConfig: any = {}; // apiConfigをtryブロックの外で宣言し、空のオブジェクトで初期化
+
   try {
     const body = await request.json();
     const {
       systemPrompt,
       userMessage,
       conversationHistory,
-      apiConfig,
+      apiConfig: receivedApiConfig, // ここで別名で受け取る
       textFormatting = "readable",
     } = body;
+
+    Object.assign(apiConfig, receivedApiConfig); // 宣言済みのapiConfigにreceivedApiConfigのプロパティをマージ
 
     if (!userMessage) {
       return NextResponse.json(
@@ -29,23 +33,12 @@ export async function POST(request: Request) {
     const model = apiConfig.model || "gemini-2.5-flash";
     let effectiveProvider = apiConfig.provider;
 
-    if (model.includes("gemini") || model.includes("google/")) {
+    // useDirectGeminiAPIフラグを考慮してプロバイダーを決定
+    if (apiConfig.useDirectGeminiAPI && model.includes("gemini")) {
+      // Gemini直接使用がONでGeminiモデルの場合のみ
       effectiveProvider = "gemini";
-    } else if (
-      model.includes("claude") ||
-      model.includes("gpt") ||
-      model.includes("mistral") ||
-      model.includes("llama") ||
-      model.includes("anthropic/") ||
-      model.includes("openai/") ||
-      model.includes("x-ai/") ||
-      model.includes("meta-llama/") ||
-      model.includes("deepseek/") ||
-      model.includes("qwen/") ||
-      model.includes("nousresearch/") ||
-      model.includes("z-ai/") ||
-      model.includes("moonshotai/")
-    ) {
+    } else {
+      // それ以外は全てOpenRouter経由
       effectiveProvider = "openrouter";
     }
 
@@ -77,14 +70,20 @@ export async function POST(request: Request) {
         console.log("✅ OpenRouter API key provided from client");
       } else {
         // フォールバック: 環境変数から読み込み
-        const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        const openRouterKey =
+          process.env.OPENROUTER_API_KEY ||
+          process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
         if (openRouterKey) {
           effectiveApiConfig.openRouterApiKey = openRouterKey;
           console.log("✅ OpenRouter API key loaded from environment");
         } else {
-          console.error("❌ OpenRouter API key not provided (client or environment)");
+          console.error(
+            "❌ OpenRouter API key not provided (client or environment)"
+          );
           // エラーにせず、simpleAPIManagerV2のデフォルト処理に任せる
-          console.log("⚠️ Proceeding without explicit OpenRouter API key - will use manager's default");
+          console.log(
+            "⚠️ Proceeding without explicit OpenRouter API key - will use manager's default"
+          );
         }
       }
     }
@@ -234,14 +233,14 @@ export async function POST(request: Request) {
 
       // システムプロンプトから情報を抽出して表示（PROMPT_VERIFICATION_GUIDE.mdの順序に従う）
       console.log("\n📦 システムプロンプト構成（正しい順序）:");
-
-      // 1. System Instructions (必須)
+      
+      // 1. System Instructions（必須 - プロンプトの最初にあるはず）
       const systemInstructionsMatch = systemPrompt.match(
         /<system_instructions>([\s\S]*?)<\/system_instructions>/
       );
       console.log("  1️⃣ System Instructions: " + (systemInstructionsMatch ? "✅ あり" : "❌ なし"));
 
-      // 2. Jailbreak (オプション)
+      // 2. Jailbreak（オプション）
       const jailbreakMatch = systemPrompt.match(
         /<jailbreak>([\s\S]*?)<\/jailbreak>/
       );
@@ -353,22 +352,30 @@ export async function POST(request: Request) {
 
     // APIキーの状態を確認
     console.error("🔑 API Key Status:");
-    console.error("  - OpenRouter key provided:", !!apiConfig?.openRouterApiKey);
-    console.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);
-    console.error("  - Use Direct Gemini:", apiConfig?.useDirectGeminiAPI);
-    console.error("  - Model:", apiConfig?.model);
-    console.error("  - Provider:", apiConfig?.provider);
+    // apiConfigがnullの場合に備えて安全にアクセスするためのオブジェクトを作成
+    const apiConfigForDebug = apiConfig || {};
+    console.error(
+      "  - OpenRouter key provided:",
+      !!apiConfigForDebug.openRouterApiKey
+    );
+    console.error("  - Gemini key provided:", !!apiConfigForDebug.geminiApiKey);
+    console.error(
+      "  - Use Direct Gemini:",
+      apiConfigForDebug.useDirectGeminiAPI
+    );
+    console.error("  - Model:", apiConfigForDebug.model);
+    console.error("  - Provider:", apiConfigForDebug.provider);
 
     return NextResponse.json(
       {
         error: "Failed to generate AI response",
         details: (error as Error).message,
         debugInfo: {
-          hasOpenRouterKey: !!apiConfig?.openRouterApiKey,
-          hasGeminiKey: !!apiConfig?.geminiApiKey,
-          model: apiConfig?.model,
-          provider: apiConfig?.provider
-        }
+          hasOpenRouterKey: !!apiConfigForDebug.openRouterApiKey,
+          hasGeminiKey: !!apiConfigForDebug.geminiApiKey,
+          model: apiConfigForDebug.model,
+          provider: apiConfigForDebug.provider,
+        },
       },
       { status: 500 }
     );

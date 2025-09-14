@@ -256,7 +256,7 @@ const ChatInterfaceContent: React.FC = () => {
     character: character?.name,
     characterId: character?.id,
     avatarUrl: character?.avatar_url,
-    backgroundUrl: character?.background_url
+    backgroundUrl: character?.background_url,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -273,7 +273,8 @@ const ChatInterfaceContent: React.FC = () => {
   }>({});
   const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
     []
-  ); // 追加
+  );
+
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
@@ -757,8 +758,7 @@ const ChatInterfaceContent: React.FC = () => {
                     previousMessage={
                       index > 0 ? currentMessages[index - 1] : undefined
                     }
-                    isLatest={index === currentMessages.length - 1}
-                    isGroupChat={is_group_mode}
+                    isLastMessage={index === currentMessages.length - 1}
                   />
                 ))}
               </AnimatePresence>
@@ -796,7 +796,7 @@ const ChatInterfaceContent: React.FC = () => {
                     onClick={() => setRightPanelOpen(false)}
                   />
                 )}
-                
+
                 {/* 右パネル本体 */}
                 <motion.div
                   initial={{ x: "100%", opacity: 0 }}
@@ -810,52 +810,54 @@ const ChatInterfaceContent: React.FC = () => {
                       : "fixed right-0 top-0 h-full w-[380px] z-[60]"
                   )}
                   onClick={(e) => e.stopPropagation()}>
-                <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">記憶情報</h3>
-                  <button
-                    onClick={() => setRightPanelOpen(false)}
-                    className="p-2 hover:bg-white/10 rounded-full">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
-                  {sidePanelTabs.map((tab) => (
+                  <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white">
+                      記憶情報
+                    </h3>
                     <button
-                      key={tab.key}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTab(tab.key);
-                      }}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
-                        activeTab === tab.key
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "text-white/60 hover:bg-white/10"
-                      )}>
-                      <tab.icon className="w-4 h-4" />
-                      {tab.label}
+                      onClick={() => setRightPanelOpen(false)}
+                      className="p-2 hover:bg-white/10 rounded-full">
+                      <X className="w-5 h-5" />
                     </button>
-                  ))}
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  <AnimatePresence mode="wait">
-                    {sidePanelTabs.map(
-                      (tab) =>
-                        activeTab === tab.key &&
-                        displaySession && (
-                          <motion.div
-                            key={tab.key}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}>
-                            {tab.component}
-                          </motion.div>
-                        )
-                    )}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
+                  </div>
+                  <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
+                    {sidePanelTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab(tab.key);
+                        }}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                          activeTab === tab.key
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "text-white/60 hover:bg-white/10"
+                        )}>
+                        <tab.icon className="w-4 h-4" />
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <AnimatePresence mode="wait">
+                      {sidePanelTabs.map(
+                        (tab) =>
+                          activeTab === tab.key &&
+                          displaySession && (
+                            <motion.div
+                              key={tab.key}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -20 }}
+                              transition={{ duration: 0.2 }}>
+                              {tab.component}
+                            </motion.div>
+                          )
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
               </>
             )}
           </AnimatePresence>

@@ -8,6 +8,10 @@ export const VALID_GEMINI_MODELS = {
   'gemini-2.5-pro': true,
   'gemini-2.5-flash': true,
   'gemini-2.5-flash-light': true,
+  // Gemini 1.5モデルも追加（暫定対応）
+  'gemini-1.5-flash': true,
+  'gemini-1.5-flash-8b': true,
+  'gemini-1.5-pro': true,
 };
 
 /**

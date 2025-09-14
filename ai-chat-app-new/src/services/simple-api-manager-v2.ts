@@ -11,7 +11,10 @@
 import { geminiClient } from "./api/gemini-client";
 import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
-import { validateGeminiModel, formatModelForProvider } from "@/utils/model-migration";
+import {
+  validateGeminiModel,
+  formatModelForProvider,
+} from "@/utils/model-migration";
 
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
@@ -153,6 +156,76 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
+   * メッセージの合計文字数を計算（トークンの簡易推定として）
+   */
+  private _getMessagesCharLength(
+    systemPrompt: string,
+    userMessage: string,
+    conversationHistory: { role: "user" | "assistant"; content: string }[]
+  ): number {
+    let length = systemPrompt.length + userMessage.length;
+    for (const msg of conversationHistory) {
+      // 画像データ（Base64）の可能性をチェックし、除外
+      if (
+        msg.content.startsWith("![Generated Image](data:image/") ||
+        msg.content.startsWith("data:image/")
+      ) {
+        length += "[画像データ]".length; // プレースホルダーの長さを加算
+      } else {
+        length += msg.content.length;
+      }
+    }
+    return length;
+  }
+
+  /**
+   * 会話履歴を短縮してコンテキストウィンドウに収める
+   */
+  private _truncateConversationHistory(
+    systemPrompt: string,
+    userMessage: string,
+    conversationHistory: { role: "user" | "assistant"; content: string }[],
+    maxContextLength: number
+  ): { role: "user" | "assistant"; content: string }[] {
+    let mutableHistory = conversationHistory.map((msg) => ({ ...msg })); // 元のオブジェクトを変更しないようにコピー
+    let currentLength = this._getMessagesCharLength(
+      systemPrompt,
+      userMessage,
+      mutableHistory
+    );
+
+    // 簡略化のため、トークン数ではなく文字数で計算
+    // OpenRouterのメッセージオーバーヘッドを考慮して、少し余裕を持たせる（例: 0.95倍）
+    const adjustedMaxContextLength = maxContextLength * 0.95;
+
+    while (
+      currentLength > adjustedMaxContextLength &&
+      mutableHistory.length > 0
+    ) {
+      // 最も古いメッセージを削除
+      const removedMessage = mutableHistory.shift();
+
+      // 削除されたメッセージが画像データの場合の特別な処理は不要（単に削除されるため）
+      // ただし、会話履歴に画像データが混ざっている場合、それを「テキスト」として計算してしまうと問題が生じる
+      // ここでは_getMessagesCharLength側で画像データを無視するようにする
+
+      currentLength = this._getMessagesCharLength(
+        systemPrompt,
+        userMessage,
+        mutableHistory
+      );
+    }
+
+    if (currentLength > adjustedMaxContextLength) {
+      console.warn(
+        "⚠️ プロンプトが最大コンテキスト長を超過しています。システムプロンプトまたはユーザーメッセージが長すぎる可能性があります。"
+      );
+    }
+
+    return mutableHistory;
+  }
+
+  /**
    * メッセージ生成 - AIタブのトグル1つで判断
    */
   async generateMessage(
@@ -209,10 +282,12 @@ export class SimpleAPIManagerV2 {
       if (model.includes("gemini")) {
         // 有効性チェック（自動変換なし）
         if (!validateGeminiModel(model)) {
-          throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
+          throw new Error(
+            `❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`
+          );
         }
         // OpenRouter用にフォーマット
-        const formattedModel = formatModelForProvider(model, 'openrouter');
+        const formattedModel = formatModelForProvider(model, "openrouter");
         if (!formattedModel) {
           throw new Error(`❌ モデルフォーマットエラー: ${model}`);
         }
@@ -271,11 +346,19 @@ export class SimpleAPIManagerV2 {
           // 現在のAPIConfigも更新（モデル設定を反映）
           if (currentApiConfig && currentApiConfig.model) {
             // Geminiモデルの場合のみ検証
-            if (currentApiConfig.model.includes('gemini') && !validateGeminiModel(currentApiConfig.model)) {
-              console.error(`❌ 無効なGeminiモデル設定: ${currentApiConfig.model}`);
+            if (
+              currentApiConfig.model.includes("gemini") &&
+              !validateGeminiModel(currentApiConfig.model)
+            ) {
+              console.error(
+                `❌ 無効なGeminiモデル設定: ${currentApiConfig.model}`
+              );
               // 無効なモデルは使用しない
             } else {
-              this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
+              this.currentConfig = {
+                ...this.currentConfig,
+                ...currentApiConfig,
+              };
               console.log(
                 "🔄 APIConfig更新（モデル:",
                 currentApiConfig.model,
@@ -310,9 +393,11 @@ export class SimpleAPIManagerV2 {
     // モデル名の検証とフォーマット
     const requestedModel = options?.model || "gemini-2.5-flash";
     if (!validateGeminiModel(requestedModel)) {
-      throw new Error(`❌ 無効なGeminiモデル: ${requestedModel}. Gemini 2.5シリーズのみ使用可能です。`);
+      throw new Error(
+        `❌ 無効なGeminiモデル: ${requestedModel}. Gemini 2.5シリーズのみ使用可能です。`
+      );
     }
-    const formattedModel = formatModelForProvider(requestedModel, 'gemini');
+    const formattedModel = formatModelForProvider(requestedModel, "gemini");
     if (!formattedModel) {
       throw new Error(`❌ モデルフォーマットエラー: ${requestedModel}`);
     }
@@ -354,11 +439,59 @@ export class SimpleAPIManagerV2 {
 
     console.log(`🌐 Using OpenRouter with model: ${model}`);
 
+    // デバッグログ追加: 入力プロンプトのサイズ
+    console.log(`🔍 System Prompt Length: ${systemPrompt.length} chars`);
+    console.log(`🔍 User Message Length: ${userMessage.length} chars`);
+    console.log(
+      `🔍 Conversation History Length: ${conversationHistory.length} messages`
+    );
+    const conversationHistoryCharLength = conversationHistory.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
+    console.log(
+      `🔍 Conversation History Total Char Length: ${conversationHistoryCharLength} chars`
+    );
+
+    // 最大コンテキスト長を取得（デフォルトは32000）
+    const maxContextLength =
+      options?.context_window || this.currentConfig.context_window || 32000;
+    console.log(
+      `🔍 Max Context Length (configured): ${maxContextLength} tokens (approx chars)`
+    );
+
+    // 会話履歴を短縮してコンテキストウィンドウに収める
+    const truncatedHistory = this._truncateConversationHistory(
+      systemPrompt,
+      userMessage,
+      conversationHistory,
+      maxContextLength
+    );
+    console.log(
+      `🔍 Truncated History Length: ${truncatedHistory.length} messages`
+    );
+    const truncatedHistoryCharLength = truncatedHistory.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
+    console.log(
+      `🔍 Truncated History Total Char Length: ${truncatedHistoryCharLength} chars`
+    );
+
     const messages = [
       { role: "system" as const, content: systemPrompt },
-      ...conversationHistory,
+      ...truncatedHistory, // 短縮された会話履歴を使用
       { role: "user" as const, content: userMessage },
     ];
+
+    const finalMessagesCharLength = this._getMessagesCharLength(
+      systemPrompt,
+      userMessage,
+      truncatedHistory
+    );
+    console.log(
+      `🔍 Final Messages Total Char Length (before API call): ${finalMessagesCharLength} chars`
+    );
 
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -447,10 +580,12 @@ export class SimpleAPIManagerV2 {
       if (model.includes("gemini")) {
         // 有効性チェック（自動変換なし）
         if (!validateGeminiModel(model)) {
-          throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
+          throw new Error(
+            `❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`
+          );
         }
         // OpenRouter用にフォーマット
-        const formattedModel = formatModelForProvider(model, 'openrouter');
+        const formattedModel = formatModelForProvider(model, "openrouter");
         if (!formattedModel) {
           throw new Error(`❌ モデルフォーマットエラー: ${model}`);
         }
@@ -499,8 +634,14 @@ export class SimpleAPIManagerV2 {
           { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
           { id: "meta-llama/llama-3.1-405b", name: "Llama 3.1 405B" },
           { id: "deepseek/deepseek-chat-v3.1", name: "DeepSeek Chat V3.1" },
-          { id: "qwen/qwen3-next-80b-a3b-thinking", name: "Qwen3 Next 80B Thinking" },
-          { id: "qwen/qwen3-next-80b-a3b-instruct", name: "Qwen3 Next 80B Instruct" },
+          {
+            id: "qwen/qwen3-next-80b-a3b-thinking",
+            name: "Qwen3 Next 80B Thinking",
+          },
+          {
+            id: "qwen/qwen3-next-80b-a3b-instruct",
+            name: "Qwen3 Next 80B Instruct",
+          },
         ],
       },
     ];

@@ -310,7 +310,7 @@ export class InspirationService {
             prompt,
             "返信提案を生成",
             [],
-            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
+            apiConfig // API設定を渡す（OpenRouterキー等含む）
           );
           console.log(
             "📥 API応答受信（先頭200文字）:",
@@ -404,7 +404,7 @@ export class InspirationService {
             truncatedPrompt,
             "文章を強化",
             [],
-            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
+            apiConfig // API設定を渡す（OpenRouterキー等含む）
           );
         }
       );

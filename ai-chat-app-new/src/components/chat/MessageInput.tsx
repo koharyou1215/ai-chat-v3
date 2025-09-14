@@ -368,7 +368,7 @@ export const MessageInput: React.FC = React.memo(() => {
               );
               setShowSettingsModal(true, "ai");
             }}
-            onVoiceClick={() => setShowSettingsModal(true, "voice")}
+            onVoiceClick={() => setShowVoiceSettingsModal(true)}
             onImageClick={handleImageUpload}
             onHistoryClick={() => setShowHistoryModal(true)}
             onChatSettingsClick={() => setShowSettingsModal(true, "chat")}

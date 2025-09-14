@@ -6,13 +6,18 @@ import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { generateCompactGroupPrompt } from '@/utils/character-summarizer';
 import { GroupEmotionAnalyzer } from '@/services/emotion/GroupEmotionAnalyzer';
 import { AppStore } from '..';
-import { 
-  generateGroupSessionId, 
-  generateWelcomeMessageId, 
-  generateUserMessageId, 
+import {
+  generateGroupSessionId,
+  generateWelcomeMessageId,
+  generateUserMessageId,
   generateAIMessageId,
-  generateSystemMessageId 
+  generateSystemMessageId
 } from '@/utils/uuid';
+import {
+  generateGroupContinuationPrompt,
+  prepareRegenerationHistory
+} from '@/utils/prompt/continuation-prompts';
+import { cleanConversationHistory } from '@/utils/conversation-cleaner';
 
 // 🎭 グループ感情から絵文字への変換ヘルパー
 const getGroupEmotionEmoji = (emotion: string): string => {
@@ -610,11 +615,14 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       const effectSettings = get().effectSettings || {};
       const textFormatting = effectSettings.textFormatting || 'readable';
       
+      // Base64画像データをクリーニング
+      const cleanedHistory = cleanConversationHistory(conversationHistory);
+
       const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
-        conversationHistory,
-        { 
+        cleanedHistory,
+        {
           ...apiConfig,
           max_tokens: finalMaxTokens
         }
@@ -1000,10 +1008,12 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
 `;
       const finalSystemPrompt = systemPrompt + regenerateInstruction;
 
-      const conversationHistory = messagesForPrompt
+      const rawHistory = messagesForPrompt
         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
         .slice(-10)
         .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
+      // Base64画像データをクリーニング
+      const conversationHistory = cleanConversationHistory(rawHistory);
 
       const regenerationApiConfig = {
         ...apiConfig,
@@ -1094,7 +1104,16 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       }
 
       // 🆕 新しいアプローチ: 続きを別の新しいメッセージとして生成
-      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+      // 共通プロンプト生成関数を使用してユーザー代弁を防ぐ
+      const otherCharacters = session.characters
+        .filter(c => c.id !== targetCharacter.id)
+        .map(c => c.name);
+      const continuePrompt = generateGroupContinuationPrompt(
+        lastAiMessage.content,
+        targetCharacter.name,
+        otherCharacters,
+        session.persona.name || 'ユーザー'
+      );
 
       // 新しい続きメッセージを生成
       const previousResponses: UnifiedMessage[] = [];

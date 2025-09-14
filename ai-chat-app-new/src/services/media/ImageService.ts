@@ -4,9 +4,11 @@
  * Stable Diffusion APIを統合管理
  */
 
-import { SDImageGenerator } from '@/services/image-generation/sd-image-generator';
-import { Character } from '@/types/core/character.types';
-import { UnifiedMessage } from '@/types/memory';
+import { SDImageGenerator } from "@/services/image-generation/sd-image-generator";
+import { Character } from "@/types/core/character.types";
+import { UnifiedMessage } from "@/types/memory";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface ImageGenerationOptions {
   baseUrl?: string;
@@ -28,14 +30,17 @@ export class ImageService {
 
   constructor(options: ImageGenerationOptions = {}) {
     this.defaultOptions = {
-      baseUrl: options.baseUrl || process.env.NEXT_PUBLIC_SD_API_URL || 'http://localhost:7860',
+      baseUrl:
+        options.baseUrl ||
+        process.env.NEXT_PUBLIC_SD_API_URL ||
+        "http://localhost:7860",
       apiKey: options.apiKey,
       model: options.model,
       steps: options.steps || 30,
       width: options.width || 512,
       height: options.height || 512,
       cfg_scale: options.cfg_scale || 7,
-      sampler_name: options.sampler_name || 'Euler a',
+      sampler_name: options.sampler_name || "Euler a",
     };
 
     this.sdGenerator = new SDImageGenerator(
@@ -50,22 +55,73 @@ export class ImageService {
   public async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    console.log('🖼️ ImageService: Initializing...');
+    console.log("🖼️ ImageService: Initializing...");
 
     // SD APIの疎通確認
     try {
       const models = await this.getAvailableModels();
       if (models.length > 0) {
-        console.log(`✅ ImageService: SD API connected, ${models.length} models available`);
+        console.log(
+          `✅ ImageService: SD API connected, ${models.length} models available`
+        );
       } else {
-        console.warn('⚠️ ImageService: SD API connected but no models found');
+        console.warn("⚠️ ImageService: SD API connected but no models found");
       }
     } catch (error) {
-      console.warn('⚠️ ImageService: SD API connection failed', error);
+      console.warn("⚠️ ImageService: SD API connection failed", error);
     }
 
     this.isInitialized = true;
-    console.log('✅ ImageService: Initialized');
+    console.log("✅ ImageService: Initialized");
+  }
+
+  /**
+   * Base64画像をファイルとして保存し、URLを返す
+   */
+  private async saveImageToFile(base64Data: string): Promise<string> {
+    try {
+      // Base64データからBufferを作成
+      const base64String = base64Data.startsWith("data:image")
+        ? base64Data.split(",")[1]
+        : base64Data;
+
+      const buffer = Buffer.from(base64String, "base64");
+
+      // ファイル名を生成（タイムスタンプ + ランダム文字列）
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const filename = `generated-${timestamp}-${randomString}.png`;
+
+      // ファイルパスを生成
+      const filePath = path.join(
+        process.cwd(),
+        "public",
+        "uploads",
+        "images",
+        filename
+      );
+
+      // ディレクトリが存在しない場合は作成
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // ファイルを保存
+      fs.writeFileSync(filePath, buffer);
+
+      // URLを返す
+      const imageUrl = `/uploads/images/${filename}`;
+      console.log(`📁 Image saved to: ${imageUrl}`);
+
+      return imageUrl;
+    } catch (error) {
+      console.error("❌ Failed to save image to file:", error);
+      // フォールバック: Data URLを返す
+      return base64Data.startsWith("data:image")
+        ? base64Data
+        : `data:image/png;base64,${base64Data}`;
+    }
   }
 
   /**
@@ -77,11 +133,11 @@ export class ImageService {
     trackers: Array<{
       name: string;
       value: TrackerValueSimple;
-      type: 'numeric' | 'state' | 'boolean' | 'text';
+      type: "numeric" | "state" | "boolean" | "text";
     }>,
     customPrompt?: string
   ): Promise<string> {
-    console.log('🎨 ImageService: Generating image...');
+    console.log("🎨 ImageService: Generating image...");
 
     try {
       // SD APIで画像生成
@@ -93,18 +149,16 @@ export class ImageService {
       );
 
       if (!base64Image || base64Image.length === 0) {
-        throw new Error('Received empty image data from SD API');
+        throw new Error("Received empty image data from SD API");
       }
 
-      // Base64画像をData URLに変換
-      const imageUrl = base64Image.startsWith('data:image')
-        ? base64Image
-        : `data:image/png;base64,${base64Image}`;
+      // Base64画像をファイルとして保存し、URLを返す
+      const imageUrl = await this.saveImageToFile(base64Image);
 
-      console.log('✅ ImageService: Image generated successfully');
+      console.log("✅ ImageService: Image generated and saved successfully");
       return imageUrl;
     } catch (error) {
-      console.error('❌ ImageService: Generation failed', error);
+      console.error("❌ ImageService: Generation failed", error);
       throw error;
     }
   }
@@ -117,7 +171,7 @@ export class ImageService {
     negativePrompt?: string,
     options: Partial<ImageGenerationOptions> = {}
   ): Promise<string> {
-    console.log('🎨 ImageService: Generating image with custom prompt...');
+    console.log("🎨 ImageService: Generating image with custom prompt...");
 
     const params = {
       ...this.defaultOptions,
@@ -126,14 +180,14 @@ export class ImageService {
 
     try {
       const response = await fetch(`${params.baseUrl}/sdapi/v1/txt2img`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          ...(params.apiKey && { 'Authorization': `Bearer ${params.apiKey}` }),
+          "Content-Type": "application/json",
+          ...(params.apiKey && { Authorization: `Bearer ${params.apiKey}` }),
         },
         body: JSON.stringify({
           prompt,
-          negative_prompt: negativePrompt || '',
+          negative_prompt: negativePrompt || "",
           steps: params.steps,
           width: params.width,
           height: params.height,
@@ -150,16 +204,16 @@ export class ImageService {
       const base64Image = data.images[0];
 
       if (!base64Image) {
-        throw new Error('No image returned from SD API');
+        throw new Error("No image returned from SD API");
       }
 
       // Base64画像をData URLに変換
       const imageUrl = `data:image/png;base64,${base64Image}`;
 
-      console.log('✅ ImageService: Image generated successfully');
+      console.log("✅ ImageService: Image generated successfully");
       return imageUrl;
     } catch (error) {
-      console.error('❌ ImageService: Generation failed', error);
+      console.error("❌ ImageService: Generation failed", error);
       throw error;
     }
   }
@@ -188,10 +242,10 @@ export class ImageService {
       // SD APIの返り値にcurrent_imageがない場合はnullを設定
       return {
         ...progress,
-        current_image: progress.current_image || null
+        current_image: progress.current_image || null,
       };
     } catch (error) {
-      console.error('❌ ImageService: Failed to get progress', error);
+      console.error("❌ ImageService: Failed to get progress", error);
       return null;
     }
   }
@@ -199,11 +253,13 @@ export class ImageService {
   /**
    * 利用可能なモデルの取得
    */
-  public async getAvailableModels(): Promise<Array<{ title: string; model_name: string }>> {
+  public async getAvailableModels(): Promise<
+    Array<{ title: string; model_name: string }>
+  > {
     try {
       return await this.sdGenerator.getModels();
     } catch (error) {
-      console.error('❌ ImageService: Failed to get models', error);
+      console.error("❌ ImageService: Failed to get models", error);
       return [];
     }
   }
@@ -213,14 +269,17 @@ export class ImageService {
    */
   public async getCurrentModel(): Promise<string | null> {
     try {
-      const response = await fetch(`${this.defaultOptions.baseUrl}/sdapi/v1/options`, {
-        method: 'GET',
-        headers: {
-          ...(this.defaultOptions.apiKey && {
-            'Authorization': `Bearer ${this.defaultOptions.apiKey}`,
-          }),
-        },
-      });
+      const response = await fetch(
+        `${this.defaultOptions.baseUrl}/sdapi/v1/options`,
+        {
+          method: "GET",
+          headers: {
+            ...(this.defaultOptions.apiKey && {
+              Authorization: `Bearer ${this.defaultOptions.apiKey}`,
+            }),
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to get options: ${response.statusText}`);
@@ -229,7 +288,7 @@ export class ImageService {
       const options = await response.json();
       return options.sd_model_checkpoint || null;
     } catch (error) {
-      console.error('❌ ImageService: Failed to get current model', error);
+      console.error("❌ ImageService: Failed to get current model", error);
       return null;
     }
   }
@@ -239,18 +298,21 @@ export class ImageService {
    */
   public async switchModel(modelName: string): Promise<void> {
     try {
-      const response = await fetch(`${this.defaultOptions.baseUrl}/sdapi/v1/options`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.defaultOptions.apiKey && {
-            'Authorization': `Bearer ${this.defaultOptions.apiKey}`,
+      const response = await fetch(
+        `${this.defaultOptions.baseUrl}/sdapi/v1/options`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(this.defaultOptions.apiKey && {
+              Authorization: `Bearer ${this.defaultOptions.apiKey}`,
+            }),
+          },
+          body: JSON.stringify({
+            sd_model_checkpoint: modelName,
           }),
-        },
-        body: JSON.stringify({
-          sd_model_checkpoint: modelName,
-        }),
-      });
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to switch model: ${response.statusText}`);
@@ -258,7 +320,7 @@ export class ImageService {
 
       console.log(`✅ ImageService: Switched to model ${modelName}`);
     } catch (error) {
-      console.error('❌ ImageService: Failed to switch model', error);
+      console.error("❌ ImageService: Failed to switch model", error);
       throw error;
     }
   }
@@ -268,22 +330,25 @@ export class ImageService {
    */
   public async interrupt(): Promise<void> {
     try {
-      const response = await fetch(`${this.defaultOptions.baseUrl}/sdapi/v1/interrupt`, {
-        method: 'POST',
-        headers: {
-          ...(this.defaultOptions.apiKey && {
-            'Authorization': `Bearer ${this.defaultOptions.apiKey}`,
-          }),
-        },
-      });
+      const response = await fetch(
+        `${this.defaultOptions.baseUrl}/sdapi/v1/interrupt`,
+        {
+          method: "POST",
+          headers: {
+            ...(this.defaultOptions.apiKey && {
+              Authorization: `Bearer ${this.defaultOptions.apiKey}`,
+            }),
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to interrupt: ${response.statusText}`);
       }
 
-      console.log('✅ ImageService: Generation interrupted');
+      console.log("✅ ImageService: Generation interrupted");
     } catch (error) {
-      console.error('❌ ImageService: Failed to interrupt', error);
+      console.error("❌ ImageService: Failed to interrupt", error);
       throw error;
     }
   }
@@ -299,6 +364,6 @@ export class ImageService {
       // エラーは無視（生成中でない可能性がある）
     }
 
-    console.log('✅ ImageService: Cleanup completed');
+    console.log("✅ ImageService: Cleanup completed");
   }
 }

@@ -11,6 +11,75 @@ import { ChatErrorHandler } from "@/services/chat/error-handler.service";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import {
+  generateContinuationPrompt,
+  prepareRegenerationHistory
+} from "@/utils/prompt/continuation-prompts";
+import { cleanConversationHistory, formatMessageWithImage } from "@/utils/conversation-cleaner";
+
+// 再生成用のコンテンツ生成関数
+const generateRegeneratedContent = async (
+  originalContent: string
+): Promise<string> => {
+  // 複数の再生成パターンを定義
+  const regenerationPatterns = [
+    // パターン1: 語調を変更
+    (content: string) => {
+      return content
+        .replace(/です/g, "だよ")
+        .replace(/ます/g, "るよ")
+        .replace(/ですね/g, "だね")
+        .replace(/でしょうか/g, "かな")
+        .replace(/いたします/g, "するよ")
+        .replace(/ございます/g, "あるよ");
+    },
+
+    // パターン2: 感情表現を追加
+    (content: string) => {
+      const emotions = ["😊", "😄", "🤔", "😌", "😊", "😉"];
+      const randomEmotion =
+        emotions[Math.floor(Math.random() * emotions.length)];
+      return `${randomEmotion} ${content}`;
+    },
+
+    // パターン3: 文の順序を変更
+    (content: string) => {
+      const sentences = content.split(/[。！？]/).filter((s) => s.trim());
+      if (sentences.length > 1) {
+        const shuffled = [...sentences].sort(() => Math.random() - 0.5);
+        return shuffled.join("。") + "。";
+      }
+      return content;
+    },
+
+    // パターン4: 表現を豊かに
+    (content: string) => {
+      return content
+        .replace(/とても/g, "すごく")
+        .replace(/とても/g, "めちゃくちゃ")
+        .replace(/良い/g, "いい")
+        .replace(/悪い/g, "ダメ")
+        .replace(/面白い/g, "おもしろい")
+        .replace(/難しい/g, "むずかしい");
+    },
+
+    // パターン5: 語尾を変更
+    (content: string) => {
+      return content
+        .replace(/です。/g, "だよ！")
+        .replace(/ます。/g, "るよ！")
+        .replace(/ですね。/g, "だね！")
+        .replace(/でしょう。/g, "だろうね！");
+    },
+  ];
+
+  // ランダムにパターンを選択して適用
+  const randomPattern =
+    regenerationPatterns[
+      Math.floor(Math.random() * regenerationPatterns.length)
+    ];
+  return randomPattern(originalContent);
+};
 
 // 🧠 感情から絵文字への変換ヘルパー
 export const getEmotionEmoji = (emotion: string): string => {
@@ -334,9 +403,13 @@ export const createMessageOperations: StateCreator<
 
                   for (const msg of recentMessages) {
                     if (msg.role === "user" || msg.role === "assistant") {
+                      // 画像が含まれている場合の処理
+                      const hasImage = !!(msg as any).image_url;
+                      const cleanedContent = formatMessageWithImage(msg.content, hasImage);
+
                       const historyEntry = {
                         role: msg.role as "user" | "assistant",
-                        content: msg.content,
+                        content: cleanedContent,
                       };
 
                       // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
@@ -353,9 +426,12 @@ export const createMessageOperations: StateCreator<
                   }
 
                   // 最終的に設定値の半分の件数のみ返す（例: 20設定なら10件）
-                  return deduplicatedHistory.slice(
+                  const finalHistory = deduplicatedHistory.slice(
                     -Math.floor(maxContextMessages / 2)
                   );
+
+                  // Base64画像データをクリーニング
+                  return cleanConversationHistory(finalHistory);
                 })(),
                 textFormatting: state.effectSettings.textFormatting,
                 apiConfig: {
@@ -666,106 +742,102 @@ export const createMessageOperations: StateCreator<
       }
 
       const session = getSessionSafely(get().sessions, activeSessionId);
-      // C案：より堅牢なチェック
       if (!session || session.messages.length < 2) {
         return;
       }
 
-      // 最後のAIメッセージとその直前のユーザーメッセージを見つける
+      // 最後のAIメッセージを見つける
       const lastAiMessageIndex = session.messages.findLastIndex(
         (m) => m.role === "assistant" && !m.is_deleted
       );
-      if (lastAiMessageIndex <= 0) {
-        // Should be at least the second message
+      if (lastAiMessageIndex === -1) {
         return;
       }
 
-      const lastUserMessage = session.messages[lastAiMessageIndex - 1];
-      if (
-        !lastUserMessage ||
-        lastUserMessage.role !== "user" ||
-        lastUserMessage.is_deleted
-      ) {
-        return;
-      }
-
-      const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
-
+      const lastAiMessage = session.messages[lastAiMessageIndex];
       const characterId = session.participants.characters[0]?.id;
       const trackerManager = characterId
         ? getTrackerManagerSafely(get().trackerManagers, characterId)
         : null;
 
-      // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
-      const regeneratePrompt = `以下のメッセージに対して、キャラクターとして応答してください。前回とは異なる角度や表現で、新鮮で創造的な応答を生成してください。
+      // 最後のユーザーメッセージを取得（再生成の元となるプロンプト）
+      const lastUserMessageIndex = session.messages
+        .slice(0, lastAiMessageIndex)
+        .findLastIndex((m) => m.role === "user" && !m.is_deleted);
 
-ユーザーメッセージ: "${lastUserMessage.content}"`;
+      if (lastUserMessageIndex === -1) {
+        // ユーザーメッセージが見つからない場合はローカル処理にフォールバック
+        const regeneratedContent = await generateRegeneratedContent(
+          lastAiMessage.content
+        );
+        const updatedAiMessage: UnifiedMessage = {
+          ...lastAiMessage,
+          content: regeneratedContent,
+          regeneration_count: (lastAiMessage.regeneration_count || 0) + 1,
+          updated_at: new Date().toISOString(),
+        };
+        const newMessages = [...session.messages];
+        newMessages[lastAiMessageIndex] = updatedAiMessage;
+        set((_state) => {
+          const updatedSession = {
+            ...session,
+            messages: newMessages,
+            updated_at: new Date().toISOString(),
+          };
+          return {
+            sessions: createMapSafely(_state.sessions).set(
+              session.id,
+              updatedSession
+            ),
+          };
+        });
+        return;
+      }
 
-      let systemPrompt = await promptBuilderService.buildPrompt(
-        { ...session, messages: messagesForPrompt },
-        regeneratePrompt,
+      const lastUserMessage = session.messages[lastUserMessageIndex];
+
+      // 再生成リクエスト用のプロンプトを構築
+      const systemPrompt = await promptBuilderService.buildPrompt(
+        session,
+        lastUserMessage.content,
         trackerManager || undefined
       );
 
-      // 再生成専用の指示を追加
-      const regenerateInstruction = `
-<regenerate_instruction>
-**重要**: これは再生成リクエストです。
-- 前回の応答とは全く異なるアプローチで応答してください
-- 新しい視点、感情、表現を使用してください  
-- 同じパターンや言い回しを避けてください
-- キャラクターの別の面を表現してください
-- 創造性と多様性を重視してください
-</regenerate_instruction>
-`;
-      systemPrompt += regenerateInstruction;
-
-      // 🔧 修正: 設定から会話履歴の上限を取得
+      // 会話履歴を最後のユーザーメッセージまでに制限（前回のAI応答は含めない）
       const maxContextMessages =
         get().chat?.memoryLimits?.max_context_messages || 40;
-      const conversationHistory = messagesForPrompt
-        .filter((msg) => msg.role === "user" || msg.role === "assistant")
-        .slice(-maxContextMessages) // 設定値を使用
-        .map((msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
+      const filteredMessages = session.messages
+        .filter((m) => !m.is_deleted)
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
         }));
-
-      const apiConfig = get().apiConfig;
-      // C案：temperatureをより大きく上げ、seedを追加して多様性を確保
-      const regenerationApiConfig = {
-        ...apiConfig,
-        temperature: Math.min(1.8, (apiConfig.temperature || 0.7) + 0.3), // 上昇幅を0.3に増加
-        seed: Math.floor(Math.random() * 1000000), // B案：ランダムなseedを追加
-        openRouterApiKey: get().openRouterApiKey,
-        geminiApiKey: get().geminiApiKey,
-        useDirectGeminiAPI: get().useDirectGeminiAPI,
-      };
-
-      // simpleAPIManagerV2を使用して再生成
-      const { simpleAPIManagerV2 } = await import(
-        "@/services/simple-api-manager-v2"
+      const rawHistory = prepareRegenerationHistory(
+        filteredMessages,
+        lastAiMessageIndex,
+        maxContextMessages
       );
+      // Base64画像データをクリーニング
+      const conversationHistory = cleanConversationHistory(rawHistory);
 
-      const aiResponseContent = await simpleAPIManagerV2.generateMessage(
+      const apiConfig = get().apiConfig || {};
+      const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         lastUserMessage.content,
         conversationHistory,
-        regenerationApiConfig
+        apiConfig
       );
 
-      const newAiMessage: UnifiedMessage = {
-        ...session.messages[lastAiMessageIndex],
-        id: generateAIMessageId(),
-        created_at: new Date().toISOString(),
+      // 既存のAIメッセージを更新（IDは保持）
+      const updatedAiMessage: UnifiedMessage = {
+        ...lastAiMessage,
+        content: aiResponse,
+        regeneration_count: (lastAiMessage.regeneration_count || 0) + 1,
         updated_at: new Date().toISOString(),
-        content: aiResponseContent,
-        regeneration_count:
-          (session.messages[lastAiMessageIndex].regeneration_count || 0) + 1,
       };
 
       const newMessages = [...session.messages];
-      newMessages[lastAiMessageIndex] = newAiMessage;
+      newMessages[lastAiMessageIndex] = updatedAiMessage;
 
       set((_state) => {
         const updatedSession = {
@@ -782,40 +854,14 @@ export const createMessageOperations: StateCreator<
       });
     } catch (error) {
       console.error("🚨 Regeneration failed:", error);
-
-      // 詳細なエラーハンドリングとユーザーフィードバック
-      let errorMessage = "メッセージの再生成に失敗しました。";
-
-      if (error instanceof Error) {
-        if (error.message.includes("API request failed")) {
-          errorMessage =
-            "API接続エラー: サーバーとの通信に失敗しました。しばらく待ってから再試行してください。";
-        } else if (error.message.includes("memory")) {
-          errorMessage =
-            "メモリ処理エラー: 一時的な問題が発生しました。ページをリロードして再試行してください。";
-        } else if (error.message.includes("timeout")) {
-          errorMessage =
-            "タイムアウト: 処理時間が長すぎます。しばらく待ってから再試行してください。";
-        } else if (error.message.includes("rate limit")) {
-          errorMessage =
-            "レート制限: APIの使用制限に達しました。しばらく待ってから再試行してください。";
-        }
-      }
-
-      // エラー状態をストアに保存（UI表示用）
       set({
         lastError: {
           type: "regeneration",
-          message: errorMessage,
+          message: "メッセージの再生成に失敗しました。",
           timestamp: new Date().toISOString(),
           details: error instanceof Error ? error.message : String(error),
         },
       });
-
-      // エラートースト表示（実装されている場合）
-      if (typeof window !== "undefined" && (window as any).showToast) {
-        (window as any).showToast(errorMessage, "error");
-      }
     } finally {
       set({ is_generating: false });
     }
@@ -849,9 +895,12 @@ export const createMessageOperations: StateCreator<
         ? getTrackerManagerSafely(get().trackerManagers, characterId)
         : null;
 
-      // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
-      // 続き生成の指示をユーザープロンプトに含める（システムプロンプトには追加しない）
-      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+      // 続きを生成するため、共通プロンプト生成関数を使用
+      const character = session.participants.characters[0];
+      const continuePrompt = generateContinuationPrompt(
+        lastAiMessage.content,
+        character?.name
+      );
 
       const systemPrompt = await promptBuilderService.buildPrompt(
         session,
@@ -866,13 +915,15 @@ export const createMessageOperations: StateCreator<
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
         get().chat?.memoryLimits?.max_context_messages || 40;
-      const conversationHistory = session.messages
+      const rawHistory = session.messages
         .filter((m) => !m.is_deleted)
         .slice(-maxContextMessages) // 設定値を使用
         .map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         }));
+      // Base64画像データをクリーニング
+      const conversationHistory = cleanConversationHistory(rawHistory);
 
       const apiConfig = get().apiConfig || {};
       const aiResponse = await simpleAPIManagerV2.generateMessage(
