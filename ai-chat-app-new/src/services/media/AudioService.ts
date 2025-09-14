@@ -104,69 +104,71 @@ export class AudioService {
     speed: number,
     pitch: number
   ): Promise<string> {
-    // 音声クエリの生成
-    const queryResponse = await fetch(
-      `${this.voicevoxUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`,
-      {
+    try {
+      console.log('🎵 VOICEVOX: Starting playback', { text, speakerId, speed, pitch });
+
+      // APIルート経由でVOICEVOXにアクセス
+      const response = await fetch('/api/voice/voicevox', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-      }
-    );
+        body: JSON.stringify({
+          text,
+          speaker: speakerId,
+          settings: {
+            speed,
+            pitch,
+            intonation: 1.0,
+            volume: 1.0,
+          }
+        })
+      });
 
-    if (!queryResponse.ok) {
-      throw new Error(`VOICEVOX query failed: ${queryResponse.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`VOICEVOX API error: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.audioData) {
+        throw new Error('No audio data received from VOICEVOX');
+      }
+
+      console.log('✅ VOICEVOX: Audio data received');
+
+      // Base64エンコードされた音声データを使用
+      const audioUrl = data.audioData;
+
+      // 音声再生
+      this.currentAudio = new Audio(audioUrl);
+      this.currentAudio.volume = 1.0;
+
+      return new Promise((resolve, reject) => {
+        if (!this.currentAudio) {
+          reject(new Error('Audio element not created'));
+          return;
+        }
+
+        this.currentAudio.onended = () => {
+          console.log('✅ VOICEVOX: Playback completed');
+          resolve(audioUrl);
+        };
+
+        this.currentAudio.onerror = (error) => {
+          console.error('❌ VOICEVOX: Playback error', error);
+          reject(error);
+        };
+
+        this.currentAudio.play()
+          .then(() => console.log('🎵 VOICEVOX: Playing...'))
+          .catch(reject);
+      });
+    } catch (error) {
+      console.error('❌ VOICEVOX playback error:', error);
+      throw error;
     }
-
-    const query = await queryResponse.json();
-
-    // パラメータの調整
-    query.speedScale = speed;
-    query.pitchScale = pitch;
-
-    // 音声合成
-    const synthesisResponse = await fetch(
-      `${this.voicevoxUrl}/synthesis?speaker=${speakerId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(query),
-      }
-    );
-
-    if (!synthesisResponse.ok) {
-      throw new Error(`VOICEVOX synthesis failed: ${synthesisResponse.statusText}`);
-    }
-
-    // 音声データの取得
-    const audioBlob = await synthesisResponse.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    // 音声再生
-    this.currentAudio = new Audio(audioUrl);
-    this.currentAudio.volume = 1.0;
-
-    return new Promise((resolve, reject) => {
-      if (!this.currentAudio) {
-        reject(new Error('Audio element not created'));
-        return;
-      }
-
-      this.currentAudio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        resolve(audioUrl);
-      };
-
-      this.currentAudio.onerror = (error) => {
-        URL.revokeObjectURL(audioUrl);
-        reject(error);
-      };
-
-      this.currentAudio.play().catch(reject);
-    });
   }
 
   /**
