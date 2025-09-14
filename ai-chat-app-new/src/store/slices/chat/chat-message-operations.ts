@@ -245,13 +245,15 @@ export const createMessageOperations: StateCreator<
         const trackerManager = characterId
           ? getTrackerManagerSafely(get().trackerManagers, characterId)
           : null;
-        
+
         console.log("🔍 [sendMessage] TrackerManager check:", {
           characterId,
           hasTrackerManagers: !!get().trackerManagers,
           trackerManagersSize: get().trackerManagers?.size || 0,
           hasTrackerManager: !!trackerManager,
-          trackerManagerType: trackerManager ? trackerManager.constructor.name : "null"
+          trackerManagerType: trackerManager
+            ? trackerManager.constructor.name
+            : "null",
         });
 
         // ⚡ プログレッシブプロンプト構築でUIフリーズを防止 (50-100ms)
@@ -541,7 +543,9 @@ export const createMessageOperations: StateCreator<
 
         // トラッカーの自動更新を実行
         if (trackerManager && characterId) {
-          console.log("🎯 [sendMessage] Analyzing messages for tracker updates...");
+          console.log(
+            "🎯 [sendMessage] Analyzing messages for tracker updates..."
+          );
           try {
             // ユーザーメッセージとAIレスポンスの両方を分析
             const userUpdates = trackerManager.analyzeMessageForTrackerUpdates(
@@ -554,10 +558,12 @@ export const createMessageOperations: StateCreator<
             );
             const updatedTrackers = [...userUpdates, ...aiUpdates];
             if (updatedTrackers && updatedTrackers.length > 0) {
-              console.log(`✅ [sendMessage] Updated ${updatedTrackers.length} tracker(s)`);
+              console.log(
+                `✅ [sendMessage] Updated ${updatedTrackers.length} tracker(s)`
+              );
               // Zustandの状態を更新してUIに反映
               set((state) => ({
-                trackerManagers: new Map(state.trackerManagers)
+                trackerManagers: new Map(state.trackerManagers),
               }));
             }
           } catch (error) {

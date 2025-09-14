@@ -318,21 +318,21 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       const character = getSelectedCharacter();
       if (!character) {
         console.error("キャラクターが選択されていません");
-        alert('キャラクターが選択されていません');
+        alert("キャラクターが選択されていません");
         return;
       }
 
       // 現在のセッションのメッセージを取得
       const sessions = useAppStore.getState().sessions;
-      const currentSession = sessions.get(activeSessionId || '');
+      const currentSession = sessions.get(activeSessionId || "");
       if (!currentSession) {
         console.error("セッションが見つかりません");
-        alert('セッションが見つかりません');
+        alert("セッションが見つかりません");
         return;
       }
 
       // トラッカーの値を取得
-      const trackerManager = trackerManagers.get(activeSessionId || '');
+      const trackerManager = trackerManagers.get(activeSessionId || "");
       const trackers = [];
       if (trackerManager && character.trackers) {
         const trackerSet = trackerManager.getTrackerSet(character.id);
@@ -342,11 +342,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             if (tracker) {
               // configのtypeを使用し、composite型は除外
               const trackerType = trackerDef.config?.type;
-              if (trackerType && trackerType !== 'composite') {
+              if (trackerType && trackerType !== "composite") {
                 trackers.push({
                   name: trackerDef.name,
                   value: tracker.current_value,
-                  type: trackerType as 'numeric' | 'state' | 'boolean' | 'text'
+                  type: trackerType as "numeric" | "state" | "boolean" | "text",
                 });
               }
             }
@@ -361,13 +361,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         trackers
       );
 
-      console.log('🖼️ Generated image URL:', imageUrl?.substring(0, 100));
+      console.log("🖼️ Generated image URL:", imageUrl?.substring(0, 100));
 
       // 生成された画像をメッセージとして追加
       if (imageUrl) {
         // addMessageが存在するか確認
         if (addMessage) {
-          console.log('📨 Adding image message to chat');
+          console.log("📨 Adding image message to chat");
           const newMessage = {
             id: Date.now().toString(),
             content: `![Generated Image](${imageUrl})`,
@@ -375,23 +375,24 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             timestamp: Date.now(),
             character_id: character.id,
             metadata: {
-              type: 'image',
-              generated: true
-            }
+              type: "image",
+              generated: true,
+            },
           };
-          console.log('📝 New message:', newMessage);
+          console.log("📝 New message:", newMessage);
           addMessage(newMessage);
         } else {
-          console.error('❌ addMessage function not found');
+          console.error("❌ addMessage function not found");
           // 代替案：アラートで画像を表示
-          alert('画像生成に成功しましたが、チャットに追加できませんでした。');
+          alert("画像生成に成功しましたが、チャットに追加できませんでした。");
         }
       } else {
-        console.error('❌ No image URL returned from generateImage');
+        console.error("❌ No image URL returned from generateImage");
       }
     } catch (error) {
       console.error("画像生成に失敗しました:", error);
-      const errorMessage = error instanceof Error ? error.message : '画像生成に失敗しました';
+      const errorMessage =
+        error instanceof Error ? error.message : "画像生成に失敗しました";
       alert(`画像生成エラー: ${errorMessage}`);
     } finally {
       setIsGeneratingImage(false);
@@ -402,7 +403,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     activeSessionId,
     trackerManagers,
     generateImage,
-    addMessage
+    addMessage,
   ]);
 
   // メッセージアクション: 削除

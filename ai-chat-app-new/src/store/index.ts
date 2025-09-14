@@ -53,7 +53,7 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (
       return get();
     } catch (error) {
       console.error("Error in safeGet:", error);
-      return {} as AppStore;
+      return {} as AppStore; // AppStore の最小限のデフォルトを返す
     }
   };
 
@@ -117,32 +117,6 @@ const createStore = () => {
                       return null;
                     }
 
-                    // 🔧 モデル移行処理：読み込み時に古いモデル名を自動修正
-                    if (parsed.state?.apiConfig?.model) {
-                      const currentModel = parsed.state.apiConfig.model;
-                      const migratedModel = migrateModelName(currentModel);
-
-                      if (currentModel !== migratedModel) {
-                        console.log(
-                          `🔄 Auto-migrating model: ${currentModel} → ${migratedModel}`
-                        );
-                        parsed.state.apiConfig.model = migratedModel;
-
-                        // 修正された設定を即座に保存
-                        try {
-                          localStorage.setItem(name, JSON.stringify(parsed));
-                          console.log(
-                            "✅ Auto-migration saved to localStorage"
-                          );
-                        } catch (saveError) {
-                          console.error(
-                            "Failed to save auto-migrated settings:",
-                            saveError
-                          );
-                        }
-                      }
-                    }
-
                     // 設定が確実に保存されるよう、stateが存在することを確認
                     if (!parsed.state) {
                       console.warn("Missing state in stored data");
@@ -173,30 +147,6 @@ const createStore = () => {
                 )
                   return;
                 if (!window.localStorage) return;
-
-                // 🔧 保存前のモデル名チェック：古いモデル名の保存を防止
-                if (name === "ai-chat-v3-storage") {
-                  try {
-                    const parsed = JSON.parse(value);
-                    if (parsed.state?.apiConfig?.model) {
-                      const currentModel = parsed.state.apiConfig.model;
-                      const migratedModel = migrateModelName(currentModel);
-
-                      if (currentModel !== migratedModel) {
-                        console.log(
-                          `🔄 Preventing save of old model: ${currentModel} → ${migratedModel}`
-                        );
-                        parsed.state.apiConfig.model = migratedModel;
-                        value = JSON.stringify(parsed);
-                      }
-                    }
-                  } catch (modelCheckError) {
-                    console.error(
-                      "Model check error during save:",
-                      modelCheckError
-                    );
-                  }
-                }
 
                 // サイズチェック - 5MB制限 (localStorage limit is typically 5-10MB)
                 const sizeInBytes = new Blob([value]).size;
@@ -398,7 +348,7 @@ const createStore = () => {
             },
           }),
           {
-            replacer: (key, value) => {
+            replacer: (key: string, value: any) => {
               if (value instanceof Map) {
                 return { _type: "map", value: Array.from(value.entries()) };
               }
@@ -413,25 +363,34 @@ const createStore = () => {
               }
               return value;
             },
-            reviver: (key, value) => {
-              if (value && value._type === "map") {
-                // Restore TrackerManager instances correctly
-                if (key === "trackerManagers") {
-                  const restoredMap = new Map();
-                  for (const [k, v] of value.value) {
-                    const manager = new TrackerManager();
-                    if (v && v.value) {
-                      // Check if v.value exists
-                      manager.loadFromObject(v.value);
+            reviver: (key: string, value: any) => {
+              if (value && typeof value === "object" && "_type" in value) {
+                if (value._type === "map") {
+                  // Restore TrackerManager instances correctly
+                  if (key === "trackerManagers") {
+                    const restoredMap = new Map();
+                    // value.value が配列であることを確認
+                    if (Array.isArray(value.value)) {
+                      for (const [k, v] of value.value) {
+                        const manager = new TrackerManager();
+                        if (
+                          v &&
+                          typeof v === "object" &&
+                          "value" in v &&
+                          v.value
+                        ) {
+                          manager.loadFromObject(v.value);
+                        }
+                        restoredMap.set(k, manager);
+                      }
                     }
-                    restoredMap.set(k, manager);
+                    return restoredMap;
                   }
-                  return restoredMap;
+                  return new Map(value.value || []); // value.value が存在しない場合を考慮
                 }
-                return new Map(value.value);
-              }
-              if (value && value._type === "set") {
-                return new Set(value.value);
+                if (value._type === "set") {
+                  return new Set(value.value || []); // value.value が存在しない場合を考慮
+                }
               }
               return value;
             },
@@ -439,7 +398,7 @@ const createStore = () => {
         ),
         version: 3, // バージョンを3に更新
         migrate: (persistedState: unknown, version: number) => {
-          const state = persistedState as Record<string, unknown>;
+          const state = persistedState as Partial<AppStore>;
 
           // version 2以下から3へのマイグレーション
           if (version < 3) {
@@ -449,28 +408,31 @@ const createStore = () => {
             // 古いキャラクターデータをクリーンアップ
             // IDが "貴族令嬢" のキャラクターを削除
             if (state.characters) {
-              if (state.characters instanceof Map ||
-                  (typeof state.characters === 'object' &&
-                   state.characters &&
-                   '_type' in state.characters &&
-                   state.characters._type === 'map')) {
+              // state.characters の型チェックを強化
+              if (
+                state.characters instanceof Map ||
+                (typeof state.characters === "object" &&
+                  state.characters &&
+                  "_type" in state.characters &&
+                  (state.characters as { _type: string })._type === "map")
+              ) {
+                const entries =
+                  state.characters instanceof Map
+                    ? Array.from(state.characters.entries())
+                    : (state.characters as { value: [string, any][] }).value;
 
-                const entries = state.characters instanceof Map
-                  ? Array.from(state.characters.entries())
-                  : state.characters.value;
-
-                const filtered = entries.filter(([id, char]) => {
+                const filtered = entries.filter(([id, char]: [string, any]) => {
                   // 削除されたファイルのキャラクターを除外
-                  return id !== '貴族令嬢' && id !== 'kizoku-reijou';
+                  return id !== "貴族令嬢" && id !== "kizoku-reijou";
                 });
 
                 if (state.characters instanceof Map) {
                   state.characters = new Map(filtered);
                 } else {
                   state.characters = {
-                    _type: 'map',
-                    value: filtered
-                  };
+                    _type: "map",
+                    value: filtered,
+                  } as any;
                 }
               }
             }
@@ -478,7 +440,7 @@ const createStore = () => {
             console.log("🔄 Migration v3: Cleaned up old character data");
           }
 
-          return state;
+          return state as AppStore;
         },
         // Only persist state, not actions (functions)
         // UI状態はハイドレーション問題を避けるため永続化しない
