@@ -531,7 +531,20 @@ try {
   );
   // フォールバック: 永続化なしのストアを作成
   try {
-    useAppStore = create<AppStore>()(combinedSlices);
+    useAppStore = create<AppStore>()((set, get, api) => ({
+      // Provide minimal implementations of all AppStore methods
+      ...combinedSlices(set, get, api),
+      // Override critical properties with safe defaults
+      sessions: new Map(),
+      active_session_id: null,
+      characters: new Map(),
+      personas: new Map(),
+      selectedCharacterId: null,
+      isCharactersLoaded: false,
+      isPersonasLoaded: false,
+      apiManager: simpleAPIManagerV2,
+      promptBuilderService: promptBuilderService,
+    }));
     console.log("⚠️ Using non-persisted store as fallback");
   } catch (fallbackError) {
     console.error(
@@ -539,13 +552,9 @@ try {
       fallbackError
     );
     // 最後の手段：最小限のストア
-    useAppStore = create<AppStore>()((set, get) => ({
+    useAppStore = create<AppStore>()((set, get, api) => ({
       // Provide minimal implementations of all AppStore methods
-      ...combinedSlices(set, get, {
-        name: "fallback",
-        persist: () => {},
-        getOptions: () => ({}),
-      }),
+      ...combinedSlices(set, get, api),
       // Override critical properties with safe defaults
       sessions: new Map(),
       active_session_id: null,
