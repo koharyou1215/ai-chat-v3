@@ -1,15 +1,15 @@
 /**
  * Image Generation Hook
- * UI層からSD画像生成サービスを呼び出すフック
+ * MediaOrchestratorを使用した画像生成フック
  */
 
-import { useState, useCallback } from 'react';
-import { SDImageGenerator } from '@/services/image-generation/sd-image-generator';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { MediaOrchestrator } from '@/services/media';
 import { Character } from '@/types/core/character.types';
 import { UnifiedMessage } from '@/types/memory';
+
 // TrackerValueSimple is just the actual value, not the full TrackerValue interface
 type TrackerValueSimple = string | number | boolean;
-import { useAppStore } from '@/store';
 
 interface UseImageGenerationOptions {
   baseUrl?: string;
@@ -20,12 +20,15 @@ export function useImageGeneration(options: UseImageGenerationOptions = {}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const orchestratorRef = useRef<MediaOrchestrator | null>(null);
 
-  // SD画像生成器インスタンス
-  const generator = new SDImageGenerator(
-    options.baseUrl || process.env.NEXT_PUBLIC_SD_API_URL || 'http://localhost:7860',
-    options.apiKey
-  );
+  // MediaOrchestratorのインスタンスを取得
+  useEffect(() => {
+    orchestratorRef.current = MediaOrchestrator.getInstance({
+      // オプションの設定が必要な場合はここで渡す
+    });
+    orchestratorRef.current.initialize().catch(console.error);
+  }, []);
 
   const generateImage = useCallback(async (
     character: Character,
@@ -37,30 +40,26 @@ export function useImageGeneration(options: UseImageGenerationOptions = {}) {
     }>,
     customPrompt?: string
   ) => {
+    if (!orchestratorRef.current) {
+      const errorMessage = 'MediaOrchestrator not initialized';
+      console.error(errorMessage);
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+
     setIsGenerating(true);
     setError(null);
 
     try {
-      const base64Image = await generator.generateFromChat(
+      // MediaOrchestratorを使用して画像生成
+      const imageUrl = await orchestratorRef.current.generateImage(
         character,
         messages,
         trackers,
         customPrompt
       );
 
-      console.log('🔍 Received base64 image in hook, length:', base64Image?.length);
-      console.log('🎨 Base64 preview (first 100 chars):', base64Image?.substring(0, 100));
-
-      // Base64画像をData URLに変換
-      // SD APIからのBase64データが正しいか確認
-      if (!base64Image || base64Image.length === 0) {
-        throw new Error('Received empty image data from SD API');
-      }
-
-      // すでにdata:imageで始まっている場合はそのまま使用
-      const imageUrl = base64Image.startsWith('data:image')
-        ? base64Image
-        : `data:image/png;base64,${base64Image}`;
+      console.log('🎨 Image generated successfully via MediaOrchestrator');
       setGeneratedImage(imageUrl);
 
       return imageUrl;
@@ -72,32 +71,58 @@ export function useImageGeneration(options: UseImageGenerationOptions = {}) {
     } finally {
       setIsGenerating(false);
     }
-  }, [generator]);
+  }, []);
 
   // 生成進捗を取得
   const getProgress = useCallback(async () => {
-    try {
-      return await generator.getProgress();
-    } catch (err) {
-      console.error('Failed to get progress:', err);
+    if (!orchestratorRef.current) {
       return null;
     }
-  }, [generator]);
 
-  // 利用可能なモデルを取得
-  const getModels = useCallback(async () => {
-    try {
-      return await generator.getModels();
-    } catch (err) {
-      console.error('Failed to get models:', err);
-      return [];
+    // MediaOrchestratorからキューの状態を取得
+    const queueStatus = orchestratorRef.current.getQueueStatus();
+
+    // 画像生成リクエストの進捗を確認
+    const imageRequests = queueStatus.requests.filter(r => r.type === 'image');
+    const processingRequest = imageRequests.find(r => r.status === 'processing');
+
+    if (processingRequest) {
+      // 実際の生成進捗はSD APIから取得する必要がある場合
+      // ここでは簡易的な進捗表示
+      return {
+        progress: 0.5,
+        status: 'processing',
+        requestId: processingRequest.id
+      };
     }
-  }, [generator]);
+
+    return null;
+  }, []);
+
+  // キャッシュ統計を取得
+  const getCacheStats = useCallback(() => {
+    if (!orchestratorRef.current) {
+      return null;
+    }
+
+    return orchestratorRef.current.getCacheStats();
+  }, []);
+
+  // キャッシュをクリア
+  const clearCache = useCallback(async () => {
+    if (!orchestratorRef.current) {
+      return;
+    }
+
+    await orchestratorRef.current.clearCache();
+    console.log('🧹 Image cache cleared');
+  }, []);
 
   return {
     generateImage,
     getProgress,
-    getModels,
+    getCacheStats,
+    clearCache,
     isGenerating,
     generatedImage,
     error,
