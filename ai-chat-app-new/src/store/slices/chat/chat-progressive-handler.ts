@@ -12,6 +12,7 @@ import { autoMemoryManager } from "@/services/memory/auto-memory-manager";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
 import { getTrackerManagerSafely } from "./chat-message-operations";
+import { soundService } from "@/services/SoundService";
 
 export interface ProgressiveHandler {
   sendProgressiveMessage: (content: string, imageUrl?: string) => Promise<void>;
@@ -750,6 +751,8 @@ export const createProgressiveHandler: StateCreator<
         console.log(
           "🏁 Progressive Generation Complete - Setting is_generating to false"
         );
+        // Play notification sound when all stages are complete
+        soundService.playMessageReceived();
         set({ is_generating: false });
       }
     }, stage3Delay);

@@ -6,14 +6,22 @@ export async function POST(request: NextRequest) {
     // speakerId を speaker に修正
     const { text, speaker, settings } = body;
 
+    // 本番環境ではVOICEVOXは使用不可
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+      return NextResponse.json({
+        success: false,
+        error: 'VOICEVOX is not available in production. Please use browser TTS.'
+      }, { status: 503 });
+    }
+
     const voicevoxUrl = process.env.VOICEVOX_ENGINE_URL || 'http://localhost:50021';
     
     // VoiceVoxエンジンが起動しているかチェック
     try {
       console.log(`🔊 VoiceVox health check to: ${voicevoxUrl}/version`);
-      const healthCheck = await fetch(`${voicevoxUrl}/version`, { 
+      const healthCheck = await fetch(`${voicevoxUrl}/version`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5秒でタイムアウト
+        signal: AbortSignal.timeout(3000) // 3秒でタイムアウト
       });
       if (!healthCheck.ok) {
         const errorText = await healthCheck.text().catch(() => 'No response text');

@@ -11,6 +11,7 @@ import { ChatErrorHandler } from "@/services/chat/error-handler.service";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import { soundService } from "@/services/SoundService";
 import {
   generateContinuationPrompt,
   prepareRegenerationHistory,
@@ -739,6 +740,9 @@ export const createMessageOperations: StateCreator<
             details: chatError.details as string,
           },
         });
+
+        // Play notification sound when message is received
+        soundService.playMessageReceived();
       } finally {
         set({ is_generating: false });
       }
@@ -874,6 +878,9 @@ export const createMessageOperations: StateCreator<
           details: error instanceof Error ? error.message : String(error),
         },
       });
+
+      // Play notification sound when message is received
+      soundService.playMessageReceived();
     } finally {
       set({ is_generating: false });
     }
@@ -1064,6 +1071,9 @@ export const createMessageOperations: StateCreator<
       if (typeof window !== "undefined" && (window as any).showToast) {
         (window as any).showToast(errorMessage, "error");
       }
+
+      // Play notification sound when message is received
+      soundService.playMessageReceived();
     } finally {
       set({ is_generating: false });
     }

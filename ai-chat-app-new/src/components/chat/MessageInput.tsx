@@ -27,10 +27,12 @@ import {
   Cpu,
   Phone,
   Users,
+  Palette,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { cn } from "@/lib/utils";
 import { shallow } from "zustand/shallow";
+import { ResponsePatternSelector } from "./ResponsePatternSelector";
 // import imageCompression from 'browser-image-compression'; // 静的インポートを削除
 
 export const MessageInput: React.FC = React.memo(() => {
@@ -52,6 +54,7 @@ export const MessageInput: React.FC = React.memo(() => {
     active_group_session_id,
     groupSessions,
     systemPrompts,
+    responsePattern,
     sendMessage,
     sendProgressiveMessage,
     setCurrentInputText,
@@ -61,6 +64,7 @@ export const MessageInput: React.FC = React.memo(() => {
     setShowSettingsModal,
     setShowVoiceSettingsModal,
     setShowSuggestionModal,
+    setResponsePattern,
     generateSuggestions,
     enhanceText,
     setShowEnhancementModal,
@@ -427,6 +431,14 @@ export const MessageInput: React.FC = React.memo(() => {
         />
 
         <div className="flex gap-1">
+          {/* Response Pattern Selector */}
+          <ResponsePatternSelector
+            currentPattern={responsePattern}
+            onPatternChange={setResponsePattern}
+            compact={true}
+            className="mr-1"
+          />
+
           <AnimatePresence mode="wait">
             <motion.div
               key={hasMessage ? "enhance" : "suggest"}

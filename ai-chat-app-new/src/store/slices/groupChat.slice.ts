@@ -5,6 +5,7 @@ import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { TrackerManager } from '@/services/tracker/tracker-manager';
 import { generateCompactGroupPrompt } from '@/utils/character-summarizer';
 import { GroupEmotionAnalyzer } from '@/services/emotion/GroupEmotionAnalyzer';
+import { soundService } from '@/services/SoundService';
 import { AppStore } from '..';
 import {
   generateGroupSessionId,
@@ -483,6 +484,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     } catch (error) {
       console.error('Group message generation failed:', error);
     } finally {
+      // Play notification sound when group messages are received
+      soundService.playMessageReceived();
       set({ group_generating: false });
     }
   },
@@ -515,26 +518,34 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const characterIndex = previousResponses.length; // 今何番目のキャラか
     const historyReduction = Math.max(10 - (characterIndex * 2), 4); // 後のキャラほど履歴を減らす
     const recentMessages = groupSession.messages.slice(-historyReduction);
-    // 全員の発言を含める（グループチャットなので） + 重複除去
+    // グループチャット用の会話履歴構築（全メンバーの発言を適切にフォーマット）
     const tempHistory = recentMessages
       .map(msg => {
         if (msg.role === 'user') {
-          return { 
-            role: 'user' as const, 
-            content: msg.content 
+          // ユーザーの発言
+          return {
+            role: 'user' as const,
+            content: `${groupSession.persona.name}: ${msg.content}`
           };
         } else if (msg.role === 'assistant') {
-          // 他のキャラクターの発言もユーザー扱いにして文脈に含める
-          const prefix = msg.character_id === character.id ? '' : `${msg.character_name}: `;
-          // 後のキャラほど内容を短縮
-          const contentLimit = characterIndex > 0 ? 100 : 200;
-          const content = msg.content.length > contentLimit 
-            ? msg.content.substring(0, contentLimit) + '...'
-            : msg.content;
-          return { 
-            role: msg.character_id === character.id ? 'assistant' as const : 'user' as const,
-            content: prefix + content.replace(/^[^:]+:\s*/, '')
-          };
+          // キャラクターの発言
+          if (msg.character_id === character.id) {
+            // 自分の過去の発言はassistant扱い
+            return {
+              role: 'assistant' as const,
+              content: msg.content
+            };
+          } else {
+            // 他のキャラクターの発言はグループ文脈として含める
+            const contentLimit = characterIndex > 0 ? 150 : 250;
+            const content = msg.content.length > contentLimit
+              ? msg.content.substring(0, contentLimit) + '...'
+              : msg.content;
+            return {
+              role: 'user' as const,
+              content: `[${msg.character_name}]: ${content}`
+            };
+          }
         }
         return null;
       })
@@ -599,15 +610,19 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       }
     }
 
-    // 直前の応答がある場合
+    // 直前の応答がある場合（グループチャット文脈の強化）
     if (previousResponses.length > 0) {
-      systemPrompt += `\n\n=== 直前の他キャラクターの発言 ===\n`;
-      previousResponses.forEach(r => {
+      systemPrompt += `\n\n=== このターンの他キャラクターの発言（順序通り） ===\n`;
+      previousResponses.forEach((r, idx) => {
         if (r.character_name !== character.name) { // 自分の発言は除外
-          systemPrompt += `${r.character_name}: ${r.content}\n`;
+          systemPrompt += `${idx + 1}. ${r.character_name}: ${r.content}\n`;
         }
       });
-      systemPrompt += `\n【重要リマインド】これらは他のキャラクターの発言です。あなたは『${character.name}』として、独自の視点で応答してください。他のキャラクターの発言を繰り返したり、真似したりしないでください。`;
+      systemPrompt += `\n【グループチャットの流れ】`;
+      systemPrompt += `\n- これは${groupSession.persona.name}の発言に対する、グループメンバーたちの連続的な応答です。`;
+      systemPrompt += `\n- 上記の発言を踏まえて、あなた（${character.name}）も自然にグループ会話に参加してください。`;
+      systemPrompt += `\n- 他のキャラクターの発言に反応したり、新しい視点を提供したりしても構いません。`;
+      systemPrompt += `\n- ただし、あなたは『${character.name}』としてのみ発言してください。`;
     }
 
     try {
@@ -1071,6 +1086,8 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
     } catch (error) {
       console.error('❌ Group regeneration failed:', error);
     } finally {
+      // Play notification sound when regenerated message is received
+      soundService.playMessageReceived();
       set({ group_generating: false });
     }
   },
@@ -1152,6 +1169,8 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
     } catch (error) {
       console.error('❌ Group continuation failed:', error);
     } finally {
+      // Play notification sound when continuation is received
+      soundService.playMessageReceived();
       set({ group_generating: false });
     }
   },

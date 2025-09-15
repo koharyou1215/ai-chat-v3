@@ -95,11 +95,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     effectSettings,
   } = useAppStore();
 
-  // 現在のセッションを取得
-  const currentSession =
-    activeSessionId && typeof activeSessionId === "string"
-      ? sessions.get(activeSessionId)
-      : null;
+  // 現在のセッションを取得（グループチャットとソロチャットで分岐）
+  const currentSession = useMemo(() => {
+    if (isGroupChat && active_group_session_id) {
+      // グループチャットの場合は message.session_id から取得
+      return message.session_id ? sessions.get(message.session_id) : null;
+    } else if (activeSessionId && typeof activeSessionId === "string") {
+      // ソロチャットの場合
+      return sessions.get(activeSessionId);
+    }
+    return null;
+  }, [isGroupChat, active_group_session_id, activeSessionId, sessions, message.session_id]);
 
   // 画像生成フック
   const {
@@ -181,10 +187,63 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       }
 
       if (!currentSession) {
-        console.error("画像生成エラー: セッションが見つかりません");
-        alert(
-          "画像生成に必要なセッション情報が見つかりません。ページをリロードして再試行してください。"
+        console.error("画像生成エラー: セッションが見つかりません", {
+          activeSessionId,
+          isGroupChat,
+          active_group_session_id,
+          messageSessionId: message.session_id,
+          sessionsCount: sessions.size
+        });
+
+        // セッションIDの不一致を修正する試み
+        const fallbackSession = message.session_id ? sessions.get(message.session_id) : null;
+        if (!fallbackSession) {
+          alert(
+            "画像生成に必要なセッション情報が見つかりません。チャットを選択してから再試行してください。"
+          );
+          return;
+        }
+
+        console.log("Using fallback session from message.session_id");
+        // currentSessionの代わりにfallbackSessionを使用
+        const sessionToUse = fallbackSession;
+
+        // トラッカーの値を取得（fallbackSessionを使用）
+        const trackerManager = trackerManagers.get(sessionToUse.id);
+        const trackers = [];
+        if (trackerManager && character.trackers) {
+          const trackerSet = trackerManager.getTrackerSet(character.id);
+          if (trackerSet) {
+            for (const trackerDef of character.trackers) {
+              const tracker = trackerSet.trackers.get(trackerDef.name);
+              if (tracker) {
+                const trackerType = trackerDef.config?.type;
+                if (trackerType && trackerType !== "composite") {
+                  trackers.push({
+                    name: trackerDef.name,
+                    value: tracker.current_value,
+                    type: trackerType as "numeric" | "state" | "boolean" | "text",
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        console.log("📊 Trackers (fallback):", trackers);
+
+        // 画像生成を実行（fallbackSessionを使用）
+        const imageUrl = await generateImage(
+          character,
+          sessionToUse.messages,
+          trackers,
+          undefined
         );
+
+        if (imageUrl) {
+          console.log("🎨 Image generated successfully:", imageUrl);
+          alert("画像生成が完了しました！");
+        }
         return;
       }
 

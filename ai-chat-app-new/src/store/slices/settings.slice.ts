@@ -126,6 +126,8 @@ export interface SettingsSlice extends AISettings {
   appearanceSettings: AppearanceSettings;
   // 🧠 Emotional Intelligence flags (新機能、既存設定は完全保護)
   emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
+  // Response pattern for AI responses
+  responsePattern: 'friendly' | 'professional' | 'creative' | 'empathetic';
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
@@ -158,6 +160,7 @@ export interface SettingsSlice extends AISettings {
   setContextWindow: (window: number) => void;
   setShowSettingsModal: (show: boolean, initialTab?: string) => void;
   setShowVoiceSettingsModal: (show: boolean) => void;
+  setResponsePattern: (pattern: 'friendly' | 'professional' | 'creative' | 'empathetic') => void;
   initialSettingsTab: string;
   // プロンプトプリセット機能
   useDetailedPrompt: () => void;
@@ -297,6 +300,8 @@ export const createSettingsSlice: StateCreator<
   },
 
   // Initial state
+  // Response pattern default
+  responsePattern: 'friendly' as const,
   // Modal states
   showSettingsModal: false,
   showVoiceSettingsModal: false,
@@ -571,4 +576,5 @@ export const createSettingsSlice: StateCreator<
   setShowSettingsModal: (show, initialTab = "effects") =>
     set({ showSettingsModal: show, initialSettingsTab: initialTab }),
   setShowVoiceSettingsModal: (show) => set({ showVoiceSettingsModal: show }),
+  setResponsePattern: (pattern) => set({ responsePattern: pattern }),
 });

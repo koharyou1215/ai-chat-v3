@@ -39,19 +39,27 @@ export class AudioService {
 
     console.log('🎵 AudioService: Initializing...');
 
-    // VOICEVOX APIの疎通確認
-    try {
-      const response = await fetch(`${this.voicevoxUrl}/version`, {
-        method: 'GET',
-      });
+    // 本番環境ではVOICEVOXの確認をスキップ
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
-      if (response.ok) {
-        console.log('✅ AudioService: VOICEVOX connected');
-      } else {
-        console.warn('⚠️ AudioService: VOICEVOX not available');
+    if (!isProduction) {
+      // VOICEVOX APIの疎通確認
+      try {
+        const response = await fetch(`${this.voicevoxUrl}/version`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000), // 3秒でタイムアウト
+        });
+
+        if (response.ok) {
+          console.log('✅ AudioService: VOICEVOX connected');
+        } else {
+          console.warn('⚠️ AudioService: VOICEVOX not available');
+        }
+      } catch (error) {
+        console.warn('⚠️ AudioService: VOICEVOX connection failed', error);
       }
-    } catch (error) {
-      console.warn('⚠️ AudioService: VOICEVOX connection failed', error);
+    } else {
+      console.log('🌐 AudioService: Production mode - VOICEVOX check skipped');
     }
 
     this.isInitialized = true;
@@ -77,6 +85,14 @@ export class AudioService {
 
     // 現在の再生を停止
     this.stop();
+
+    // 本番環境では常にブラウザTTSを使用
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
+    if (isProduction && voiceType === 'voicevox') {
+      console.log('🌐 AudioService: Production mode - Using browser TTS instead of VOICEVOX');
+      return await this.playWithBrowserTTS(text, speed, pitch, volume, lang);
+    }
 
     try {
       if (voiceType === 'voicevox') {

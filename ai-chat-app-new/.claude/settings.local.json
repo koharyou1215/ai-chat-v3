@@ -107,7 +107,8 @@
       "Read(//c/AIチャットバックアップ/**)",
       "Bash(netstat:*)",
       "Bash(for:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=6144\" timeout 120s npm run build)"
     ],
     "deny": [],
     "ask": [],

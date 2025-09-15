@@ -73,7 +73,7 @@ export const ReplySuggestions: React.FC<ReplySuggestionsProps> = ({
             <span className="ml-3 text-sm text-white/60">提案を生成中...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {suggestions.map((suggestion, index) => {
               const config = suggestionConfig[suggestion.type];
               const Icon = config.icon;
