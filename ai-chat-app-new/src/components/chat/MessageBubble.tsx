@@ -566,17 +566,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             className={cn(
               "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
               message.role === "user"
-                ? effectSettings?.colorfulBubbles
-                  ? "bg-gradient-to-br from-blue-500/80 via-purple-500/80 to-pink-500/80 text-white ml-auto border border-white/20 shadow-blue-500/30"
-                  : "bg-blue-600/90 text-white ml-auto"
-                : effectSettings?.colorfulBubbles
-                  ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-gray-100 border border-purple-400/40 shadow-purple-500/20"
-                  : "bg-gray-800/90 text-gray-100"
+                ? "text-white ml-auto"
+                : "text-gray-100"
             )}
             style={{
-              opacity: effectSettings?.bubbleOpacity
-                ? effectSettings.bubbleOpacity / 100
-                : 1,
+              background: message.role === "user"
+                ? effectSettings?.colorfulBubbles
+                  ? `linear-gradient(to bottom right,
+                      rgba(59, 130, 246, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}),
+                      rgba(147, 51, 234, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}),
+                      rgba(236, 72, 153, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}))`
+                  : `rgba(37, 99, 235, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.9 : 0.9})`
+                : effectSettings?.colorfulBubbles
+                  ? `linear-gradient(to bottom right,
+                      rgba(147, 51, 234, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
+                      rgba(59, 130, 246, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
+                      rgba(20, 184, 166, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}))`
+                  : `rgba(31, 41, 55, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.9 : 0.9})`,
+              border: effectSettings?.colorfulBubbles
+                ? message.role === "user"
+                  ? "1px solid rgba(255, 255, 255, 0.2)"
+                  : "1px solid rgba(147, 51, 234, 0.4)"
+                : "none",
+              boxShadow: effectSettings?.colorfulBubbles
+                ? message.role === "user"
+                  ? "0 4px 6px rgba(59, 130, 246, 0.3)"
+                  : "0 4px 6px rgba(147, 51, 234, 0.2)"
+                : "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
             }}>
             {isEditing ? (
               <div className="space-y-3">

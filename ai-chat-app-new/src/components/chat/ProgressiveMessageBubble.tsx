@@ -392,12 +392,21 @@ export const ProgressiveMessageBubble: React.FC<
               ref={contentRef}
               className={cn(
                 "message-content px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200 relative overflow-hidden",
-                ui.highlightChanges && "highlight-changes",
-                effectSettings.colorfulBubbles
-                  ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 border-purple-400/40 shadow-purple-500/20"
-                  : "bg-slate-800/60 border-slate-600/30"
+                ui.highlightChanges && "highlight-changes"
               )}
               style={{
+                background: effectSettings.colorfulBubbles
+                  ? `linear-gradient(to bottom right,
+                      rgba(147, 51, 234, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
+                      rgba(59, 130, 246, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
+                      rgba(20, 184, 166, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}))`
+                  : `rgba(51, 65, 85, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.6 : 0.6})`,
+                border: effectSettings.colorfulBubbles
+                  ? "1px solid rgba(147, 51, 234, 0.4)"
+                  : "1px solid rgba(100, 116, 139, 0.3)",
+                boxShadow: effectSettings.colorfulBubbles
+                  ? "0 4px 6px rgba(147, 51, 234, 0.2)"
+                  : "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
                 fontSize: effectSettings.fontEffects
                   ? `${Math.max(
                       0.75,
@@ -414,9 +423,6 @@ export const ProgressiveMessageBubble: React.FC<
                   effectSettings.fontEffectsIntensity > 50
                     ? "0 0 10px rgba(255,255,255,0.3)"
                     : undefined,
-                opacity: effectSettings.bubbleOpacity
-                  ? effectSettings.bubbleOpacity / 100
-                  : 0.85,
               }}>
               {/* メッセージ内容 */}
               <div

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progressive Mode Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        h2 {
+            color: #9b59b6;
+            margin-top: 0;
+        }
+        button {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #8e44ad;
+        }
+        .log-entry {
+            padding: 5px;
+            margin: 2px 0;
+            border-left: 3px solid #666;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry.error {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+        .log-entry.success {
+            border-color: #27ae60;
+            background: rgba(39, 174, 96, 0.1);
+        }
+        .log-entry.info {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+        }
+        .log-entry.warning {
+            border-color: #f39c12;
+            background: rgba(243, 156, 18, 0.1);
+        }
+        #logContainer {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .stage-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        .stage-reflex {
+            background: #27ae60;
+        }
+        .stage-context {
+            background: #e91e63;
+        }
+        .stage-intelligence {
+            background: #9b59b6;
+        }
+        .bubble-test {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        .opacity-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .bubble-normal {
+            background: rgba(31, 41, 55, 0.9);
+        }
+        .bubble-colorful {
+            background: linear-gradient(to bottom right,
+                rgba(147, 51, 234, 0.2),
+                rgba(59, 130, 246, 0.2),
+                rgba(20, 184, 166, 0.2));
+            border: 1px solid rgba(147, 51, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Progressive Mode Debug Tool</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h2>Progressive Mode Test</h2>
+            <p>Click to test progressive mode stages:</p>
+            <button onclick="testProgressiveMode()">Test Progressive Mode</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+
+            <h3>Current Stage:</h3>
+            <div id="stageIndicator">
+                <span class="stage-indicator stage-reflex">Stage 1: Reflex</span>
+                <span class="stage-indicator stage-context">Stage 2: Context</span>
+                <span class="stage-indicator stage-intelligence">Stage 3: Intelligence</span>
+            </div>
+
+            <h3>Console Logs:</h3>
+            <div id="logContainer"></div>
+        </div>
+
+        <div class="panel">
+            <h2>Bubble Opacity Test</h2>
+            <p>Test bubble opacity with text readability:</p>
+
+            <label>Opacity: <span id="opacityValue">90</span>%</label>
+            <input type="range" class="opacity-slider" min="0" max="100" value="90"
+                   onchange="updateOpacity(this.value)">
+
+            <h3>Normal Bubble:</h3>
+            <div class="bubble-test bubble-normal" id="normalBubble">
+                これは通常のバブルです。テキストは常に読みやすくなければなりません。
+                透明度が変わっても文字は鮮明に表示される必要があります。
+            </div>
+
+            <h3>Colorful Bubble:</h3>
+            <div class="bubble-test bubble-colorful" id="colorfulBubble">
+                これはカラフルなバブルです。グラデーション背景でも文字は読みやすく、
+                透明度設定は背景のみに適用されるべきです。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logCount = 0;
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            logCount++;
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            logCount = 0;
+            addLog('Logs cleared', 'info');
+        }
+
+        async function testProgressiveMode() {
+            addLog('Starting Progressive Mode Test...', 'info');
+
+            // Stage 1: Reflex
+            addLog('🚀 Stage 1: Reflex - Starting immediate response', 'success');
+            await simulateDelay(500);
+            addLog('✅ Stage 1: Reflex - Response generated', 'success');
+
+            // Stage 2: Context
+            addLog('⏱️ Stage 2: Context - Will start after 1000ms delay', 'info');
+            await simulateDelay(1000);
+            addLog('🚀 Stage 2: Context - Starting memory-enhanced response', 'warning');
+            await simulateDelay(800);
+            addLog('✅ Stage 2: Context - Response generated with ❤️', 'success');
+
+            // Stage 3: Intelligence
+            addLog('⏱️ Stage 3: Intelligence - Will start after 2000ms delay', 'info');
+            await simulateDelay(2000);
+            addLog('🚀 Stage 3: Intelligence - Starting full response', 'warning');
+            await simulateDelay(1200);
+            addLog('✅ Stage 3: Intelligence - Complete response generated', 'success');
+
+            addLog('Progressive Mode Test Complete!', 'success');
+        }
+
+        function simulateDelay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function updateOpacity(value) {
+            document.getElementById('opacityValue').textContent = value;
+
+            // Update normal bubble
+            const normalBubble = document.getElementById('normalBubble');
+            normalBubble.style.background = `rgba(31, 41, 55, ${value / 100 * 0.9})`;
+
+            // Update colorful bubble
+            const colorfulBubble = document.getElementById('colorfulBubble');
+            colorfulBubble.style.background = `linear-gradient(to bottom right,
+                rgba(147, 51, 234, ${value / 100 * 0.2}),
+                rgba(59, 130, 246, ${value / 100 * 0.2}),
+                rgba(20, 184, 166, ${value / 100 * 0.2}))`;
+        }
+
+        // Initialize
+        window.onload = () => {
+            addLog('Debug tool loaded', 'info');
+            addLog('Progressive Mode ready for testing', 'success');
+
+            // Check if running in localhost
+            if (window.location.hostname === 'localhost') {
+                addLog('Running on localhost:3000', 'success');
+
+                // Try to access console logs from the main app
+                const originalLog = console.log;
+                console.log = function(...args) {
+                    originalLog.apply(console, args);
+                    const message = args.join(' ');
+                    if (message.includes('Stage') || message.includes('Progressive')) {
+                        addLog(message, 'info');
+                    }
+                };
+
+                const originalError = console.error;
+                console.error = function(...args) {
+                    originalError.apply(console, args);
+                    const message = args.join(' ');
+                    addLog(message, 'error');
+                };
+            }
+        };
+    </script>
+</body>
+</html>
