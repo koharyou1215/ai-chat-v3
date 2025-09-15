@@ -6,6 +6,7 @@ import React, {
   useRef,
   useEffect,
   useMemo,
+  Suspense,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,8 @@ import { UnifiedMessage, MessageRole } from "@/types";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { TrackerDisplay } from "@/components/tracker/TrackerDisplay";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
+import MessageEffects from "@/components/chat/MessageEffects";
+import { ParticleText } from "@/components/chat/AdvancedEffects";
 import {
   Copy,
   RefreshCw,
@@ -72,7 +75,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   // 状態管理
   const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(message.content);
+  const [editedContent, setEditedContent] = useState(message.content || "");
   const [showTrackers, setShowTrackers] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,14 +92,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     regenerateLastGroupMessage,
     isGroupChat,
     active_group_session_id,
+    effectSettings,
   } = useAppStore();
 
   // 現在のセッションを取得
-  const currentSession = activeSessionId && typeof activeSessionId === 'string' ? sessions.get(activeSessionId) : null;
+  const currentSession =
+    activeSessionId && typeof activeSessionId === "string"
+      ? sessions.get(activeSessionId)
+      : null;
 
   // 画像生成フック
-  const { generateImage, isGenerating, error: imageError } =
-    useImageGeneration();
+  const {
+    generateImage,
+    isGenerating,
+    error: imageError,
+  } = useImageGeneration();
   const isGeneratingImage = isGenerating;
 
   // 音声再生フック - MediaOrchestratorを使用
@@ -165,11 +175,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       const character = getSelectedCharacter() as Character;
       if (!character) {
-        throw new Error("Character not found for image generation");
+        console.error("画像生成エラー: キャラクターが見つかりません");
+        alert("画像生成に必要なキャラクター情報がありません。");
+        return;
       }
 
       if (!currentSession) {
-        throw new Error("No active session found for image generation");
+        console.error("画像生成エラー: セッションが見つかりません");
+        alert(
+          "画像生成に必要なセッション情報が見つかりません。ページをリロードして再試行してください。"
+        );
+        return;
       }
 
       console.log("📝 Character:", character.name);
@@ -228,8 +244,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 emotional_weight: 0.2,
                 repetition_count: 0,
                 user_emphasis: 0.3,
-                ai_judgment: 0.5
-              }
+                ai_judgment: 0.5,
+              },
             },
             is_pinned: false,
             is_bookmarked: false,
@@ -240,7 +256,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           expression: {
             emotion: {
               primary: "neutral",
-              intensity: 0.5
+              intensity: 0.5,
             },
             style: {},
             effects: [],
@@ -315,7 +331,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // メッセージアクション: 読み上げ (MediaOrchestrator経由)
   const handleReadAloud = useCallback(async () => {
-    if (!message.content.trim()) return;
+    if (!message.content || !message.content.trim()) return;
 
     try {
       console.log("🔊 Starting audio playback for message:", message.id);
@@ -341,14 +357,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }, []);
 
   const handleSaveEdit = useCallback(() => {
-    if (editedContent.trim() !== message.content && onEdit) {
+    if (editedContent.trim() !== (message.content || "") && onEdit) {
       onEdit(message.id, editedContent.trim());
     }
     setIsEditing(false);
   }, [editedContent, message.content, message.id, onEdit]);
 
   const handleCancelEdit = useCallback(() => {
-    setEditedContent(message.content);
+    setEditedContent(message.content || "");
     setIsEditing(false);
   }, [message.content]);
 
@@ -376,11 +392,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       const character = getSelectedCharacter();
       const trackerSet = manager.getTrackerSet?.(character?.id || "");
       if (!trackerSet) return [];
-      return Array.from(trackerSet.trackers.entries()).map(([name, tracker]) => ({
-        name: name,
-        value: (tracker as any).current_value,
-        type: (tracker as any).type,
-      }));
+      return Array.from(trackerSet.trackers.entries()).map(
+        ([name, tracker]) => ({
+          name: name,
+          value: (tracker as any).current_value,
+          type: (tracker as any).type,
+        })
+      );
     } catch (error) {
       console.error("Error getting trackers:", error);
       return [];
@@ -450,7 +468,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </DropdownMenuItem>,
         <DropdownMenuItem
           key="copy"
-          onClick={() => copyToClipboard(message.content)}>
+          onClick={() => copyToClipboard(message.content || "")}>
           <Copy className="h-4 w-4 mr-2" />
           コピー
         </DropdownMenuItem>,
@@ -466,7 +484,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <DropdownMenuItem
           key="read-aloud"
           onClick={handleReadAloud}
-          disabled={!message.content.trim()}>
+          disabled={!message.content || !message.content.trim()}>
           <Volume2
             className={cn(
               "h-4 w-4 mr-2",
@@ -490,7 +508,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       items.push(
         <DropdownMenuItem
           key="copy"
-          onClick={() => copyToClipboard(message.content)}>
+          onClick={() => copyToClipboard(message.content || "")}>
           <Copy className="h-4 w-4 mr-2" />
           コピー
         </DropdownMenuItem>,
@@ -507,8 +525,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message.content,
     message.id,
     handleRollback,
-    onContinue,
-    onRegenerate,
+    handleContinue,
+    handleRegenerate,
     handleDelete,
     isSpeaking,
     handleGenerateImage,
@@ -548,9 +566,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             className={cn(
               "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
               message.role === "user"
-                ? "bg-blue-600/90 text-white ml-auto"
-                : "bg-gray-800/90 text-gray-100"
-            )}>
+                ? effectSettings?.colorfulBubbles
+                  ? "bg-gradient-to-br from-blue-500/80 via-purple-500/80 to-pink-500/80 text-white ml-auto border border-white/20 shadow-blue-500/30"
+                  : "bg-blue-600/90 text-white ml-auto"
+                : effectSettings?.colorfulBubbles
+                  ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-gray-100 border border-purple-400/40 shadow-purple-500/20"
+                  : "bg-gray-800/90 text-gray-100"
+            )}
+            style={{
+              opacity: effectSettings?.bubbleOpacity
+                ? effectSettings.bubbleOpacity / 100
+                : 1,
+            }}>
             {isEditing ? (
               <div className="space-y-3">
                 <textarea
@@ -582,8 +609,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               /* 通常表示 */
               <>
                 <div className="prose prose-invert prose-sm max-w-none">
-                  <MarkdownRenderer content={message.content} />
+                  <MarkdownRenderer content={message.content || ""} />
                 </div>
+
+                {/* エフェクト統合 */}
+                {effectSettings?.particleEffects && (
+                  <Suspense fallback={null}>
+                    <ParticleText
+                      text={message.content || ""}
+                      trigger={isLastMessage}
+                    />
+                  </Suspense>
+                )}
+
+                {(effectSettings?.particleEffects ||
+                  effectSettings?.colorfulBubbles) && (
+                  <Suspense fallback={null}>
+                    <MessageEffects
+                      trigger={message.content || ""}
+                      position={{ x: 50, y: 50 }}
+                    />
+                  </Suspense>
+                )}
 
                 {/* 画像生成プログレス表示 */}
                 {isGeneratingImage && (

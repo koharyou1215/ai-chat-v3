@@ -77,15 +77,17 @@ ${charName}:`;
       stage: "reflex",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          version: 1
-        } as Persona,
+        user:
+          persona ||
+          ({
+            id: "default",
+            name: userName,
+            role: "user",
+            other_settings: "",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            version: 1,
+          } as Persona),
       }),
       tokenLimit: 100,
       temperature: 0.9,
@@ -140,10 +142,12 @@ ${
       : "";
 
     // メモリーカード（重要なもののみ）
-    const pinnedMemories = memoryCards.filter((m) => m.is_pinned).slice(0, 3);
-    const relevantMemories = memoryCards
-      .filter((m) => !m.is_pinned)
-      .slice(0, 2);
+    const pinnedMemories = Array.isArray(memoryCards)
+      ? memoryCards.filter((m) => m && m.is_pinned).slice(0, 3)
+      : [];
+    const relevantMemories = Array.isArray(memoryCards)
+      ? memoryCards.filter((m) => m && !m.is_pinned).slice(0, 2)
+      : [];
 
     const memorySection =
       pinnedMemories.length > 0 || relevantMemories.length > 0
@@ -155,19 +159,21 @@ ${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
         : "";
 
     // 最近の会話（20メッセージ）- より多くのコンテキストを保持
-    const recentMessages = session.messages.slice(-20);
+    const recentMessages = Array.isArray(session?.messages)
+      ? session.messages.slice(-20)
+      : [];
+
     const conversationHistory =
       recentMessages.length > 0
         ? `
 <recent_conversation>
 ${recentMessages
-  .map(
-    (msg) =>
-      `${msg.role === "user" ? userName : charName}: ${msg.content.slice(
-        0,
-        200
-      )}`
-  )
+  .map((msg) => {
+    const safeContent =
+      msg && typeof msg.content === "string" ? msg.content.slice(0, 200) : "";
+    const speaker = msg && msg.role === "user" ? userName : charName;
+    return `${speaker}: ${safeContent}`;
+  })
   .join("\n")}
 </recent_conversation>`
         : "";
@@ -208,15 +214,17 @@ ${charName}:`;
       stage: "context",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          version: 1
-        } as Persona,
+        user:
+          persona ||
+          ({
+            id: "default",
+            name: userName,
+            role: "user",
+            other_settings: "",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            version: 1,
+          } as Persona),
       }),
       tokenLimit: 500,
       temperature: 0.7,
@@ -331,32 +339,33 @@ ${persona.other_settings ? `Other Settings: ${persona.other_settings}` : ""}
       : "";
 
     // 完全なメモリーシステム
+    const safeMemoryCards = Array.isArray(memoryCards) ? memoryCards : [];
     const fullMemorySection =
-      memoryCards.length > 0
+      safeMemoryCards.length > 0
         ? `
 <memory_system>
 ## Pinned Memories (Most Important)
-${memoryCards
-  .filter((m) => m.is_pinned)
+${safeMemoryCards
+  .filter((m) => m && m.is_pinned)
   .map(
     (m) => `
-[${m.category}] ${m.title}
-Summary: ${m.summary}
-Keywords: ${m.keywords.join(", ")}
-Importance: ${m.importance.score}
+[${m?.category || "General"}] ${m?.title || "Untitled"}
+Summary: ${m?.summary || ""}
+Keywords: ${(Array.isArray(m?.keywords) ? m.keywords : []).join(", ")}
+Importance: ${m?.importance?.score ?? "N/A"}
 `
   )
   .join("\n")}
 
 ## Relevant Memories
-${memoryCards
-  .filter((m) => !m.is_pinned)
+${safeMemoryCards
+  .filter((m) => m && !m.is_pinned)
   .slice(0, 10)
   .map(
     (m) => `
-[${m.category}] ${m.title}
-Summary: ${m.summary}
-Keywords: ${m.keywords.join(", ")}
+[${m?.category || "General"}] ${m?.title || "Untitled"}
+Summary: ${m?.summary || ""}
+Keywords: ${(Array.isArray(m?.keywords) ? m.keywords : []).join(", ")}
 `
   )
   .join("\n")}
@@ -364,16 +373,20 @@ Keywords: ${m.keywords.join(", ")}
         : "";
 
     // 完全な会話履歴
+    const safeMessages = Array.isArray(session?.messages)
+      ? session.messages.slice(-30)
+      : [];
     const fullConversationHistory =
-      session.messages.length > 0
+      safeMessages.length > 0
         ? `
 <conversation_history>
-${session.messages
-  .slice(-30)
+${safeMessages
   .map(
     (msg) => `
-${msg.role === "user" ? userName : charName}: ${msg.content}
-${msg.memory?.summary ? `[Memory: ${msg.memory.summary}]` : ""}
+${msg && msg.role === "user" ? userName : charName}: ${
+      typeof msg?.content === "string" ? msg.content : ""
+    }
+${msg?.memory?.summary ? `[Memory: ${msg.memory.summary}]` : ""}
 `
   )
   .join("\n")}
@@ -423,22 +436,24 @@ ${charName}:`;
       stage: "intelligence",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          version: 1
-        } as Persona,
+        user:
+          persona ||
+          ({
+            id: "default",
+            name: userName,
+            role: "user",
+            other_settings: "",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            version: 1,
+          } as Persona),
       }),
       tokenLimit: 2000,
       temperature: 0.7,
       systemInstructions: systemSection,
       characterContext: fullCharacterInfo,
       memoryContext: fullMemorySection,
-      conversationHistory: session.messages.map((m) => ({
+      conversationHistory: safeMessages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),

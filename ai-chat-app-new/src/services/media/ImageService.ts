@@ -242,7 +242,7 @@ export class ImageService {
       // SD APIの返り値にcurrent_imageがない場合はnullを設定
       return {
         ...progress,
-        current_image: progress.current_image || null,
+        current_image: null, // SD APIは現在current_imageを返さないためnull固定
       };
     } catch (error) {
       console.error("❌ ImageService: Failed to get progress", error);

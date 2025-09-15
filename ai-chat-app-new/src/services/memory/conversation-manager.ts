@@ -95,12 +95,40 @@ export class ConversationManager {
    * メッセージの一括インポート（パフォーマンス最適化）
    */
   public async importMessages(messages: UnifiedMessage[]): Promise<void> {
-    this.allMessages = messages;
-    this.messageCount = messages.length;
+    // Defensive copy & normalization for debugging
+    this.allMessages = Array.isArray(messages) ? messages.slice() : [];
+    this.messageCount = this.allMessages.length;
 
     // バッチ処理でメモリレイヤーを更新
-    for (const message of messages) {
-      this.memoryLayers.addUnifiedMessage(message);
+    for (const message of this.allMessages) {
+      try {
+        if (!message) {
+          console.warn("importMessages: skipping null/undefined message", {
+            message,
+          });
+          continue;
+        }
+        // Ensure fields
+        const safeMessage: UnifiedMessage = {
+          ...message,
+          role: message.role || "user",
+          content: typeof message.content === "string" ? message.content : "",
+          memory: message.memory || {
+            importance: { score: 0, factors: {} },
+            is_pinned: false,
+            is_bookmarked: false,
+            keywords: [],
+            summary: undefined,
+          },
+        };
+
+        this.memoryLayers.addUnifiedMessage(safeMessage);
+      } catch (err) {
+        console.error("importMessages: failed adding message to memoryLayers", {
+          err,
+          message,
+        });
+      }
     }
 
     // インデックス対象メッセージを抽出してバッチ処理
@@ -293,7 +321,7 @@ export class ConversationManager {
     let prompt = "";
 
     // 1. System Definitions (最優先)
-    prompt += `AI={{char}}, User={{user}}\n\n`;
+    prompt += `AI= {{char}}, User={{user}}\n\n`;
 
     // 2. System Prompt (絶対厳守事項を最優先)
     let systemPromptContent = DEFAULT_SYSTEM_PROMPT;
@@ -1105,13 +1133,9 @@ export class ConversationManager {
         `🔍 [ConversationManager] Total memory cards for relevance check: ${allCards.length}`
       );
 
-      const cards = allCards.filter(
-        (card) => !card.is_hidden
-      ); // 非表示カードは除外
-      
-      console.log(
-        `🔍 [ConversationManager] Non-hidden cards: ${cards.length}`
-      );
+      const cards = allCards.filter((card) => !card.is_hidden); // 非表示カードは除外
+
+      console.log(`🔍 [ConversationManager] Non-hidden cards: ${cards.length}`);
 
       // スマートな関連度計算
       const relevantCards = cards

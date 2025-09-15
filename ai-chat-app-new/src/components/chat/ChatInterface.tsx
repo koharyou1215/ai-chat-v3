@@ -12,9 +12,10 @@ import { MotionLoaders } from "@/components/optimized/FramerMotionOptimized";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
+import { ProgressiveMessageBubble } from "./ProgressiveMessageBubble";
 import { MessageInput } from "./MessageInput";
 import { ChatHeader } from "./ChatHeader";
-import { Bot, Brain, X, BarChart3, History, Layers } from "lucide-react";
+import { Bot, Brain, X, BarChart3, History, Layers, User } from "lucide-react";
 import { CharacterGalleryModal } from "../character/CharacterGalleryModal"; // Keep non-lazy for critical path
 
 // Lazy imports with centralized loading fallbacks
@@ -30,6 +31,7 @@ import {
   TrackerDisplay,
   HistorySearch,
   MemoryLayerDisplay,
+  CharacterInfoDisplay,
   ModalLoadingFallback,
   PanelLoadingFallback,
 } from "../lazy/LazyComponents";
@@ -261,8 +263,8 @@ const ChatInterfaceContent: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<
-    "memory" | "tracker" | "history" | "layers"
-  >("memory");
+    "character" | "memory" | "tracker" | "history" | "layers"
+  >("character");
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 0
   );
@@ -325,6 +327,16 @@ const ChatInterfaceContent: React.FC = () => {
   // Lazy-loaded panel components with proper fallbacks
   const sidePanelTabs = useMemo(
     () => [
+      {
+        key: "character" as const,
+        icon: User,
+        label: "キャラクター",
+        component: (
+          <Suspense fallback={<PanelLoadingFallback />}>
+            <CharacterInfoDisplay character_id={currentCharacterId!} />
+          </Suspense>
+        ),
+      },
       {
         key: "memory" as const,
         icon: Brain,
@@ -751,16 +763,35 @@ const ChatInterfaceContent: React.FC = () => {
             }}>
             {currentMessages.length > 0 ? (
               <AnimatePresence mode="popLayout" initial={false}>
-                {currentMessages.map((message: any, index: number) => (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    previousMessage={
-                      index > 0 ? currentMessages[index - 1] : undefined
-                    }
-                    isLastMessage={index === currentMessages.length - 1}
-                  />
-                ))}
+                {currentMessages.map((message: any, index: number) => {
+                  // Check if this is a progressive message
+                  const isProgressiveMessage =
+                    message.metadata?.progressive === true ||
+                    message.metadata?.progressiveData !== undefined ||
+                    message.stages !== undefined;
+
+                  if (isProgressiveMessage) {
+                    return (
+                      <ProgressiveMessageBubble
+                        key={message.id}
+                        message={message}
+                        isLatest={index === currentMessages.length - 1}
+                        isGroupChat={is_group_mode}
+                      />
+                    );
+                  }
+
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      previousMessage={
+                        index > 0 ? currentMessages[index - 1] : undefined
+                      }
+                      isLastMessage={index === currentMessages.length - 1}
+                    />
+                  );
+                })}
               </AnimatePresence>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center text-white/50">

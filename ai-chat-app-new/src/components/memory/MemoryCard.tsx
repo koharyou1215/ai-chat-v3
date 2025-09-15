@@ -107,7 +107,7 @@ export const MemoryCardComponent: React.FC<MemoryCardProps> = ({
         <div className="flex-1">
           <h3 className="text-white font-medium text-sm leading-tight mb-1">
             {memory.title
-              .replace(/アシスタント/g, "{{char}}")
+              .replace(/アシスタント/g, " {{char}}")
               .replace(/ユーザー/g, "{{user}}")}
           </h3>
           <div className="flex items-center gap-2 text-xs">
@@ -192,15 +192,15 @@ export const MemoryCardComponent: React.FC<MemoryCardProps> = ({
         <p className="text-white/80 text-sm leading-relaxed">
           {showFullContent
             ? memory.summary
-                .replace(/アシスタント/g, "{{char}}")
+                .replace(/アシスタント/g, " {{char}}")
                 .replace(/ユーザー/g, "{{user}}")
             : memory.summary.length > 100
             ? `${memory.summary
                 .substring(0, 100)
-                .replace(/アシスタント/g, "{{char}}")
+                .replace(/アシスタント/g, " {{char}}")
                 .replace(/ユーザー/g, "{{user}}")}...`
             : memory.summary
-                .replace(/アシスタント/g, "{{char}}")
+                .replace(/アシスタント/g, " {{char}}")
                 .replace(/ユーザー/g, "{{user}}")}
         </p>
 

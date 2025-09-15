@@ -136,14 +136,14 @@ This guide provides a **fast, systematic approach** to verify that all AI prompt
 **PromptBuilderService & ConversationManager統合フロー:**
 
 ```
-1. AI/User Definition          → AI={{char}}, User={{user}}
+1. AI/User Definition          → AI= {{char}}, User={{user}}
 2. System Instructions         → <system_instructions>...</system_instructions>
 3. Jailbreak (有効時)          → <jailbreak>...</jailbreak>
 4. Character Information       → <character_information>...</character_information>
 5. Persona Information         → <persona_information>...</persona_information>
 6. Relationship State          → <relationship_state>...</relationship_state> (トラッカー情報)
 7. Memory Context              → <memory_context>...</memory_context> (メモリーカード)
-8. Current Input               → ## Current Input\n{{user}}: [input]\n{{char}}:
+8. Current Input               → ## Current Input\n{{user}}: [input]\n {{char}}:
 ```
 
 **🔧 2025年9月修正内容:**
@@ -385,7 +385,7 @@ inspiration-service.ts v3 - 成功例ベース改良版
 
 **カスタムプロンプト対応**: 複数のプレースホルダーパターン
 - `{{conversation}}` → 会話履歴置換
-- `{{user}}と{{char}}間の会話履歴` → 旧形式互換
+- `{{user}}と {{char}}間の会話履歴` → 旧形式互換
 - プレースホルダー未検出時は自動的に末尾追加
 prompt-templates.ts
 

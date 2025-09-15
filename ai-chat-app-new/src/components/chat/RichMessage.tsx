@@ -122,7 +122,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
 
       // Data URL画像を抽出
       const dataUrlMatch = content.match(/!\[.*?\]\((data:image\/[^)]+)\)/g);
-      const dataUrls = [];
+      const dataUrls: string[] = [];
       if (dataUrlMatch) {
         dataUrlMatch.forEach(match => {
           const urlMatch = match.match(/!\[.*?\]\((data:image\/[^)]+)\)/);

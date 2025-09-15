@@ -288,7 +288,9 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
                 },
               };
 
-              sendMessage(userMessage.content || "");
+              if (active_session_id) {
+                sendMessage(active_session_id, userMessage.content || "");
+              }
             }
           }
           break;
@@ -318,7 +320,9 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
                 },
               };
 
-              sendMessage(aiMessage.content || "");
+              if (active_session_id) {
+                sendMessage(active_session_id, aiMessage.content || "");
+              }
             }
           }
           break;

@@ -24,12 +24,13 @@ export interface SessionManagement {
   exportActiveConversation: () => void;
   getActiveSession: () => UnifiedChatSession | null;
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
-  
+  rollbackSession: (messageId: UUID) => void;
+
   // 履歴管理
   saveSessionToHistory: (session_id: UUID) => Promise<void>;
   loadSessionFromHistory: (session_id: UUID) => Promise<void>;
   pinSession: (session_id: UUID, isPinned: boolean) => void;
-  
+
   // ヘルパー関数
   ensureTrackerManagerExists: (character: Character) => void;
 }
@@ -386,6 +387,68 @@ export const createSessionManagement: StateCreator<
 
       return { sessions: newSessions };
     });
+  },
+
+  // ロールバック機能
+  rollbackSession: (messageId) => {
+    console.log("🔄 [rollbackSession] Rolling back to message:", messageId);
+
+    const state = get();
+    const activeSessionId = state.active_session_id || state.activeSessionId;
+
+    if (!activeSessionId) {
+      console.error("❌ [rollbackSession] No active session");
+      return;
+    }
+
+    let session;
+    if (state.sessions instanceof Map) {
+      session = state.sessions.get(activeSessionId);
+    } else if (typeof state.sessions === "object") {
+      session = state.sessions[activeSessionId];
+    }
+
+    if (!session || !session.messages) {
+      console.error("❌ [rollbackSession] Session not found or has no messages");
+      return;
+    }
+
+    // メッセージのインデックスを見つける
+    const messageIndex = session.messages.findIndex(
+      (msg: UnifiedMessage) => msg.id === messageId
+    );
+
+    if (messageIndex === -1) {
+      console.error("❌ [rollbackSession] Message not found:", messageId);
+      return;
+    }
+
+    // メッセージをロールバック（該当メッセージまでを保持）
+    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
+
+    const updatedSession = {
+      ...session,
+      messages: rollbackMessages,
+      message_count: rollbackMessages.length,
+      updatedAt: Date.now(),
+    };
+
+    // セッションを更新
+    set((state) => {
+      let newSessions;
+      if (state.sessions instanceof Map) {
+        newSessions = new Map(state.sessions);
+        newSessions.set(activeSessionId, updatedSession);
+      } else {
+        newSessions = {
+          ...state.sessions,
+          [activeSessionId]: updatedSession,
+        };
+      }
+      return { sessions: newSessions };
+    });
+
+    console.log("✅ [rollbackSession] Rolled back successfully");
   },
 
   // ヘルパー関数: トラッカーマネージャーの存在を確保

@@ -394,7 +394,7 @@ export class TrackerManager {
 
     trackerSet.history.push(update);
 
-    console.log(`[TrackerManager] Updated tracker '${trackerName}': ${oldValue} → ${newValue}`);
+    console.log(`✅ [TrackerManager] Updated tracker '${trackerName}': ${oldValue} → ${newValue}${reason ? ` (${reason})` : ''}`);
 
     // Notify listeners about the update
     this.notifyUpdate(update);
@@ -580,6 +580,34 @@ export class TrackerManager {
       return this.analyzeStressTracker(currentValue, content, isUserMessage, config);
     }
 
+    // デフォルトの数値トラッカー分析（どのパターンにも該当しない場合）
+    // 会話が続いている限り、少しずつ変化させる
+    if (isUserMessage) {
+      const step = config.step || 1;
+      let change = 0;
+
+      // メッセージの長さに応じた変化
+      if (content.length > 100) {
+        change = step * 2;
+      } else if (content.length > 50) {
+        change = step;
+      } else if (content.length > 10) {
+        change = Math.max(1, Math.floor(step / 2));
+      }
+
+      // ランダム性を加える（時々減少も）
+      if (Math.random() < 0.2) {
+        change = -change;
+      }
+
+      if (change !== 0) {
+        const newValue = Math.max(config.min_value || 0, Math.min(config.max_value || 100, currentValue + change));
+        if (newValue !== currentValue) {
+          return { value: newValue, reason: '会話による自然な変動' };
+        }
+      }
+    }
+
     return null;
   }
 
@@ -590,50 +618,80 @@ export class TrackerManager {
     let change = 0;
     let reason = '';
 
-    // ポジティブなキーワード
-    const positiveKeywords = ['ありがとう', 'うれしい', '好き', '愛してる', '素敵', '優しい', '楽しい'];
-    const negativeKeywords = ['嫌い', '最悪', 'むかつく', '怒り', 'ばか', 'うざい', '消えろ'];
+    // より包括的なポジティブキーワード
+    const positiveKeywords = ['ありがとう', 'うれしい', '好き', '愛してる', '素敵', '優しい', '楽しい',
+                              'かわいい', '最高', 'いいね', '面白い', '興味深い', '素晴らしい',
+                              'すごい', 'よかった', '感謝', '大好き', 'ステキ', 'やった'];
+    const negativeKeywords = ['嫌い', '最悪', 'むかつく', '怒り', 'ばか', 'うざい', '消えろ',
+                              'やめて', '無理', 'ダメ', '違う', 'つまらない', '退屈'];
 
     if (isUserMessage) {
       // ユーザーのメッセージによる変化
       for (const keyword of positiveKeywords) {
         if (content.includes(keyword)) {
-          change += 3; // より大きな変化で反応しやすく
+          change += 5; // さらに大きな変化で反応しやすく
           reason = `ポジティブな発言: ${keyword}`;
           break;
         }
       }
 
-      for (const keyword of negativeKeywords) {
-        if (content.includes(keyword)) {
-          change -= 4; // より大きな変化で反応しやすく
-          reason = `ネガティブな発言: ${keyword}`;
-          break;
+      if (change === 0) {
+        for (const keyword of negativeKeywords) {
+          if (content.includes(keyword)) {
+            change -= 4;
+            reason = `ネガティブな発言: ${keyword}`;
+            break;
+          }
         }
       }
 
-      // 質問形式は微増
-      if (content.includes('？') || content.includes('?')) {
+      // 絵文字による感情表現
+      if (content.match(/[😊😄😍🥰❤️💕♥️]/)) {
+        change += 3;
+        reason = reason || 'ポジティブな絵文字';
+      } else if (content.match(/[😢😭😡😠💔]/)) {
+        change -= 2;
+        reason = reason || 'ネガティブな絵文字';
+      }
+
+      // 質問形式は関心の表れ
+      if ((content.includes('？') || content.includes('?')) && change === 0) {
         change += 2;
         reason = '質問による関心表示';
       }
-      
-      // 日常的な会話でも小さな変化を追加
-      if (content.length > 10 && change === 0) {
+
+      // 長いメッセージは関心の表れ
+      if (content.length > 100 && change === 0) {
+        change += 2;
+        reason = '丁寧な長いメッセージ';
+      }
+
+      // 日常的な会話でも必ず小さな変化を追加（常に変化を起こす）
+      if (change === 0) {
         change += 1;
-        reason = '一般的な会話参加';
+        reason = '会話の継続';
       }
     } else {
-      // AIの応答による微調整（通常は変化なし）
-      if (content.includes('困った') || content.includes('悲しい')) {
-        change -= 1;
-        reason = 'AIの困惑・悲しみ';
+      // AIの応答でも微増（会話が成立している証）
+      if (content.length > 50) {
+        change += 1;
+        reason = 'AI応答による会話の継続';
       }
     }
 
-    if (change !== 0) {
-      const newValue = Math.max(config.min_value || 0, Math.min(config.max_value || 100, currentValue + change));
+    // 必ず何らかの変化を返す
+    const newValue = Math.max(config.min_value || 0, Math.min(config.max_value || 100, currentValue + change));
+    if (newValue !== currentValue) {
       return { value: newValue, reason };
+    }
+
+    // 変化がない場合でも、ランダムに小さな変化を追加（10%の確率）
+    if (Math.random() < 0.1) {
+      const randomChange = isUserMessage ? 1 : 0;
+      const randomValue = Math.max(config.min_value || 0, Math.min(config.max_value || 100, currentValue + randomChange));
+      if (randomValue !== currentValue) {
+        return { value: randomValue, reason: 'ランダムな変動' };
+      }
     }
 
     return null;

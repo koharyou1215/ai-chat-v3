@@ -254,7 +254,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
             }
           };
           
-          sendMessage(message.text || '');
+          if (active_session_id) {
+            sendMessage(active_session_id, message.text || '');
+          }
         }
         break;
 

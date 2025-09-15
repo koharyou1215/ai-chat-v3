@@ -227,28 +227,11 @@ export const VoiceSettingsModal: React.FC = () => {
                                         <p className="text-white/80">{persona.name}</p>
                                     </SettingRow>
 
-                                    <SettingRow label="音声キャラクター">
-                                        <Input
-                                            value={persona.voice_character || ''}
-                                            onChange={e => updatePersona(persona.id, { voice_character: e.target.value })}
-                                            placeholder="例: ずんだもん"
-                                            className="bg-slate-700 text-white"
-                                        />
-                                    </SettingRow>
-
-                                    <SettingRow label="音声スタイル">
-                                        <Input
-                                            value={persona.voice_style || ''}
-                                            onChange={e => updatePersona(persona.id, { voice_style: e.target.value })}
-                                            placeholder="例: 優しい、元気、落ち着いた"
-                                            className="bg-slate-700 text-white"
-                                        />
-                                    </SettingRow>
-
+                                    {/* 音声設定はペルソナではなく全体設定で管理 */}
                                     <SettingRow label="アバター画像">
                                         <AvatarUploadWidget
-                                            currentAvatar={persona.avatar_url || '/cat.png'}
-                                            onAvatarChange={(avatarData) => updatePersona(persona.id, { avatar_url: avatarData })}
+                                            currentAvatar={persona.avatar_path || '/cat.png'}
+                                            onAvatarChange={(avatarData) => updatePersona({ ...persona, avatar_path: avatarData })}
                                         />
                                     </SettingRow>
                                 </>

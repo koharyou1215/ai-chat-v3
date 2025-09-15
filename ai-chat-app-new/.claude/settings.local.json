@@ -105,7 +105,9 @@
       "Bash(jobs)",
       "Bash(BashOutput 7689e6)",
       "Read(//c/AIチャットバックアップ/**)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(for:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": [],

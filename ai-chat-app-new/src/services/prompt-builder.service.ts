@@ -47,26 +47,96 @@ export class PromptBuilderService {
     const lastProcessed =
       PromptBuilderService.lastProcessedCount.get(sessionId) || 0;
 
+    // 安全ガード: messages が undefined や null を含む可能性に備える
+    const safeMessages: UnifiedMessage[] = Array.isArray(messages)
+      ? messages.filter((m) => m != null)
+      : [];
+
+    // メッセージ正規化ヘルパー（下流の処理で必要なフィールドを保証）
+    const normalizeMessage = (m: UnifiedMessage | any): UnifiedMessage => ({
+      ...m,
+      role: m?.role || "user",
+      content: typeof m?.content === "string" ? m.content : "",
+      memory: m?.memory || {
+        importance: { score: 0, factors: {} },
+        is_pinned: false,
+        is_bookmarked: false,
+        keywords: [],
+        summary: undefined,
+      },
+      expression: m?.expression || {
+        emotion: { primary: "neutral", intensity: 0.5, emoji: "" },
+        style: {},
+        effects: [],
+      },
+      is_deleted: typeof m?.is_deleted === "boolean" ? m.is_deleted : false,
+    });
+
     if (!manager) {
       // 初期化: 全メッセージをバッチで処理
       console.log(
-        `🆕 Creating ConversationManager for session: ${sessionId} (${messages.length} messages)`
+        `🆕 Creating ConversationManager for session: ${sessionId} (${safeMessages.length} messages)`
       );
 
-      const importantMessages = messages.filter(
-        (msg) => msg.memory.importance.score >= 0.3 || msg.role === "user"
-      );
+      const importantMessages = safeMessages.filter((msg) => {
+        const importanceScore =
+          msg && msg.memory && typeof msg.memory.importance?.score === "number"
+            ? msg.memory.importance.score
+            : undefined;
+        return (
+          (typeof importanceScore === "number" && importanceScore >= 0.3) ||
+          (msg && msg.role === "user")
+        );
+      });
+      // Normalize important messages to ensure required fields exist
+      const normalizeMessage = (m: UnifiedMessage): UnifiedMessage => ({
+        ...m,
+        role: m?.role || "user",
+        content: typeof m?.content === "string" ? m.content : "",
+        memory: m?.memory || {
+          importance: { score: 0, factors: {} },
+          is_pinned: false,
+          is_bookmarked: false,
+          keywords: [],
+          summary: undefined,
+        },
+        expression: m?.expression || {
+          emotion: { primary: "neutral", intensity: 0.5, emoji: "" },
+          style: {},
+          effects: [],
+        },
+        is_deleted: typeof m?.is_deleted === "boolean" ? m.is_deleted : false,
+      });
 
-      manager = new ConversationManager(importantMessages, trackerManager);
-      
+      const normalizedImportant = importantMessages.map(normalizeMessage);
+
+      try {
+        manager = new ConversationManager(normalizedImportant, trackerManager);
+      } catch (err) {
+        console.error(
+          "Failed to create ConversationManager, dumping context:",
+          {
+            sessionId,
+            importantMessagesCount: normalizedImportant.length,
+            sample: normalizedImportant.slice(0, 5),
+            err,
+          }
+        );
+        // フォールバック: 空の manager を作成してエラーの波及を防ぐ
+        manager = new ConversationManager([], trackerManager);
+      }
+
       // Apply memory limits from settings
       const store = useAppStore.getState();
       if (store.chat?.memory_limits) {
         manager.updateMemoryLimits(store.chat.memory_limits);
       }
-      
+
       PromptBuilderService.managerCache.set(sessionId, manager);
-      PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
+      PromptBuilderService.lastProcessedCount.set(
+        sessionId,
+        safeMessages.length
+      );
 
       const duration = performance.now() - startTime;
       console.log(`✅ Manager created in ${duration.toFixed(1)}ms`);
@@ -78,27 +148,38 @@ export class PromptBuilderService {
     if (store.chat?.memory_limits) {
       manager.updateMemoryLimits(store.chat.memory_limits);
     }
-    
+
     // 増分更新: 新しいメッセージのみ処理
-    const newMessages = messages.slice(lastProcessed);
+    const newMessages = safeMessages.slice(lastProcessed);
     if (newMessages.length > 0) {
       console.log(`🔄 Processing ${newMessages.length} new messages`);
 
-      // 重要なメッセージのみフィルタリング
-      const importantMessages = newMessages.filter(
-        (msg) => msg.memory.importance.score >= 0.3 || msg.role === "user"
-      );
+      // 重要なメッセージのみフィルタリング（安全ガード付き）
+      const importantMessages = newMessages.filter((msg) => {
+        const importanceScore =
+          msg && msg.memory && typeof msg.memory.importance?.score === "number"
+            ? msg.memory.importance.score
+            : undefined;
+        return (
+          (typeof importanceScore === "number" && importanceScore >= 0.3) ||
+          (msg && msg.role === "user")
+        );
+      });
 
       if (importantMessages.length > 0) {
+        const normalizedBatch = importantMessages.map(normalizeMessage);
         // バッチで新メッセージを追加（大幅なパフォーマンス向上）
         await manager.importMessages([
           ...manager.getAllMessages(),
-          ...importantMessages,
+          ...normalizedBatch,
         ]);
       }
 
       // 処理済みメッセージ数を更新
-      PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
+      PromptBuilderService.lastProcessedCount.set(
+        sessionId,
+        safeMessages.length
+      );
     }
 
     const duration = performance.now() - startTime;
@@ -242,7 +323,12 @@ export class PromptBuilderService {
 
     // 軽量版: 基本情報のみ（重複しない内容）
     console.log("🔧 [PromptBuilder] Calling buildBasicInfo...");
-    const basePrompt = this.buildBasicInfo(character, user, userInput, trackerManager);
+    const basePrompt = this.buildBasicInfo(
+      character,
+      user,
+      userInput,
+      trackerManager
+    );
     console.log(
       "✅ [PromptBuilder] buildBasicInfo completed, prompt length:",
       basePrompt.length
@@ -506,13 +592,15 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
     // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
     // 引数として渡されたtrackerManagerを優先的に使用
-    const effectiveTrackerManager = trackerManager || 
+    const effectiveTrackerManager =
+      trackerManager ||
       (character?.id && systemSettings.trackerManagers?.get(character.id));
-    
+
     console.log("🔍 [PromptBuilder] Checking tracker managers:", {
       characterId: character?.id,
       hasPassedTrackerManager: !!trackerManager,
-      hasStoreTrackerManager: character?.id && systemSettings.trackerManagers?.has(character.id),
+      hasStoreTrackerManager:
+        character?.id && systemSettings.trackerManagers?.has(character.id),
       usingTrackerManager: !!effectiveTrackerManager,
     });
 
@@ -528,18 +616,23 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
         let trackerInfo = character?.id
           ? effectiveTrackerManager.getDetailedTrackersForPrompt?.(character.id)
           : null;
-        
+
         console.log("🔍 [PromptBuilder] getDetailedTrackersForPrompt result:", {
           hasMethod: !!effectiveTrackerManager.getDetailedTrackersForPrompt,
-          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null",
         });
-        
+
         if (!trackerInfo) {
           trackerInfo = character?.id
-            ? this.getEssentialTrackerInfo(effectiveTrackerManager, character.id)
+            ? this.getEssentialTrackerInfo(
+                effectiveTrackerManager,
+                character.id
+              )
             : null;
           console.log("🔍 [PromptBuilder] getEssentialTrackerInfo result:", {
-            result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+            result: trackerInfo
+              ? trackerInfo.substring(0, 100) + "..."
+              : "null",
           });
         }
 
@@ -598,7 +691,8 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
       if (relevantCards.length > 0) {
         let memoryContent = "";
         // Get max relevant memories from settings
-        const maxRelevantMemories = store.chat?.memory_limits?.max_relevant_memories || 5;
+        const maxRelevantMemories =
+          store.chat?.memory_limits?.max_relevant_memories || 5;
         relevantCards.slice(0, maxRelevantMemories).forEach((card) => {
           // 設定値に基づく最大件数
           memoryContent += `[${card.category || "general"}] ${card.title}: ${
@@ -629,7 +723,7 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
-    
+
     // 🔍 デバッグ: 各セクションの内容を確認
     console.log("📝 [buildBasicInfo] Section contents:", {
       systemLength: sections.system?.length || 0,

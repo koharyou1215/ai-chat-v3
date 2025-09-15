@@ -44,6 +44,7 @@ export const ProgressiveMessageBubble: React.FC<
     is_group_mode,
     group_generating,
     effectSettings,
+    active_session_id,
     regenerateLastMessage,
     regenerateLastGroupMessage,
     continueLastMessage,

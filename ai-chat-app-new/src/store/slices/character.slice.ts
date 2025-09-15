@@ -9,6 +9,7 @@ export interface CharacterSlice {
     showCharacterGallery: boolean;
     showCharacterForm: boolean; // 編集フォームの表示状態
     isCharactersLoaded: boolean;
+    updateTrigger: number; // Force re-render trigger for character updates
     addCharacter: (character: Character) => void;
     updateCharacter: (character: Character) => void;
     deleteCharacter: (characterId: UUID) => void; // 削除機能追加
@@ -30,24 +31,34 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
   showCharacterGallery: false,
   showCharacterForm: false,
   isCharactersLoaded: false,
+  updateTrigger: 0,
   addCharacter: (character) => {
     set(state => {
       const characters = new Map(state.characters);
-      
+
       // 重複チェック - 同じIDが既に存在する場合の処理
       if (characters.has(character.id)) {
         // Character with ID already exists, overwriting
       }
-      
+
       characters.set(character.id, character);
-      return { characters };
+      // Increment updateTrigger to force re-renders
+      return {
+        characters,
+        updateTrigger: state.updateTrigger + 1
+      };
     });
   },
   updateCharacter: (character) => {
     set(state => {
       const characters = new Map(state.characters);
       characters.set(character.id, character);
-      return { characters, editingCharacter: character };
+      // Increment updateTrigger to force re-renders
+      return {
+        characters,
+        editingCharacter: character,
+        updateTrigger: state.updateTrigger + 1
+      };
     });
   },
   deleteCharacter: (characterId) => {

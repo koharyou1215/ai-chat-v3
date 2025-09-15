@@ -2402,7 +2402,7 @@ The prompt must be constructed in this **exact order** by `ConversationManager.g
 
 ##### 1. **AI/User Definition** (Required - Always First)
 ```
-AI={{char}}, User={{user}}
+AI= {{char}}, User={{user}}
 ```
 - **Purpose**: Variable definition for prompt consistency
 - **Location**: Very first line of every prompt

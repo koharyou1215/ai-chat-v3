@@ -1140,14 +1140,18 @@ const AIPanel: React.FC<{
             <>
               <div className="flex gap-2 mb-2">
                 <button
-                  onClick={() => useAppStore.getState().useDetailedPrompt()}
+                  onClick={() => {
+                    void useAppStore.getState().useDetailedPrompt();
+                  }}
                   className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="詳細版ロールプレイプロンプトを使用">
                   <Cpu size={14} />
                   詳細版プロンプト
                 </button>
                 <button
-                  onClick={() => useAppStore.getState().useSummaryPrompt()}
+                  onClick={() => {
+                    void useAppStore.getState().useSummaryPrompt();
+                  }}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="要約版プロンプトを使用">
                   <FileText size={14} />

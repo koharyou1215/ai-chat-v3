@@ -13,9 +13,12 @@ import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
 import {
   generateContinuationPrompt,
-  prepareRegenerationHistory
+  prepareRegenerationHistory,
 } from "@/utils/prompt/continuation-prompts";
-import { cleanConversationHistory, formatMessageWithImage } from "@/utils/conversation-cleaner";
+import {
+  cleanConversationHistory,
+  formatMessageWithImage,
+} from "@/utils/conversation-cleaner";
 
 // 再生成用のコンテンツ生成関数
 const generateRegeneratedContent = async (
@@ -44,7 +47,9 @@ const generateRegeneratedContent = async (
 
     // パターン3: 文の順序を変更
     (content: string) => {
-      const sentences = content.split(/[。！？]/).filter((s) => s.trim());
+      const sentences = (typeof content === "string" ? content : "")
+        .split(/[。！？]/)
+        .filter((s) => typeof s === "string" && s.trim());
       if (sentences.length > 1) {
         const shuffled = [...sentences].sort(() => Math.random() - 0.5);
         return shuffled.join("。") + "。";
@@ -405,7 +410,10 @@ export const createMessageOperations: StateCreator<
                     if (msg.role === "user" || msg.role === "assistant") {
                       // 画像が含まれている場合の処理
                       const hasImage = !!(msg as any).image_url;
-                      const cleanedContent = formatMessageWithImage(msg.content, hasImage);
+                      const cleanedContent = formatMessageWithImage(
+                        msg.content,
+                        hasImage
+                      );
 
                       const historyEntry = {
                         role: msg.role as "user" | "assistant",
@@ -419,7 +427,11 @@ export const createMessageOperations: StateCreator<
                           existing.content === historyEntry.content
                       );
 
-                      if (!isDuplicate && historyEntry.content.trim()) {
+                      if (
+                        !isDuplicate &&
+                        typeof historyEntry.content === "string" &&
+                        historyEntry.content.trim()
+                      ) {
                         deduplicatedHistory.push(historyEntry);
                       }
                     }

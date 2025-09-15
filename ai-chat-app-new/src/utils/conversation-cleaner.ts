@@ -6,26 +6,33 @@
 /**
  * Base64画像データを検出してプレースホルダーに置換
  */
-export function cleanImageDataFromContent(content: string): string {
+export function cleanImageDataFromContent(
+  content: string | undefined | null
+): string {
+  // 入力が文字列でない場合は空文字を返す
+  if (typeof content !== "string") return "";
+
   // Base64画像データのパターンを検出
   // data:image/xxx;base64, で始まる文字列を検出
   const base64ImagePattern = /data:image\/[^;]+;base64,[A-Za-z0-9+/]+=*/g;
 
   // Base64画像をプレースホルダーに置換
-  return content.replace(base64ImagePattern, '[画像]');
+  return content.replace(base64ImagePattern, "[画像]");
 }
 
 /**
  * メッセージ内容から大きなデータを削除
  */
-export function cleanMessageContent(content: string): string {
+export function cleanMessageContent(
+  content: string | undefined | null
+): string {
   // まずBase64画像データをクリーニング
   let cleaned = cleanImageDataFromContent(content);
 
   // 極端に長いコンテンツの場合は切り詰める（バックアップとして）
   const MAX_CONTENT_LENGTH = 10000; // 10KB程度
   if (cleaned.length > MAX_CONTENT_LENGTH) {
-    cleaned = cleaned.substring(0, MAX_CONTENT_LENGTH) + '...[内容省略]';
+    cleaned = cleaned.substring(0, MAX_CONTENT_LENGTH) + "...[内容省略]";
   }
 
   return cleaned;
@@ -34,12 +41,12 @@ export function cleanMessageContent(content: string): string {
 /**
  * 会話履歴配列をクリーニング
  */
-export function cleanConversationHistory<T extends { role: string; content: string }>(
-  history: T[]
-): T[] {
-  return history.map(message => ({
+export function cleanConversationHistory<
+  T extends { role: string; content?: string }
+>(history: T[]): T[] {
+  return history.map((message) => ({
     ...message,
-    content: cleanMessageContent(message.content)
+    content: cleanMessageContent(message.content as any),
   }));
 }
 
@@ -53,10 +60,14 @@ export function hasImageUrl(message: any): boolean {
 /**
  * メッセージに画像が含まれている場合、適切な表示テキストを追加
  */
-export function formatMessageWithImage(content: string, hasImage: boolean): string {
-  if (hasImage && !content.includes('[画像]')) {
+export function formatMessageWithImage(
+  content: string | undefined | null,
+  hasImage: boolean
+): string {
+  const safeContent = typeof content === "string" ? content : "";
+  if (hasImage && !safeContent.includes("[画像]")) {
     // 画像がある場合は明示的に表示
-    return content + '\n[画像添付]';
+    return safeContent + "\n[画像添付]";
   }
-  return content;
+  return safeContent;
 }

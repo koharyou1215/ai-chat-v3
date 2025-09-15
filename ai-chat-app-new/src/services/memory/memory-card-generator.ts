@@ -136,7 +136,7 @@ ${content}
   private formatMessagesForAnalysis(messages: UnifiedMessage[]): string {
     return messages
       .map((msg) => {
-        const role = msg.role === "user" ? "{{user}}" : "{{char}}";
+        const role = msg.role === "user" ? "{{user}}" : " {{char}}";
         const timestamp = new Date(msg.created_at).toLocaleString("ja-JP");
         return `[${timestamp}] ${role}: ${msg.content}`;
       })

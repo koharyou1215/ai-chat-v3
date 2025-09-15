@@ -28,9 +28,7 @@ export interface GeneratedScenario {
 }
 
 export class ScenarioGenerator {
-  // ⚡ シナリオキャッシュ for 高速化
-  private scenarioCache: Map<string, GeneratedScenario> = new Map();
-  private readonly CACHE_EXPIRY = 30 * 60 * 1000; // 30分
+  // ⚡ シナリオキャッシュを削除（再生成性を優先）
   
   private templates: ScenarioTemplate[] = [
     {
@@ -144,14 +142,7 @@ export class ScenarioGenerator {
    * AIを使用してカスタムシナリオを生成
    */
   async generateCustomScenario(characters: Character[], persona: Persona, userRequest?: string, apiConfig?: Record<string, unknown>): Promise<GeneratedScenario> {
-    // ⚡ キャッシュキー生成
-    const cacheKey = `${characters.map(c => c.id).sort().join('-')}-${persona.id}-${userRequest || 'default'}`;
-    const cachedScenario = this.scenarioCache.get(cacheKey);
-    
-    if (cachedScenario) {
-      console.log('⚡ シナリオキャッシュヒット!');
-      return cachedScenario;
-    }
+    // キャッシュ削除（毎回新しいシナリオを生成）
     const characterDescriptions = characters.map(char => ({
       name: char.name,
       occupation: char.occupation,
@@ -168,7 +159,7 @@ export class ScenarioGenerator {
 
     const prompt = `JSON形式でグループチャットシナリオを生成してください。
 
-参加者: ${persona.name}(${persona.occupation})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
+参加者: ${persona.name}(${persona.role})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
 リクエスト: ${userRequest || 'キャラクターの個性を活かしたシナリオ'}
 
 以下のJSON形式で回答（説明文は不要）:
@@ -192,20 +183,20 @@ ${allParticipantRoles}
         userRequest: userRequest || 'なし'
       });
 
-      // ⚡ 高速化されたシナリオ生成（タイムアウト付き）
+      // シナリオ生成（タイムアウトは20秒に延長）
       let response = await Promise.race([
         simpleAPIManagerV2.generateMessage(
           prompt,
           '',
           [],
-          { 
+          {
             ...apiConfig,
             max_tokens: 1200,  // より長い生成のため増やす
             temperature: 0.8   // 創造的な生成のため温度を上げる
           }
         ),
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('AI生成タイムアウト')), 15000) // 15秒タイムアウト
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('AI生成タイムアウト')), 20000) // 20秒タイムアウト
         )
       ]);
 
@@ -218,7 +209,7 @@ ${allParticipantRoles}
         // より簡潔なプロンプトで再試行
         const shorterPrompt = `
 以下のユーザーとキャラクターでグループチャットシナリオをJSON形式で生成:
-ユーザー: ${persona.name}(${persona.occupation})
+ユーザー: ${persona.name}(${persona.role})
 キャラクター: ${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join(', ')}
 
 JSON:
@@ -288,9 +279,7 @@ JSON:
               objectives: Array.isArray(scenarioData.objectives) ? scenarioData.objectives : ['楽しい時間を過ごす'],
               background_context: scenarioData.background_context || scenarioData.setting || ''
             };
-            
-            // ⚡ キャッシュに保存
-            this.scenarioCache.set(cacheKey, generatedScenario);
+
             return generatedScenario;
           } else {
             console.warn('必須フィールドが不足:', scenarioData);
@@ -321,10 +310,7 @@ JSON:
     }
 
     // フォールバック：基本シナリオを生成
-    const fallbackScenario = this.generateBasicScenario(characters, persona);
-    // ⚡ フォールバックシナリオもキャッシュに保存
-    this.scenarioCache.set(cacheKey, fallbackScenario);
-    return fallbackScenario;
+    return this.generateBasicScenario(characters, persona);
   }
 
   /**
@@ -472,10 +458,10 @@ JSON:
     ];
     
     const selected = scenarios[Math.floor(Math.random() * scenarios.length)];
-    
-    // ペルソナがある場合は含める
+
+    // ペルソナの役割を設定（idではなくnameを使用）
     if (persona) {
-      characterRoles[persona.id] = `${persona.occupation || '参加者'}として積極的に参加する`;
+      characterRoles[persona.name] = `${persona.role || '参加者'}として積極的に参加する`;
     }
     
     characters.forEach(char => {

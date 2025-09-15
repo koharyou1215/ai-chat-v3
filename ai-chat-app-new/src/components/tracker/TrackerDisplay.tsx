@@ -134,7 +134,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       currentManager &&
       character &&
       character.trackers &&
-      currentManager.getTrackerSet()?.trackers.size !==
+      currentManager.getTrackerSet(character_id)?.trackers.size !==
         character.trackers.length
     ) {
       // 既存のマネージャーがあっても、トラッカー数が異なる場合は再初期化を検討
@@ -152,12 +152,15 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     }
   }, [character_id, character]);
 
-  const trackersMap = useAppStore((state) => {
+  // Subscribe to the entire trackerManagers Map to ensure re-renders
+  const trackerManagers = useAppStore((state) => state.trackerManagers);
+
+  const trackersMap = useMemo(() => {
     // キャラクターIDで直接トラッカーマネージャーを取得
-    const manager = state.trackerManagers.get(character_id);
+    const manager = trackerManagers.get(character_id);
     const set = manager?.getTrackerSet(character_id); // character_idを引数として渡す
     return set ? (set.trackers as Map<string, TrackerWithValue>) : undefined;
-  });
+  }, [trackerManagers, character_id]);
 
   const trackers = useMemo(() => {
     if (!trackersMap) return [];

@@ -25,7 +25,7 @@
 ## ✅ Correct Prompt Structure (8 Stages)
 
 ```
-1. AI={{char}}, User={{user}}
+1. AI= {{char}}, User={{user}}
 2. <system_instructions>...</system_instructions>
 3. <jailbreak>...</jailbreak> (if enabled)
 4. <character_information>...</character_information>
@@ -34,7 +34,7 @@
 7. <memory_context>...</memory_context>
 8. ## Current Input
    {{user}}: [input]
-   {{char}}:
+    {{char}}:
 ```
 
 ## 📝 Changes Made

@@ -133,9 +133,15 @@ export const SoloEmotionalEffects = lazy(() =>
 
 // ===== ANALYSIS & TRACKING COMPONENTS =====
 
-export const TrackerDisplay = lazy(() => 
-  import('../tracker/TrackerDisplay').then(module => ({ 
-    default: module.TrackerDisplay 
+export const TrackerDisplay = lazy(() =>
+  import('../tracker/TrackerDisplay').then(module => ({
+    default: module.TrackerDisplay
+  }))
+);
+
+export const CharacterInfoDisplay = lazy(() =>
+  import('../character/CharacterInfoDisplay').then(module => ({
+    default: module.CharacterInfoDisplay
   }))
 );
 

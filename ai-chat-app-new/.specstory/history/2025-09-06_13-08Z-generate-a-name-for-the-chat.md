@@ -1080,7 +1080,7 @@ Lines added: 1, lines removed: 1
 
 ### **プロンプトの順序と内容**
 
-1. **AI={{char}}, User={{user}}** （基本定義）
+1. **AI= {{char}}, User={{user}}** （基本定義）
 
 2. **`<system_instructions>`** （システム指示）
    - `DEFAULT_SYSTEM_PROMPT`（必須）

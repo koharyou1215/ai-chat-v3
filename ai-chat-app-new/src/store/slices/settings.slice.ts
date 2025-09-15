@@ -159,6 +159,9 @@ export interface SettingsSlice extends AISettings {
   setShowSettingsModal: (show: boolean, initialTab?: string) => void;
   setShowVoiceSettingsModal: (show: boolean) => void;
   initialSettingsTab: string;
+  // プロンプトプリセット機能
+  useDetailedPrompt: () => void;
+  useSummaryPrompt: () => void;
 }
 
 export const createSettingsSlice: StateCreator<
@@ -179,7 +182,7 @@ export const createSettingsSlice: StateCreator<
   // Effect settings - デフォルトはオフ（ユーザー要求通り）
   effectSettings: {
     // メッセージエフェクト
-    colorfulBubbles: false,
+    colorfulBubbles: true,
     fontEffects: false,
     particleEffects: false,
     typewriterEffect: false,

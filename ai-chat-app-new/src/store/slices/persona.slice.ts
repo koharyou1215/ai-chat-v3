@@ -37,7 +37,20 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
         });
     },
     activatePersona: (personaId) => {
-        set({ activePersonaId: personaId });
+        const personas = get().personas;
+        // Only activate if the persona exists in the personas map
+        if (personas.has(personaId)) {
+            console.log('✅ [PersonaSlice] Activating persona:', personaId);
+            set({ activePersonaId: personaId });
+        } else {
+            console.warn('⚠️ [PersonaSlice] Cannot activate non-existent persona:', personaId);
+            // If trying to activate a non-existent persona, keep current or set to null
+            const currentActive = get().activePersonaId;
+            if (currentActive && !personas.has(currentActive)) {
+                // Current active persona also doesn't exist, clear it
+                set({ activePersonaId: null });
+            }
+        }
     },
     getActivePersona: () => {
         const activeId = get().activePersonaId;
@@ -47,28 +60,40 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
     getSelectedPersona: () => {
         const activeId = get().activePersonaId;
         const personas = get().personas;
-        
+
         console.log('🔍 [PersonaSlice] getSelectedPersona called:', {
             activePersonaId: activeId,
             personasCount: personas.size,
             personaIds: Array.from(personas.keys())
         });
-        
-        if (activeId) {
-            const persona = personas.get(activeId);
-            if (persona) {
-                console.log('🔍 [PersonaSlice] Found active persona:', `${persona.name} (${persona.id})`);
-                return persona;
-            } else {
-                console.warn('🔍 [PersonaSlice] Active persona ID not found in personas map:', activeId);
-            }
+
+        if (activeId && personas.has(activeId)) {
+            const persona = personas.get(activeId)!;
+            console.log('✅ [PersonaSlice] Found active persona:', `${persona.name} (${persona.id})`);
+            return persona;
         }
-        
-        // アクティブなものがない場合、デフォルトを探す
-        const personasArray = Array.from(personas.values());
-        const defaultPersona = personasArray.find(p => p.id === 'default-user') || personasArray[0] || null;
-        console.log('🔍 [PersonaSlice] Falling back to default persona:', defaultPersona ? `${defaultPersona.name} (${defaultPersona.id})` : 'null');
-        return defaultPersona;
+
+        // Active persona not found or not set - clear invalid activePersonaId
+        if (activeId && !personas.has(activeId)) {
+            console.warn('⚠️ [PersonaSlice] Active persona ID not found, clearing:', activeId);
+            // Don't set state here to avoid infinite loops, just log the issue
+        }
+
+        // Fallback strategy: try default-user first, then first available persona
+        const defaultPersona = personas.get('default-user');
+        if (defaultPersona) {
+            console.log('📌 [PersonaSlice] Using default persona:', `${defaultPersona.name} (${defaultPersona.id})`);
+            return defaultPersona;
+        }
+
+        // Last resort: use first available persona
+        const firstPersona = personas.size > 0 ? Array.from(personas.values())[0] : null;
+        if (firstPersona) {
+            console.log('📌 [PersonaSlice] Using first available persona:', `${firstPersona.name} (${firstPersona.id})`);
+        } else {
+            console.warn('⚠️ [PersonaSlice] No personas available');
+        }
+        return firstPersona;
     },
     setShowPersonaGallery: (show) => set({ showPersonaGallery: show }),
 
