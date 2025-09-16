@@ -54,6 +54,7 @@ interface MessageBubbleProps {
   message: UnifiedMessage;
   previousMessage?: UnifiedMessage;
   isLastMessage?: boolean;
+  isGroupChat?: boolean;
   onRegenerate?: (messageId: string) => void;
   onContinue?: (messageId: string) => void;
   onDelete?: (messageId: string) => void;
@@ -66,6 +67,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   previousMessage,
   isLastMessage = false,
+  isGroupChat: isGroupChatProp = false,
   onRegenerate,
   onContinue,
   onDelete,
@@ -92,22 +94,40 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     continueLastGroupMessage,
     regenerateLastMessage,
     regenerateLastGroupMessage,
-    isGroupChat,
+    is_group_mode,
     active_group_session_id,
     effectSettings,
+    groupSessions,
   } = useAppStore();
+
+  // 🔧 improved group chat detection based on multiple factors
+  const isGroupChat = useMemo(() => {
+    // Primary: props override
+    if (isGroupChatProp) return true;
+
+    // Secondary: store state
+    if (is_group_mode && active_group_session_id) return true;
+
+    // Tertiary: message belongs to group session
+    if (message.session_id && groupSessions.has(message.session_id)) return true;
+
+    // Quaternary: message ID pattern suggests group chat (ai-* pattern from group generation)
+    if (message.id && message.id.startsWith('ai-') && !sessions.has(message.session_id || '')) return true;
+
+    return false;
+  }, [isGroupChatProp, is_group_mode, active_group_session_id, message.session_id, message.id, groupSessions, sessions]);
 
   // 現在のセッションを取得（グループチャットとソロチャットで分岐）
   const currentSession = useMemo(() => {
-    if (isGroupChat && active_group_session_id) {
-      // グループチャットの場合は message.session_id から取得
-      return message.session_id ? sessions.get(message.session_id) : null;
-    } else if (activeSessionId && typeof activeSessionId === "string") {
-      // ソロチャットの場合
+    if (isGroupChat && message.session_id) {
+      // グループチャットの場合はgroupSessionsから取得
+      return groupSessions.get(message.session_id) || null;
+    } else if (!isGroupChat && activeSessionId && typeof activeSessionId === "string") {
+      // ソロチャットの場合はsessionsから取得
       return sessions.get(activeSessionId);
     }
     return null;
-  }, [isGroupChat, active_group_session_id, activeSessionId, sessions, message.session_id]);
+  }, [isGroupChat, message.session_id, groupSessions, activeSessionId, sessions]);
 
   // 画像生成フック
   const {
@@ -366,17 +386,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // メッセージアクション: 削除
   const handleDelete = useCallback(async () => {
     if (window.confirm("このメッセージを削除してもよろしいですか？")) {
-      if (isGroupChat && active_group_session_id) {
+      if (isGroupChat && message.session_id) {
         // グループチャットの場合
-        deleteGroupMessage(active_group_session_id, message.id);
+        deleteGroupMessage(message.session_id, message.id);
       } else if (onDelete) {
         // ソロチャットの場合
         onDelete(message.id);
       }
     }
-  }, [message.id, onDelete, isGroupChat, active_group_session_id, deleteGroupMessage]);
+  }, [message.id, message.session_id, onDelete, isGroupChat, deleteGroupMessage]);
 
-  // メッセージアクション: ロールバック
+  // 🔧 Enhanced rollback with better error handling
   const handleRollback = useCallback(async () => {
     if (
       window.confirm(
@@ -384,21 +404,54 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       )
     ) {
       try {
-        if (isGroupChat && active_group_session_id) {
+        console.log("🔄 Rollback initiated", {
+          messageId: message.id,
+          sessionId: message.session_id,
+          isGroupChat,
+          active_group_session_id,
+          hasGroupSession: message.session_id ? groupSessions.has(message.session_id) : false,
+          hasRegularSession: typeof activeSessionId === 'string' ? sessions.has(activeSessionId) : false
+        });
+
+        if (isGroupChat && message.session_id) {
           // グループチャットの場合
+          console.log("📥 Using group rollback for message:", message.id);
           rollbackGroupSession(message.id);
           console.log("✅ Group rollback completed to message:", message.id);
-        } else {
+        } else if (!isGroupChat && typeof activeSessionId === 'string') {
           // ソロチャットの場合
+          console.log("👤 Using solo rollback for message:", message.id);
           rollbackSession(message.id);
-          console.log("✅ Rollback completed to message:", message.id);
+          console.log("✅ Solo rollback completed to message:", message.id);
+        } else {
+          // Fallback: detect session type from message
+          console.warn("⚠️ Ambiguous session context, attempting detection...");
+          if (message.session_id && groupSessions.has(message.session_id)) {
+            console.log("🔍 Detected group session from message, using group rollback");
+            rollbackGroupSession(message.id);
+          } else if (typeof activeSessionId === 'string') {
+            console.log("🔍 Fallback to solo rollback");
+            rollbackSession(message.id);
+          } else {
+            throw new Error("Unable to determine session context for rollback");
+          }
         }
       } catch (error) {
         console.error("❌ Rollback failed:", error);
-        alert("ロールバックに失敗しました。");
+        alert(`ロールバックに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-  }, [message.id, rollbackSession, rollbackGroupSession, isGroupChat, active_group_session_id]);
+  }, [
+    message.id,
+    message.session_id,
+    rollbackSession,
+    rollbackGroupSession,
+    isGroupChat,
+    active_group_session_id,
+    activeSessionId,
+    groupSessions,
+    sessions
+  ]);
 
   // メッセージアクション: 読み上げ (MediaOrchestrator経由)
   const handleReadAloud = useCallback(async () => {

@@ -792,6 +792,7 @@ const ChatInterfaceContent: React.FC = () => {
                         index > 0 ? currentMessages[index - 1] : undefined
                       }
                       isLastMessage={index === currentMessages.length - 1}
+                      isGroupChat={is_group_mode}
                     />
                   );
                 })}
