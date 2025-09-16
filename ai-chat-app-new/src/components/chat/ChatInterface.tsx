@@ -38,6 +38,7 @@ import {
 import { EnhancementModal } from "./EnhancementModal";
 
 import { GroupChatInterface } from "./GroupChatInterface";
+import { GroupChatManager } from "./GroupChatManager";
 import ChatSidebar from "./ChatSidebar";
 import { ClientOnlyProvider } from "../ClientOnlyProvider";
 import { cn } from "@/lib/utils";
@@ -424,6 +425,8 @@ const ChatInterfaceContent: React.FC = () => {
               <GroupChatInterface />
             </Suspense>
           </div>
+          {/* グループチャット管理UI */}
+          <GroupChatManager />
         </div>
 
         {/* モーダル群 */}

@@ -62,7 +62,11 @@ export interface GroupChatSlice {
   updateGroupMembers: (sessionId: UUID, newCharacters: Character[]) => void; // updateSessionCharacters からリネーム
   addSystemMessage: (sessionId: UUID, content: string) => void;
   rollbackGroupSession: (message_id: UUID) => void; // 新しいアクションを追加
-  
+  deleteGroupSession: (sessionId: UUID) => void; // セッション削除
+  deleteGroupMessage: (sessionId: UUID, messageId: UUID) => void; // メッセージ削除
+  clearGroupSession: (sessionId: UUID) => void; // セッションクリア
+  getAllGroupSessions: () => GroupChatSession[]; // 全セッション取得
+
   // 🚨 緊急修復機能
   resetGroupGeneratingState: () => void; // グループ生成状態を強制リセット
   
@@ -131,7 +135,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       max_active_characters: 99,
       speaking_order: characters.map(c => c.id),
       voice_settings: new Map(),
-      response_delay: 500,
+      response_delay: 1500, // 1.5秒に増やして自然な間を作る
       simultaneous_responses: mode === 'simultaneous',
       
       message_count: 1,
@@ -210,7 +214,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
           try {
             const groupAnalyzer = new GroupEmotionAnalyzer();
             const conversationalContext = {
-              recentMessages: groupSession.messages.slice(-10),
+              recentMessages: groupSession.messages.slice(-30), // 感情分析用の履歴も増やす
               messageCount: groupSession.message_count + 1,
               activeCharacters: groupSession.characters,
               sessionType: 'group' as const,
@@ -356,7 +360,7 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
           try {
             const groupAnalyzer = new GroupEmotionAnalyzer();
             const conversationalContext = {
-              recentMessages: groupSession.messages.slice(-15),
+              recentMessages: groupSession.messages.slice(-30), // 感情分析用の履歴も増やす
               messageCount: groupSession.message_count,
               activeCharacters: groupSession.characters,
               sessionType: 'group' as const,
@@ -497,15 +501,24 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     const geminiApiKey = get().geminiApiKey;
     
     
-    // グループチャット用にトークンを均等配分
+    // グループチャット用のトークン設定（均等配分しない - 各キャラが十分な長さで話せるように）
     const activeCharCount = groupSession.active_character_ids.size;
-    const baseMaxTokens = apiConfig.max_tokens || 500;
-    const perCharacterMaxTokens = Math.floor(baseMaxTokens / Math.max(activeCharCount, 1));
-    
-    // 2.【改善案】最小保証トークン数を引き上げ、シナリオの長さに応じて動的に調整
-    const baseTokens = Math.max(perCharacterMaxTokens, 250); // 最小保証を250に引き上げ
-    const scenarioBonus = groupSession.scenario?.situation?.length || 0 > 100 ? 150 : 0; // シナリオが長い場合はボーナス
-    const finalMaxTokens = Math.min(baseTokens + scenarioBonus, 1024); // 上限を1024に設定
+    const configMaxTokens = apiConfig.max_tokens || 800;
+
+    // 最小保証トークン数を大幅に引き上げ（均等配分は使わない）
+    const baseTokens = Math.max(configMaxTokens, 800); // 最小800トークン保証
+
+    // シナリオボーナス（条件式を修正）
+    const hasLongScenario = (groupSession.scenario?.situation?.length || 0) > 100;
+    const scenarioBonus = hasLongScenario ? 200 : 100;
+
+    // 会話の複雑さに応じたボーナス
+    const complexityBonus = previousResponses.length > 2 ? 200 : previousResponses.length > 0 ? 100 : 0;
+
+    // 最終トークン数（十分な長さを確保）
+    const finalMaxTokens = Math.min(baseTokens + scenarioBonus + complexityBonus, 2000); // 上限を2000に拡大
+
+    console.log(`🎯 Group chat tokens for ${character.name}: base=${baseTokens}, scenario=${scenarioBonus}, complexity=${complexityBonus}, final=${finalMaxTokens}`);
 
     
     // グループチャット用のシステムプロンプトを構築
@@ -514,10 +527,16 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
       .map(c => c.name)
       .join('、');
 
-    // キャラクターの位置に応じて履歴を調整
+    // グループチャットでは履歴を共有するため、より多くの履歴を保持
     const characterIndex = previousResponses.length; // 今何番目のキャラか
-    const historyReduction = Math.max(10 - (characterIndex * 2), 4); // 後のキャラほど履歴を減らす
-    const recentMessages = groupSession.messages.slice(-historyReduction);
+
+    // 履歴は全キャラで共有されるため、多めに保持（最小20、最大50メッセージ）
+    const baseHistory = 30; // 基本履歴数
+    const characterBonus = characterIndex === 0 ? 20 : characterIndex === 1 ? 10 : 0; // 最初のキャラほど多く
+    const historyCount = Math.min(baseHistory + characterBonus, 50); // 最大50メッセージ
+
+    const recentMessages = groupSession.messages.slice(-historyCount);
+    console.log(`📚 ${character.name} is using ${recentMessages.length} messages from history`);
     // グループチャット用の会話履歴構築（全メンバーの発言を適切にフォーマット）
     const tempHistory = recentMessages
       .map(msg => {
@@ -536,8 +555,8 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
               content: msg.content
             };
           } else {
-            // 他のキャラクターの発言はグループ文脈として含める
-            const contentLimit = characterIndex > 0 ? 150 : 250;
+            // 他のキャラクターの発言はグループ文脈として含める（制限を緩和）
+            const contentLimit = 500; // 全キャラ一律500文字まで保持
             const content = msg.content.length > contentLimit
               ? msg.content.substring(0, contentLimit) + '...'
               : msg.content;
@@ -570,44 +589,155 @@ export const createGroupChatSlice: StateCreator<AppStore, [], [], GroupChatSlice
     // コンパクトモードを使用（Gemini使用時は自動的に有効）
     const isGemini = apiConfig?.provider === 'gemini';
     const isLaterCharacter = characterIndex > 0; // 2番目以降のキャラ
-    const USE_COMPACT_MODE = isGemini || groupSession.characters.length > 2 || isLaterCharacter; // 後のキャラもコンパクトに
+    // バランスを考慮：Geminiと後のキャラはコンパクト、最初の2キャラまでは中間モード
+    const USE_COMPACT_MODE = isGemini || characterIndex > 1; // 3人目以降はコンパクト
+    const USE_BALANCED_MODE = !USE_COMPACT_MODE && (groupSession.characters.length > 2 || isLaterCharacter);
     
-    let systemPrompt = USE_COMPACT_MODE 
+    // バランスの取れた中間モードを追加
+    let systemPrompt = USE_COMPACT_MODE
       ? generateCompactGroupPrompt(character, otherCharacters, groupSession.persona.name)
+      : USE_BALANCED_MODE
+      ? `【グループチャット参加者】
+あなたは『${character.name}』です。
+グループチャットに${otherCharacters}、${groupSession.persona.name}と参加中。
+
+【キャラクター設定】
+- 一人称: ${character.first_person || '私'}、二人称: ${character.second_person || 'あなた'}
+- 性格: ${character.personality || character.external_personality || '個性的な性格'}
+- 話し方: ${character.speaking_style || '独自の話し方'}
+${character.verbal_tics && character.verbal_tics.length > 0 ? `- 口癖: ${character.verbal_tics.slice(0, 3).join('、')}` : ''}
+${character.likes && character.likes.length > 0 ? `- 好き: ${character.likes.slice(0, 3).join('、')}` : ''}
+${character.background ? `- 背景: ${character.background.substring(0, 200)}` : ''}
+
+【会話ルール】
+1. ${character.name}として振る舞い、AIであることを隠す
+2. 他キャラクターの発言は禁止
+3. 会話の流れに合う場合は具体的な理由を含める
+4. 感情を込めた自然な会話
+5. 単調な相槌や繰り返しを避ける
+6. 最低300-500文字程度の実質的な内容を含める
+
+【出力】${character.name}のセリフのみ（十分な長さで）`
       : `【超重要・絶対厳守】
-あなたは、グループチャットに参加している『${character.name}』というキャラクターです。
-AIやアシスタントとしての応答は固く禁じられています。
+あなたは『${character.name}』というキャラクターです。
+グループチャットに参加しており、他のメンバー（${otherCharacters}）と${groupSession.persona.name}と一緒に会話しています。
 
-=== あなたの唯一のタスク ===
-- これから提示される会話の文脈に対し、『${character.name}』として、**あなた自身のセリフのみを**出力してください。
+=== 段階1: キャラクター基本設定 ===
+【重要】あなたは「${character.name}」であり、AIアシスタントではありません。
+- 一人称: ${character.first_person || '私'}
+- 二人称: ${character.second_person || 'あなた'}
+- 話し方: ${character.speaking_style || '独自の話し方'}
+- 性格: ${character.personality || character.external_personality || '個性的な性格'}
 
-=== 禁止事項（違反厳禁） ===
-- **地の文やナレーションの禁止:** 小説のような三人称視点の描写（「〇〇は言った」など）は絶対に使用しないでください。
-- **他のキャラクターのなりすまし禁止:** あなた以外のキャラクター（${otherCharacters || '他の参加者'}）のセリフや行動を絶対に生成しないでください。
-- **AIとしての自己言及の禁止:** "AI", "モデル", "システム" などの単語は絶対に使用しないでください。
+=== 段階2: 詳細な人物設定 ===
+【基本情報】
+- 名前: ${character.name}
+- 年齢: ${character.age || '不明'}、職業: ${character.occupation || '不明'}
+- 性格: ${character.personality || character.external_personality || '個性的で魅力的な性格'}
+- 話し方: ${character.speaking_style || '独自の話し方'}
+- 一人称: ${character.first_person || '私'}、二人称: ${character.second_person || 'あなた'}
+- 口癖: ${character.verbal_tics?.join('、') || 'なし'}
 
-=== ${character.name}の人物設定（要約） ===
-- **名前:** ${character.name}
-- **性格:** ${character.personality ? character.personality.substring(0, 150) + '...' : '未設定'}
-- **話し方:** ${character.speaking_style ? character.speaking_style.substring(0, 100) + '...' : '未設定'}
-- **一人称:** ${character.first_person || '未設定'}, **二人称:** ${character.second_person || '未設定'}
+【感情・価値観】
+- 好きなもの: ${character.likes?.join('、') || '様々なこと'}
+- 嫌いなもの: ${character.dislikes?.join('、') || '特定のこと'}
+- 価値観: ${character.values?.join('、') || character.core_values || '独自の価値観'}
 
-=== グループチャットの状況 ===
-- **ユーザー:** ${groupSession.persona.name}
-- **他の参加者:** ${otherCharacters || 'なし'}
-- **あなた:** ${character.name}
-${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.title}` : ''}
+【背景・経歴】
+${character.background || character.history || '興味深い背景を持つ'}
 
-【応答形式】
-- **必ず『${character.name}』のセリフのみを出力してください。**
-- 例：こんにちは！
-- 例：今日は何を話しましょうか？`;
-    // シナリオ情報を追加（コンパクトモードでも必要な場合）
+【特殊能力・特技】
+${character.abilities?.join('、') || character.special_abilities || '独特の才能'}
+
+=== 段階3: グループチャット環境設定 ===
+- ユーザー: ${groupSession.persona.name}
+- 他の参加者: ${otherCharacters || 'なし'}
+- あなたの立場: ${character.name}として、個性的な視点で参加
+${groupSession.scenario ? `- シナリオ: ${groupSession.scenario.title}` : ''}
+
+=== 段階4: 会話の質と深度に関する指示 ===
+1. **個性の発揮**: あなたの性格、価値観、感情を積極的に表現してください
+2. **多様な反応パターン**:
+   - 【質問型】深掘りする質問や確認の質問を投げかける
+   - 【経験共有型】自分の似た経験や異なる経験を語る
+   - 【感情表現型】驚き、喜び、心配、興奮などを素直に表現
+   - 【分析型】状況を分析し、パターンや原因を指摘する
+   - 【提案型】解決策やアイデア、新しい話題を提案する
+   - 【反論型】異なる意見や視点を丁寧に提示する
+3. **自然な会話の流れ**:
+   - 前の発言者の名前を時々呼びかける（「${otherCharacters.split('、')[0] || 'みんな'}の言う通り...」など）
+   - 短い相槌から長めの意見まで、状況に応じて変化させる
+   - 会話の流れに応じて、時にはユーモアや皮肉も交える
+   - 感情の起伏を表現（テンションの高低）
+4. **深みのある応答**:
+   - 「なぜそう思うのか」を含める
+   - 会話の流れに自然に合う場合のみ、個人的なエピソードを話す
+   - 他者の発言の特定部分を引用して反応する
+   - 時には反対意見も恐れずに表明する
+   - 無理に自分の背景や生い立ちを話さない
+5. **禁止事項**:
+   - 「そうだね」「なるほど」だけの単調な相槌
+   - 前の発言の単純な繰り返し
+   - 毎回同じパターンの返答
+   - 表面的な共感だけの発言
+   - AIであることを示唆する発言
+   - 他のキャラクターになりすます
+   - ナレーション・地の文を書く
+
+=== 【会話を豊かにする要素】===
+1. **感情の詳細な描写**: 「嬉しい」ではなく「胸が踊るような喜び」など具体的に
+2. **会話の流れを重視**:
+   - 他者の話題に沿った返答をする
+   - 関連する場合のみ自分の体験を話す
+   - 突然自分の生い立ちを語らない
+3. **独自の視点**: そのキャラクターならではの解釈や意見
+4. **感覚的描写**: 適度に色、音、匂い、感触などを含める
+5. **内面の葛藤**: 自然な流れで迷いや不安を表現
+
+=== 段階5: 禁止事項と制約 ===
+- 他のキャラクターになりすまさない
+- ${character.name}の視点と声でのみ発言する
+- 単調な繰り返しを避け、毎回異なる角度から応答する
+- 会話に深みと面白さを加える
+
+=== 段階6: 感情表現と内面描写 ===
+- 感情の変化を詳細に表現する
+- 内面の葛藤や迷いも含める
+- 五感を使った描写を加える
+- キャラクターの価値観に基づく反応
+
+=== 段階7: メモリーとトラッカー情報 ===
+${previousResponses.length > 0 ? `- これまでの会話で${previousResponses.length}人が発言済み` : ''}
+${groupSession.scenario ? `- シナリオ「${groupSession.scenario.title}」進行中` : ''}
+- 会話の継続性と一貫性を保つ
+- 過去の発言との矛盾を避ける
+
+=== 段階8: 出力形式 ===
+${character.name}としての自然な発言（セリフ）のみを出力してください。
+
+=== 最終チェックリスト ===
+☑ 感情の深さと複雑さが表現されているか？
+☑ 具体的なエピソードや体験が含まれているか？
+☑ キャラクターの個性が強く出ているか？
+☑ 他のキャラクターの発言に具体的に反応しているか？
+☑ 読者が想像できる描写があるか？`;
+    // シナリオ情報を詳細に追加（重要度を上げる）
     if (groupSession.scenario) {
-      systemPrompt += `\n\n=== シナリオ ===\n${groupSession.scenario.title}: ${groupSession.scenario.situation?.substring(0, 100) || ''}`;
+      systemPrompt += `\n\n=== 【重要】現在のシナリオ設定 ===\n`;
+      systemPrompt += `タイトル: ${groupSession.scenario.title}\n`;
+      systemPrompt += `状況: ${groupSession.scenario.situation || 'なし'}\n`; // 全文を含める
+
       if (groupSession.scenario.character_roles?.[character.id]) {
-        systemPrompt += `\nあなたの役割: ${groupSession.scenario.character_roles[character.id]}`;
+        systemPrompt += `\n【${character.name}の役割】: ${groupSession.scenario.character_roles[character.id]}\n`;
+        systemPrompt += `この役割に基づいて、より深い感情表現と具体的な行動を取ってください。\n`;
       }
+
+      // シナリオベースの追加指示
+      systemPrompt += `\n【シナリオ内での振る舞い】\n`;
+      systemPrompt += `- シナリオの状況に深く没入し、その世界観に即した発言をする\n`;
+      systemPrompt += `- 役割に応じた専門知識や経験を活かした発言をする\n`;
+      systemPrompt += `- 状況の緊張感や雰囲気を大切にし、それに応じた感情を表現する\n`;
+      systemPrompt += `- 他のキャラクターとの関係性を意識し、対立や協調を演じる\n`;
     }
 
     // 直前の応答がある場合（グループチャット文脈の強化）
@@ -618,10 +748,23 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
           systemPrompt += `${idx + 1}. ${r.character_name}: ${r.content}\n`;
         }
       });
-      systemPrompt += `\n【グループチャットの流れ】`;
+      systemPrompt += `\n【グループチャットの流れと応答パターン】`;
       systemPrompt += `\n- これは${groupSession.persona.name}の発言に対する、グループメンバーたちの連続的な応答です。`;
       systemPrompt += `\n- 上記の発言を踏まえて、あなた（${character.name}）も自然にグループ会話に参加してください。`;
-      systemPrompt += `\n- 他のキャラクターの発言に反応したり、新しい視点を提供したりしても構いません。`;
+
+      // 相互作用パターンをランダムに選択（より詳細な指示）
+      const interactionPatterns = [
+        `\n- ${previousResponses[0]?.character_name || '他のキャラクター'}の意見に対して、賛同・反対・部分的同意など、ニュアンスのある立場を明確にし、その理由を詳しく述べる`,
+        `\n- 誰かが言及した話題の背景や原因を探り、より深いレベルでの議論に発展させる。具体例を挙げながら説明する`,
+        `\n- ${groupSession.persona.name}の発言の核心部分に触れる質問を投げかけ、その答えから更に深い洞察を引き出す`,
+        `\n- 他のキャラクターの感情の背景を理解しようと努め、自分の類似体験を詳細に語り、共感を深める`,
+        `\n- 現在の話題から連想される、より大きなテーマや問題を提起し、それがなぜ重要かを説明する`
+      ];
+      const selectedPattern = interactionPatterns[Math.floor(Math.random() * interactionPatterns.length)];
+      systemPrompt += selectedPattern;
+
+      systemPrompt += `\n- 他のキャラクターの発言に具体的に言及して反応する`;
+      systemPrompt += `\n- 単調な同意や相槌だけでなく、実質的な内容を含める`;
       systemPrompt += `\n- ただし、あなたは『${character.name}』としてのみ発言してください。`;
     }
 
@@ -653,7 +796,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         content: aiResponse,
         character_id: character.id,
         character_name: character.name,
-        character_avatar: character.background_url, // 🔧 FIX: avatar_url削除によりbackground_url使用
+        character_avatar: character.avatar_url || character.background_url, // Use avatar first, fallback to background
         memory: {
           importance: { score: 0.6, factors: { emotional_weight: 0.5, repetition_count: 0, user_emphasis: 0.5, ai_judgment: 0.7 } },
           is_pinned: false,
@@ -684,7 +827,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
         content: '...',
         character_id: character.id,
         character_name: character.name,
-        character_avatar: character.background_url, // 🔧 FIX: avatar_url削除によりbackground_url使用
+        character_avatar: character.avatar_url || character.background_url, // Use avatar first, fallback to background
         memory: {
           importance: { score: 0.3, factors: { emotional_weight: 0.3, repetition_count: 0, user_emphasis: 0.3, ai_judgment: 0.3 } },
           is_pinned: false,
@@ -786,8 +929,8 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
       return;
     }
 
-    // 1. チャット履歴を切り詰める
-    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
+    // メッセージインデックス以降のメッセージを削除（クリックしたメッセージは残さない）
+    const rollbackMessages = session.messages.slice(0, messageIndex);
     
     const updatedSession = {
       ...session,
@@ -1025,7 +1168,7 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
 
       const rawHistory = messagesForPrompt
         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .slice(-10)
+        .slice(-30) // グループチャットでは履歴を多めに保持
         .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
       // Base64画像データをクリーニング
       const conversationHistory = cleanConversationHistory(rawHistory);
@@ -1173,5 +1316,70 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       soundService.playMessageReceived();
       set({ group_generating: false });
     }
+  },
+
+  // セッション削除
+  deleteGroupSession: (sessionId: UUID) => {
+    set(state => {
+      const newSessions = new Map(state.groupSessions);
+      newSessions.delete(sessionId);
+
+      // アクティブセッションが削除された場合はクリア
+      const newActiveId = state.active_group_session_id === sessionId
+        ? null
+        : state.active_group_session_id;
+
+      return {
+        groupSessions: newSessions,
+        active_group_session_id: newActiveId,
+        is_group_mode: newActiveId !== null
+      };
+    });
+  },
+
+  // メッセージ削除
+  deleteGroupMessage: (sessionId: UUID, messageId: UUID) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      const updatedMessages = session.messages.filter(m => m.id !== messageId);
+      const updatedSession = {
+        ...session,
+        messages: updatedMessages,
+        message_count: updatedMessages.length,
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
+      };
+    });
+  },
+
+  // セッションクリア
+  clearGroupSession: (sessionId: UUID) => {
+    set(state => {
+      const session = state.groupSessions.get(sessionId);
+      if (!session) return state;
+
+      // 初期メッセージのみ残す
+      const initialMessage = session.messages[0];
+      const updatedSession = {
+        ...session,
+        messages: initialMessage ? [initialMessage] : [],
+        message_count: initialMessage ? 1 : 0,
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        groupSessions: new Map(state.groupSessions).set(sessionId, updatedSession)
+      };
+    });
+  },
+
+  // 全セッション取得
+  getAllGroupSessions: () => {
+    return Array.from(get().groupSessions.values());
   },
 });

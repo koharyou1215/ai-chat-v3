@@ -86,6 +86,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     trackerManagers,
     getSelectedPersona,
     rollbackSession,
+    rollbackGroupSession,
+    deleteGroupMessage,
     continueLastMessage,
     continueLastGroupMessage,
     regenerateLastMessage,
@@ -363,13 +365,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // メッセージアクション: 削除
   const handleDelete = useCallback(async () => {
-    if (
-      onDelete &&
-      window.confirm("このメッセージを削除してもよろしいですか？")
-    ) {
-      onDelete(message.id);
+    if (window.confirm("このメッセージを削除してもよろしいですか？")) {
+      if (isGroupChat && active_group_session_id) {
+        // グループチャットの場合
+        deleteGroupMessage(active_group_session_id, message.id);
+      } else if (onDelete) {
+        // ソロチャットの場合
+        onDelete(message.id);
+      }
     }
-  }, [message.id, onDelete]);
+  }, [message.id, onDelete, isGroupChat, active_group_session_id, deleteGroupMessage]);
 
   // メッセージアクション: ロールバック
   const handleRollback = useCallback(async () => {
@@ -379,14 +384,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       )
     ) {
       try {
-        rollbackSession(message.id);
-        console.log("✅ Rollback completed to message:", message.id);
+        if (isGroupChat && active_group_session_id) {
+          // グループチャットの場合
+          rollbackGroupSession(message.id);
+          console.log("✅ Group rollback completed to message:", message.id);
+        } else {
+          // ソロチャットの場合
+          rollbackSession(message.id);
+          console.log("✅ Rollback completed to message:", message.id);
+        }
       } catch (error) {
         console.error("❌ Rollback failed:", error);
         alert("ロールバックに失敗しました。");
       }
     }
-  }, [message.id, rollbackSession]);
+  }, [message.id, rollbackSession, rollbackGroupSession, isGroupChat, active_group_session_id]);
 
   // メッセージアクション: 読み上げ (MediaOrchestrator経由)
   const handleReadAloud = useCallback(async () => {
@@ -512,6 +524,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (message.role === "assistant") {
       // アシスタントメッセージ用メニュー項目
+      // グループチャットでもソロチャットでも同じメニューを表示
       items.push(
         <DropdownMenuItem key="rollback" onClick={handleRollback}>
           <RotateCcw className="h-4 w-4 mr-2" />
