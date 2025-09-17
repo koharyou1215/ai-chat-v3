@@ -46,12 +46,13 @@ export const EnhancementModal: React.FC<EnhancementModalProps> = ({
     if (isLoading) return;
     try {
       // Trigger store action to continue enhancement
-      const { continueEnhancementForModal } = (await import("@/store")).getState().suggestionSlice || (await import("@/store")).getState();
+      const { useAppStore } = await import("@/store");
+      const { continueEnhancementForModal } = useAppStore.getState();
       // Fallback: call via window store if available
       if (typeof continueEnhancementForModal === "function") {
         await continueEnhancementForModal();
         // After continuation, try to read updated enhancedText from store
-        const enhanced = (await import("@/store")).getState().enhancedText;
+        const enhanced = useAppStore.getState().enhancedText;
         setEditedText(enhanced || editedText);
       } else {
         console.warn("continueEnhancementForModal not found in store");

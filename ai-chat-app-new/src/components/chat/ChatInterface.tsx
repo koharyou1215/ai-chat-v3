@@ -250,7 +250,11 @@ const ChatInterfaceContent: React.FC = () => {
     appearanceSettings, // 背景設定の競合を解決するために追加
   } = useAppStore();
   useVH(); // Safari対応版のVHフックを使用
-  const session = getActiveSession();
+  // セッションを直接購読してリアクティブに更新
+  const session = useAppStore((state) => {
+    if (!state.active_session_id) return null;
+    return state.sessions.get(state.active_session_id) || null;
+  });
   const character = getSelectedCharacter(); // character を取得
 
   // デバッグ用ログ
@@ -302,10 +306,11 @@ const ChatInterfaceContent: React.FC = () => {
     };
   }, []);
 
-  // グループチャットセッションの取得
-  const activeGroupSession = active_group_session_id
-    ? (groupSessions.get(active_group_session_id) as any)
-    : null;
+  // グループチャットセッションを直接購読してリアクティブに更新
+  const activeGroupSession = useAppStore((state) => {
+    if (!state.active_group_session_id) return null;
+    return state.groupSessions.get(state.active_group_session_id) || null;
+  });
 
   // キャラクターIDを安全に取得
   const currentCharacterId = useMemo(() => {
@@ -541,7 +546,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as any)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);
@@ -1010,7 +1015,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as any)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);

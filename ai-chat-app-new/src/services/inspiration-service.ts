@@ -204,7 +204,7 @@ export class InspirationService {
           .replace(/[\]」』]$/, "")
           .trim();
       })
-      .filter((text) => text.length >= 10 && text.length <= 250);
+      .filter((text) => text.length >= 10 && text.length <= 500);
 
     if (validNumberedSections.length > 0) {
       console.log(`✅ 番号付きリストを検出: ${validNumberedSections.length}件`);
@@ -238,7 +238,7 @@ export class InspirationService {
           // タイトルと内容を組み合わせるか、内容のみを使用
           const text = contentAfterTitle || title;
 
-          if (text.length >= 10 && text.length <= 250) {
+          if (text.length >= 10 && text.length <= 500) {
             suggestions.push({
               id: `suggestion_${Date.now()}_${index}`,
               type: types[index],
@@ -256,7 +256,7 @@ export class InspirationService {
     const lines = content
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line.length >= 10 && line.length <= 250)
+      .filter((line) => line.length >= 10 && line.length <= 500)
       .filter((line) => !line.includes("：") && !line.includes(":"));
 
     if (lines.length > 0) {
@@ -331,7 +331,7 @@ ${context}
 - ${target}({{char}}女側)との関係性
 
 ### 生成する3つのアプローチ
-各提案は80-25文字で、${speaker}({{user}}男側)の性格を反映させ、自然な会話として成立するように。
+各提案は100-200文字程度で、${speaker}({{user}}男側)の性格を反映させ、自然な会話として成立するように。
 
 1. 【演技・ロール型】
 特定の役や舞台設定に沿ってセリフを落とす返信
@@ -366,7 +366,7 @@ ${context}
 - 新しい事実や情報を追加しないこと（表現の拡張に留める）。
 - 文は完結した形で出力すること。途中で切れないようにし、最後は句点（。）、感嘆符（！）または疑問符（？）で終える。
 - 見出しや注釈、解説は含めず、強化された文章のみを出力する。
-- 長さの目安は元の1.0〜2.0倍で自然に拡張すること。
+- 長さの目安は元の2.0〜4.0倍で自然に拡張すること。具体的な描写や感情表現を追加して豊かな文章にする。
 
 会話コンテキスト:
 ${context}
