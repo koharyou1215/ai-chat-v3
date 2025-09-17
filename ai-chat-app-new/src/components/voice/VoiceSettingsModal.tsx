@@ -44,11 +44,11 @@ export const VoiceSettingsModal: React.FC = () => {
     setShowVoiceSettingsModal,
     voice,
     updateVoiceSettings,
-    getSelectedPersona,
+    getActivePersona,
     updatePersona
   } = useAppStore();
 
-  const persona = getSelectedPersona();
+  const persona = getActivePersona();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const orchestratorRef = useRef<MediaOrchestrator | null>(null);

@@ -8,7 +8,7 @@
  * - デバッグしやすいシンプルな構造
  */
 
-import { geminiClient } from "./api/gemini-client";
+import { getGeminiClient } from "./api/gemini-client";
 import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
 import {
@@ -403,6 +403,7 @@ export class SimpleAPIManagerV2 {
     }
     const cleanModel = formattedModel; // 直接API用はプレフィックスなし
 
+    const geminiClient = getGeminiClient();
     geminiClient.setApiKey(this.geminiApiKey);
     geminiClient.setModel(cleanModel);
 
@@ -563,6 +564,12 @@ export class SimpleAPIManagerV2 {
     // AIタブのuseDirectGeminiAPIトグルのみで判断
     if (this.useDirectGeminiAPI && this.geminiApiKey) {
       // Geminiストリーミング
+      const geminiClient = getGeminiClient();
+      geminiClient.setApiKey(this.geminiApiKey);
+      // Set default model if not set
+      geminiClient.setModel(
+        geminiClient.getAvailableModels()[1] || "gemini-2.5-flash"
+      );
       return await geminiClient.generateMessageStream(
         geminiClient.formatMessagesForGemini(
           systemPrompt,

@@ -86,7 +86,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       character = (characters as Record<string, Character>)[characterId];
     }
     
-    const persona = get().getSelectedPersona();
+    const persona = get().getActivePersona();
     if (character && persona) {
         get().createSession(character, persona);
         set({ selectedCharacterId: characterId, showCharacterGallery: false });

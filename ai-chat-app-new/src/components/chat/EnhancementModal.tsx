@@ -41,6 +41,26 @@ export const EnhancementModal: React.FC<EnhancementModalProps> = ({
     navigator.clipboard.writeText(editedText);
   };
 
+  // Continue enhancement (append continuation) handler
+  const handleContinue = async () => {
+    if (isLoading) return;
+    try {
+      // Trigger store action to continue enhancement
+      const { continueEnhancementForModal } = (await import("@/store")).getState().suggestionSlice || (await import("@/store")).getState();
+      // Fallback: call via window store if available
+      if (typeof continueEnhancementForModal === "function") {
+        await continueEnhancementForModal();
+        // After continuation, try to read updated enhancedText from store
+        const enhanced = (await import("@/store")).getState().enhancedText;
+        setEditedText(enhanced || editedText);
+      } else {
+        console.warn("continueEnhancementForModal not found in store");
+      }
+    } catch (error) {
+      console.error("Continue enhancement failed:", error);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -109,6 +129,9 @@ export const EnhancementModal: React.FC<EnhancementModalProps> = ({
             <div className="flex justify-end gap-2 p-4 border-t border-purple-400/20">
               <Button variant="ghost" onClick={onClose}>
                 キャンセル
+              </Button>
+              <Button variant="ghost" onClick={handleContinue} disabled={isLoading}>
+                続きを出して
               </Button>
               <Button
                 onClick={handleSelect}

@@ -397,10 +397,26 @@ export const ProgressiveMessageBubble: React.FC<
               style={{
                 background: effectSettings.colorfulBubbles
                   ? `linear-gradient(to bottom right,
-                      rgba(147, 51, 234, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
-                      rgba(59, 130, 246, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
-                      rgba(20, 184, 166, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}))`
-                  : `rgba(51, 65, 85, ${effectSettings.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.6 : 0.6})`,
+                      rgba(147, 51, 234, ${
+                        effectSettings.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }),
+                      rgba(59, 130, 246, ${
+                        effectSettings.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }),
+                      rgba(20, 184, 166, ${
+                        effectSettings.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }))`
+                  : `rgba(51, 65, 85, ${
+                      effectSettings.bubbleOpacity
+                        ? (effectSettings.bubbleOpacity / 100) * 0.6
+                        : 0.6
+                    })`,
                 border: effectSettings.colorfulBubbles
                   ? "1px solid rgba(147, 51, 234, 0.4)"
                   : "1px solid rgba(100, 116, 139, 0.3)",

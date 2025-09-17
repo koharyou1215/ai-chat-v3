@@ -88,7 +88,7 @@ const ChatHeaderContent: React.FC = () => {
     setShowPersonaGallery,
     toggleGroupMemberModal, // 追加
     getSelectedCharacter,
-    getSelectedPersona,
+    getActivePersona,
     is_group_mode,
     active_group_session_id,
     groupSessions,
@@ -96,7 +96,7 @@ const ChatHeaderContent: React.FC = () => {
 
   const session = getActiveSession();
   const character = getSelectedCharacter();
-  const persona = getSelectedPersona();
+  const persona = getActivePersona();
   const activeGroupSession = active_group_session_id
     ? groupSessions.get(active_group_session_id)
     : null;

@@ -221,7 +221,6 @@ export function getVariableContext(
   const store = getStore();
 
   const user =
-    (store.getSelectedPersona as (() => Persona | null) | undefined)?.() ||
     (store.getActivePersona as (() => Persona | null) | undefined)?.();
   const character =
     (store.getActiveCharacter as (() => Character | null) | undefined)?.() ||

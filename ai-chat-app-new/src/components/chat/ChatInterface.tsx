@@ -56,7 +56,7 @@ const EmptyState = () => {
     characters,
     personas,
     createSession,
-    getSelectedPersona,
+    getActivePersona,
     toggleLeftSidebar,
     isCharactersLoaded,
     isPersonasLoaded,
@@ -65,7 +65,7 @@ const EmptyState = () => {
   const handleQuickStart = useCallback(async () => {
     // 最初のキャラクターとアクティブなペルソナを取得
     const firstCharacter = characters.values().next().value;
-    const activePersona = getSelectedPersona();
+    const activePersona = getActivePersona();
 
     if (firstCharacter && activePersona) {
       try {
@@ -82,7 +82,7 @@ const EmptyState = () => {
       );
       toggleLeftSidebar();
     }
-  }, [characters, getSelectedPersona, createSession, toggleLeftSidebar]);
+  }, [characters, getActivePersona, createSession, toggleLeftSidebar]);
 
   return (
     <div
@@ -569,7 +569,7 @@ const ChatInterfaceContent: React.FC = () => {
                 onClose={() => toggleScenarioModal(false)}
                 onSubmit={async (scenario) => {
                   const persona =
-                    useAppStore?.getState?.()?.getSelectedPersona?.() || null;
+                    useAppStore?.getState?.()?.getActivePersona?.() || null;
                   if (persona && stagingGroupMembers.length >= 2) {
                     const groupName =
                       scenario.title !== "スキップ"
@@ -1038,7 +1038,7 @@ const ChatInterfaceContent: React.FC = () => {
                 onClose={() => toggleScenarioModal(false)}
                 onSubmit={async (scenario) => {
                   const persona =
-                    useAppStore?.getState?.()?.getSelectedPersona?.() || null;
+                    useAppStore?.getState?.()?.getActivePersona?.() || null;
                   if (persona && stagingGroupMembers.length >= 2) {
                     const groupName =
                       scenario.title !== "スキップ"

@@ -26,7 +26,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   // 全てのフックを必ず最初に呼び出す（条件付きではない）
   const { 
     characters,
-    getSelectedPersona,
+    getActivePersona,
     groupSessions,
     active_group_session_id,
     is_group_mode,
@@ -48,7 +48,7 @@ export const GroupChatInterface: React.FC<GroupChatInterfaceProps> = ({
   const [selectedScenario, setSelectedScenario] = useState<GroupChatScenario | null>(null);
   
   // 値の計算（フックではないのでどこでも可能）
-  const persona = getSelectedPersona();
+  const persona = getActivePersona();
   const activeGroupSession = active_group_session_id ? (groupSessions.get(active_group_session_id) || null) : null;
   const availableCharacters = Array.from(characters.values()).filter(char => char.is_active);
   

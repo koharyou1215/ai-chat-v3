@@ -86,7 +86,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     activeSessionId,
     sessions,
     trackerManagers,
-    getSelectedPersona,
+    getActivePersona,
     rollbackSession,
     rollbackGroupSession,
     deleteGroupMessage,
@@ -109,25 +109,49 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (is_group_mode && active_group_session_id) return true;
 
     // Tertiary: message belongs to group session
-    if (message.session_id && groupSessions.has(message.session_id)) return true;
+    if (message.session_id && groupSessions.has(message.session_id))
+      return true;
 
     // Quaternary: message ID pattern suggests group chat (ai-* pattern from group generation)
-    if (message.id && message.id.startsWith('ai-') && !sessions.has(message.session_id || '')) return true;
+    if (
+      message.id &&
+      message.id.startsWith("ai-") &&
+      !sessions.has(message.session_id || "")
+    )
+      return true;
 
     return false;
-  }, [isGroupChatProp, is_group_mode, active_group_session_id, message.session_id, message.id, groupSessions, sessions]);
+  }, [
+    isGroupChatProp,
+    is_group_mode,
+    active_group_session_id,
+    message.session_id,
+    message.id,
+    groupSessions,
+    sessions,
+  ]);
 
   // 現在のセッションを取得（グループチャットとソロチャットで分岐）
   const currentSession = useMemo(() => {
     if (isGroupChat && message.session_id) {
       // グループチャットの場合はgroupSessionsから取得
       return groupSessions.get(message.session_id) || null;
-    } else if (!isGroupChat && activeSessionId && typeof activeSessionId === "string") {
+    } else if (
+      !isGroupChat &&
+      activeSessionId &&
+      typeof activeSessionId === "string"
+    ) {
       // ソロチャットの場合はsessionsから取得
       return sessions.get(activeSessionId);
     }
     return null;
-  }, [isGroupChat, message.session_id, groupSessions, activeSessionId, sessions]);
+  }, [
+    isGroupChat,
+    message.session_id,
+    groupSessions,
+    activeSessionId,
+    sessions,
+  ]);
 
   // 画像生成フック
   const {
@@ -214,11 +238,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isGroupChat,
           active_group_session_id,
           messageSessionId: message.session_id,
-          sessionsCount: sessions.size
+          sessionsCount: sessions.size,
         });
 
         // セッションIDの不一致を修正する試み
-        const fallbackSession = message.session_id ? sessions.get(message.session_id) : null;
+        const fallbackSession = message.session_id
+          ? sessions.get(message.session_id)
+          : null;
         if (!fallbackSession) {
           alert(
             "画像生成に必要なセッション情報が見つかりません。チャットを選択してから再試行してください。"
@@ -244,7 +270,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   trackers.push({
                     name: trackerDef.name,
                     value: tracker.current_value,
-                    type: trackerType as "numeric" | "state" | "boolean" | "text",
+                    type: trackerType as
+                      | "numeric"
+                      | "state"
+                      | "boolean"
+                      | "text",
                   });
                 }
               }
@@ -394,7 +424,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onDelete(message.id);
       }
     }
-  }, [message.id, message.session_id, onDelete, isGroupChat, deleteGroupMessage]);
+  }, [
+    message.id,
+    message.session_id,
+    onDelete,
+    isGroupChat,
+    deleteGroupMessage,
+  ]);
 
   // 🔧 Enhanced rollback with better error handling
   const handleRollback = useCallback(async () => {
@@ -409,8 +445,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           sessionId: message.session_id,
           isGroupChat,
           active_group_session_id,
-          hasGroupSession: message.session_id ? groupSessions.has(message.session_id) : false,
-          hasRegularSession: typeof activeSessionId === 'string' ? sessions.has(activeSessionId) : false
+          hasGroupSession: message.session_id
+            ? groupSessions.has(message.session_id)
+            : false,
+          hasRegularSession:
+            typeof activeSessionId === "string"
+              ? sessions.has(activeSessionId)
+              : false,
         });
 
         if (isGroupChat && message.session_id) {
@@ -418,7 +459,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           console.log("📥 Using group rollback for message:", message.id);
           rollbackGroupSession(message.id);
           console.log("✅ Group rollback completed to message:", message.id);
-        } else if (!isGroupChat && typeof activeSessionId === 'string') {
+        } else if (!isGroupChat && typeof activeSessionId === "string") {
           // ソロチャットの場合
           console.log("👤 Using solo rollback for message:", message.id);
           rollbackSession(message.id);
@@ -427,9 +468,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           // Fallback: detect session type from message
           console.warn("⚠️ Ambiguous session context, attempting detection...");
           if (message.session_id && groupSessions.has(message.session_id)) {
-            console.log("🔍 Detected group session from message, using group rollback");
+            console.log(
+              "🔍 Detected group session from message, using group rollback"
+            );
             rollbackGroupSession(message.id);
-          } else if (typeof activeSessionId === 'string') {
+          } else if (typeof activeSessionId === "string") {
             console.log("🔍 Fallback to solo rollback");
             rollbackSession(message.id);
           } else {
@@ -438,7 +481,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }
       } catch (error) {
         console.error("❌ Rollback failed:", error);
-        alert(`ロールバックに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(
+          `ロールバックに失敗しました: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
       }
     }
   }, [
@@ -450,7 +497,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     active_group_session_id,
     activeSessionId,
     groupSessions,
-    sessions
+    sessions,
   ]);
 
   // メッセージアクション: 読み上げ (MediaOrchestrator経由)
@@ -690,24 +737,55 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div
             className={cn(
               "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
-              message.role === "user"
-                ? "text-white ml-auto"
-                : "text-gray-100"
+              message.role === "user" ? "text-white ml-auto" : "text-gray-100"
             )}
             style={{
-              background: message.role === "user"
-                ? effectSettings?.colorfulBubbles
+              background:
+                message.role === "user"
+                  ? effectSettings?.colorfulBubbles
+                    ? `linear-gradient(to bottom right,
+                      rgba(59, 130, 246, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.8
+                          : 0.8
+                      }),
+                      rgba(147, 51, 234, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.8
+                          : 0.8
+                      }),
+                      rgba(236, 72, 153, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.8
+                          : 0.8
+                      }))`
+                    : `rgba(37, 99, 235, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.9
+                          : 0.9
+                      })`
+                  : effectSettings?.colorfulBubbles
                   ? `linear-gradient(to bottom right,
-                      rgba(59, 130, 246, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}),
-                      rgba(147, 51, 234, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}),
-                      rgba(236, 72, 153, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.8 : 0.8}))`
-                  : `rgba(37, 99, 235, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.9 : 0.9})`
-                : effectSettings?.colorfulBubbles
-                  ? `linear-gradient(to bottom right,
-                      rgba(147, 51, 234, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
-                      rgba(59, 130, 246, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}),
-                      rgba(20, 184, 166, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.2 : 0.2}))`
-                  : `rgba(31, 41, 55, ${effectSettings?.bubbleOpacity ? effectSettings.bubbleOpacity / 100 * 0.9 : 0.9})`,
+                      rgba(147, 51, 234, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }),
+                      rgba(59, 130, 246, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }),
+                      rgba(20, 184, 166, ${
+                        effectSettings?.bubbleOpacity
+                          ? (effectSettings.bubbleOpacity / 100) * 0.2
+                          : 0.2
+                      }))`
+                  : `rgba(31, 41, 55, ${
+                      effectSettings?.bubbleOpacity
+                        ? (effectSettings.bubbleOpacity / 100) * 0.9
+                        : 0.9
+                    })`,
               border: effectSettings?.colorfulBubbles
                 ? message.role === "user"
                   ? "1px solid rgba(255, 255, 255, 0.2)"

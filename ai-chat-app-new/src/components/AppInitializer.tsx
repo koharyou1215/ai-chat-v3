@@ -22,7 +22,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     sessions,
     active_session_id,
     createSession,
-    getSelectedPersona,
+    getActivePersona,
     characters,
     personas,
     isCharactersLoaded,
@@ -117,7 +117,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       }
 
       try {
-        const selectedPersona = getSelectedPersona();
+        const selectedPersona = getActivePersona();
 
         const hasSelectedCharacter =
           selectedCharacterId &&
@@ -165,7 +165,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     sessions,
     selectedCharacterId,
     characters,
-    getSelectedPersona,
+    getActivePersona,
     createSession,
     setSelectedCharacterId,
   ]);
