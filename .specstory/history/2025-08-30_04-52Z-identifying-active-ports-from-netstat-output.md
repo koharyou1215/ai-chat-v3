@@ -2,7 +2,7 @@
 
 # Identifying active ports from netstat output (2025-08-30 04:52Z)
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 PS C:\ai-chat-v3\ai-chat-app-new> netstat -ano | findstr :3000
   TCP         [::1]:3000             [::1]:49457            TIME_WAIT       0
@@ -92,7 +92,7 @@ Cancelled
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 ポート確認から。停止まで一括でできる方法はないんですかね。というか確認せずとも3000を停止させる方法。ないんですかね?
 
@@ -364,7 +364,7 @@ Cancelled
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 # ポート3000のプロセスを直接停止
 Stop-Process -Name "node" -Force -ErrorAction SilentlyContinueこれはどこで3000を指定しているんですか?
@@ -414,7 +414,7 @@ if ($pid) { Stop-Process -Id $pid -Force }
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 taskkill /f /im node.exe これと何が違うんでしょうか?
 
@@ -480,7 +480,7 @@ taskkill /f /im node.exe
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 # ポート3000を使っているプロセスのPIDを取得
 $pid = (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess
@@ -536,7 +536,7 @@ taskkill /f /im node.exe
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 一括は全部消えてしまうんですよね。 それだとちょっと困る時があるんですよね。
 
@@ -585,7 +585,7 @@ if ($connections) {
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 # ポート3000を使っているプロセスのみを停止
 Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }この3000の部分を変えれば個別に削除できるってことですか?
@@ -640,7 +640,7 @@ Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Obj
 
 ---
 
-_**User**_
+_**User (2025-08-29 23:56Z)**_
 
 PS C:\ai-chat-v3\ai-chat-app-new> Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 Stop-Process : 次のエラーのため、プロセス "Idle (0)" を停止できません: アクセスが拒否されました
