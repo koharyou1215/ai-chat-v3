@@ -121,7 +121,24 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
     );
 
     // セッションを更新
-    (updateSessionCharacters as any)(session.id, newCharacters);
+    try {
+      // 優先: 既定の関数
+      if (typeof updateSessionCharacters === 'function') {
+        updateSessionCharacters(session.id, newCharacters);
+      } else {
+        // フォールバック: ストアの getState 経由で関数を探す
+        const storeState: any = (useAppStore as any).getState?.() || {};
+        if (typeof storeState.updateGroupMembers === 'function') {
+          storeState.updateGroupMembers(session.id, newCharacters);
+        } else if (typeof storeState.updateSessionCharacters === 'function') {
+          storeState.updateSessionCharacters(session.id, newCharacters);
+        } else {
+          console.error('No session update function found in store:', { updateSessionCharacters, storeStateKeys: Object.keys(storeState) });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update session characters:', err);
+    }
     
     // 変更通知メッセージを追加
     if (changePreview.added.length > 0 || changePreview.removed.length > 0) {
