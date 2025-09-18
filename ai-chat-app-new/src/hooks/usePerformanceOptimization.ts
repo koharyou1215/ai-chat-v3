@@ -200,7 +200,9 @@ export function usePerformanceOptimization(componentName: string) {
 
   // Throttled function creator (uses ref maps to avoid calling hooks inside
   // nested functions). The maps allow per-callback state tracking.
-  const throttledLastCallRef = useRef<WeakMap<Function, number>>(new WeakMap());
+  type AnyFn = (...args: any[]) => any;
+
+  const throttledLastCallRef = useRef<WeakMap<AnyFn, number>>(new WeakMap());
 
   const createThrottledCallback = useCallback(
     <T extends (...args: any[]) => any>(callback: T, delay: number = 100): T => {
@@ -219,7 +221,7 @@ export function usePerformanceOptimization(componentName: string) {
   // Debounced function creator (stores timeouts in a WeakMap keyed by the
   // original callback to preserve per-callback state without using hooks
   // inside nested functions).
-  const debouncedTimeoutRef = useRef<WeakMap<Function, NodeJS.Timeout>>(new WeakMap());
+  const debouncedTimeoutRef = useRef<WeakMap<AnyFn, NodeJS.Timeout>>(new WeakMap());
 
   const createDebouncedCallback = useCallback(
     <T extends (...args: any[]) => any>(callback: T, delay: number = 300): T => {
