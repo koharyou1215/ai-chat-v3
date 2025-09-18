@@ -79,8 +79,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
   },
 
   // Spread methods from extracted modules
-  ...createMessageOperations(set, get),
-  ...createSessionManagement(set, get),
-  ...createTrackerIntegration(set, get),
-  ...createProgressiveHandler(set, get),
+  ...createMessageOperations(set, get, {} as any),
+  ...createSessionManagement(set, get, {} as any),
+  ...createTrackerIntegration(set, get, {} as any),
+  ...createProgressiveHandler(set, get, {} as any),
 });

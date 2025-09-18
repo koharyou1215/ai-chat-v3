@@ -39,11 +39,12 @@ import {
   X,
   MoreHorizontal,
   ChevronRight,
-  Image,
+  Image as IconImage,
   MessageSquare,
   Trash2,
   RotateCcw,
 } from "lucide-react";
+import NextImage from "next/image";
 import { UnifiedMessage } from "@/types";
 import { useAppStore } from "@/store";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ import { EmotionReactions } from "@/components/emotion/EmotionDisplay";
 import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useMessageEffects } from "@/hooks/useMessageEffects";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,44 +106,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // **安全な個別セレクター（無限ループ回避）**
   const characters = useAppStore((state) => state.characters);
-  const effectSettings = useAppStore((state) => state.effectSettings);
   const getSelectedPersona = useAppStore((state) => state.getSelectedPersona);
 
-  // フォントエフェクトのスタイル計算（特殊装飾効果）
+  // 共通エフェクトフック
+  const { effects, calculateFontEffects, isEffectEnabled, settings: effectSettings } = useMessageEffects();
+
+  // フォントエフェクトのスタイル計算（共通フック使用）
   const fontEffectStyles = useMemo(() => {
-    if (!effectSettings.fontEffects) return {};
-
-    const intensity = effectSettings.fontEffectsIntensity;
-    return {
-      // グラデーションテキスト効果
-      background:
-        intensity > 30
-          ? `linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)`
-          : "none",
-      backgroundClip: intensity > 30 ? "text" : "initial",
-      WebkitBackgroundClip: intensity > 30 ? "text" : "initial",
-      color: intensity > 30 ? "transparent" : "inherit",
-
-      // アニメーション効果
-      animation:
-        intensity > 50 ? "rainbow-text 3s ease-in-out infinite" : "none",
-
-      // テキストシャドウ（複数層）
-      textShadow:
-        intensity > 40
-          ? `0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3), 0 0 15px rgba(255,255,255,0.1)`
-          : "none",
-
-      // 変形効果
-      transform: intensity > 60 ? "perspective(100px) rotateX(5deg)" : "none",
-
-      // フィルター効果
-      filter:
-        intensity > 70
-          ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
-          : "none",
-    };
-  }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
+    return calculateFontEffects();
+  }, [calculateFontEffects]);
   const _deleteMessage = useAppStore((state) => state.deleteMessage);
   const regenerateLastMessage = useAppStore(
     (state) => state.regenerateLastMessage
@@ -151,7 +124,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const trackerManagers = useAppStore((state) => state.trackerManagers);
   const activeSessionId = useAppStore((state) => state.active_session_id);
   const rollbackSession = useAppStore((state) => state.rollbackSession);
-  const rollbackGroupSession = useAppStore((state) => state.rollbackGroupSession);
+  const rollbackGroupSession = useAppStore(
+    (state) => state.rollbackGroupSession
+  );
   const deleteMessage = useAppStore((state) => state.deleteMessage);
   const continueLastMessage = useAppStore((state) => state.continueLastMessage);
   const getSelectedCharacter = useAppStore(
@@ -196,8 +171,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     useState<Selection | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
   const [showFullActions, setShowFullActions] = useState(false);
+  // 通常動作: メニューはデフォルト非表示
   const [showMenu, setShowMenu] = useState(false);
+
   const menuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const menuOpeningRef = useRef<NodeJS.Timeout | null>(null);
+  const menuContentSelector = '[data-slot="dropdown-menu-content"]';
 
   const isAssistant = message.role === "assistant";
   const isUser = message.role === "user";
@@ -243,19 +222,21 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // ホバー状態の管理（改善版）
   const handleMouseEnter = useCallback(() => {
-    // 既存のタイマーをクリア
+    // 既存のタイマーをクリア（hover による自動オープンは行わない）
     if (menuTimeoutRef.current) {
       clearTimeout(menuTimeoutRef.current);
       menuTimeoutRef.current = null;
     }
-    setShowMenu(true);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    // 200ms遅延してからメニューを非表示
-    menuTimeoutRef.current = setTimeout(() => {
-      setShowMenu(false);
-    }, 200);
+    // 既存のタイマーをクリアするだけ。バブル離脱時は即閉じない。
+    if (menuTimeoutRef.current) {
+      clearTimeout(menuTimeoutRef.current);
+      menuTimeoutRef.current = null;
+    }
+    // メニューがちょうど開いて配置調整中は閉じない
+    if (menuOpeningRef.current) return;
   }, []);
 
   // 感情分析結果の解析
@@ -465,7 +446,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         rollbackSession(message.id);
       } else {
         console.warn("⚠️ Ambiguous session context, attempting detection...");
-        if ((message as any).session_id && groupSessions.has((message as any).session_id)) {
+        if (
+          (message as any).session_id &&
+          groupSessions.has((message as any).session_id)
+        ) {
           console.log("🔍 Detected group session, using group rollback");
           rollbackGroupSession(message.id);
         } else if (typeof activeSessionId === "string") {
@@ -484,6 +468,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       );
     }
   }, [
+    message,
     message.id,
     rollbackSession,
     rollbackGroupSession,
@@ -527,6 +512,27 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       }
     };
   }, []);
+
+  // 外側クリックでメニューを閉じる（クリックで開いた場合にのみ挙動）
+  useEffect(() => {
+    if (!showMenu) return;
+
+    const handleDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      // メニュー本体またはバブル内のクリックは無視
+      if (
+        menuRef.current &&
+        (menuRef.current.contains(target) ||
+          bubbleRef.current?.contains(target))
+      ) {
+        return;
+      }
+      setShowMenu(false);
+    };
+
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [showMenu]);
 
   const generateIsActive = is_generating || group_generating;
   const isCurrentlyGenerating = generateIsActive && isLatest;
@@ -730,10 +736,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         onMouseLeave={handleMouseLeave}>
         {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
         {!isUser && (
-          <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-purple-400/30">
-            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
-              {character?.name?.[0] || "AI"}
-            </div>
+          <div className="flex-shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-purple-400/30">
+            {character && character.avatar_url ? (
+              <NextImage
+                src={character.avatar_url}
+                alt={character?.name || "character avatar"}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                {character?.name?.[0] || "AI"}
+              </div>
+            )}
           </div>
         )}
 
@@ -764,7 +779,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
               isUser
                 ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30"
-                : effectSettings.colorfulBubbles
+                : effects.colorfulBubbles
                 ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
                 : isUser
                 ? "bg-blue-600/20 backdrop-blur-sm text-white border border-blue-400/30" // ユーザーは青系
@@ -775,7 +790,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
             style={{
               backgroundColor: `rgba(${
-                effectSettings.colorfulBubbles
+                effects.colorfulBubbles
                   ? "147, 51, 234"
                   : isUser
                   ? "147, 51, 234"
@@ -802,7 +817,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             </div>
 
             {/* 感情表示（lazily loaded） */}
-            {emotionResult && effectSettings.realtimeEmotion && (
+            {emotionResult && isEffectEnabled('realtimeEmotion') && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <EmotionDisplay message={processedContent} />
@@ -811,7 +826,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* ホログラムエフェクト（lazily loaded） */}
-            {effectSettings.hologramMessages && isAssistant && (
+            {isEffectEnabled('hologram') && isAssistant && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <HologramMessage text={processedContent} />
@@ -820,14 +835,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* パーティクルエフェクト（lazily loaded） */}
-            {effectSettings.particleEffects && (
+            {isEffectEnabled('particles') && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <ParticleText text={processedContent} trigger={isLatest} />
               </Suspense>
             )}
 
             {/* メッセージエフェクト（lazily loaded） */}
-            {effectSettings.typewriterEffect && (
+            {isEffectEnabled('typewriter') && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <MessageEffects
                   trigger={processedContent}
@@ -850,116 +865,165 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* メインアクションメニュー - DropdownMenu形式 */}
-            {(showMenu || isLatest) && (
-              <div
-                className={cn(
-                  "absolute bottom-2 z-[100] pointer-events-auto",
-                  isUser ? "right-2" : "left-2",
-                  !showMenu && isLatest
-                    ? "opacity-60 hover:opacity-100 transition-opacity"
-                    : ""
-                )}
-                onMouseEnter={() => {
-                  if (menuTimeoutRef.current) {
+            <div
+              className={cn(
+                "absolute bottom-2 z-[9999] pointer-events-auto",
+                // 常に右下に表示する（視認性優先）
+                "right-2",
+                !showMenu && isLatest
+                  ? "opacity-60 hover:opacity-100 transition-opacity"
+                  : ""
+              )}>
+              <DropdownMenu
+                open={showMenu}
+                onOpenChange={(v) => {
+                  // 開くときは閉じるタイマーをクリアして確実に開く
+                  if (v && menuTimeoutRef.current) {
                     clearTimeout(menuTimeoutRef.current);
                     menuTimeoutRef.current = null;
                   }
-                  setShowMenu(true);
-                }}
-                onMouseLeave={() => {
-                  menuTimeoutRef.current = setTimeout(() => {
-                    setShowMenu(false);
-                  }, 200);
+                  // 保護タイマー: メニューが描画・配置されるまで短時間閉じない
+                  if (v) {
+                    if (menuOpeningRef.current) {
+                      clearTimeout(menuOpeningRef.current);
+                    }
+                    menuOpeningRef.current = setTimeout(() => {
+                      if (menuOpeningRef.current) {
+                        clearTimeout(menuOpeningRef.current);
+                        menuOpeningRef.current = null;
+                      }
+                    }, 250);
+                  }
+                  setShowMenu(v);
                 }}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    side="top"
-                    className={cn(
-                      "min-w-[180px] z-50",
-                      "bg-gray-900/95 border-gray-700",
-                      "backdrop-blur-sm shadow-2xl",
-                      "animate-in slide-in-from-top-2 fade-in-0 duration-200"
-                    )}
-                    sideOffset={8}
-                    avoidCollisions={true}
-                    collisionPadding={16}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200"
+                    onMouseDown={(e) => {
+                      // ネイティブイベントで propagation を止め、document の mousedown ハンドラが先に走るのを防ぐ
+                      try {
+                        // stopImmediatePropagation を呼んで他のハンドラをブロック
+                        (e.nativeEvent as Event).stopImmediatePropagation();
+                      } catch (err) {
+                        // ignore
+                      }
+                      e.stopPropagation();
+                      // 既存の閉じるタイマーをクリア
+                      if (menuTimeoutRef.current) {
+                        clearTimeout(menuTimeoutRef.current);
+                        menuTimeoutRef.current = null;
+                      }
+                      // 設置保護タイマー
+                      if (menuOpeningRef.current) {
+                        clearTimeout(menuOpeningRef.current);
+                      }
+                      menuOpeningRef.current = setTimeout(() => {
+                        if (menuOpeningRef.current) {
+                          clearTimeout(menuOpeningRef.current);
+                          menuOpeningRef.current = null;
+                        }
+                      }, 300);
+                      setShowMenu((s) => !s);
+                    }}>
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  side="top"
+                  className={cn(
+                    "min-w-[180px] z-[9999]",
+                    "bg-gray-900/95 border-gray-700",
+                    "backdrop-blur-sm shadow-2xl",
+                    "animate-in slide-in-from-top-2 fade-in-0 duration-200"
+                  )}
+                  sideOffset={8}
+                  avoidCollisions={false}
+                  collisionPadding={0}>
+                  {/* アシスタントメッセージ用メニュー */}
+                  {isAssistant && (
+                    <>
+                      <DropdownMenuItem onClick={handleRollback}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        ロールバック
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleContinue}
+                        disabled={isContinuing}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        続きを生成
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleRegenerate}
+                        disabled={isRegenerating}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        再生成
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCopy()}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        コピー
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleGenerateImage}
+                        disabled={isGeneratingImage}>
+                        <IconImage
+                          className={cn(
+                            "h-4 w-4 mr-2",
+                            isGeneratingImage && "animate-pulse"
+                          )}
+                        />
+                        {isGeneratingImage ? "画像生成中..." : "画像を生成"}
+                      </DropdownMenuItem>
+                      {voice.autoPlay && (
+                        <DropdownMenuItem
+                          onClick={handleSpeak}
+                          disabled={
+                            !message.content || !message.content.trim()
+                          }>
+                          <Volume2
+                            className={cn(
+                              "h-4 w-4 mr-2",
+                              isSpeaking && "animate-pulse text-blue-500"
+                            )}
+                          />
+                          {isSpeaking ? "読み上げ中..." : "読み上げ"}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleDelete}
+                        className="text-red-600">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        削除
+                      </DropdownMenuItem>
+                    </>
+                  )}
 
-                    {/* アシスタントメッセージ用メニュー */}
-                    {isAssistant && (
-                      <>
-                        <DropdownMenuItem onClick={handleRollback}>
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          ロールバック
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleContinue} disabled={isContinuing}>
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          続きを生成
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleRegenerate} disabled={isRegenerating}>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          再生成
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleCopy()}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          コピー
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={handleGenerateImage}
-                          disabled={isGeneratingImage}>
-                          <Image className={cn("h-4 w-4 mr-2", isGeneratingImage && "animate-pulse")} />
-                          {isGeneratingImage ? "画像生成中..." : "画像を生成"}
-                        </DropdownMenuItem>
-                        {voice.autoPlay && (
-                          <DropdownMenuItem
-                            onClick={handleSpeak}
-                            disabled={!message.content || !message.content.trim()}>
-                            <Volume2 className={cn("h-4 w-4 mr-2", isSpeaking && "animate-pulse text-blue-500")} />
-                            {isSpeaking ? "読み上げ中..." : "読み上げ"}
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={handleDelete}
-                          className="text-red-600">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          削除
-                        </DropdownMenuItem>
-                      </>
-                    )}
-
-                    {/* ユーザーメッセージ用メニュー */}
-                    {isUser && (
-                      <>
-                        <DropdownMenuItem onClick={() => handleCopy()}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          コピー
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleEdit}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          編集
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={handleDelete}
-                          className="text-red-600">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          削除
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+                  {/* ユーザーメッセージ用メニュー */}
+                  {isUser && (
+                    <>
+                      <DropdownMenuItem onClick={() => handleCopy()}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        コピー
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleEdit}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        編集
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleDelete}
+                        className="text-red-600">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        削除
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* 感情リアクション（lazily loaded） */}
-          {emotionResult && effectSettings.autoReactions && (
+          {emotionResult && isEffectEnabled('autoReactions') && (
             <Suspense fallback={<EffectLoadingFallback />}>
               <div className="mt-2">
                 <EmotionReactions emotion={emotionResult} />

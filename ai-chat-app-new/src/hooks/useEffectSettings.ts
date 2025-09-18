@@ -4,7 +4,6 @@
  */
 
 import { useAppStore } from '@/store';
-import { EffectSettings } from '@/store/slices/settings.slice';
 
 export function useEffectSettings() {
   const effectSettings = useAppStore((state) => state.effectSettings);

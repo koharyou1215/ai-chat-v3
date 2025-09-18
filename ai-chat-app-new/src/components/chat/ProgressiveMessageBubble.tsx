@@ -25,30 +25,34 @@ import {
   Image,
   Volume2,
 } from "lucide-react";
+import NextImage from "next/image";
 import { useAppStore } from "@/store";
 import MessageEffects from "@/components/chat/MessageEffects";
 import { ParticleText } from "@/components/chat/AdvancedEffects";
 import { cn } from "@/lib/utils";
 import TokenUsageDisplay from "@/components/ui/TokenUsageDisplay";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useMessageEffects } from "@/hooks/useMessageEffects";
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
   isLatest?: boolean;
-  isGroupChat?: boolean; // 追加
+  isGroupChat?: boolean;
 }
 
 export const ProgressiveMessageBubble: React.FC<
   ProgressiveMessageBubbleProps
-> = ({ message, isLatest = false }) => {
+> = ({ message, isLatest = false, isGroupChat = false }) => {
+  const isAssistant = message.role === "assistant";
+  const isUser = message.role === "user";
+  // 完全手動制御のメニュー状態
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // development 用ログは不要になったため削除
+
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
@@ -56,11 +60,11 @@ export const ProgressiveMessageBubble: React.FC<
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
   const { generateImage } = useImageGeneration();
+
   const {
     is_generating,
     is_group_mode,
     group_generating,
-    effectSettings,
     regenerateLastMessage,
     regenerateLastGroupMessage,
     continueLastMessage,
@@ -70,9 +74,25 @@ export const ProgressiveMessageBubble: React.FC<
     voice,
     getSelectedCharacter,
   } = useAppStore();
+
+  // 共通エフェクトフック
+  const { isEffectEnabled, settings: effectSettings } = useMessageEffects();
+
+  // キャラクター情報（グループモード対応）
+  const characters = useAppStore((state) => state.characters);
+  const messageCharacterId = (message as any).metadata?.character_id;
+  const character = useMemo(() => {
+    if (
+      is_group_mode &&
+      messageCharacterId &&
+      typeof messageCharacterId === "string"
+    ) {
+      return characters.get(messageCharacterId);
+    }
+    return getSelectedCharacter ? getSelectedCharacter() : undefined;
+  }, [characters, messageCharacterId, is_group_mode, getSelectedCharacter]);
+
   const contentRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [displayedContent, setDisplayedContent] = useState("");
   const [isTypewriterActive, setIsTypewriterActive] = useState(false);
 
@@ -89,6 +109,70 @@ export const ProgressiveMessageBubble: React.FC<
     glowIntensity: "none",
     highlightChanges: false,
   };
+
+  // 外部クリックでメニューを閉じる処理
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // 開き始めの保護中は外部クリックで閉じない
+      if (menuOpeningRef.current) return;
+      if (
+        showMenu &&
+        menuRef.current &&
+        triggerRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      // キャプチャフェーズでリスナーを追加
+      document.addEventListener("mousedown", handleClickOutside, true);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside, true);
+      };
+    }
+  }, [showMenu]);
+
+  // 開閉保護タイマー（メニューが開く直後に外部クリックで閉じるのを防止）
+  const menuOpeningRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ESCキーでメニューを閉じる
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && showMenu) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener("keydown", handleEscKey);
+      return () => {
+        document.removeEventListener("keydown", handleEscKey);
+      };
+    }
+  }, [showMenu]);
+
+  // メニュートグル処理
+  const handleMenuToggle = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMenu((prev) => !prev);
+  }, []);
+
+  // メニューアイテムクリック時の共通処理
+  const handleMenuItemClick = useCallback(
+    (action: () => void | Promise<void>) => {
+      return async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowMenu(false); // メニューを閉じる
+        await action(); // アクションを実行
+      };
+    },
+    []
+  );
 
   // 初期化時に利用可能な最新のステージを自動選択
   useEffect(() => {
@@ -182,12 +266,10 @@ export const ProgressiveMessageBubble: React.FC<
 
   // 現在のステージに応じたコンテンツを取得
   const getCurrentStageContent = useCallback(() => {
-    // 特定のステージが選択されている場合は、そのステージの内容を表示
     if (selectedStage && stages[selectedStage]?.content) {
       return stages[selectedStage].content;
     }
 
-    // ステージが選択されていない場合は、利用可能な最新のステージを表示
     if (!selectedStage) {
       if (stages.intelligence?.content) {
         return stages.intelligence.content;
@@ -198,7 +280,6 @@ export const ProgressiveMessageBubble: React.FC<
       }
     }
 
-    // フォールバック
     return "";
   }, [selectedStage, stages]);
 
@@ -207,7 +288,7 @@ export const ProgressiveMessageBubble: React.FC<
     const currentContent = getCurrentStageContent();
 
     if (
-      effectSettings.typewriterEffect &&
+      isEffectEnabled('typewriter') &&
       currentContent &&
       message.role !== "user" &&
       isLatest
@@ -235,7 +316,7 @@ export const ProgressiveMessageBubble: React.FC<
     }
   }, [
     getCurrentStageContent,
-    effectSettings.typewriterEffect,
+    isEffectEnabled,
     effectSettings.typewriterIntensity,
     message.role,
     isLatest,
@@ -293,7 +374,7 @@ export const ProgressiveMessageBubble: React.FC<
 
   // フォントエフェクトのスタイル
   const fontEffectStyles = useMemo(() => {
-    if (!effectSettings.fontEffects) return {};
+    if (!isEffectEnabled('font')) return {};
 
     const intensity = effectSettings.fontEffectsIntensity;
     return {
@@ -316,25 +397,33 @@ export const ProgressiveMessageBubble: React.FC<
           ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
           : "none",
     };
-  }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
+  }, [isEffectEnabled, effectSettings.fontEffectsIntensity]);
 
   // グループモード対応の生成状態チェック
   const generateIsActive = is_group_mode ? group_generating : is_generating;
   const canRegenerate = isLatest && !generateIsActive;
   const canContinue = isLatest && !generateIsActive;
 
-  // メニューのタイマークリーンアップ
-  useEffect(() => {
-    return () => {
-      if (menuTimeoutRef.current) {
-        clearTimeout(menuTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return (
     <div className="progressive-message-bubble w-full max-w-4xl mx-auto">
       <div className="relative group">
+        {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
+        {!isUser && (
+          <div className="flex-shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-purple-400/30 absolute left-3 top-3">
+            {character && (character as any).avatar_url ? (
+              <NextImage
+                src={(character as any).avatar_url}
+                alt={(character as any).name || "character avatar"}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                {(character as any)?.name?.[0] || "AI"}
+              </div>
+            )}
+          </div>
+        )}
         {/* メインコンテナ */}
         <div className="progressive-container bg-slate-800/50 backdrop-blur-sm rounded-lg border border-purple-400/20 overflow-visible relative">
           {/* 段階選択タブ */}
@@ -411,24 +500,24 @@ export const ProgressiveMessageBubble: React.FC<
               className={cn(
                 "message-content px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200 relative overflow-hidden",
                 ui.highlightChanges && "highlight-changes",
-                effectSettings.colorfulBubbles
+                isEffectEnabled('colorfulBubbles')
                   ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 border-purple-400/40 shadow-purple-500/20"
                   : "bg-slate-800/60 border-slate-600/30"
               )}
               style={{
-                fontSize: effectSettings.fontEffects
+                fontSize: isEffectEnabled('font')
                   ? `${Math.max(
                       0.75,
                       1 + (effectSettings.fontEffectsIntensity - 50) / 100
                     )}rem`
                   : undefined,
                 fontWeight:
-                  effectSettings.fontEffects &&
+                  isEffectEnabled('font') &&
                   effectSettings.fontEffectsIntensity > 70
                     ? "bold"
                     : undefined,
                 textShadow:
-                  effectSettings.fontEffects &&
+                  isEffectEnabled('font') &&
                   effectSettings.fontEffectsIntensity > 50
                     ? "0 0 10px rgba(255,255,255,0.3)"
                     : undefined,
@@ -446,7 +535,7 @@ export const ProgressiveMessageBubble: React.FC<
                       className="prose prose-sm prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ __html: processedContent }}
                     />
-                    {effectSettings.typewriterEffect && isTypewriterActive && (
+                    {isEffectEnabled('typewriter') && isTypewriterActive && (
                       <span className="typewriter-cursor animate-pulse ml-1 text-purple-400">
                         |
                       </span>
@@ -463,7 +552,7 @@ export const ProgressiveMessageBubble: React.FC<
               </div>
 
               {/* エフェクト統合 */}
-              {effectSettings.particleEffects && (
+              {isEffectEnabled('particles') && (
                 <Suspense fallback={null}>
                   <ParticleText
                     text={displayedContent}
@@ -472,8 +561,8 @@ export const ProgressiveMessageBubble: React.FC<
                 </Suspense>
               )}
 
-              {(effectSettings.particleEffects ||
-                effectSettings.colorfulBubbles) && (
+              {(isEffectEnabled('particles') ||
+                isEffectEnabled('colorfulBubbles')) && (
                 <Suspense fallback={null}>
                   <MessageEffects
                     trigger={displayedContent}
@@ -497,184 +586,165 @@ export const ProgressiveMessageBubble: React.FC<
           </div>
         </div>
 
-        {/* メインアクションメニュー - DropdownMenu形式（MessageBubbleと同じ） */}
-        {(showMenu || isLatest) && (
-          <div
-            className={cn(
-              "absolute bottom-2 z-50 pointer-events-auto",
-              message.role === "user" ? "right-2" : "left-2",
-              !showMenu && isLatest
-                ? "opacity-60 hover:opacity-100 transition-opacity"
-                : ""
-            )}
-            onMouseEnter={() => {
-              if (menuTimeoutRef.current) {
-                clearTimeout(menuTimeoutRef.current);
-                menuTimeoutRef.current = null;
+        {/* 完全手動制御のメニュー */}
+        <div className="absolute bottom-2 right-2 z-[9999]">
+          {/* トリガーボタン */}
+          <button
+            ref={triggerRef}
+            className="menu-button p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200"
+            onMouseDown={(e) => {
+              // stopImmediatePropagationで他のキャプチャハンドラを抑止
+              try {
+                (e.nativeEvent as Event).stopImmediatePropagation();
+              } catch (err) {}
+              e.preventDefault();
+              e.stopPropagation();
+              // 保護タイマーをセットして描画/配置中の外部クリックを無視
+              if (menuOpeningRef.current) {
+                clearTimeout(menuOpeningRef.current);
               }
-              setShowMenu(true);
+              menuOpeningRef.current = setTimeout(() => {
+                if (menuOpeningRef.current) {
+                  clearTimeout(menuOpeningRef.current);
+                  menuOpeningRef.current = null;
+                }
+              }, 300);
+              setShowMenu((s) => !s);
             }}
-            onMouseLeave={() => {
-              menuTimeoutRef.current = setTimeout(() => {
-                setShowMenu(false);
-              }, 200);
-            }}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                side="top"
-                className={cn(
-                  "min-w-[180px] z-50",
-                  "bg-gray-900/95 border-gray-700",
-                  "backdrop-blur-sm shadow-2xl",
-                  "animate-in slide-in-from-top-2 fade-in-0 duration-200"
-                )}
-                sideOffset={8}
-                avoidCollisions={true}
-                collisionPadding={16}>
+            aria-label="メニューを開く">
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
 
-                {/* アシスタントメッセージ用メニュー */}
-                {message.role === "assistant" && (
-                  <>
-                    <DropdownMenuItem onClick={handleRollback}>
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      ロールバック
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleContinue} disabled={isContinuing || generateIsActive}>
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      続きを生成
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleRegenerate} disabled={isRegenerating || generateIsActive}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      再生成
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleCopy()}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      コピー
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        setIsGeneratingImage(true);
-                        try {
-                          const character = getSelectedCharacter();
-                          if (!character) {
-                            console.error("キャラクターが選択されていません");
-                            alert("キャラクターが選択されていません");
-                            return;
-                          }
-
-                          // 現在のセッションのメッセージを取得
-                          const sessions = useAppStore.getState().sessions;
-                          const activeSessionId = useAppStore.getState().active_session_id;
-                          const currentSession = sessions.get(activeSessionId || "");
-                          if (!currentSession) {
-                            console.error("セッションが見つかりません");
-                            alert("セッションが見つかりません");
-                            return;
-                          }
-
-                          // トラッカーの値を取得
-                          const trackerManagers = useAppStore.getState().trackerManagers;
-                          const trackerManager = trackerManagers.get(activeSessionId || "");
-                          const trackers = [];
-                          if (trackerManager && character.trackers) {
-                            const trackerSet = trackerManager.getTrackerSet(character.id);
-                            if (trackerSet) {
-                              for (const trackerDef of character.trackers) {
-                                const tracker = trackerSet.trackers.get(trackerDef.name);
-                                if (tracker) {
-                                  const trackerType = trackerDef.config?.type;
-                                  if (trackerType && trackerType !== "composite") {
-                                    trackers.push({
-                                      name: trackerDef.name,
-                                      value: tracker.current_value,
-                                      type: trackerType as "numeric" | "state" | "boolean" | "text",
-                                    });
-                                  }
-                                }
-                              }
-                            }
-                          }
-
-                          // 画像を生成
-                          const imageUrl = await generateImage(
-                            character,
-                            currentSession.messages,
-                            trackers
-                          );
-
-                          // 生成された画像をメッセージとして追加
-                          if (imageUrl) {
-                            const addMessage = (useAppStore.getState() as any).addMessage;
-                            if (addMessage) {
-                              const newMessage = {
-                                id: Date.now().toString(),
-                                content: `![Generated Image](${imageUrl})`,
-                                role: "assistant" as const,
-                                timestamp: Date.now(),
-                                character_id: character.id,
-                                metadata: {
-                                  type: "image",
-                                  generated: true,
-                                },
-                              };
-                              addMessage(newMessage);
-                            }
-                          }
-                        } finally {
-                          setIsGeneratingImage(false);
-                        }
-                      }}
-                      disabled={isGeneratingImage}>
-                      <Image className={cn("h-4 w-4 mr-2", isGeneratingImage && "animate-pulse")} />
-                      {isGeneratingImage ? "画像生成中..." : "画像を生成"}
-                    </DropdownMenuItem>
-                    {voice.autoPlay && (
-                      <DropdownMenuItem
-                        onClick={handleSpeak}
-                        disabled={!displayedContent || !displayedContent.trim()}>
-                        <Volume2 className={cn("h-4 w-4 mr-2", isSpeaking && "animate-pulse text-blue-500")} />
-                        {isSpeaking ? "読み上げ中..." : "読み上げ"}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="text-red-600">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      削除
-                    </DropdownMenuItem>
-                  </>
-                )}
-
-                {/* ユーザーメッセージ用メニュー */}
-                {message.role === "user" && (
-                  <>
-                    <DropdownMenuItem onClick={() => handleCopy()}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      コピー
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleEdit}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      編集
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="text-red-600">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      削除
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+          {/* メニューコンテンツ */}
+          {showMenu && (
+            <div
+              ref={menuRef}
+              className={cn(
+                "menu-container absolute bottom-full right-0 mb-2",
+                "min-w-[180px] z-[9999]",
+                "bg-gray-900/95 border border-gray-700 rounded-md",
+                "backdrop-blur-sm shadow-2xl",
+                "animate-in slide-in-from-bottom-2 fade-in-0 duration-200"
+              )}
+              style={
+                {
+                  "--character-icon": `url(${
+                    getSelectedCharacter()?.avatar_url || "/default-avatar.png"
+                  })`,
+                } as React.CSSProperties
+              }>
+              original_code = '''
+              {/* アシスタントメッセージ用メニュー */}
+              {message.role === "assistant" && (
+                <>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 first:rounded-t-md"
+                    data-action="rollback"
+                    onClick={handleMenuItemClick(handleRollback)}>
+                    <RotateCcw className="menu-icon h-4 w-4" />
+                    ロールバック
+                  </button>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-action="continue"
+                    onClick={handleMenuItemClick(handleContinue)}
+                    disabled={isContinuing || generateIsActive}>
+                    <MessageSquare className="menu-icon h-4 w-4" />
+                    続きを生成
+                  </button>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-action="regenerate"
+                    onClick={handleMenuItemClick(handleRegenerate)}
+                    disabled={isRegenerating || generateIsActive}>
+                    <RefreshCw className="menu-icon h-4 w-4" />
+                    再生成
+                  </button>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2"
+                    data-action="copy"
+                    onClick={handleMenuItemClick(handleCopy)}>
+                    <Copy className="menu-icon h-4 w-4" />
+                    コピー
+                  </button>
+                  {voice.autoPlay && (
+                    <button
+                      className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      data-action="speak"
+                      onClick={handleMenuItemClick(handleSpeak)}
+                      disabled={!displayedContent || !displayedContent.trim()}>
+                      <Volume2
+                        className={cn(
+                          "menu-icon h-4 w-4",
+                          isSpeaking && "animate-pulse text-blue-500"
+                        )}
+                      />
+                      {isSpeaking ? "読み上げ中..." : "読み上げ"}
+                    </button>
+                  )}
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 text-red-400 last:rounded-b-md"
+                    data-action="delete"
+                    onClick={handleMenuItemClick(handleDelete)}>
+                    <Trash2 className="menu-icon h-4 w-4" />
+                    削除
+                  </button>
+                </>
+              )}
+              user_original = '''
+              {/* ユーザーメッセージ用メニュー */}
+              {message.role === "user" && (
+                <>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 first:rounded-t-md"
+                    onClick={handleMenuItemClick(handleEdit)}>
+                    <Edit className="h-4 w-4" />
+                    編集
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2"
+                    onClick={handleMenuItemClick(handleCopy)}>
+                    <Copy className="h-4 w-4" />
+                    コピー
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 text-red-400 last:rounded-b-md"
+                    onClick={handleMenuItemClick(handleDelete)}>
+                    <Trash2 className="h-4 w-4" />
+                    削除
+                  </button>
+                </>
+              )}
+              ''' user_modified = '''
+              {/* ユーザーメッセージ用メニュー */}
+              {message.role === "user" && (
+                <>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 first:rounded-t-md"
+                    data-action="edit"
+                    onClick={handleMenuItemClick(handleEdit)}>
+                    <Edit className="menu-icon h-4 w-4" />
+                    編集
+                  </button>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2"
+                    data-action="copy"
+                    onClick={handleMenuItemClick(handleCopy)}>
+                    <Copy className="menu-icon h-4 w-4" />
+                    コピー
+                  </button>
+                  <button
+                    className="menu-item w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 text-red-400 last:rounded-b-md"
+                    data-action="delete"
+                    onClick={handleMenuItemClick(handleDelete)}>
+                    <Trash2 className="menu-icon h-4 w-4" />
+                    削除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 生成中インジケーター */}
         {ui.isUpdating && (

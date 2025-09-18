@@ -1,5 +1,6 @@
 import { StateCreator } from "zustand";
 import { UnifiedMessage, UUID } from "@/types";
+import type { MemoryCard } from "@/types/core/memory.types";
 import {
   ProgressiveMessage,
   DEFAULT_PROGRESSIVE_SETTINGS,
@@ -199,7 +200,7 @@ export const createProgressiveHandler: StateCreator<
     });
 
     console.log("🧠 Starting memory retrieval...");
-    let memoryCards = [];
+    let memoryCards: MemoryCard[] = [];
     try {
       memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
         sessionWithUserMessage.messages,

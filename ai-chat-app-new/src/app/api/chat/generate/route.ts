@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
-import { debugLog } from '@/utils/debug-logger'; // debugLogをインポート
+import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
@@ -36,8 +36,25 @@ export async function POST(request: Request) {
     const model = apiConfig.model || "gemini-2.5-flash";
     let effectiveProvider = apiConfig.provider;
 
-    if (model.includes("gemini") || model.includes("google/")) {
-      effectiveProvider = "gemini";
+    const wantsGeminiModel =
+      model.includes("gemini") || model.includes("google/");
+
+    // If the model is a Gemini model but the request (or persisted config)
+    // does not allow direct Gemini usage, route Gemini-model requests
+    // through OpenRouter instead. This prevents the route from requiring
+    // a Gemini API key when `useDirectGeminiAPI` is disabled.
+    if (wantsGeminiModel) {
+      const wantsDirectGemini =
+        !!apiConfig?.useDirectGeminiAPI ||
+        !!requestApiConfig?.useDirectGeminiAPI;
+      if (wantsDirectGemini) {
+        effectiveProvider = "gemini";
+      } else {
+        effectiveProvider = "openrouter";
+        console.log(
+          "⚠️ Gemini model detected but direct Gemini use is disabled; routing via OpenRouter"
+        );
+      }
     } else if (
       model.includes("claude") ||
       model.includes("gpt") ||
@@ -84,14 +101,20 @@ export async function POST(request: Request) {
         console.log("✅ OpenRouter API key provided from client");
       } else {
         // フォールバック: 環境変数から読み込み
-        const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        const openRouterKey =
+          process.env.OPENROUTER_API_KEY ||
+          process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
         if (openRouterKey) {
           effectiveApiConfig.openRouterApiKey = openRouterKey;
           console.log("✅ OpenRouter API key loaded from environment");
         } else {
-          console.error("❌ OpenRouter API key not provided (client or environment)");
+          console.error(
+            "❌ OpenRouter API key not provided (client or environment)"
+          );
           // エラーにせず、simpleAPIManagerV2のデフォルト処理に任せる
-          console.log("⚠️ Proceeding without explicit OpenRouter API key - will use manager's default");
+          console.log(
+            "⚠️ Proceeding without explicit OpenRouter API key - will use manager's default"
+          );
         }
       }
     }
@@ -246,13 +269,19 @@ export async function POST(request: Request) {
       const systemInstructionsMatch = systemPrompt.match(
         /<system_instructions>([\s\S]*?)<\/system_instructions>/
       );
-      console.log("  1️⃣ System Instructions: " + (systemInstructionsMatch ? "✅ あり" : "❌ なし"));
+      console.log(
+        "  1️⃣ System Instructions: " +
+          (systemInstructionsMatch ? "✅ あり" : "❌ なし")
+      );
 
       // 2. Jailbreak (オプション)
       const jailbreakMatch = systemPrompt.match(
         /<jailbreak>([\s\S]*?)<\/jailbreak>/
       );
-      console.log("  2️⃣ Jailbreak: " + (jailbreakMatch ? "✅ あり" : "➖ なし（オプション）"));
+      console.log(
+        "  2️⃣ Jailbreak: " +
+          (jailbreakMatch ? "✅ あり" : "➖ なし（オプション）")
+      );
 
       // 3. Character Information（必須）
       const charMatch = systemPrompt.match(
@@ -262,7 +291,8 @@ export async function POST(request: Request) {
         const charInfo = charMatch[1];
         const nameMatch = charInfo.match(/Name: (.+)/);
         console.log(
-          "  3️⃣ Character Information: ✅ " + (nameMatch ? nameMatch[1] : "キャラクター名不明")
+          "  3️⃣ Character Information: ✅ " +
+            (nameMatch ? nameMatch[1] : "キャラクター名不明")
         );
       } else {
         console.log("  3️⃣ Character Information: ❌ なし");
@@ -275,7 +305,9 @@ export async function POST(request: Request) {
       if (personaMatch) {
         console.log("  4️⃣ Persona Information: ✅ あり");
         const personaInfo = personaMatch[1].substring(0, 100);
-        console.log("    " + personaInfo.replace(/\n/g, ' ').substring(0, 80) + "...");
+        console.log(
+          "    " + personaInfo.replace(/\n/g, " ").substring(0, 80) + "..."
+        );
       } else {
         console.log("  4️⃣ Persona Information: ❌ なし");
       }
@@ -288,7 +320,9 @@ export async function POST(request: Request) {
         const trackerInfo = trackerMatch[1];
         // トラッカー名を抽出（## で始まる行を探す）
         const trackerNames = trackerInfo.match(/## [^\n]+/g) || [];
-        console.log("  5️⃣ Relationship State: ✅ トラッカー" + trackerNames.length + "個");
+        console.log(
+          "  5️⃣ Relationship State: ✅ トラッカー" + trackerNames.length + "個"
+        );
         trackerNames.slice(0, 5).forEach((tracker: string) => {
           console.log("    - " + tracker.replace("## ", ""));
         });
@@ -310,17 +344,27 @@ export async function POST(request: Request) {
         const cardPattern = /^\s*\[([^\]]+)\]\s+[^:]+:/gm;
         const cards = memoryContextMatch[1].match(cardPattern);
         totalMemoryCards = cards ? cards.length : 0;
-        console.log("  6️⃣ Memory Context: " + (totalMemoryCards > 0 ? "✅ " + totalMemoryCards + "件" : "➖ なし"));
+        console.log(
+          "  6️⃣ Memory Context: " +
+            (totalMemoryCards > 0 ? "✅ " + totalMemoryCards + "件" : "➖ なし")
+        );
       } else {
         console.log("  6️⃣ Memory Context: ➖ なし");
       }
 
       // 7. Current Input（必須 - プロンプトの最後にあるはず）
       const currentInputMatch = systemPrompt.match(/## Current Input[\s\S]*$/);
-      console.log("  7️⃣ Current Input: " + (currentInputMatch ? "✅ あり" : "❌ なし"));
+      console.log(
+        "  7️⃣ Current Input: " + (currentInputMatch ? "✅ あり" : "❌ なし")
+      );
 
       console.log("\n📊 プロンプト順序の検証:");
-      console.log("  " + (systemInstructionsMatch && charMatch && personaMatch ? "✅ 正しい順序" : "❌ 順序に問題あり"));
+      console.log(
+        "  " +
+          (systemInstructionsMatch && charMatch && personaMatch
+            ? "✅ 正しい順序"
+            : "❌ 順序に問題あり")
+      );
 
       // システムプロンプトの実際の内容を表示
       console.log("\n📦 システムプロンプト (先頭1000文字):");
@@ -360,7 +404,10 @@ export async function POST(request: Request) {
 
     // APIキーの状態を確認（apiConfigが利用可能になった）
     console.error("🔑 API Key Status:");
-    console.error("  - OpenRouter key provided:", !!apiConfig?.openRouterApiKey);
+    console.error(
+      "  - OpenRouter key provided:",
+      !!apiConfig?.openRouterApiKey
+    );
     console.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);
     console.error("  - Use Direct Gemini:", apiConfig?.useDirectGeminiAPI);
     console.error("  - Model:", apiConfig?.model);
@@ -374,8 +421,8 @@ export async function POST(request: Request) {
           hasOpenRouterKey: !!apiConfig?.openRouterApiKey,
           hasGeminiKey: !!apiConfig?.geminiApiKey,
           model: apiConfig?.model,
-          provider: apiConfig?.provider
-        }
+          provider: apiConfig?.provider,
+        },
       },
       { status: 500 }
     );

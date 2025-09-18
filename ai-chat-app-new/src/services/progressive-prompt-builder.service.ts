@@ -134,7 +134,7 @@ ${
 Name: ${persona.name}
 ${persona.role ? `Role: ${persona.role}` : ""}
 ${
-  persona.description ? `Description: ${persona.description.slice(0, 200)}` : ""
+  persona.other_settings ? `Details: ${persona.other_settings.slice(0, 200)}` : ""
 }
 </persona_information>`
       : "";

@@ -356,7 +356,7 @@ class SettingsManager {
 
     let hasChanges = false;
 
-    // EffectSettingsContextから移行
+    // エフェクト設定の移行
     const effectSettings = localStorage.getItem('effect-settings');
     if (effectSettings) {
       try {

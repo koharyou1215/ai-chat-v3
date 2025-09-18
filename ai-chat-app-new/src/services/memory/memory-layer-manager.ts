@@ -117,7 +117,8 @@ export class MemoryLayerManager {
    * 関連性スコアの計算（時間減衰を含む）
    */
   private calculateRelevanceScore(message: UnifiedMessage, now: number): number {
-    const age = now - new Date(message.timestamp).getTime();
+    const messageTime = message.timestamp ? new Date(message.timestamp).getTime() : now;
+    const age = now - messageTime;
     const ageInHours = age / (1000 * 60 * 60);
     
     // 時間減衰関数（指数関数的減衰）

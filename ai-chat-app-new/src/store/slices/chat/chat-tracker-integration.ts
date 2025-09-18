@@ -106,16 +106,16 @@ export const createTrackerIntegration: StateCreator<
     // 各トラッカーの値を更新
     Object.entries(updates).forEach(([trackerName, value]) => {
       try {
-        const currentValue = trackerManager.getTrackerValue(
-          characterId,
-          trackerName
-        );
+        const trackerSet = trackerManager.getTrackerSet(characterId);
+        const currentValue = trackerSet?.getValue(trackerName);
         
         if (currentValue !== undefined) {
+          const numericValue = typeof value === 'number' ? value : 0;
+          const numericCurrent = typeof currentValue === 'number' ? currentValue : 0;
           trackerManager.updateTracker(
             characterId,
             trackerName,
-            value - currentValue // 差分を計算して更新
+            { numeric: numericValue - numericCurrent } as TrackerValue // 差分を計算して更新
           );
           console.log(
             `📊 Updated tracker "${trackerName}" for character ${characterId}: ${currentValue} → ${value}`

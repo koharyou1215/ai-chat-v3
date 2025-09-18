@@ -196,7 +196,7 @@ export const createMemorySlice: StateCreator<
 
           // メタデータ
           importance: {
-            score: generatedContent.importance_score || 5.0,
+            score: (generatedContent as any).importance_score || 5.0,
             factors: {
               emotional_weight: 5.0,
               repetition_count: 1,
@@ -205,7 +205,7 @@ export const createMemorySlice: StateCreator<
             },
           },
           is_pinned: false,
-          is_bookmarked: false,
+          // is_bookmarkedは削除（is_pinnedで代替）
         };
 
         // ストアに追加
@@ -311,7 +311,7 @@ export const createMemorySlice: StateCreator<
       );
     },
 
-    getMemoriesByCategory: (category) => {
+    getMemoriesByCategory: (category: MemoryCategory) => {
       const state = get();
       return Array.from(state.memory_cards.values()).filter(
         (memory) => memory.category === category

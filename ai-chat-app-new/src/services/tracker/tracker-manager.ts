@@ -1,5 +1,16 @@
-import { TrackerDefinition, TrackerUpdate, TrackerValue, UnifiedMessage, TrackerType, LegacyTrackerDefinition } from '@/types';
+import { TrackerDefinition, UnifiedMessage, TrackerType, LegacyTrackerDefinition } from '@/types';
 import type { NumericTrackerConfig, StateTrackerConfig } from '@/types/core/tracker.types';
+
+// 内部使用のための TrackerUpdate 型
+interface InternalTrackerUpdate {
+  tracker_name: string;
+  character_id?: string;
+  old_value: string | number | boolean;
+  new_value: string | number | boolean;
+  timestamp: string;
+  reason?: string;
+  auto_update?: boolean;
+}
 
 // This is a placeholder for the full TrackerSet from the specs
 // We will expand on this later.
@@ -10,13 +21,13 @@ type Tracker = TrackerDefinition & {
 interface TrackerSet {
   character_id: string;
   trackers: Map<string, Tracker>;
-  history: TrackerUpdate[];
+  history: InternalTrackerUpdate[];
   last_updated: string;
 }
 
 export class TrackerManager {
   private trackerSets: Map<string, TrackerSet> = new Map();
-  private updateCallbacks: Set<(update: TrackerUpdate) => void> = new Set();
+  private updateCallbacks: Set<(update: InternalTrackerUpdate) => void> = new Set();
 
   /**
    * トラッカーセットの初期化
@@ -109,8 +120,8 @@ export class TrackerManager {
       let currentValue: string | number | boolean;
       
       // JSONファイルにcurrent_valueが存在する場合はそれを使用
-      if ('current_value' in normalizedDefinition && normalizedDefinition.current_value !== undefined) {
-        currentValue = normalizedDefinition.current_value;
+      if ('current_value' in normalizedDefinition && (normalizedDefinition as any).current_value !== undefined) {
+        currentValue = (normalizedDefinition as any).current_value as string | number | boolean;
         console.log(`Using JSON current_value for ${normalizedDefinition.name}:`, currentValue);
       } else {
         // current_valueが無い場合のみデフォルト値を設定
@@ -257,8 +268,8 @@ export class TrackerManager {
       
       console.log(`Initialized tracker ${normalizedDefinition.name}:`, {
         type: normalizedDefinition.config.type,
-        initial_value: normalizedDefinition.config.initial_value,
-        initial_state: normalizedDefinition.config.initial_state,
+        initial_value: (normalizedDefinition.config as any).initial_value,
+        initial_state: (normalizedDefinition.config as any).initial_state,
         current_value: currentValue
       });
       trackerMap.set(normalizedDefinition.name, initializedTracker);
@@ -287,7 +298,13 @@ export class TrackerManager {
     let promptText = '<trackers>\n';
     for (const tracker of trackerSet.trackers.values()) {
       // current_value が undefined や null の場合は初期値を表示
-      const value = tracker.current_value ?? (tracker as Record<string, unknown>).initial_value ?? (tracker as Record<string, unknown>).initial_state ?? (tracker as Record<string, unknown>).initial_boolean ?? 'N/A';
+      const trackerAsAny = tracker as any;
+      const value = tracker.current_value ??
+        (tracker.config.type === 'numeric' ? (tracker.config as NumericTrackerConfig).initial_value :
+         tracker.config.type === 'state' ? (tracker.config as StateTrackerConfig).initial_state :
+         tracker.config.type === 'boolean' ? (trackerAsAny.config.initial_value ?? false) :
+         tracker.config.type === 'text' ? (trackerAsAny.config.initial_value ?? '') :
+         'N/A');
       promptText += `${tracker.display_name}: ${value}\n`;
     }
     promptText += '</trackers>';
@@ -361,7 +378,7 @@ export class TrackerManager {
   updateTracker(
     characterId: string,
     trackerName: string,
-    newValue: TrackerValue,
+    newValue: string | number | boolean,
     reason?: string
   ): boolean {
     const trackerSet = this.trackerSets.get(characterId);
@@ -383,7 +400,7 @@ export class TrackerManager {
     tracker.current_value = newValue;
     trackerSet.last_updated = new Date().toISOString();
 
-    const update: TrackerUpdate = {
+    const update: InternalTrackerUpdate = {
       tracker_name: trackerName,
       old_value: oldValue,
       new_value: newValue,
@@ -408,11 +425,11 @@ export class TrackerManager {
   /**
    * 更新を通知
    */
-  private notifyUpdate(update: TrackerUpdate): void {
+  private notifyUpdate(update: InternalTrackerUpdate): void {
     this.updateCallbacks.forEach(callback => callback(update));
   }
 
-  onUpdate(callback: (update: TrackerUpdate) => void): () => void {
+  onUpdate(callback: (update: InternalTrackerUpdate) => void): () => void {
     this.updateCallbacks.add(callback);
     return () => this.updateCallbacks.delete(callback);
   }
@@ -449,7 +466,7 @@ export class TrackerManager {
   /**
    * メッセージからトラッカー更新を自動分析
    */
-  analyzeMessageForTrackerUpdates(message: UnifiedMessage, characterId: string): TrackerUpdate[] {
+  analyzeMessageForTrackerUpdates(message: UnifiedMessage, characterId: string): InternalTrackerUpdate[] {
     const trackerSet = this.trackerSets.get(characterId);
     if (!trackerSet) {
       console.log('[TrackerManager] No tracker set found for character:', characterId);
@@ -463,7 +480,7 @@ export class TrackerManager {
       messageRole: message.role
     });
 
-    const updates: TrackerUpdate[] = [];
+    const updates: InternalTrackerUpdate[] = [];
     const content = message.content.toLowerCase();
     const isUserMessage = message.role === 'user';
     
@@ -767,14 +784,15 @@ export class TrackerManager {
     };
 
     for (const state of possibleStates) {
-      if (typeof state !== 'string') {
-        console.warn(`Tracker "${tracker.name}" has a non-string state:`, state);
+      const stateId = typeof state === 'string' ? state : state.id;
+      if (!stateId || typeof stateId !== 'string') {
+        console.warn(`Tracker "${tracker.name}" has an invalid state:`, state);
         continue;
       }
-      const keywords = stateKeywords[state] || [state.toLowerCase()];
+      const keywords = stateKeywords[stateId] || [stateId.toLowerCase()];
       for (const keyword of keywords) {
         if (content.includes(keyword)) {
-          return { value: state, reason: `状態変化: ${keyword}` };
+          return { value: stateId, reason: `状態変化: ${keyword}` };
         }
       }
     }

@@ -44,7 +44,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--font-size",
-      fontSizeMap[appearanceSettings.fontSize]
+      fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap]
     );
     root.style.setProperty("--font-weight", appearanceSettings.fontWeight);
 
@@ -55,7 +55,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--line-height",
-      lineHeightMap[appearanceSettings.lineHeight]
+      lineHeightMap[appearanceSettings.lineHeight as keyof typeof lineHeightMap]
     );
 
     // レイアウト設定を適用
@@ -66,7 +66,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--message-spacing",
-      messageSpacingMap[appearanceSettings.messageSpacing]
+      messageSpacingMap[appearanceSettings.messageSpacing as keyof typeof messageSpacingMap]
     );
 
     const borderRadiusMap = {
@@ -78,7 +78,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--message-border-radius",
-      borderRadiusMap[appearanceSettings.messageBorderRadius]
+      borderRadiusMap[appearanceSettings.messageBorderRadius as keyof typeof borderRadiusMap]
     );
 
     const chatWidthMap = {
@@ -89,7 +89,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--chat-max-width",
-      chatWidthMap[appearanceSettings.chatMaxWidth]
+      chatWidthMap[appearanceSettings.chatMaxWidth as keyof typeof chatWidthMap]
     );
 
     const sidebarWidthMap = {
@@ -99,7 +99,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--sidebar-width",
-      sidebarWidthMap[appearanceSettings.sidebarWidth]
+      sidebarWidthMap[appearanceSettings.sidebarWidth as keyof typeof sidebarWidthMap]
     );
 
     // 背景設定を適用 - bodyにdata属性も設定
@@ -150,7 +150,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--transition-duration",
-      transitionDurationMap[appearanceSettings.transitionDuration]
+      transitionDurationMap[appearanceSettings.transitionDuration as keyof typeof transitionDurationMap]
     );
     root.style.setProperty(
       "--enable-animations",

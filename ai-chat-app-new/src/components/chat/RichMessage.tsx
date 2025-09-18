@@ -10,7 +10,7 @@ import {
   Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffectSettings } from "@/hooks/useEffectSettings";
+import { useMessageEffects } from "@/hooks/useMessageEffects";
 
 // Lazy import for heavy markdown processing
 const MarkdownRenderer = React.lazy(() =>
@@ -50,11 +50,11 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
     const [showPreview, setShowPreview] = useState(false);
     const [displayedContent, setDisplayedContent] = useState(content);
     const [isTyping, setIsTyping] = useState(false);
-    const { settings: effectSettings } = useEffectSettings();
+    const { isEffectEnabled, settings: effectSettings } = useMessageEffects();
 
     // タイプライター効果（最新メッセージのみ）
     useEffect(() => {
-      if (!effectSettings.typewriterEffect || role === "user" || !isLatest) {
+      if (!isEffectEnabled('typewriter') || role === "user" || !isLatest) {
         setDisplayedContent(content);
         setIsTyping(false);
         return;
@@ -79,7 +79,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       typeText();
     }, [
       content,
-      effectSettings.typewriterEffect,
+      isEffectEnabled('typewriter'),
       effectSettings.typewriterIntensity,
       role,
       isLatest,
@@ -122,7 +122,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
 
       // Data URL画像を抽出
       const dataUrlMatch = content.match(/!\[.*?\]\((data:image\/[^)]+)\)/g);
-      const dataUrls = [];
+      const dataUrls: string[] = [];
       if (dataUrlMatch) {
         dataUrlMatch.forEach(match => {
           const urlMatch = match.match(/!\[.*?\]\((data:image\/[^)]+)\)/);
@@ -138,7 +138,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
     // Truncate content for performance if too long
     const displayContent = useMemo(() => {
       const baseContent =
-        effectSettings.typewriterEffect && role !== "user"
+        isEffectEnabled('typewriter') && role !== "user"
           ? displayedContent
           : content;
       if (!isExpanded && contentAnalysis.isLong) {
@@ -150,7 +150,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       displayedContent,
       isExpanded,
       contentAnalysis.isLong,
-      effectSettings.typewriterEffect,
+      isEffectEnabled('typewriter'),
       role,
     ]);
 
@@ -161,7 +161,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       let processed = displayContent;
       
       // フォントエフェクトが有効な場合のみ感情色付けを適用
-      if (effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 0) {
+      if (isEffectEnabled('font') && effectSettings.fontEffectsIntensity > 0) {
         // 「」内のテキストを検出して特別なエフェクトを適用
         processed = processed.replace(/「([^」]+)」/g, (match, text) => {
         // 感情に応じたエフェクトを決定
@@ -222,7 +222,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       }
       
       // フォントエフェクトが有効な場合、特定の重要な単語だけにグラデーションを適用
-      if (effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 30) {
+      if (isEffectEnabled('font') && effectSettings.fontEffectsIntensity > 30) {
         // 重要な感情表現や強調語にだけグラデーションを適用
         const importantWords = /(愛してる|大好き|最高|素晴らしい|完璧|美しい|キラキラ|ドキドキ|ワクワク|！|♡|♥|★|☆)/g;
         processed = processed.replace(importantWords, (match) => {
@@ -237,11 +237,11 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
       }
       
       return processed;
-    }, [displayContent, effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
+    }, [displayContent, isEffectEnabled, effectSettings.fontEffectsIntensity]);
 
     // フォントエフェクトのスタイル計算（全体の装飾効果、グラデーションは除外）
     const fontEffectStyles = useMemo(() => {
-      if (!effectSettings.fontEffects) return {};
+      if (!isEffectEnabled('font')) return {};
 
       const intensity = effectSettings.fontEffectsIntensity;
       return {
@@ -266,7 +266,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
             ? "drop-shadow(0 0 2px rgba(255,255,255,0.2)) brightness(1.05)"
             : "none",
       };
-    }, [effectSettings.fontEffects, effectSettings.fontEffectsIntensity]);
+    }, [isEffectEnabled, effectSettings.fontEffectsIntensity]);
 
     const handleImageClick = (imageUrl: string) => {
       setShowPreview(true);
@@ -289,7 +289,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
               dangerouslySetInnerHTML={{ __html: processedContent }}
             />
           )}
-          {effectSettings.typewriterEffect && isTyping && (
+          {isEffectEnabled('typewriter') && isTyping && (
             <span className="typewriter-cursor animate-pulse ml-1 text-purple-400">
               |
             </span>

@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { Character, UUID, TrackerDefinition, TrackerCategory, TrackerType } from '@/types';
+import type { StateDefinition, StateTrackerConfig } from '@/types/core/tracker.types';
 import { AppStore } from '..';
 
 export interface CharacterSlice {
@@ -290,10 +291,12 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                       initial_state: t.initial_state as string,
                       possible_states: Array.isArray(t.possible_states)
                         ? t.possible_states.map((s: unknown) =>
-                            typeof s === 'string' ? { id: String(s), label: String(s) } : s
+                            typeof s === 'string'
+                              ? { id: String(s), label: String(s) }
+                              : s as StateDefinition
                           )
                         : [],
-                    };
+                    } as StateTrackerConfig;
                     break;
                   case 'boolean':
                     definition.config = {

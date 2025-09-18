@@ -2,7 +2,7 @@
 // High-performance vector search using OpenAI embeddings and FAISS
 
 import { UnifiedMessage } from '@/types';
-import { SearchResult } from '@/types/memory';
+import { SearchResult, Message } from '@/types/memory';
 
 /**
  * FAISSをTypeScriptで使用するためのブリッジクラス
@@ -148,7 +148,7 @@ export class VectorStore {
       newMessages.forEach((message, i) => {
         const embedding = embeddings[i];
         this.embeddings.set(message.id, embedding);
-        this.messages.set(message.id, { ...message, embedding });
+        this.messages.set(message.id, message);
       });
 
       // FAISSインデックスに追加（実装時）
@@ -159,7 +159,7 @@ export class VectorStore {
       newMessages.forEach(message => {
         const embedding = this.createFallbackEmbedding(message.content);
         this.embeddings.set(message.id, embedding);
-        this.messages.set(message.id, { ...message, embedding });
+        this.messages.set(message.id, message);
       });
     }
   }
@@ -240,11 +240,29 @@ export class VectorStore {
         const similarity = this.cosineSimilarity(queryEmbedding, messageEmbedding);
         
         if (similarity >= threshold) {
-          const message = this.messages.get(id)!;
+          const unifiedMessage = this.messages.get(id)!;
+          // UnifiedMessageをMessage型に変換
+          const message: Message = {
+            id: unifiedMessage.id,
+            content: unifiedMessage.content,
+            timestamp: new Date(unifiedMessage.timestamp || Date.now()),
+            sender: unifiedMessage.role === 'user' ? 'user' : 'assistant',
+            importance: unifiedMessage.memory?.importance?.score,
+            emotion: unifiedMessage.expression?.emotion ? {
+              primary: unifiedMessage.expression.emotion.primary,
+              secondary: unifiedMessage.expression.emotion.secondary ? [unifiedMessage.expression.emotion.secondary] : undefined,
+              intensity: unifiedMessage.expression.emotion.intensity
+            } : undefined,
+            metadata: {
+              tokens: unifiedMessage.metadata?.token_count,
+              model: unifiedMessage.metadata?.model_used,
+              temperature: unifiedMessage.metadata?.confidence_score
+            }
+          };
           results.push({
             message,
             similarity,
-            relevance: similarity > 0.9 ? 0.9 : 
+            relevance: similarity > 0.9 ? 0.9 :
                       similarity > 0.8 ? 0.8 : 0.7
           });
         }

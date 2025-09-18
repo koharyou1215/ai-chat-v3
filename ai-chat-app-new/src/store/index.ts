@@ -15,7 +15,7 @@ import {
   PromptBuilderService,
 } from "@/services/prompt-builder.service";
 import { HistorySlice, createHistorySlice } from "./slices/history.slice";
-import { SettingsSlice, createSettingsSlice } from "./slices/settings.slice";
+import { SettingsSliceV2 as SettingsSlice, createSettingsSliceV2 as createSettingsSlice } from "./slices/settings.slice";
 import {
   SuggestionSlice,
   createSuggestionSlice,
@@ -172,7 +172,7 @@ const createStore = () => {
                         // セッション数を制限（最新の5セッションのみ保持）
                         if (sessionEntries.length > 5) {
                           const sortedSessions = sessionEntries
-                            .sort((a, b) => {
+                            .sort((a: any, b: any) => {
                               const aTime =
                                 a[1]?.updatedAt || a[1]?.createdAt || 0;
                               const bTime =
@@ -201,7 +201,7 @@ const createStore = () => {
                       if (parsed.state.memoryCards.length > 50) {
                         parsed.state.memoryCards = parsed.state.memoryCards
                           .sort(
-                            (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+                            (a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)
                           )
                           .slice(0, 50);
                       }
@@ -220,7 +220,7 @@ const createStore = () => {
                             : groupSessions.value;
                         if (groupEntries.length > 3) {
                           const sortedGroups = groupEntries
-                            .sort((a, b) => {
+                            .sort((a: any, b: any) => {
                               const aTime =
                                 a[1]?.updated_at || a[1]?.created_at || 0;
                               const bTime =

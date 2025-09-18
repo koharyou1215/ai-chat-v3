@@ -168,7 +168,7 @@ export class ScenarioGenerator {
 
     const prompt = `JSON形式でグループチャットシナリオを生成してください。
 
-参加者: ${persona.name}(${persona.occupation})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
+参加者: ${persona.name}(${persona.role})、${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join('、')}
 リクエスト: ${userRequest || 'キャラクターの個性を活かしたシナリオ'}
 
 以下のJSON形式で回答（説明文は不要）:
@@ -218,7 +218,7 @@ ${allParticipantRoles}
         // より簡潔なプロンプトで再試行
         const shorterPrompt = `
 以下のユーザーとキャラクターでグループチャットシナリオをJSON形式で生成:
-ユーザー: ${persona.name}(${persona.occupation})
+ユーザー: ${persona.name}(${persona.role})
 キャラクター: ${characterDescriptions.map(char => `${char.name}(${char.occupation})`).join(', ')}
 
 JSON:
@@ -303,7 +303,7 @@ JSON:
           const partialData = this.extractPartialScenarioData(response);
           if (partialData.title) {
             console.log('部分的なデータ抽出成功:', partialData);
-            return partialData;
+            return this.ensureCompleteScenario(partialData, characters, persona);
           }
         }
       } else {
@@ -313,7 +313,7 @@ JSON:
         const partialData = this.extractPartialScenarioData(response);
         if (partialData.title) {
           console.log('テキストからの部分抽出成功:', partialData);
-          return partialData;
+          return this.ensureCompleteScenario(partialData, characters, persona);
         }
       }
     } catch (error) {
@@ -475,7 +475,7 @@ JSON:
     
     // ペルソナがある場合は含める
     if (persona) {
-      characterRoles[persona.id] = `${persona.occupation || '参加者'}として積極的に参加する`;
+      characterRoles[persona.id] = `${persona.role || '参加者'}として積極的に参加する`;
     }
     
     characters.forEach(char => {
@@ -498,6 +498,32 @@ JSON:
    */
   getAllTemplates(): ScenarioTemplate[] {
     return [...this.templates];
+  }
+
+  /**
+   * 部分的なシナリオデータを完全なGeneratedScenarioに変換
+   */
+  private ensureCompleteScenario(partial: Partial<GeneratedScenario>, characters: Character[], persona: Persona): GeneratedScenario {
+    const participantNames = persona ? [persona.name, ...characters.map(c => c.name)].join('、') : characters.map(c => c.name).join('、');
+    const characterRoles: Record<string, string> = {};
+
+    if (persona) {
+      characterRoles[persona.id] = `${persona.role || '参加者'}として参加する`;
+    }
+
+    characters.forEach(char => {
+      characterRoles[char.id] = `${char.occupation || 'キャラクター'}として参加する`;
+    });
+
+    return {
+      title: partial.title || 'カスタムシナリオ',
+      setting: partial.setting || 'カジュアルな雰囲気の場所',
+      situation: partial.situation || '自然な会話が始まる状況',
+      initial_prompt: partial.initial_prompt || `${participantNames}が集まった。どんな会話が始まるでしょうか？`,
+      character_roles: partial.character_roles || characterRoles,
+      objectives: partial.objectives || ['楽しく会話する', 'お互いを知る'],
+      background_context: partial.background_context || '楽しい会話が始まります'
+    };
   }
 }
 

@@ -4,13 +4,14 @@
  * Get an API key from environment variables
  * Provides a centralized way to access API keys with proper error handling
  */
-export function getApiKey(keyName: string): string {
+/**
+ * Get an API key from environment variables.
+ * Returns undefined instead of throwing when the key is missing so callers
+ * can decide how to handle absent keys (e.g. fallback, dummy behavior).
+ */
+export function getApiKey(keyName: string): string | undefined {
   const key = process.env[keyName];
-  
-  if (!key) {
-    throw new Error(`${keyName} is not set in environment variables`);
-  }
-  
+
   return key;
 }
 

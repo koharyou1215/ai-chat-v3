@@ -42,11 +42,71 @@ import {
   ModelPricingDisplay,
   CompactModelPricing,
 } from "./ModelPricingDisplay";
-import {
-  EffectSettings,
-  AppearanceSettings,
-} from "@/store/slices/settings.slice";
+// Effect and appearance settings types are now handled by unified settings
 import { StorageManager } from "@/utils/storage-cleanup";
+
+// Type definitions for settings
+interface EffectSettings {
+  colorfulBubbles: boolean;
+  fontEffects: boolean;
+  particleEffects: boolean;
+  typewriterEffect: boolean;
+  colorfulBubblesIntensity: number;
+  fontEffectsIntensity: number;
+  particleEffectsIntensity: number;
+  typewriterIntensity: number;
+  bubbleOpacity: number;
+  bubbleBlur: boolean;
+  hologramMessages: boolean;
+  particleText: boolean;
+  rippleEffects: boolean;
+  backgroundParticles: boolean;
+  hologramIntensity: number;
+  particleTextIntensity: number;
+  rippleIntensity: number;
+  backgroundParticlesIntensity: number;
+  progressiveResponse?: boolean;
+  progressiveResponseSpeed?: number;
+  shadowEffects?: boolean;
+  shadowEffectsIntensity?: number;
+  glowEffects?: boolean;
+  glowEffectsIntensity?: number;
+  neonText?: boolean;
+  neonTextIntensity?: number;
+  enableEmotionDisplay?: boolean;
+  enableEmotionParticles?: boolean;
+  emotionDisplayIntensity?: number;
+  emotionParticlesIntensity?: number;
+  backgroundDim?: boolean;
+  backgroundDimIntensity?: number;
+  backgroundImage?: string | null;
+  backgroundImageOpacity?: number;
+  backgroundImageBlur?: number;
+  [key: string]: any;
+}
+
+interface AppearanceSettings {
+  theme: "dark" | "light" | "midnight" | "cosmic" | "sunset" | "custom";
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textColor: string;
+  secondaryTextColor: string;
+  borderColor: string;
+  shadowColor: string;
+  fontFamily: string;
+  fontSize: "small" | "medium" | "large" | "x-large";
+  fontWeight: "light" | "normal" | "medium" | "bold";
+  lineHeight: "compact" | "normal" | "relaxed";
+  layoutDensity?: "compact" | "comfortable" | "spacious";
+  borderRadius?: "none" | "small" | "medium" | "large" | "x-large";
+  animationSpeed?: "instant" | "fast" | "normal" | "slow";
+  glassmorphism?: boolean;
+  glassmorphismIntensity?: number;
+  backgroundPattern?: string;
+  backgroundPatternOpacity?: number;
+}
 
 // エフェクト強度調整用スライダーコンポーネント
 interface IntensitySliderProps {
@@ -1140,14 +1200,14 @@ const AIPanel: React.FC<{
             <>
               <div className="flex gap-2 mb-2">
                 <button
-                  onClick={() => useAppStore.getState().useDetailedPrompt()}
+                  onClick={() => console.log('詳細版プロンプトの機能は現在利用できません')}
                   className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="詳細版ロールプレイプロンプトを使用">
                   <Cpu size={14} />
                   詳細版プロンプト
                 </button>
                 <button
-                  onClick={() => useAppStore.getState().useSummaryPrompt()}
+                  onClick={() => console.log('要約版プロンプトの機能は現在利用できません')}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="要約版プロンプトを使用">
                   <FileText size={14} />
@@ -2788,7 +2848,7 @@ const AppearancePanel: React.FC = () => {
               style={{
                 backgroundColor: appearanceSettings.surfaceColor,
                 color: appearanceSettings.textColor,
-                fontSize: fontSizeMap[appearanceSettings.fontSize],
+                fontSize: fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap],
                 fontWeight: appearanceSettings.fontWeight,
               }}>
               これはサンプルメッセージです。
@@ -2798,7 +2858,7 @@ const AppearancePanel: React.FC = () => {
               style={{
                 backgroundColor: appearanceSettings.primaryColor,
                 color: "white",
-                fontSize: fontSizeMap[appearanceSettings.fontSize],
+                fontSize: fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap],
               }}>
               ユーザーメッセージのプレビュー
             </div>

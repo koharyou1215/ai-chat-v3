@@ -298,7 +298,7 @@ export const createMessageOperations: StateCreator<
 
             // 🔧 修正: 設定から会話履歴の上限を取得
             const maxContextMessages =
-              get().chat?.memoryLimits?.max_context_messages || 40;
+              get().chat?.memory_limits?.max_context_messages || 40;
 
             console.log(
               "📝 [sendMessage] Sending API request to /api/chat/generate"
@@ -722,7 +722,7 @@ export const createMessageOperations: StateCreator<
 
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
-        get().chat?.memoryLimits?.max_context_messages || 40;
+        get().chat?.memory_limits?.max_context_messages || 40;
       const conversationHistory = messagesForPrompt
         .filter((msg) => msg.role === "user" || msg.role === "assistant")
         .slice(-maxContextMessages) // 設定値を使用
@@ -865,7 +865,7 @@ export const createMessageOperations: StateCreator<
 
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
-        get().chat?.memoryLimits?.max_context_messages || 40;
+        get().chat?.memory_limits?.max_context_messages || 40;
       const conversationHistory = session.messages
         .filter((m) => !m.is_deleted)
         .slice(-maxContextMessages) // 設定値を使用
@@ -1103,7 +1103,7 @@ export const createMessageOperations: StateCreator<
     const updatedSession: UnifiedChatSession = {
       ...session,
       messages: [...session.messages, message],
-      updatedAt: Date.now(),
+      updated_at: new Date().toISOString(),
     };
 
     // セッションを更新

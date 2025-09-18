@@ -24,7 +24,7 @@ export class AutoMemoryManager {
       messageIds: string[],
       sessionId: string,
       characterId?: string
-    ) => Promise<MemoryCard>
+    ) => Promise<MemoryCard | null>
   ): Promise<void> {
     this.messageBuffer.push(message);
 
