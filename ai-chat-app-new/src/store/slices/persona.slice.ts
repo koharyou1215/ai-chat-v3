@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { Persona, UUID } from '@/types';
+import { UnifiedMessage } from '@/types/memory';
 import { AppStore } from '..';
 
 export interface PersonaSlice {
@@ -37,7 +38,82 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
         });
     },
     activatePersona: (personaId) => {
+        const state = get();
+        const personas = state.personas;
+
+        // ペルソナ存在確認バリデーション
+        if (!personas.has(personaId)) {
+            console.warn(`[PersonaSlice] Persona ID ${personaId} not found in personas map`);
+            return;
+        }
+
         set({ activePersonaId: personaId });
+
+        // アクティブセッションのparticipants.userも更新
+        const activeSessionId = state.active_session_id;
+        const updateSession = state.updateSession;
+
+        if (activeSessionId && state.sessions?.has(activeSessionId)) {
+            const session = state.sessions.get(activeSessionId);
+            const persona = personas.get(personaId);
+
+            if (session && persona && updateSession) {
+                // updateSession()メソッドパターン実装
+                updateSession(activeSessionId, {
+                    participants: {
+                        ...session.participants,
+                        user: persona
+                    }
+                });
+
+                // addSystemMessageヘルパー関数
+                const addSystemMessage = (sessionId: UUID, content: string) => {
+                    try {
+                        const currentSession = get().sessions.get(sessionId);
+                        if (!currentSession) return;
+
+                        const systemMsg: UnifiedMessage = {
+                            id: `system-${Date.now()}`,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            version: 1,
+                            session_id: sessionId,
+                            role: 'system' as const,
+                            content,
+                            timestamp: Date.now(),
+                            memory: {
+                                importance: { score: 0.1, factors: {} },
+                                is_pinned: false,
+                                is_bookmarked: false,
+                                keywords: [],
+                            },
+                            expression: {
+                                emotion: { primary: 'neutral', intensity: 0 },
+                                style: { font_weight: 'normal', text_color: '#ffffff' },
+                                effects: [],
+                            },
+                            edit_history: [],
+                            regeneration_count: 0,
+                            metadata: {
+                                info: 'persona-sync',
+                                system_event: 'persona_switch',
+                                new_persona_id: personaId,
+                                new_persona_name: persona.name
+                            },
+                            is_deleted: false,
+                        };
+
+                        const updatedMessages = [...currentSession.messages, systemMsg];
+                        updateSession(sessionId, { messages: updatedMessages });
+                    } catch (error) {
+                        console.error('[PersonaSlice] Error adding system message:', error);
+                    }
+                };
+
+                addSystemMessage(activeSessionId, `[システム] ユーザーが ${persona.name} に切り替わりました。`);
+                console.log(`✅ [PersonaSlice] Updated active session with new persona: ${persona.name}`);
+            }
+        }
     },
     getActivePersona: () => {
         const activeId = get().activePersonaId;

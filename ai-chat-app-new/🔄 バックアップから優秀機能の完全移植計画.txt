@@ -1,0 +1,82 @@
+ 🔄 バックアップから優秀機能の完全移植計画                                                                                   │ │
+│ │                                                                                                                             │ │
+│ │ フェーズ1: DropdownMenu UI改善 (優先度: 高)                                                                                 │ │
+│ │                                                                                                                             │ │
+│ │ 対象ファイル: src/components/chat/MessageBubble.tsx                                                                         │ │
+│ │                                                                                                                             │ │
+│ │ 1. 依存関係の追加                                                                                                           │ │
+│ │   - @/components/ui/dropdown-menuからDropdownMenuコンポーネントをインポート                                                 │ │
+│ │   - MoreHorizontal, RotateCcwアイコンを追加インポート                                                                       │ │
+│ │ 2. メニュー構造の置換 (lines 798-916)                                                                                       │ │
+│ │   - 現在のインラインボタン配置を削除                                                                                        │ │
+│ │   - DropdownMenu構造に置き換え（3点メニュー形式）                                                                           │ │
+│ │   - メニュー項目: 再生成、続きを生成、削除、ロールバック、読み上げ                                                          │ │
+│ │ 3. ロールバック機能の復活                                                                                                   │ │
+│ │   - handleRollback関数の実装                                                                                                │ │
+│ │   - rollbackGroupSessionとrollbackSessionの接続                                                                             │ │
+│ │   - グループ/通常チャット両対応                                                                                             │ │
+│ │                                                                                                                             │ │
+│ │ フェーズ2: ペルソナ同期強化 (優先度: 高)                                                                                    │ │
+│ │                                                                                                                             │ │
+│ │ 対象ファイル: src/store/slices/persona.slice.ts                                                                             │ │
+│ │                                                                                                                             │ │
+│ │ 1. activatePersona改善                                                                                                      │ │
+│ │   - ペルソナ存在確認バリデーション追加                                                                                      │ │
+│ │   - updateSession()メソッドパターン実装                                                                                     │ │
+│ │   - エラーハンドリング強化                                                                                                  │ │
+│ │ 2. システムメッセージ改善                                                                                                   │ │
+│ │   - addSystemMessageヘルパー関数追加                                                                                        │ │
+│ │   - 完全なUnifiedMessage構造での記録                                                                                        │ │
+│ │   - メタデータとバージョニング対応                                                                                          │ │
+│ │ 3. セッション同期強化                                                                                                       │ │
+│ │   - バックエンド-フロントエンド一貫性保証                                                                                   │ │
+│ │   - participants.user更新の確実性向上                                                                                       │ │
+│ │                                                                                                                             │ │
+│ │ フェーズ3: 毎回Geminiエラーを拾ってしまうバグの修正インスピレーションエラーも出現するバグ (優先度: 高)                                                                                    │ │
+│ │                                                                                                                             │ │
+│ │ 対象ファイル: src/services/api/gemini-client.ts, src/services/inspiration-service.ts 
+src/services/api/gemini-client.ts の末尾で export const geminiClient = new GeminiClient(); としているため、モジュールがインポートされるだけでコンストラクタ→initializeApiKeySync() が実行されます。
+Next.js はビルド時にサーバーサイドのモジュールを読み込むため、環境変数未設定やファイル未存在のチェックがビルド中に発生し、毎回ログ（あるいは例外）として拾われます。
+実際に出ているメッセージ（❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found 等）は環境キーが無いことを示しており、モジュール初期化を遅延させればビルド時には発生しなくなる？？？
+インスピレーションエラーも毎回出ているが。gemini-client がファイル末尾で new GeminiClient() をトップレベルで実行していたため、モジュールがインポートされるだけで同期的に API キー読み取り／警告（GEMINI_API_KEY 未設定など）やファイルアクセスが走ってしまい、ビルド時に毎回「inspiration や Gemini 関連のエラー／警告」が出ているのが原因？？
+### **毎回のGeminiエラーのおかげで。正しくやってほしい修正がいつも中途半端になるので、このバグは本当にいい加減にしてほしい。ルールを見てください。頭がどうにかなりそうです。**
+ google/gemini-1.5-flash-8この文字列を見るたびに気分が悪くなるぐらい。 google/gemini-1.5-flash-8参照を完全削除もう何回やったかわかりません。
+                                       │ │
+│ │                                                                                                                             │ │
+│ │ 1. 無効モデル削除                                                                                                           │ │
+│ │   - google/gemini-1.5-flash-8b参照を完全削除                                                                                │ │
+│ │   - 有効モデル: gemini-2.5-flash, gemini-2.5-flash-light, gemini-2.5-proのみ                                                │ │
+│ │ 2. エラーハンドリング改善                                                                                                   │ │
+│ │   - Quota exceededエラーの適切な処理                                                                                        │ │
+│ │   - JSONパースエラーの防止                                                                                                  │ │
+│ │ 3. API設定検証                                                                                                              │ │
+│ │   - OpenRouter/Gemini切り替えロジック確認                                                                                   │ │
+│ │   - デフォルト設定の適切化                                                                                                  │ │
+│ │                                                                                                                             │ │
+│ │ 実装順序と並列化                                                                                                            │ │
+│ │                                                                                                                             │ │
+│ │ 並列実行可能:                                                                                                               │ │
+│ │ ├─ フェーズ1: DropdownMenu UI改善                                                                                           │ │
+│ │ ├─ フェーズ2: ペルソナ同期強化                                                                                              │ │
+│ │ └─ フェーズ３：毎回Geminiエラーを拾ってしまうバグの修正。                                                                                           │ │
+│ │                                                                                                                             │ │
+│ │ 順次実行:                                                                                                                   │ │
+│ │ 1. 各フェーズ実装                                                                                                           │ │
+│ │ 2. TypeScriptビルドチェック (npx tsc --noEmit)                                                                              │ │
+│ │ 3. 統合テスト実行                                                                                                           │ │
+│ │ 4. Hot Reload確認（サーバー停止不要）                                                                                       │ │
+│ │                                                                                                                             │ │
+│ │ 期待される改善点                                                                                                            │ │
+│ │                                                                                                                             │ │
+│ │ ✅ UI/UX向上: よりクリーンな3点メニューインターフェース                                                                      │ │
+│ │ ✅ 機能復活: ロールバック機能の復元                                                                                          │ │
+│ │ ✅ 同期信頼性: ペルソナ切り替えの確実な反映                                                                                  │ │
+│ │                                                                                 │ │
+│ │ ✅ 保守性向上: より堅牢なエラーハンドリング                                                                                  │ │
+│ │                                                                                                                             │ │
+│ │ 注意事項                                                                                                                    │ │
+│ │                                                                                                                             │ │
+│ │ - キャッシュ機能は既に削除済み（追加しない）                                                                                │ │
+│ │ - サーバー再起動は避ける（Hot Reload活用）                                                                                  │ │
+│ │ - 既存UI要素の削除は行わない                                                                                                │ │
+│ │ - LocalStorageの永続化設定は維持    

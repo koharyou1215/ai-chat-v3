@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>DropdownMenu Test</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            padding: 50px;
+            font-family: system-ui;
+        }
+        .message-container {
+            position: relative;
+            background: rgba(147, 51, 234, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 20px;
+            max-width: 600px;
+        }
+        .menu-button {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+        }
+        .menu-button:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .test-info {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        code {
+            background: rgba(0,0,0,0.5);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>DropdownMenu 動作テスト</h1>
+
+    <div class="test-info">
+        <h2>確認事項:</h2>
+        <ul>
+            <li>メッセージの右下に「⋮」アイコンがあるか</li>
+            <li>ホバーまたはクリックでメニューが表示されるか</li>
+            <li>z-indexが正しく機能しているか</li>
+        </ul>
+    </div>
+
+    <div class="message-container">
+        <p>これはテストメッセージです。</p>
+        <p>右下の三点メニューアイコンを確認してください。</p>
+        <button class="menu-button" onclick="alert('メニューボタンがクリックされました！')">
+            ⋮
+        </button>
+    </div>
+
+    <div class="test-info">
+        <h3>現在の問題:</h3>
+        <ul>
+            <li><code>showMenu || isLatest</code> の条件でメニューが表示されるはず</li>
+            <li>DropdownMenuのPortalが機能していない可能性</li>
+            <li>CSS z-indexの競合</li>
+        </ul>
+    </div>
+
+    <div class="test-info">
+        <h3>MessageBubble.tsx の該当箇所:</h3>
+        <pre><code>{(showMenu || isLatest) && (
+  &lt;div className="absolute bottom-2 z-50 pointer-events-auto"&gt;
+    &lt;DropdownMenu&gt;
+      &lt;DropdownMenuTrigger asChild&gt;
+        &lt;button&gt;
+          &lt;MoreHorizontal /&gt;
+        &lt;/button&gt;
+      &lt;/DropdownMenuTrigger&gt;
+      ...
+    &lt;/DropdownMenu&gt;
+  &lt;/div&gt;
+)}</code></pre>
+    </div>
+</body>
+</html>

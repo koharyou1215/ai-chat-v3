@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain } from 'lucide-react';
 import { EmotionResult, EmotionAnalyzer, MoodTimeline } from '@/services/emotion/EmotionAnalyzer';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useEffectSettings } from '@/hooks/useEffectSettings';
 
 interface EmotionDisplayProps {
   message: string;

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffectSettings } from '@/contexts/EffectSettingsContext';
+import { useEffectSettings } from '@/hooks/useEffectSettings';
 
 interface MessageEffectsProps {
   trigger: string;

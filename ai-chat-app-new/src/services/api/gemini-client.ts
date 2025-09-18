@@ -478,4 +478,24 @@ export class GeminiClient {
   }
 }
 
-export const geminiClient = new GeminiClient();
+// 遅延初期化パターンで、実際に使用されるまでインスタンスを作成しない
+let geminiClientInstance: GeminiClient | null = null;
+
+export const getGeminiClient = (): GeminiClient => {
+  if (!geminiClientInstance) {
+    geminiClientInstance = new GeminiClient();
+  }
+  return geminiClientInstance;
+};
+
+// 後方互換性のため、既存コードが動作するようにgetter経由でアクセス
+export const geminiClient = new Proxy({} as GeminiClient, {
+  get(target, prop) {
+    return getGeminiClient()[prop as keyof GeminiClient];
+  },
+  set(target, prop, value) {
+    const client = getGeminiClient();
+    (client as any)[prop] = value;
+    return true;
+  }
+});

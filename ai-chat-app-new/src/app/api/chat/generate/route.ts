@@ -6,15 +6,22 @@ import { debugLog } from '@/utils/debug-logger'; // debugLogをインポート
 export async function POST(request: Request) {
   debugLog("#### API Route: /api/chat/generate called (to file) ####"); // ファイルにログ出力
   console.log("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
+
+  // 変数をトップレベルで宣言（catch文からもアクセス可能にする）
+  let apiConfig: any;
+
   try {
     const body = await request.json();
     const {
       systemPrompt,
       userMessage,
       conversationHistory,
-      apiConfig,
+      apiConfig: requestApiConfig,
       textFormatting = "readable",
     } = body;
+
+    // apiConfigを代入
+    apiConfig = requestApiConfig;
 
     if (!userMessage) {
       return NextResponse.json(
@@ -351,7 +358,7 @@ export async function POST(request: Request) {
     console.error("🔍 Error message:", (error as Error).message);
     console.error("🔍 Error stack:", (error as Error).stack);
 
-    // APIキーの状態を確認
+    // APIキーの状態を確認（apiConfigが利用可能になった）
     console.error("🔑 API Key Status:");
     console.error("  - OpenRouter key provided:", !!apiConfig?.openRouterApiKey);
     console.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);

@@ -10,7 +10,7 @@ import {
   Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffectSettings } from "@/contexts/EffectSettingsContext";
+import { useEffectSettings } from "@/hooks/useEffectSettings";
 
 // Lazy import for heavy markdown processing
 const MarkdownRenderer = React.lazy(() =>
@@ -160,8 +160,10 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
 
       let processed = displayContent;
       
-      // 「」内のテキストを検出して特別なエフェクトを適用
-      processed = processed.replace(/「([^」]+)」/g, (match, text) => {
+      // フォントエフェクトが有効な場合のみ感情色付けを適用
+      if (effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 0) {
+        // 「」内のテキストを検出して特別なエフェクトを適用
+        processed = processed.replace(/「([^」]+)」/g, (match, text) => {
         // 感情に応じたエフェクトを決定
         let effectClass = "";
         let effectStyle = "";
@@ -216,7 +218,8 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         }
 
         return `<span class="${effectClass}" style="${effectStyle}">「${text}」</span>`;
-      });
+        });
+      }
       
       // フォントエフェクトが有効な場合、特定の重要な単語だけにグラデーションを適用
       if (effectSettings.fontEffects && effectSettings.fontEffectsIntensity > 30) {

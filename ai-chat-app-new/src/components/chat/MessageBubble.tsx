@@ -37,9 +37,12 @@ import {
   Edit,
   CornerUpLeft,
   X,
-  MoreVertical,
+  MoreHorizontal,
   ChevronRight,
   Image,
+  MessageSquare,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { UnifiedMessage } from "@/types";
 import { useAppStore } from "@/store";
@@ -65,6 +68,12 @@ import { EmotionReactions } from "@/components/emotion/EmotionDisplay";
 import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -142,12 +151,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const trackerManagers = useAppStore((state) => state.trackerManagers);
   const activeSessionId = useAppStore((state) => state.active_session_id);
   const rollbackSession = useAppStore((state) => state.rollbackSession);
+  const rollbackGroupSession = useAppStore((state) => state.rollbackGroupSession);
   const deleteMessage = useAppStore((state) => state.deleteMessage);
   const continueLastMessage = useAppStore((state) => state.continueLastMessage);
   const getSelectedCharacter = useAppStore(
     (state) => state.getSelectedCharacter
   );
   const addMessage = useAppStore((state) => (state as any).addMessage);
+  const sessions = useAppStore((state) => state.sessions);
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -430,14 +441,58 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // メッセージアクション: ロールバック
   const handleRollback = useCallback(async () => {
-    if (!confirm("この地点まで会話をロールバックしますか？")) return;
+    if (
+      !window.confirm(
+        "この地点まで会話をロールバックしますか？これより後のメッセージは全て削除されます。"
+      )
+    ) {
+      return;
+    }
 
     try {
-      await rollbackSession(message.id);
+      console.log("🔄 Rollback initiated", {
+        messageId: message.id,
+        sessionId: (message as any).session_id,
+        isGroupChat,
+        active_group_session_id,
+      });
+
+      if (isGroupChat && (message as any).session_id) {
+        console.log("📥 Using group rollback for message:", message.id);
+        rollbackGroupSession(message.id);
+      } else if (!isGroupChat && typeof activeSessionId === "string") {
+        console.log("👤 Using solo rollback for message:", message.id);
+        rollbackSession(message.id);
+      } else {
+        console.warn("⚠️ Ambiguous session context, attempting detection...");
+        if ((message as any).session_id && groupSessions.has((message as any).session_id)) {
+          console.log("🔍 Detected group session, using group rollback");
+          rollbackGroupSession(message.id);
+        } else if (typeof activeSessionId === "string") {
+          console.log("🔍 Fallback to solo rollback");
+          rollbackSession(message.id);
+        } else {
+          throw new Error("Unable to determine session context for rollback");
+        }
+      }
     } catch (error) {
-      console.error("ロールバックに失敗しました:", error);
+      console.error("❌ Rollback failed:", error);
+      alert(
+        `ロールバックに失敗しました: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
-  }, [rollbackSession, message.id]);
+  }, [
+    message.id,
+    rollbackSession,
+    rollbackGroupSession,
+    isGroupChat,
+    active_group_session_id,
+    activeSessionId,
+    groupSessions,
+    sessions,
+  ]);
 
   // テキスト選択イベント
   const handleTextSelection = useCallback(() => {
@@ -794,18 +849,17 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             )}
 
-            {/* メニューを相対位置で配置 - バブル内に移動 */}
+            {/* メインアクションメニュー - DropdownMenu形式 */}
             {(showMenu || isLatest) && (
               <div
                 className={cn(
-                  "absolute bottom-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
-                  isUser ? "right-full mr-1" : "left-full ml-1",
+                  "absolute bottom-2 z-[100] pointer-events-auto",
+                  isUser ? "right-2" : "left-2",
                   !showMenu && isLatest
-                    ? "opacity-50 hover:opacity-100 transition-opacity"
+                    ? "opacity-60 hover:opacity-100 transition-opacity"
                     : ""
                 )}
                 onMouseEnter={() => {
-                  // メニューにホバーしたらタイマーをクリア
                   if (menuTimeoutRef.current) {
                     clearTimeout(menuTimeoutRef.current);
                     menuTimeoutRef.current = null;
@@ -813,106 +867,93 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   setShowMenu(true);
                 }}
                 onMouseLeave={() => {
-                  // メニューから離れても遅延して非表示
                   menuTimeoutRef.current = setTimeout(() => {
                     setShowMenu(false);
                   }, 200);
                 }}>
-                <div className="bg-slate-900/95 backdrop-blur-sm border border-white/10 rounded-lg p-1 shadow-xl hover:shadow-2xl transition-shadow duration-200">
-                  {/* 基本アクション */}
-                  <button
-                    onClick={handleCopy}
-                    className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors"
-                    title="コピー">
-                    <Copy className="w-4 h-4" />
-                  </button>
-
-                  {/* 音声再生（アシスタントメッセージのみ） */}
-                  {isAssistant && voice.autoPlay && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <button
-                      onClick={handleSpeak}
-                      className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors"
-                      title={isPlaying ? "停止" : "再生"}>
-                      {isPlaying ? (
-                        <VolumeX className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
+                      className="p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200">
+                      <MoreHorizontal className="w-4 h-4" />
                     </button>
-                  )}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    side="top"
+                    className={cn(
+                      "min-w-[180px] z-50",
+                      "bg-gray-900/95 border-gray-700",
+                      "backdrop-blur-sm shadow-2xl",
+                      "animate-in slide-in-from-top-2 fade-in-0 duration-200"
+                    )}
+                    sideOffset={8}
+                    avoidCollisions={true}
+                    collisionPadding={16}>
 
-                  {/* 編集ボタン */}
-                  <button
-                    onClick={handleEdit}
-                    className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors"
-                    title="編集">
-                    <Edit className="w-4 h-4" />
-                  </button>
-
-                  {/* 再生成（アシスタントの最後のメッセージのみ） */}
-                  {canRegenerate && (
-                    <button
-                      onClick={handleRegenerate}
-                      className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors"
-                      title="再生成"
-                      disabled={isRegenerating}>
-                      <RefreshCw
-                        className={cn(
-                          "w-4 h-4",
-                          isRegenerating && "animate-spin"
+                    {/* アシスタントメッセージ用メニュー */}
+                    {isAssistant && (
+                      <>
+                        <DropdownMenuItem onClick={handleRollback}>
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          ロールバック
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleContinue} disabled={isContinuing}>
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          続きを生成
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleRegenerate} disabled={isRegenerating}>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          再生成
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopy()}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          コピー
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleGenerateImage}
+                          disabled={isGeneratingImage}>
+                          <Image className={cn("h-4 w-4 mr-2", isGeneratingImage && "animate-pulse")} />
+                          {isGeneratingImage ? "画像生成中..." : "画像を生成"}
+                        </DropdownMenuItem>
+                        {voice.autoPlay && (
+                          <DropdownMenuItem
+                            onClick={handleSpeak}
+                            disabled={!message.content || !message.content.trim()}>
+                            <Volume2 className={cn("h-4 w-4 mr-2", isSpeaking && "animate-pulse text-blue-500")} />
+                            {isSpeaking ? "読み上げ中..." : "読み上げ"}
+                          </DropdownMenuItem>
                         )}
-                      />
-                    </button>
-                  )}
+                        <DropdownMenuItem
+                          onClick={handleDelete}
+                          className="text-red-600">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          削除
+                        </DropdownMenuItem>
+                      </>
+                    )}
 
-                  {/* 続きを生成（アシスタントの最後のメッセージのみ） */}
-                  {canContinue && (
-                    <button
-                      onClick={handleContinue}
-                      className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors"
-                      title="続きを生成"
-                      disabled={isContinuing}>
-                      <ChevronRight
-                        className={cn(
-                          "w-4 h-4",
-                          isContinuing && "animate-pulse"
-                        )}
-                      />
-                    </button>
-                  )}
-
-                  {/* 画像生成（アシスタントメッセージのみ） */}
-                  {isAssistant && (
-                    <button
-                      onClick={handleGenerateImage}
-                      className="p-2 rounded-md hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 transition-colors"
-                      title="シーンを画像生成"
-                      disabled={isGeneratingImage}>
-                      <Image
-                        className={cn(
-                          "w-4 h-4",
-                          isGeneratingImage && "animate-pulse"
-                        )}
-                        alt="Generated Image"
-                      />
-                    </button>
-                  )}
-
-                  {/* 削除・ロールバック */}
-                  <div className="w-full h-px bg-white/5" />
-                  <button
-                    onClick={handleDelete}
-                    className="p-2 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-                    title="削除">
-                    <X className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleRollback}
-                    className="p-2 rounded-md hover:bg-orange-500/20 text-orange-400 hover:text-orange-300 transition-colors"
-                    title="ここまでロールバック">
-                    <CornerUpLeft className="w-4 h-4" />
-                  </button>
-                </div>
+                    {/* ユーザーメッセージ用メニュー */}
+                    {isUser && (
+                      <>
+                        <DropdownMenuItem onClick={() => handleCopy()}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          コピー
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleEdit}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          編集
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleDelete}
+                          className="text-red-600">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          削除
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
