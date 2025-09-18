@@ -872,7 +872,7 @@ ${groupSession.scenario ? `- **現在のシナリオ:** ${groupSession.scenario.
 
   // 互換性エイリアス: 旧 API 名 `updateSessionCharacters` を使用する外部コードのためのラッパー
   updateSessionCharacters: (sessionId: UUID, newCharacters: Character[]) => {
-    // @ts-ignore - 互換性ラッパー
+    // @ts-expect-error - 互換性ラッパー
     get().updateGroupMembers(sessionId, newCharacters);
   },
 
