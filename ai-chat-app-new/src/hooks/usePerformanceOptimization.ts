@@ -3,7 +3,13 @@
  * Provides intelligent memoization, performance monitoring, and optimization suggestions
  */
 
-import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  useState,
+} from "react";
 
 // ===== PERFORMANCE METRICS =====
 
@@ -62,7 +68,8 @@ class ComponentPerformanceMonitor {
       ...current,
       renderCount: current.renderCount + 1,
       lastRenderTime: renderTime,
-      averageRenderTime: timings.reduce((sum, time) => sum + time, 0) / timings.length,
+      averageRenderTime:
+        timings.reduce((sum, time) => sum + time, 0) / timings.length,
       componentSize: this.estimateComponentSize(componentName),
     };
 
@@ -72,11 +79,11 @@ class ComponentPerformanceMonitor {
   private estimateComponentSize(componentName: string): number {
     // Rough estimation based on component complexity
     const complexity = {
-      'MessageBubble': 50,
-      'ChatInterface': 100,
-      'SettingsModal': 150,
-      'ProgressiveMessageBubble': 80,
-      'TrackerDisplay': 60,
+      MessageBubble: 50,
+      ChatInterface: 100,
+      SettingsModal: 150,
+      ProgressiveMessageBubble: 80,
+      TrackerDisplay: 60,
     };
 
     return complexity[componentName as keyof typeof complexity] || 30;
@@ -170,7 +177,8 @@ export function usePerformanceOptimization(componentName: string) {
   // Simpler implementation that avoids using hooks inside callbacks.
   const smartMemo = useCallback(
     <T>(factory: () => T, threshold: number = 3): T => {
-      const shouldMemoize = renderCountRef.current > threshold || !isOptimizationEnabled;
+      const shouldMemoize =
+        renderCountRef.current > threshold || !isOptimizationEnabled;
       // We don't run React hooks here; return factory result. Callers can
       // choose to wrap with useMemo at their callsite if needed.
       return factory();
@@ -179,24 +187,27 @@ export function usePerformanceOptimization(componentName: string) {
   );
 
   // Performance metrics
-  const metrics = useMemo(() =>
-    globalMonitor.getMetrics(componentName),
+  const metrics = useMemo(
+    () => globalMonitor.getMetrics(componentName),
     [componentName]
   );
 
   // Optimization suggestions
-  const suggestions = useMemo(() =>
-    globalMonitor.getSuggestions(componentName),
+  const suggestions = useMemo(
+    () => globalMonitor.getSuggestions(componentName),
     [componentName, metrics]
   );
 
   // Performance controls
-  const controls = useMemo(() => ({
-    enableOptimization: () => setIsOptimizationEnabled(true),
-    disableOptimization: () => setIsOptimizationEnabled(false),
-    clearMetrics: () => globalMonitor.clearMetrics(componentName),
-    getAllMetrics: () => globalMonitor.getAllMetrics(),
-  }), [componentName]);
+  const controls = useMemo(
+    () => ({
+      enableOptimization: () => setIsOptimizationEnabled(true),
+      disableOptimization: () => setIsOptimizationEnabled(false),
+      clearMetrics: () => globalMonitor.clearMetrics(componentName),
+      getAllMetrics: () => globalMonitor.getAllMetrics(),
+    }),
+    [componentName]
+  );
 
   // Throttled function creator (uses ref maps to avoid calling hooks inside
   // nested functions). The maps allow per-callback state tracking.
@@ -205,7 +216,10 @@ export function usePerformanceOptimization(componentName: string) {
   const throttledLastCallRef = useRef<WeakMap<AnyFn, number>>(new WeakMap());
 
   const createThrottledCallback = useCallback(
-    <T extends (...args: any[]) => any>(callback: T, delay: number = 100): T => {
+    <T extends (...args: any[]) => any>(
+      callback: T,
+      delay: number = 100
+    ): T => {
       return ((...args: Parameters<T>) => {
         const last = throttledLastCallRef.current.get(callback) || 0;
         const now = Date.now();
@@ -221,10 +235,15 @@ export function usePerformanceOptimization(componentName: string) {
   // Debounced function creator (stores timeouts in a WeakMap keyed by the
   // original callback to preserve per-callback state without using hooks
   // inside nested functions).
-  const debouncedTimeoutRef = useRef<WeakMap<AnyFn, NodeJS.Timeout>>(new WeakMap());
+  const debouncedTimeoutRef = useRef<WeakMap<AnyFn, NodeJS.Timeout>>(
+    new WeakMap()
+  );
 
   const createDebouncedCallback = useCallback(
-    <T extends (...args: any[]) => any>(callback: T, delay: number = 300): T => {
+    <T extends (...args: any[]) => any>(
+      callback: T,
+      delay: number = 300
+    ): T => {
       return ((...args: Parameters<T>) => {
         const existing = debouncedTimeoutRef.current.get(callback);
         if (existing) {
@@ -235,7 +254,10 @@ export function usePerformanceOptimization(componentName: string) {
           callback(...args);
         }, delay);
 
-        debouncedTimeoutRef.current.set(callback, t as unknown as NodeJS.Timeout);
+        debouncedTimeoutRef.current.set(
+          callback,
+          t as unknown as NodeJS.Timeout
+        );
       }) as T;
     },
     []
@@ -305,15 +327,16 @@ export function withPerformanceOptimization<T extends object>(
   };
 
   const OptimizedComponent = React.memo((props: T) => {
-    const {
-      metrics,
-      suggestions,
-      controls,
-    } = usePerformanceOptimization(componentName);
+    const { metrics, suggestions, controls } =
+      usePerformanceOptimization(componentName);
 
     // Log performance suggestions in development
     useEffect(() => {
-      if (process.env.NODE_ENV === 'development' && config.enableSuggestions && suggestions) {
+      if (
+        process.env.NODE_ENV === "development" &&
+        config.enableSuggestions &&
+        suggestions
+      ) {
         const activeSuggestions = Object.entries(suggestions)
           .filter(([, enabled]) => enabled)
           .map(([suggestion]) => suggestion);
@@ -339,18 +362,21 @@ export function withPerformanceOptimization<T extends object>(
 
 export class PerformanceAnalytics {
   static logComponentMetrics(componentName?: string) {
-    if (process.env.NODE_ENV !== 'development') return;
+    if (process.env.NODE_ENV !== "development") return;
 
     const metrics = componentName
       ? globalMonitor.getMetrics(componentName)
       : globalMonitor.getAllMetrics();
 
-    console.group('🚀 Component Performance Metrics');
+    console.group("🚀 Component Performance Metrics");
 
     if (componentName) {
       if (metrics) {
         console.table(metrics);
-        console.log('Suggestions:', globalMonitor.getSuggestions(componentName));
+        console.log(
+          "Suggestions:",
+          globalMonitor.getSuggestions(componentName)
+        );
       } else {
         console.log(`No metrics found for ${componentName}`);
       }
@@ -376,7 +402,7 @@ export class PerformanceAnalytics {
 
 // ===== DEVELOPMENT HELPERS =====
 
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === "development") {
   // Expose performance tools to window for debugging
   (globalThis as any).performanceTools = {
     monitor: globalMonitor,

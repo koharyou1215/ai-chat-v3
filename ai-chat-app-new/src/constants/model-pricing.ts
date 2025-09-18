@@ -158,29 +158,54 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     contextWindow: 128000,
     description: "Alibabaの高性能モデル",
   },
+
   {
-    id: "qwen/qwen3-30b-a3b-thinking-2507",
-    name: "Qwen3 30B A3B Thinking",
+    id: "qwen/qwen-plus-2025-07-28:thinking",
+    name: "qwen-plus-2025-07-28:thinking",
     provider: "openrouter",
     pricing: {
-      input: 0.0000008, // $0.80 per 1M tokens
-      output: 0.0000008, // $0.80 per 1M tokens
+      input: 0.0000004, // $0.40 per 1M tokens
+      output: 0.000004, // $4.0 per 1M tokens
       currency: "USD",
     },
     contextWindow: 128000,
     description: "思考プロセスを可視化するモデル",
   },
   {
-    id: "qwen/qwen3-30b-a3b-instruct-2507",
-    name: "Qwen3 30B A3B",
+    id: "qwen/qwen-plus-2025-07-28",
+    name: "qwen-plus-2025-07-28",
     provider: "openrouter",
     pricing: {
-      input: 0.0000008, // $0.80 per 1M tokens
+      input: 0.0000004, // $0.40 per 1M tokens
+      output: 0.0000012, // $1.20 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "思考プロセスを可視化するモデル",
+  },
+  {
+    id: "qwen/qwen3-next-80b-a3b-instruct",
+    name: "qwen3-next-80b-a3b-instruct",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000001, // $0.10 per 1M tokens
       output: 0.0000008, // $0.80 per 1M tokens
       currency: "USD",
     },
     contextWindow: 128000,
     description: "指示に従うことに特化したモデル",
+  },
+  {
+    id: "qwen/qwen3-next-80b-a3b-thinking",
+    name: "qwen3-next-80b-a3b-thinking",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000004, // $0.40 per 1M tokens
+      output: 0.0000012, // $1.20 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "思考プロセスを可視化するモデル",
   },
   {
     id: "x-ai/grok-code-fast-1",
@@ -259,5 +284,3 @@ export const formatPricePerMillion = (
   }
   return `$${pricePerMillion.toFixed(2)}`;
 };
-
-
