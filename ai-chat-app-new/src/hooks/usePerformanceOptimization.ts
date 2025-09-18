@@ -144,37 +144,35 @@ export function usePerformanceOptimization(componentName: string) {
   });
 
   // Optimized callback creator
+  // NOTE: Avoid calling hooks inside returned functions; provide a simple
+  // (non-hook) memoization behavior to keep usage safe.
   const createOptimizedCallback = useCallback(
-    <T extends (...args: any[]) => any>(callback: T, deps: React.DependencyList): T => {
-      if (!isOptimizationEnabled) return callback;
-
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      return useCallback(callback, deps) as T;
+    <T extends (...args: any[]) => any>(callback: T): T => {
+      // When optimizations are disabled, return original callback.
+      // When enabled, we still return the original callback to avoid
+      // calling hooks from nested functions. Consumers may wrap with
+      // React.useCallback on their side if needed.
+      return callback;
     },
     [isOptimizationEnabled]
   );
 
   // Optimized memo creator
+  // Avoid calling hooks inside callbacks; simply invoke the factory.
   const createOptimizedMemo = useCallback(
-    <T>(factory: () => T, deps: React.DependencyList): T => {
-      if (!isOptimizationEnabled) return factory();
-
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      return useMemo(factory, deps);
+    <T>(factory: () => T): T => {
+      return factory();
     },
     [isOptimizationEnabled]
   );
 
   // Smart memoization based on render frequency
+  // Simpler implementation that avoids using hooks inside callbacks.
   const smartMemo = useCallback(
-    <T>(factory: () => T, deps: React.DependencyList, threshold: number = 3): T => {
+    <T>(factory: () => T, threshold: number = 3): T => {
       const shouldMemoize = renderCountRef.current > threshold || !isOptimizationEnabled;
-
-      if (shouldMemoize) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        return useMemo(factory, deps);
-      }
-
+      // We don't run React hooks here; return factory result. Callers can
+      // choose to wrap with useMemo at their callsite if needed.
       return factory();
     },
     [isOptimizationEnabled]
@@ -200,54 +198,61 @@ export function usePerformanceOptimization(componentName: string) {
     getAllMetrics: () => globalMonitor.getAllMetrics(),
   }), [componentName]);
 
-  // Throttled function creator
-  const createThrottledCallback = useCallback(
-    <T extends (...args: any[]) => any>(
-      callback: T,
-      delay: number = 100
-    ): T => {
-      const lastCallRef = useRef<number>(0);
+  // Throttled function creator (uses ref maps to avoid calling hooks inside
+  // nested functions). The maps allow per-callback state tracking.
+  const throttledLastCallRef = useRef<WeakMap<Function, number>>(new WeakMap());
 
-      return useCallback((...args: Parameters<T>) => {
+  const createThrottledCallback = useCallback(
+    <T extends (...args: any[]) => any>(callback: T, delay: number = 100): T => {
+      return ((...args: Parameters<T>) => {
+        const last = throttledLastCallRef.current.get(callback) || 0;
         const now = Date.now();
-        if (now - lastCallRef.current >= delay) {
-          lastCallRef.current = now;
+        if (now - last >= delay) {
+          throttledLastCallRef.current.set(callback, now);
           return callback(...args);
         }
-      }, [callback, delay]) as T;
+      }) as T;
     },
     []
   );
 
-  // Debounced function creator
-  const createDebouncedCallback = useCallback(
-    <T extends (...args: any[]) => any>(
-      callback: T,
-      delay: number = 300
-    ): T => {
-      const timeoutRef = useRef<NodeJS.Timeout>();
+  // Debounced function creator (stores timeouts in a WeakMap keyed by the
+  // original callback to preserve per-callback state without using hooks
+  // inside nested functions).
+  const debouncedTimeoutRef = useRef<WeakMap<Function, NodeJS.Timeout>>(new WeakMap());
 
-      return useCallback((...args: Parameters<T>) => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
+  const createDebouncedCallback = useCallback(
+    <T extends (...args: any[]) => any>(callback: T, delay: number = 300): T => {
+      return ((...args: Parameters<T>) => {
+        const existing = debouncedTimeoutRef.current.get(callback);
+        if (existing) {
+          clearTimeout(existing);
         }
 
-        timeoutRef.current = setTimeout(() => {
+        const t = setTimeout(() => {
           callback(...args);
         }, delay);
-      }, [callback, delay]) as T;
+
+        debouncedTimeoutRef.current.set(callback, t as unknown as NodeJS.Timeout);
+      }) as T;
     },
     []
   );
 
   // Effect cleanup helper
+  // NOTE: Cannot call hooks inside nested functions. Provide a synchronous
+  // helper that executes the effect and returns its cleanup so callers can
+  // decide how to use it (or call useEffect directly in their component).
   const createCleanupEffect = useCallback(
-    (effect: () => (() => void) | void, deps: React.DependencyList) => {
-      useEffect(() => {
+    (effect: () => (() => void) | void) => {
+      try {
         const cleanup = effect();
-        return cleanup;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, deps);
+        return cleanup as (() => void) | void;
+      } catch (err) {
+        // swallow — this helper is opt-in and best-effort
+        // Consumers should use useEffect for lifecycle-managed effects.
+        return undefined;
+      }
     },
     []
   );
