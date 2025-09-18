@@ -46,10 +46,11 @@ export const CharacterReselectionModal: React.FC<CharacterReselectionModalProps>
     }
   }, [session]);
   
-  const availableCharacters = useMemo(() => 
-    Array.from(characters.values()).filter(char => char.is_active),
-    [characters]
-  );
+  const availableCharacters = useMemo(() => {
+    // characters may be a Map (normal) or a plain object (after some persistence flows).
+    const list = characters instanceof Map ? Array.from(characters.values()) : Object.values(characters || {});
+    return list.filter((char: any) => char?.is_active);
+  }, [characters]);
 
   // 変更プレビューの計算
   const changePreview = useMemo((): CharacterChangePreview => {
