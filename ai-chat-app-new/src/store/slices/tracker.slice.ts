@@ -1,19 +1,20 @@
 import { StateCreator } from 'zustand';
-import { 
-  TrackerDefinition, 
-  TrackerInstance, 
-  TrackerHistoryEntry, 
-  TrackerCategory, 
+import {
+  TrackerDefinition,
+  TrackerInstance,
+  TrackerHistoryEntry,
+  TrackerCategory,
   TrackerType,
-  UUID 
+  UUID
 } from '@/types';
-import type { 
-  NumericTrackerConfig, 
-  StateTrackerConfig, 
-  BooleanTrackerConfig, 
-  TextTrackerConfig 
+import type {
+  NumericTrackerConfig,
+  StateTrackerConfig,
+  BooleanTrackerConfig,
+  TextTrackerConfig
 } from '@/types/core/tracker.types';
 import { generateTrackerId, generateInstanceId, generateHistoryId } from '@/utils/uuid';
+import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface TrackerSlice {
   tracker_definitions: Map<UUID, TrackerDefinition>;
@@ -137,8 +138,10 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
       version: 1,
       definition_id,
       session_id,
-      character_id,
+      character_id: character_id || '',
       current_value: initial_value,
+      history: [],
+      last_updated: new Date().toISOString(),
       metadata: {}
     };
     
@@ -152,42 +155,55 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
   },
   
   updateTrackerValue: (instance_id, new_value, reason = '手動更新') => {
+    const state = get();
+    const instance = state.tracker_instances.get(instance_id);
+    if (!instance) return;
+
+    const old_value = instance.current_value;
+    const timestamp = new Date().toISOString();
+
+    // インスタンスを更新
+    const updatedInstance = {
+      ...instance,
+      current_value: new_value,
+      updated_at: timestamp,
+      last_updated: timestamp,
+      version: instance.version + 1
+    };
+
+    // 履歴エントリを作成
+    const historyEntry: TrackerHistoryEntry = {
+      id: generateHistoryId(),
+      created_at: timestamp,
+      updated_at: timestamp,
+      version: 1,
+      timestamp: timestamp,
+      value: new_value,
+      changed_by: 'user',
+      reason,
+      metadata: { old_value, instance_id: instance_id }
+    };
+
+    // 履歴に追加
+    if (!updatedInstance.history) {
+      updatedInstance.history = [];
+    }
+    updatedInstance.history.push(historyEntry);
+
+    // セッションストレージに保存
+    if (instance.session_id) {
+      sessionStorageService.saveTrackerInstance(instance.session_id, updatedInstance);
+    }
+
     set(state => {
-      const instance = state.tracker_instances.get(instance_id);
-      if (!instance) return state;
-      
-      const old_value = instance.current_value;
-      const timestamp = new Date().toISOString();
-      
-      // インスタンスを更新
-      const updatedInstance = {
-        ...instance,
-        current_value: new_value,
-        updated_at: timestamp,
-        version: instance.version + 1
-      };
-      
-      // 履歴エントリを作成
-      const historyEntry: TrackerHistoryEntry = {
-        id: generateHistoryId(),
-        created_at: timestamp,
-        updated_at: timestamp,
-        version: 1,
-        timestamp: timestamp,
-        value: new_value,
-        changed_by: 'user',
-        reason,
-        metadata: { old_value, instance_id: instance_id }
-      };
-      
       const newInstances = new Map(state.tracker_instances);
       newInstances.set(instance_id, updatedInstance);
-      
+
       const newHistory = new Map(state.tracker_history);
       const instanceHistory = newHistory.get(instance_id) || [];
       instanceHistory.push(historyEntry);
       newHistory.set(instance_id, instanceHistory);
-      
+
       return {
         tracker_instances: newInstances,
         tracker_history: newHistory
@@ -197,10 +213,6 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
     // トラッカー値はセッション固有のデータのため、キャラクター定義ファイルには保存しない
     // キャラクター定義ファイルにはトラッカーの定義（名前、タイプ、初期値など）のみを保存し、
     // 実際の値（current_value）はセッションデータとして管理する
-    //
-    // 注意: 以前のバージョンではトラッカー更新時に自動保存していたが、
-    // これは設計上の誤りであったため削除しました。
-    // トラッカー値はチャット履歴とともにセッションデータとして保存されます。
   },
   
   getTrackerInstance: (id) => {

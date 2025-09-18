@@ -162,7 +162,7 @@ const OptimizedSettingsModalComponent: React.FC<OptimizedSettingsModalProps> = (
       icon: Wrench,
       description: 'システムとデバッグ設定'
     }
-  ], []);
+  ]);
 
   // Optimized tab change handler with preloading
   const handleTabChange = createOptimizedCallback(async (newTab: SettingsTab) => {
@@ -180,7 +180,7 @@ const OptimizedSettingsModalComponent: React.FC<OptimizedSettingsModalProps> = (
       setActiveTab(newTab);
       setIsTransitioning(false);
     }, 150);
-  }, [activeTab, isTransitioning, loadedPanels]);
+  });
 
   // Preload adjacent panels on hover
   const preloadAdjacentPanels = createOptimizedCallback((hoveredTab: SettingsTab) => {
@@ -198,7 +198,7 @@ const OptimizedSettingsModalComponent: React.FC<OptimizedSettingsModalProps> = (
     if (newPanelsToLoad.length > 0) {
       setLoadedPanels(prev => new Set([...prev, ...newPanelsToLoad]));
     }
-  }, [tabConfig, loadedPanels]);
+  });
 
   // Initialize with the initial tab
   useEffect(() => {
@@ -230,13 +230,13 @@ const OptimizedSettingsModalComponent: React.FC<OptimizedSettingsModalProps> = (
         </motion.div>
       </Suspense>
     );
-  }, [activeTab, loadedPanels]);
+  });
 
   // Handle modal close with cleanup
   const handleClose = createOptimizedCallback(() => {
     setIsTransitioning(false);
     onClose();
-  }, [onClose]);
+  });
 
   // Keyboard navigation
   useEffect(() => {

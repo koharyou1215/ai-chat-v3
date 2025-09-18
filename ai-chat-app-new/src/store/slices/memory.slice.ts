@@ -1,7 +1,8 @@
 import { StateCreator } from 'zustand';
-import { MemoryCard, UUID, UnifiedMessage } from '@/types';
+import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType } from '@/types';
 import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
 import { generateMemoryId } from '@/utils/uuid';
+import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface MemorySlice {
   memory_cards: Map<UUID, MemoryCard>;
@@ -19,7 +20,7 @@ export interface MemorySlice {
   // メモリーカードの取得・検索
   getMemoryCard: (id: UUID) => MemoryCard | undefined;
   getPinnedMemories: () => MemoryCard[];
-  getMemoriesByCategory: (category: MemoryCategory) => MemoryCard[];
+  getMemoriesByCategory: (category: MemoryCategoryType) => MemoryCard[];
   getMemoriesBySession: (session_id: UUID) => MemoryCard[];
   searchMemories: (query: string) => MemoryCard[];
 
@@ -41,12 +42,6 @@ export interface MemorySlice {
   addMessageToLayers: (message: UnifiedMessage) => void;
 }
 
-export interface MemoryCategory {
-  id: string;
-  name: string;
-  color: string;
-}
-
 export interface MemoryStatistics {
   totalCards: number;
   pinnedCards: number;
@@ -54,7 +49,7 @@ export interface MemoryStatistics {
 }
 
 export interface MemoryCardFilter {
-  categories?: MemoryCategory[];
+  categories?: MemoryCategoryType[];
   minImportance?: number;
   dateRange?: { start: Date; end: Date };
   keywords?: string[];
@@ -179,7 +174,6 @@ export const createMemorySlice: StateCreator<
           character_id,
           source_message_ids: message_ids,
           original_message_ids: message_ids,
-          is_verified: false,
 
           // AI生成された内容
           title:
@@ -189,14 +183,16 @@ export const createMemorySlice: StateCreator<
             generatedContent.summary ||
             "複数のメッセージから自動生成された要約です。",
           keywords: generatedContent.keywords || ["会話", "要約", "自動生成"],
-          category: generatedContent.category || "other",
+          category: (generatedContent.category || "other") as MemoryCategoryType,
           original_content:
             generatedContent.original_content ||
             `メッセージID: ${message_ids.join(", ")}`,
 
+          auto_tags: [],
+
           // メタデータ
           importance: {
-            score: (generatedContent as any).importance_score || 5.0,
+            score: (generatedContent as { importance_score?: number }).importance_score || 5.0,
             factors: {
               emotional_weight: 5.0,
               repetition_count: 1,
@@ -204,22 +200,23 @@ export const createMemorySlice: StateCreator<
               ai_judgment: 5.0,
             },
           },
+          confidence: 0.8,
+          is_edited: false,
+          is_verified: false,
           is_pinned: false,
-          // is_bookmarkedは削除（is_pinnedで代替）
+          is_hidden: false,
         };
+
+        // セッションストレージに保存
+        sessionStorageService.saveMemoryCard(session_id, newMemoryCard);
 
         // ストアに追加
         set((state) => {
           const newMemoryCards = new Map(state.memory_cards);
           newMemoryCards.set(newMemoryCard.id, newMemoryCard);
 
-          // ローカルストレージにも保存
-          try {
-            const memoryCardsArray = Array.from(newMemoryCards.values());
-            localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
-          } catch (error) {
-            console.error("Failed to save memory cards to localStorage:", error);
-          }
+          // セッション固有データとして管理（キャラクター定義には保存しない）
+          // LocalStorageへの保存は削除（セッションストレージで管理）
 
           return {
             ...state,
@@ -227,7 +224,7 @@ export const createMemorySlice: StateCreator<
           };
         });
 
-        console.log(`✅ Created memory card: ${newMemoryCard.title}`);
+        console.log(`✅ Created memory card: ${newMemoryCard.title} for session: ${session_id}`);
         return newMemoryCard;
 
       } catch (error) {
@@ -311,7 +308,7 @@ export const createMemorySlice: StateCreator<
       );
     },
 
-    getMemoriesByCategory: (category: MemoryCategory) => {
+    getMemoriesByCategory: (category: MemoryCategoryType) => {
       const state = get();
       return Array.from(state.memory_cards.values()).filter(
         (memory) => memory.category === category
@@ -346,9 +343,8 @@ export const createMemorySlice: StateCreator<
       let memories = Array.from(state.memory_cards.values());
 
       if (filters.categories && filters.categories.length > 0) {
-        const categoryIds = filters.categories.map((cat) => cat.id);
         memories = memories.filter((memory) =>
-          categoryIds.includes(memory.category)
+          filters.categories!.includes(memory.category)
         );
       }
 

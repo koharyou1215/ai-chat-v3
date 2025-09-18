@@ -59,7 +59,8 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
 
             if (session && persona && updateSession) {
                 // updateSession()メソッドパターン実装
-                updateSession(activeSessionId, {
+                updateSession({
+                    id: activeSessionId,
                     participants: {
                         ...session.participants,
                         user: persona
@@ -82,7 +83,15 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                             content,
                             timestamp: Date.now(),
                             memory: {
-                                importance: { score: 0.1, factors: {} },
+                                importance: {
+                                    score: 0.1,
+                                    factors: {
+                                        emotional_weight: 0,
+                                        repetition_count: 0,
+                                        user_emphasis: 0,
+                                        ai_judgment: 0,
+                                    }
+                                },
                                 is_pinned: false,
                                 is_bookmarked: false,
                                 keywords: [],
@@ -104,7 +113,7 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                         };
 
                         const updatedMessages = [...currentSession.messages, systemMsg];
-                        updateSession(sessionId, { messages: updatedMessages });
+                        updateSession({ id: sessionId, messages: updatedMessages });
                     } catch (error) {
                         console.error('[PersonaSlice] Error adding system message:', error);
                     }

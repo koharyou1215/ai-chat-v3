@@ -5,6 +5,7 @@ import {
   Character,
   Persona,
   UnifiedMessage,
+  RetentionPolicy,
 } from "@/types";
 import { AppStore } from "@/store";
 // Import will be done dynamically to avoid circular dependencies
@@ -127,7 +128,7 @@ export const createSessionManagement: StateCreator<
         episodic_memory: {
           messages: [],
           max_size: 50,
-          retention_policy: "relevance",
+          retention_policy: "hybrid" as RetentionPolicy,
           last_accessed: "",
           access_count: 0,
         },
@@ -149,8 +150,19 @@ export const createSessionManagement: StateCreator<
         mood_state: { current: "neutral", intensity: 0.5 },
       },
       context: {
+        session_id: newSession.id,
         current_topic: "greeting",
-        // ... other context properties
+        current_emotion: { emotion: "neutral", intensity: 0.5, confidence: 0.8 },
+        current_mood: { type: "neutral", intensity: 0.5, stability: 0.8 },
+        recent_messages: [],
+        recent_topics: [],
+        recent_emotions: [],
+        relevant_memories: [],
+        pinned_memories: [],
+        next_likely_topics: [],
+        suggested_responses: [],
+        context_quality: 1.0,
+        coherence_score: 1.0,
       },
       session_info: {
         title: `${character.name}との会話`,
@@ -158,8 +170,13 @@ export const createSessionManagement: StateCreator<
         tags: ["new-conversation", character.name.toLowerCase()],
       },
       statistics: {
-        user_engagement: 0.8,
-        conversation_quality: 0.9,
+        message_count: 0,
+        start_time: Date.now().toString(),
+        end_time: Date.now().toString(),
+        duration_seconds: 0,
+        user_message_count: 0,
+        assistant_message_count: 0,
+        average_response_time_ms: 0,
       },
     };
 

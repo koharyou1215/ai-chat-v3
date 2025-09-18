@@ -137,7 +137,9 @@ export const createProgressiveHandler: StateCreator<
       regeneration_count: 0,
       // 🔧 FIX: ProgressiveMessage専用のmetadata
       metadata: {
-        progressive: true, // MessageBubbleが検出するためのフラグ
+        totalTokens: 0,
+        totalTime: 0,
+        stageTimings: {},
         progressiveData: {
           // ProgressiveMessageBubbleが必要とするデータ
           stages: {},
@@ -145,7 +147,6 @@ export const createProgressiveHandler: StateCreator<
           transitions: {},
           ui: {
             isUpdating: true,
-            showIndicator: true,
             glowIntensity: "soft",
             highlightChanges: true,
           },
@@ -155,9 +156,6 @@ export const createProgressiveHandler: StateCreator<
             stageTimings: {},
           },
         },
-        totalTokens: 0,
-        totalTime: 0,
-        stageTimings: {},
       },
       // Progressive specific fields
       stages: {},
@@ -268,9 +266,9 @@ export const createProgressiveHandler: StateCreator<
         const reflexResponse =
           typeof reflexResult === "string"
             ? reflexResult
-            : reflexResult.content;
+            : (reflexResult as any).content || reflexResult;
         const reflexUsage =
-          typeof reflexResult === "object" ? reflexResult.usage : undefined;
+          typeof reflexResult === "object" ? (reflexResult as any).usage : undefined;
 
         console.log(
           "✨ Stage 1 Response received:",
@@ -292,7 +290,13 @@ export const createProgressiveHandler: StateCreator<
           progressiveData: {
             ...progressiveMessage.metadata.progressiveData,
             stages: progressiveMessage.stages,
-            currentStage: "reflex",
+            currentStage: "reflex" as const,
+            transitions: progressiveMessage.metadata.progressiveData?.transitions || {},
+            ui: progressiveMessage.metadata.progressiveData?.ui || {
+              isUpdating: true,
+              glowIntensity: "soft",
+              highlightChanges: true,
+            },
             metadata: {
               totalTokens: reflexPrompt.tokenLimit,
               totalTime: Date.now() - startTime,

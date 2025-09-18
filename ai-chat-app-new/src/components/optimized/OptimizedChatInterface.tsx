@@ -280,7 +280,7 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   // Optimized window resize handler
   const handleResize = createOptimizedCallback(() => {
     setWindowWidth(window.innerWidth);
-  }, []);
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -300,7 +300,7 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, []);
+  });
 
   // Memoized side panel tabs with optimized loading
   const sidePanelTabs = smartMemo(() => [
@@ -344,7 +344,7 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
         </Suspense>
       ),
     },
-  ], [displaySessionId, currentCharacterId]);
+  ]);
 
   // Optimized scroll effect
   const sessionMessages = session?.messages;
@@ -420,7 +420,7 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
         )}
       </div>
     );
-  }, [character, windowWidth, isLeftSidebarOpen, isRightPanelOpen, appearanceSettings]);
+  });
 
   // グループモードかつアクティブなグループセッションがない場合
   if (is_group_mode && !displaySession) {

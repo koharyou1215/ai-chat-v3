@@ -208,6 +208,6 @@ export class StorageAnalyzer {
 
 // グローバルに公開（デバッグ用）
 if (typeof window !== 'undefined') {
-  (window as Record<string, unknown>).StorageAnalyzer = StorageAnalyzer;
+  (window as Window & { StorageAnalyzer?: typeof StorageAnalyzer }).StorageAnalyzer = StorageAnalyzer;
   console.log('💾 Storage Analyzer loaded. Use StorageAnalyzer.printAnalysis() to analyze storage.');
 }

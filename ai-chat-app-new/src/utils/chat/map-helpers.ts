@@ -153,8 +153,8 @@ export function getSessionMessages(
     return session.messages;
   }
 
-  if (session.messages instanceof Map) {
-    return Array.from(session.messages.values());
+  if (typeof session.messages === 'object' && session.messages !== null && 'size' in session.messages) {
+    return Array.from((session.messages as Map<string, UnifiedMessage>).values());
   }
 
   // Recordの場合
