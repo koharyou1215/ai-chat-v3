@@ -150,7 +150,7 @@ export const createSessionManagement: StateCreator<
         mood_state: { current: "neutral", intensity: 0.5 },
       },
       context: {
-        session_id: newSession.id,
+        session_id: sessionId,
         current_topic: "greeting",
         current_emotion: { emotion: "neutral", intensity: 0.5, confidence: 0.8 },
         current_mood: { type: "neutral", intensity: 0.5, stability: 0.8 },
