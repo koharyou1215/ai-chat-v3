@@ -18,12 +18,26 @@ import {
   X,
   CornerUpLeft,
   Edit,
+  MoreHorizontal,
+  MessageSquare,
+  Trash2,
+  RotateCcw,
+  Image,
+  Volume2,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import MessageEffects from "@/components/chat/MessageEffects";
 import { ParticleText } from "@/components/chat/AdvancedEffects";
 import { cn } from "@/lib/utils";
 import TokenUsageDisplay from "@/components/ui/TokenUsageDisplay";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAudioPlayback } from "@/hooks/useAudioPlayback";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
 
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
@@ -39,6 +53,9 @@ export const ProgressiveMessageBubble: React.FC<
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const { isSpeaking, handleSpeak } = useAudioPlayback({ message, isLatest });
+  const { generateImage } = useImageGeneration();
   const {
     is_generating,
     is_group_mode,
@@ -50,6 +67,8 @@ export const ProgressiveMessageBubble: React.FC<
     continueLastGroupMessage,
     deleteMessage,
     rollbackSession,
+    voice,
+    getSelectedCharacter,
   } = useAppStore();
   const contentRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -478,17 +497,15 @@ export const ProgressiveMessageBubble: React.FC<
           </div>
         </div>
 
-        {/* メッセージメニュー - MessageBubbleと同じ構造 */}
-        {(showMenu || true) && ( // 常に表示（ホバーで完全表示）
+        {/* メインアクションメニュー - DropdownMenu形式（MessageBubbleと同じ） */}
+        {(showMenu || isLatest) && (
           <div
-            ref={menuRef}
             className={cn(
-              "absolute bottom-0 z-50 flex flex-col gap-0.5 pointer-events-auto",
-              message.role === "user" ? "right-full mr-1" : "left-full ml-1",
-              !showMenu
-                ? "opacity-0 group-hover:opacity-50 hover:!opacity-100"
-                : "opacity-100",
-              "transition-opacity"
+              "absolute bottom-2 z-50 pointer-events-auto",
+              message.role === "user" ? "right-2" : "left-2",
+              !showMenu && isLatest
+                ? "opacity-60 hover:opacity-100 transition-opacity"
+                : ""
             )}
             onMouseEnter={() => {
               if (menuTimeoutRef.current) {
@@ -502,68 +519,160 @@ export const ProgressiveMessageBubble: React.FC<
                 setShowMenu(false);
               }, 200);
             }}>
-            <div className="bg-slate-900/95 backdrop-blur-sm border border-white/10 rounded-lg p-1 shadow-xl hover:shadow-2xl transition-shadow duration-200">
-              {/* コピー */}
-              <button
-                onClick={handleCopy}
-                className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
-                title="コピー">
-                <Copy className="w-4 h-4" />
-              </button>
-
-              {/* 編集 */}
-              <button
-                onClick={handleEdit}
-                className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
-                title="編集">
-                <Edit className="w-4 h-4" />
-              </button>
-
-              {/* 再生成（最後のメッセージのみ） */}
-              {canRegenerate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  onClick={handleRegenerate}
-                  className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
-                  title="再生成"
-                  disabled={isRegenerating || generateIsActive}>
-                  <RefreshCw
-                    className={cn("w-4 h-4", isRegenerating && "animate-spin")}
-                  />
+                  className="p-1.5 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all duration-200">
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
-              )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                side="top"
+                className={cn(
+                  "min-w-[180px] z-50",
+                  "bg-gray-900/95 border-gray-700",
+                  "backdrop-blur-sm shadow-2xl",
+                  "animate-in slide-in-from-top-2 fade-in-0 duration-200"
+                )}
+                sideOffset={8}
+                avoidCollisions={true}
+                collisionPadding={16}>
 
-              {/* 続きを生成（最後のメッセージのみ） */}
-              {canContinue && (
-                <button
-                  onClick={handleContinue}
-                  className="p-2 rounded-md hover:bg-white/20 text-white/70 hover:text-white transition-colors block w-full"
-                  title="続きを生成"
-                  disabled={isContinuing || generateIsActive}>
-                  <ChevronRight
-                    className={cn("w-4 h-4", isContinuing && "animate-pulse")}
-                  />
-                </button>
-              )}
+                {/* アシスタントメッセージ用メニュー */}
+                {message.role === "assistant" && (
+                  <>
+                    <DropdownMenuItem onClick={handleRollback}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      ロールバック
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleContinue} disabled={isContinuing || generateIsActive}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      続きを生成
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleRegenerate} disabled={isRegenerating || generateIsActive}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      再生成
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleCopy()}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      コピー
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        setIsGeneratingImage(true);
+                        try {
+                          const character = getSelectedCharacter();
+                          if (!character) {
+                            console.error("キャラクターが選択されていません");
+                            alert("キャラクターが選択されていません");
+                            return;
+                          }
 
-              {/* 区切り線 */}
-              <div className="w-full h-px bg-white/5 my-1" />
+                          // 現在のセッションのメッセージを取得
+                          const sessions = useAppStore.getState().sessions;
+                          const activeSessionId = useAppStore.getState().active_session_id;
+                          const currentSession = sessions.get(activeSessionId || "");
+                          if (!currentSession) {
+                            console.error("セッションが見つかりません");
+                            alert("セッションが見つかりません");
+                            return;
+                          }
 
-              {/* 削除 */}
-              <button
-                onClick={handleDelete}
-                className="p-2 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors block w-full"
-                title="削除">
-                <X className="w-4 h-4" />
-              </button>
+                          // トラッカーの値を取得
+                          const trackerManagers = useAppStore.getState().trackerManagers;
+                          const trackerManager = trackerManagers.get(activeSessionId || "");
+                          const trackers = [];
+                          if (trackerManager && character.trackers) {
+                            const trackerSet = trackerManager.getTrackerSet(character.id);
+                            if (trackerSet) {
+                              for (const trackerDef of character.trackers) {
+                                const tracker = trackerSet.trackers.get(trackerDef.name);
+                                if (tracker) {
+                                  const trackerType = trackerDef.config?.type;
+                                  if (trackerType && trackerType !== "composite") {
+                                    trackers.push({
+                                      name: trackerDef.name,
+                                      value: tracker.current_value,
+                                      type: trackerType as "numeric" | "state" | "boolean" | "text",
+                                    });
+                                  }
+                                }
+                              }
+                            }
+                          }
 
-              {/* ロールバック */}
-              <button
-                onClick={handleRollback}
-                className="p-2 rounded-md hover:bg-orange-500/20 text-orange-400 hover:text-orange-300 transition-colors block w-full"
-                title="ここまでロールバック">
-                <CornerUpLeft className="w-4 h-4" />
-              </button>
-            </div>
+                          // 画像を生成
+                          const imageUrl = await generateImage(
+                            character,
+                            currentSession.messages,
+                            trackers
+                          );
+
+                          // 生成された画像をメッセージとして追加
+                          if (imageUrl) {
+                            const addMessage = (useAppStore.getState() as any).addMessage;
+                            if (addMessage) {
+                              const newMessage = {
+                                id: Date.now().toString(),
+                                content: `![Generated Image](${imageUrl})`,
+                                role: "assistant" as const,
+                                timestamp: Date.now(),
+                                character_id: character.id,
+                                metadata: {
+                                  type: "image",
+                                  generated: true,
+                                },
+                              };
+                              addMessage(newMessage);
+                            }
+                          }
+                        } finally {
+                          setIsGeneratingImage(false);
+                        }
+                      }}
+                      disabled={isGeneratingImage}>
+                      <Image className={cn("h-4 w-4 mr-2", isGeneratingImage && "animate-pulse")} />
+                      {isGeneratingImage ? "画像生成中..." : "画像を生成"}
+                    </DropdownMenuItem>
+                    {voice.autoPlay && (
+                      <DropdownMenuItem
+                        onClick={handleSpeak}
+                        disabled={!displayedContent || !displayedContent.trim()}>
+                        <Volume2 className={cn("h-4 w-4 mr-2", isSpeaking && "animate-pulse text-blue-500")} />
+                        {isSpeaking ? "読み上げ中..." : "読み上げ"}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      削除
+                    </DropdownMenuItem>
+                  </>
+                )}
+
+                {/* ユーザーメッセージ用メニュー */}
+                {message.role === "user" && (
+                  <>
+                    <DropdownMenuItem onClick={() => handleCopy()}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      コピー
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleEdit}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      編集
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      削除
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 
