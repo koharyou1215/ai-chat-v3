@@ -331,7 +331,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-4xl max-h-[80vh] md:max-h-[80vh] max-h-[90vh] bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-            style={{ WebkitOverflowScrolling: 'touch' }}>
+            style={{ WebkitOverflowScrolling: "touch" }}>
             {/* ヘッダー */}
             <div className="px-6 py-4 border-b border-white/10">
               <div className="flex items-center justify-between mb-3">
@@ -342,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <X className="w-5 h-5 text-white/70" />
                 </button>
               </div>
-              
+
               {/* モバイル用タブバー */}
               <div className="md:hidden overflow-x-auto scrollbar-thin scrollbar-thumb-purple-400/20">
                 <div className="flex gap-2 pb-2 min-w-max">
@@ -387,7 +387,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* 設定パネル */}
-              <div className="flex-1 p-6 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+              <div
+                className="flex-1 p-6 overflow-y-auto"
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}>
                 {activeTab === "effects" && (
                   <EffectsPanel
                     settings={localEffectSettings}
@@ -957,11 +962,17 @@ const AIPanel: React.FC<{
               </optgroup>
               <optgroup label="Specialized (OpenRouter)">
                 <option value="qwen/qwen3-max">qwen3-max</option>
-                <option value="qwen/qwen3-30b-a3b-thinking-2507">
-                  Qwen3 30B A3B Thinking
+                <option value="qwen/qwen-plus-2025-07-28:thinking">
+                  Qwen Plus 2025 07 28 Thinking
                 </option>
-                <option value="qwen/qwen3-30b-a3b-instruct-2507">
-                  Qwen3 30B A3B
+                <option value="qwen/qwen-plus-2025-07-28">
+                  Qwen Plus 2025 07 28
+                </option>
+                <option value="qwen/qwen3-next-80b-a3b-thinking">
+                  Qwen3 Next 80B A3B Thinking
+                </option>
+                <option value="qwen/qwen3-next-80b-a3b-instruct">
+                  Qwen3 Next 80B A3B Instruct
                 </option>
                 <option value="x-ai/grok-code-fast-1">Grok Code Fast</option>
                 <option value="nousresearch/hermes-4-405b">
@@ -1200,14 +1211,18 @@ const AIPanel: React.FC<{
             <>
               <div className="flex gap-2 mb-2">
                 <button
-                  onClick={() => console.log('詳細版プロンプトの機能は現在利用できません')}
+                  onClick={() =>
+                    console.log("詳細版プロンプトの機能は現在利用できません")
+                  }
                   className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="詳細版ロールプレイプロンプトを使用">
                   <Cpu size={14} />
                   詳細版プロンプト
                 </button>
                 <button
-                  onClick={() => console.log('要約版プロンプトの機能は現在利用できません')}
+                  onClick={() =>
+                    console.log("要約版プロンプトの機能は現在利用できません")
+                  }
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
                   title="要約版プロンプトを使用">
                   <FileText size={14} />
@@ -2848,7 +2863,10 @@ const AppearancePanel: React.FC = () => {
               style={{
                 backgroundColor: appearanceSettings.surfaceColor,
                 color: appearanceSettings.textColor,
-                fontSize: fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap],
+                fontSize:
+                  fontSizeMap[
+                    appearanceSettings.fontSize as keyof typeof fontSizeMap
+                  ],
                 fontWeight: appearanceSettings.fontWeight,
               }}>
               これはサンプルメッセージです。
@@ -2858,7 +2876,10 @@ const AppearancePanel: React.FC = () => {
               style={{
                 backgroundColor: appearanceSettings.primaryColor,
                 color: "white",
-                fontSize: fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap],
+                fontSize:
+                  fontSizeMap[
+                    appearanceSettings.fontSize as keyof typeof fontSizeMap
+                  ],
               }}>
               ユーザーメッセージのプレビュー
             </div>
