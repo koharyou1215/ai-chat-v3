@@ -1,19 +1,50 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffectSettings } from "@/hooks/useEffectSettings";
 import { ClientOnly } from "@/components/utils/ClientOnly";
 
+// WebGL Support Detection
+const detectWebGLSupport = (): boolean => {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    return !!(gl && gl instanceof WebGLRenderingContext);
+  } catch (e) {
+    return false;
+  }
+};
+
+// Performance Level Detection
+const detectPerformanceLevel = (): 'low' | 'medium' | 'high' => {
+  if (typeof navigator === 'undefined') return 'medium';
+
+  const hardwareConcurrency = navigator.hardwareConcurrency || 4;
+  const memory = (navigator as any).deviceMemory || 4;
+
+  if (hardwareConcurrency >= 8 && memory >= 8) return 'high';
+  if (hardwareConcurrency >= 4 && memory >= 4) return 'medium';
+  return 'low';
+};
+
 class Particle {
   x: number;
   y: number;
+  z: number; // 3D coordinates
   originX: number;
   originY: number;
+  originZ: number;
   vx: number;
   vy: number;
+  vz: number;
   color: string;
   size: number;
+  opacity: number;
+  rotation: number;
+  rotationSpeed: number;
   canvasWidth: number;
   canvasHeight: number;
 
@@ -26,100 +57,259 @@ class Particle {
   ) {
     this.originX = x;
     this.originY = y;
+    this.originZ = Math.random() * 100 - 50; // Random depth
     this.x = Math.random() * canvasWidth;
     this.y = Math.random() * canvasHeight;
+    this.z = this.originZ;
     this.vx = 0;
     this.vy = 0;
+    this.vz = 0;
     this.color = color;
     this.size = Math.random() * 3 + 1;
+    this.opacity = 1;
+    this.rotation = 0;
+    this.rotationSpeed = (Math.random() - 0.5) * 0.02;
     this.canvasWidth = canvasWidth;
     this.canvasHeight = canvasHeight;
   }
 
-  update(animationSpeed: number) {
+  update(animationSpeed: number, time: number = 0) {
     const dx = this.originX - this.x;
     const dy = this.originY - this.y;
+    const dz = this.originZ - this.z;
+
     this.vx += dx * 0.01 * animationSpeed;
     this.vy += dy * 0.01 * animationSpeed;
+    this.vz += dz * 0.005 * animationSpeed;
 
     this.vx *= 0.95;
     this.vy *= 0.95;
+    this.vz *= 0.95;
 
     this.x += this.vx;
     this.y += this.vy;
+    this.z += this.vz;
+
+    // Add some floating animation
+    this.y += Math.sin(time * 0.001 + this.originX * 0.01) * 0.5;
+    this.rotation += this.rotationSpeed;
+
+    // Update opacity based on depth
+    this.opacity = Math.max(0.1, 1 - Math.abs(this.z) / 100);
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.fillStyle = this.color;
+    const scale = 1 + this.z / 100; // Perspective scaling
+    const scaledSize = this.size * scale;
+
+    ctx.save();
+    ctx.globalAlpha = this.opacity;
+
+    // Apply 3D transformation
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.scale(scale, scale);
+
+    // Create gradient for 3D effect
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, scaledSize);
+    gradient.addColorStop(0, this.color);
+    gradient.addColorStop(0.7, this.color.replace('1)', '0.6)'));
+    gradient.addColorStop(1, 'transparent');
+
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.arc(0, 0, scaledSize, 0, Math.PI * 2);
     ctx.fill();
 
+    // Add glow effect
     ctx.shadowColor = this.color;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 10 * scale;
     ctx.fill();
-    ctx.shadowBlur = 0;
+
+    ctx.restore();
   }
 
   explode(animationSpeed: number) {
     this.vx = (Math.random() - 0.5) * 20 * animationSpeed;
     this.vy = (Math.random() - 0.5) * 20 * animationSpeed;
+    this.vz = (Math.random() - 0.5) * 10 * animationSpeed;
+    this.rotationSpeed *= 3;
   }
 }
 
 /**
  * 3Dホログラムメッセージ
- * WebGLを使用した立体的なメッセージ表示
+ * WebGLまたはCanvas 2Dを使用した立体的なメッセージ表示
  */
-export const HologramMessage: React.FC<{ text: string }> = ({
-  text: _text,
-}) => {
+export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
   const { settings } = useEffectSettings();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>(0);
+  const [webglSupported, setWebglSupported] = useState(false);
+  const [performanceLevel, setPerformanceLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const particlesRef = useRef<Particle[]>([]);
+  const timeRef = useRef(0);
 
-  // 3D機能は無効化されているため、軽量版を表示
-  if (!settings.hologramMessages) return null;
+  // Check WebGL support and performance level
+  useEffect(() => {
+    setWebglSupported(detectWebGLSupport());
+    setPerformanceLevel(detectPerformanceLevel());
+  }, []);
+
+  // 3D機能が無効または低パフォーマンス環境の場合は軽量版を表示
+  if (!settings.hologramMessages || !settings.enable3DEffects ||
+      (settings.effectQuality === 'low' && performanceLevel === 'low') ||
+      (!settings.webglEnabled && !webglSupported && settings.adaptivePerformance)) {
+    return null;
+  }
+
+  // Initialize 3D hologram effect
+  useEffect(() => {
+    if (!canvasRef.current || !text) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d')!;
+    const rect = canvas.getBoundingClientRect();
+
+    // High DPI support
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+
+    // Generate hologram particles from text
+    ctx.font = '32px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, rect.width / 2, rect.height / 2);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const particles: Particle[] = [];
+
+    // Create particles from text pixels with performance and settings consideration
+    const baseStep = performanceLevel === 'high' ? 4 : performanceLevel === 'medium' ? 6 : 8;
+    const qualityMultiplier = settings.effectQuality === 'high' ? 0.8 : settings.effectQuality === 'medium' ? 1 : 1.5;
+    const step = Math.max(3, Math.floor(baseStep * qualityMultiplier));
+    const maxParticleCount = settings.maxParticles || 2000;
+    let particleCount = 0;
+    for (let y = 0; y < imageData.height; y += step) {
+      for (let x = 0; x < imageData.width; x += step) {
+        const index = (y * imageData.width + x) * 4;
+        const alpha = imageData.data[index + 3];
+
+        if (alpha > 128 && particleCount < maxParticleCount) {
+          const hologramColor = `rgba(0, 255, 136, ${alpha / 255})`;
+          particles.push(
+            new Particle(
+              x / dpr,
+              y / dpr,
+              hologramColor,
+              rect.width,
+              rect.height
+            )
+          );
+          particleCount++;
+        }
+      }
+    }
+
+    particlesRef.current = particles;
+    timeRef.current = 0;
+
+    // 3D Animation loop
+    const animate = () => {
+      timeRef.current += 16; // Assume 60fps
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // Dark background with holographic grid
+      ctx.fillStyle = 'rgba(15, 15, 35, 0.95)';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      // Draw holographic grid lines
+      ctx.strokeStyle = 'rgba(0, 255, 136, 0.1)';
+      ctx.lineWidth = 1;
+      const gridSize = 20;
+
+      for (let x = 0; x < rect.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, rect.height);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y < rect.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(rect.width, y);
+        ctx.stroke();
+      }
+
+      // Draw 3D particles
+      particles.forEach((particle) => {
+        particle.update(settings.animationSpeed, timeRef.current);
+        particle.draw(ctx);
+      });
+
+      // Hologram scan line effect
+      const scanY = (timeRef.current * 0.1 * settings.animationSpeed) % (rect.height + 100) - 50;
+      const gradient = ctx.createLinearGradient(0, scanY - 50, 0, scanY + 50);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(0.5, 'rgba(0, 255, 136, 0.3)');
+      gradient.addColorStop(1, 'transparent');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, scanY - 50, rect.width, 100);
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [text, settings.hologramMessages, settings.animationSpeed, settings.effectQuality, performanceLevel]);
 
   return (
     <ClientOnly
       fallback={
-        <div className="w-full h-48 bg-slate-800/20 rounded-lg animate-pulse" />
+        <div className="w-full h-48 bg-slate-800/20 rounded-lg animate-pulse flex items-center justify-center">
+          <div className="text-green-400">Initializing Hologram...</div>
+        </div>
       }>
       <div className="w-full h-48 relative">
-        <div className="w-full h-full bg-slate-800/20 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400 mb-2">
-              Hologram Effect
-            </div>
-            <div className="text-sm text-gray-400">
-              3D機能は現在無効化されています
-            </div>
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full rounded-lg"
+          style={{ background: 'transparent' }}
+        />
+
+        {/* Performance indicator */}
+        {settings.effectQuality === 'high' && (
+          <div className="absolute top-2 right-2 text-xs text-green-400/60">
+            {webglSupported && settings.webglEnabled ? '3D WebGL' : '3D Canvas'} • {performanceLevel.toUpperCase()}
+            <br/>
+            <span className="text-green-400/40">
+              {particlesRef.current.length}/{settings.maxParticles} particles
+            </span>
           </div>
-        </div>
+        )}
 
-        {/* ホログラム効果のオーバーレイ */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="w-full h-full opacity-20"
-            style={{
-              background:
-                "linear-gradient(45deg, transparent 40%, #00ff88 50%, transparent 60%)",
-              animation: `hologram-scan ${
-                3 / settings.animationSpeed
-              }s infinite linear`,
-            }}
-          />
-        </div>
-
-        <style jsx>{`
-          @keyframes hologram-scan {
-            0% {
-              transform: translateY(-100%);
-            }
-            100% {
-              transform: translateY(100%);
-            }
-          }
-        `}</style>
+        {/* Hologram border effects */}
+        <div className="absolute inset-0 pointer-events-none rounded-lg"
+             style={{
+               boxShadow: `
+                 inset 0 0 20px rgba(0, 255, 136, 0.2),
+                 0 0 40px rgba(0, 255, 136, 0.1),
+                 0 0 80px rgba(0, 255, 136, 0.05)
+               `,
+               border: '1px solid rgba(0, 255, 136, 0.3)'
+             }}
+        />
       </div>
     </ClientOnly>
   );
@@ -144,9 +334,14 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2; // High DPI support
-    canvas.height = rect.height * 2;
-    ctx.scale(2, 2);
+
+    // High DPI support with performance consideration
+    const dpr = Math.min(window.devicePixelRatio || 1, settings.effectQuality === 'high' ? 2 : 1);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
 
     // テキストを描画して粒子化
     ctx.font = "32px Arial";
@@ -157,32 +352,55 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const particles: Particle[] = [];
 
-    // ピクセルデータから粒子を生成
-    for (let y = 0; y < imageData.height; y += 6) {
-      for (let x = 0; x < imageData.width; x += 6) {
+    // ピクセルデータから粒子を生成（パフォーマンスに応じた密度調整）
+    const step = settings.effectQuality === 'high' ? 4 : settings.effectQuality === 'medium' ? 6 : 8;
+    const maxParticleCount = Math.min(settings.maxParticles || 2000, detectPerformanceLevel() === 'low' ? 500 : 2000);
+    let particleCount = 0;
+
+    for (let y = 0; y < imageData.height; y += step) {
+      for (let x = 0; x < imageData.width; x += step) {
         const index = (y * imageData.width + x) * 4;
         const alpha = imageData.data[index + 3];
 
-        if (alpha > 128) {
+        if (alpha > 128 && particleCount < maxParticleCount) {
           const r = imageData.data[index];
           const g = imageData.data[index + 1];
           const b = imageData.data[index + 2];
-          const color = `rgba(${r}, ${g}, ${b}, 1)`;
+          // Enhanced 3D coloring with depth variation
+          const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || detectWebGLSupport() || !settings.adaptivePerformance);
+          const depth = should3DEffects ? Math.random() * 0.5 + 0.5 : 1;
+          const color = `rgba(${Math.floor(r * depth)}, ${Math.floor(g * depth)}, ${Math.floor(b * depth)}, ${depth})`;
           particles.push(
-            new Particle(x / 2, y / 2, color, canvas.width, canvas.height)
+            new Particle(x / 2, y / 2, color, canvas.width / 2, canvas.height / 2)
           );
+          particleCount++;
         }
       }
     }
 
     particlesRef.current = particles;
 
-    // アニメーションループ
+    // Enhanced 3D Animation loop
+    let time = 0;
     const animate = () => {
-      ctx.clearRect(0, 0, canvas.width / 2, canvas.height / 2);
+      time += 16; // Assume 60fps
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // Add background depth effect
+      const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || detectWebGLSupport() || !settings.adaptivePerformance);
+      if (settings.effectQuality !== 'low' && should3DEffects && settings.depthEffects) {
+        const gradient = ctx.createRadialGradient(
+          rect.width / 2, rect.height / 2, 0,
+          rect.width / 2, rect.height / 2, rect.width
+        );
+        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.05)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, rect.width, rect.height);
+      }
 
       particles.forEach((particle) => {
-        particle.update(settings.animationSpeed);
+        particle.update(settings.animationSpeed, time);
         particle.draw(ctx);
       });
 
@@ -196,7 +414,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [text, settings.particleEffects, settings.animationSpeed]);
+  }, [text, settings.particleEffects, settings.animationSpeed, settings.enable3DEffects, settings.webglEnabled, settings.adaptivePerformance, settings.maxParticles, settings.depthEffects]);
 
   useEffect(() => {
     if (trigger && settings.particleEffects) {
@@ -206,15 +424,36 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     }
   }, [trigger, settings.particleEffects, settings.animationSpeed]);
 
-  if (!settings.particleEffects) return null;
+  // Performance monitoring and 3D capability check
+  const performanceLevel = detectPerformanceLevel();
+  const webglSupported = detectWebGLSupport();
+  const shouldRenderHighQuality = settings.effectQuality === 'high' && performanceLevel !== 'low' && settings.enable3DEffects;
+  const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
+
+  if (!settings.particleEffects || (!settings.enable3DEffects && settings.adaptivePerformance)) return null;
 
   return (
-    <ClientOnly>
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 pointer-events-none w-full h-32"
-        style={{ background: "transparent" }}
-      />
+    <ClientOnly fallback={<div className="w-full h-32 opacity-50" />}>
+      <div className="relative w-full h-32">
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 pointer-events-none w-full h-32"
+          style={{ background: "transparent" }}
+        />
+
+        {/* 3D depth indicators for high quality mode */}
+        {shouldRenderHighQuality && settings.particleEffects && (
+          <div className="absolute inset-0 pointer-events-none"
+               style={{
+                 background: `
+                   radial-gradient(ellipse at 30% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                   radial-gradient(ellipse at 70% 60%, rgba(59, 130, 246, 0.08) 0%, transparent 50%)
+                 `,
+                 filter: 'blur(20px)'
+               }}
+          />
+        )}
+      </div>
     </ClientOnly>
   );
 };
@@ -308,11 +547,20 @@ export const BackgroundParticles: React.FC = () => {
   const { settings } = useEffectSettings();
   if (!settings.backgroundParticles) return null;
 
+  const particleIntensity = settings.backgroundParticlesIntensity || 25;
+  const opacity = Math.min(particleIntensity / 100, 0.6); // Cap at 60% opacity
+
   return (
-    <ClientOnly fallback={<div className="absolute inset-0 z-0 opacity-50" />}>
-      <div className="absolute inset-0 z-0 opacity-50">
-        <div className="absolute inset-0 z-0 opacity-50 bg-transparent" />
-      </div>
+    <ClientOnly fallback={<div className="absolute inset-0 z-0" style={{ opacity: opacity / 2 }} />}>
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          opacity,
+          background: `radial-gradient(circle at 20% 50%, rgba(147, 51, 234, ${opacity * 0.3}) 0%, transparent 50%),
+                       radial-gradient(circle at 80% 20%, rgba(59, 130, 246, ${opacity * 0.2}) 0%, transparent 50%),
+                       radial-gradient(circle at 40% 80%, rgba(168, 85, 247, ${opacity * 0.25}) 0%, transparent 50%)`,
+        }}
+      />
     </ClientOnly>
   );
 };

@@ -47,6 +47,8 @@ const ChatSidebar: React.FC = React.memo(() => {
     deleteSession,
     updateSession,
     exportActiveConversation,
+    exportSession,
+    exportAllSessions,
     saveSessionToHistory,
     pinSession,
     setActiveGroupSession,
@@ -79,7 +81,7 @@ const ChatSidebar: React.FC = React.memo(() => {
       ...session,
       type: 'individual' as const,
       displayName: session.session_info.title || 'Untitled Chat',
-      isPinned: false // isPinnedプロパティは存在しないため、デフォルトでfalse
+      isPinned: session.isPinned || false // Use actual isPinned value
     }));
     
     // groupSessionsがMapでない場合の対処（シリアライズされたオブジェクトも考慮）
@@ -104,7 +106,7 @@ const ChatSidebar: React.FC = React.memo(() => {
     return [...regularSessions, ...groupSessionsList];
   }, [sessions, groupSessions]);
 
-  const filteredSessions = useMemo(() => 
+  const filteredSessions = useMemo(() =>
     allSessions
     .filter(session => {
       if (!searchQuery) return true;
@@ -112,7 +114,13 @@ const ChatSidebar: React.FC = React.memo(() => {
       return session.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
              lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase());
     })
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    .sort((a, b) => {
+      // First sort by pinned status (pinned sessions first)
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      // Then sort by last updated time
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    }),
     [allSessions, searchQuery]
   );
 
@@ -131,21 +139,21 @@ const ChatSidebar: React.FC = React.memo(() => {
   };
 
   const handleSelectSession = (sessionId: string) => {
-    
+
     // セッションタイプを特定
     const isGroupSession = sessionId.startsWith('group-');
-    
+
     if (isGroupSession) {
       // グループセッションの場合
       if (sessionId !== active_group_session_id || !is_group_mode) {
         const groupSession = groupSessions.get(sessionId);
         if (groupSession) {
-          
+
           // グループモードに切り替え & 排他制御
-          setActiveSessionId(null); 
+          setActiveSessionId(null);
           setGroupMode(true);
           setActiveGroupSession(sessionId);
-          
+
           // キャラクターとペルソナの状態も同期（グループの場合は最初のキャラクター）
           if (groupSession.characters.length > 0) {
             setSelectedCharacterId(groupSession.characters[0].id);
@@ -158,12 +166,18 @@ const ChatSidebar: React.FC = React.memo(() => {
       if (sessionId !== active_session_id || is_group_mode) {
         const session = sessions.get(sessionId);
         if (session) {
-          
+
+          // セッションの最終アクセス時刻を更新
+          updateSession({
+            id: sessionId,
+            lastAccessedAt: new Date().toISOString()
+          });
+
           // 通常モードに切り替え & 排他制御
           setActiveGroupSession(null);
           setGroupMode(false);
           setActiveSessionId(sessionId);
-          
+
           // キャラクターとペルソナの状態も同期
           if (session.participants.characters.length > 0) {
             setSelectedCharacterId(session.participants.characters[0].id);
@@ -194,12 +208,13 @@ const ChatSidebar: React.FC = React.memo(() => {
 
   const handleExportSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // exportActiveConversation exports the *active* session. We might need a new action to export a specific session.
-    // For now, let's just use the existing one if the session is active.
-    if (sessionId === active_session_id) {
-        exportActiveConversation();
-    } else {
-        alert("You can only export the active session for now.");
+    exportSession(sessionId);
+  };
+
+  const handleExportAllSessions = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Export all chat sessions? This may take a moment for large amounts of data.')) {
+      exportAllSessions();
     }
   };
   
@@ -360,7 +375,7 @@ const ChatSidebar: React.FC = React.memo(() => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {/* ピン留めアイコン */}
-                        {false && ( // isPinnedプロパティは存在しないため、常にfalse
+                        {session.isPinned && (
                           <Pin size={12} className="text-yellow-400 flex-shrink-0" />
                         )}
                         {/* セッションタイプを示すアイコン */}
@@ -430,11 +445,11 @@ const ChatSidebar: React.FC = React.memo(() => {
                           className="absolute top-8 right-0 z-10 bg-slate-700 rounded-lg shadow-lg border border-purple-400/20 py-1 min-w-32"
                         >
                           <button
-                            onClick={(e) => handlePinSession(session.id, false, e)}
+                            onClick={(e) => handlePinSession(session.id, session.isPinned || false, e)}
                             className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/10 flex items-center gap-2"
                           >
                             <Pin size={12} />
-                            {false ? 'Unpin' : 'Pin'} {/* isPinnedは常にfalse */}
+                            {session.isPinned ? 'Unpin' : 'Pin'}
                           </button>
                           <button
                             onClick={(e) => handleSaveToHistory(session.id, e)}
@@ -480,10 +495,24 @@ const ChatSidebar: React.FC = React.memo(() => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-purple-400/20 flex-shrink-0">
+      <div className="p-4 border-t border-purple-400/20 flex-shrink-0 space-y-3">
         <div className="text-xs text-slate-400 text-center">
           {sessions.size} individual • {groupSessions.size} groups • {sessions.size + groupSessions.size} total
         </div>
+
+        {/* Export All Button */}
+        {(sessions.size > 0 || groupSessions.size > 0) && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleExportAllSessions}
+            className="w-full p-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+            title="Export All Sessions"
+          >
+            <Download size={14} />
+            Export All Sessions
+          </motion.button>
+        )}
       </div>
     </motion.div>
   );

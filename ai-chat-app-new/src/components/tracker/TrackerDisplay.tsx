@@ -92,6 +92,27 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);
 
+  // 🆕 セッション切り替え時のトラッカー同期
+  useEffect(() => {
+    if (character_id && session_id) {
+      console.log(`🔄 [TrackerDisplay] Session/Character changed:`, {
+        session_id: session_id.substring(0, 8) + '...',
+        character_id: character_id.substring(0, 8) + '...',
+        characterName: character?.name
+      });
+
+      // セッション切り替え時にトラッカーマネージャーの状態確認
+      const currentManager = useAppStore.getState().trackerManagers.get(character_id);
+      if (currentManager) {
+        // 既存のマネージャーがある場合、一度状態を強制更新
+        useAppStore.setState((state) => ({
+          trackerManagers: new Map(state.trackerManagers),
+        }));
+        console.log(`✅ [TrackerDisplay] Refreshed tracker manager state for session switch`);
+      }
+    }
+  }, [session_id, character_id, character?.name]);
+
   // Initialize tracker manager if not exists and we have character data
   useEffect(() => {
     const currentManager = useAppStore
@@ -244,16 +265,43 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     const tracker = trackerSet.trackers.get(trackerName);
     if (!tracker) return;
 
+    const oldValue = tracker.current_value;
+    let newValue: number | string | boolean;
+
     if (typeof change === "number" && typeof tracker.current_value === "number") {
-      trackerManager.updateTracker(character_id, trackerName, tracker.current_value + change);
+      newValue = tracker.current_value + change;
+      trackerManager.updateTracker(character_id, trackerName, newValue);
     } else {
+      newValue = change;
       trackerManager.updateTracker(character_id, trackerName, change);
     }
+
+    // Log the tracker change for debugging
+    console.log(`🎯 [TrackerDisplay] Tracker updated:`, {
+      character_id,
+      trackerName,
+      oldValue,
+      newValue,
+      session_id
+    });
 
     // Force re-render by updating the store
     useAppStore.setState((state) => ({
       trackerManagers: new Map(state.trackerManagers),
     }));
+
+    // 🆕 トラッカー値変更時に自動的にプロンプト更新フラグを設定
+    // プロンプトビルダーサービスにて次回プロンプト生成時に最新のトラッカー値が反映される
+    try {
+      const store = useAppStore.getState();
+      if (store.clearConversationCache) {
+        // ConversationManagerのキャッシュをクリアして、次回プロンプト生成時に最新のトラッカー値を反映
+        store.clearConversationCache(session_id);
+        console.log(`✅ [TrackerDisplay] Cleared conversation cache for session: ${session_id}`);
+      }
+    } catch (error) {
+      console.warn('Failed to clear conversation cache:', error);
+    }
   };
 
   const renderTrackerValue = (tracker: TrackerWithValue) => {

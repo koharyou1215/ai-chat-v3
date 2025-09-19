@@ -318,6 +318,8 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     },
 
     updateChatSettings: (settings) => {
+      console.log("🔧 [updateChatSettings] Called with:", settings);
+
       // チャット設定を統一設定に反映
       const chatUpdates: any = {};
       if ('enterToSend' in settings) chatUpdates.enterToSend = settings.enterToSend;
@@ -327,7 +329,21 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
         settingsManager.updateCategory('chat', chatUpdates);
       }
 
-      set((state) => ({ chat: { ...state.chat, ...settings } }));
+      set((state) => {
+        const newChatSettings = { ...state.chat, ...settings };
+        console.log("🔧 [updateChatSettings] Previous state:", state.chat);
+        console.log("🔧 [updateChatSettings] New state:", newChatSettings);
+
+        if ('progressiveMode' in settings) {
+          console.log("🔧 [updateChatSettings] Progressive mode update:", {
+            oldEnabled: state.chat?.progressiveMode?.enabled,
+            newEnabled: newChatSettings.progressiveMode?.enabled,
+            settingsParam: settings.progressiveMode
+          });
+        }
+
+        return { chat: newChatSettings };
+      });
     },
 
     updateVoiceSettings: (settings) => {

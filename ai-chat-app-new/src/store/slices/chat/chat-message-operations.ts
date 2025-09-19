@@ -565,6 +565,17 @@ export const createMessageOperations: StateCreator<
               set((state) => ({
                 trackerManagers: new Map(state.trackerManagers),
               }));
+
+              // 🆕 トラッカー更新時にプロンプトキャッシュをクリア
+              try {
+                const currentState = get();
+                if (currentState.clearConversationCache) {
+                  currentState.clearConversationCache(activeSessionId);
+                  console.log(`✅ [sendMessage] Cleared conversation cache due to tracker updates`);
+                }
+              } catch (error) {
+                console.warn('Failed to clear conversation cache after tracker update:', error);
+              }
             }
           } catch (error) {
             console.error("❌ [sendMessage] Failed to update trackers:", error);
@@ -615,6 +626,29 @@ export const createMessageOperations: StateCreator<
                   "🎯 Tracker analysis failed:",
                   trackerResult.reason
                 );
+              } else if (trackerResult.status === "fulfilled" && trackerResult.value) {
+                // 🆕 バックグラウンドトラッカー分析結果の処理
+                const [userUpdates, aiUpdates] = trackerResult.value;
+                const allUpdates = [...(userUpdates || []), ...(aiUpdates || [])];
+                if (allUpdates.length > 0) {
+                  console.log(`✅ [sendMessage] Background tracker analysis updated ${allUpdates.length} tracker(s)`);
+
+                  // UI状態を更新
+                  set((state) => ({
+                    trackerManagers: new Map(state.trackerManagers),
+                  }));
+
+                  // プロンプトキャッシュをクリア
+                  try {
+                    const currentState = get();
+                    if (currentState.clearConversationCache) {
+                      currentState.clearConversationCache(activeSessionId);
+                      console.log(`✅ [sendMessage] Cleared conversation cache due to background tracker updates`);
+                    }
+                  } catch (error) {
+                    console.warn('Failed to clear conversation cache after background tracker update:', error);
+                  }
+                }
               }
             })
             .catch((error) => {

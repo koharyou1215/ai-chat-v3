@@ -8,6 +8,7 @@ import { useAppStore } from '@/store';
 export function useEffectSettings() {
   const effectSettings = useAppStore((state) => state.effectSettings);
   const updateEffectSettings = useAppStore((state) => state.updateEffectSettings);
+  const emotionalIntelligenceFlags = useAppStore((state) => state.emotionalIntelligenceFlags);
 
   const resetSettings = () => {
     // デフォルト設定にリセット
@@ -38,6 +39,11 @@ export function useEffectSettings() {
       showTrackers: true,
       effectQuality: 'medium',
       animationSpeed: 1.0,
+      enable3DEffects: true,
+      webglEnabled: true,
+      adaptivePerformance: true,
+      maxParticles: 2000,
+      depthEffects: true,
       textFormatting: 'readable',
     });
   };
@@ -46,6 +52,7 @@ export function useEffectSettings() {
     settings: effectSettings,
     updateSettings: updateEffectSettings,
     resetSettings,
+    emotionalIntelligenceFlags,
   };
 }
 

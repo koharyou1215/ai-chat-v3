@@ -178,21 +178,31 @@ export const MessageInput: React.FC = React.memo(() => {
     setIsSending(true);
     try {
       // プログレッシブモードが有効な場合は sendProgressiveMessage を使用
-      console.log("🔍 Progressive Mode Check:", {
+      // Enhanced debugging for progressive mode settings
+      console.log("🔍 Progressive Mode Check (Enhanced):", {
+        chat: !!chat,
+        progressiveMode: !!chat?.progressiveMode,
         enabled: chat?.progressiveMode?.enabled,
+        enabledType: typeof chat?.progressiveMode?.enabled,
         is_group_mode,
-        should_use_progressive:
-          chat?.progressiveMode?.enabled && !is_group_mode,
+        should_use_progressive: chat?.progressiveMode?.enabled === true && !is_group_mode,
+        fullChatSettings: chat ? JSON.stringify(chat, null, 2) : 'null',
       });
 
-      if (chat?.progressiveMode?.enabled && !is_group_mode) {
+      // More explicit condition checking with proper null safety
+      const isProgressiveModeEnabled = chat?.progressiveMode?.enabled === true;
+      const shouldUseProgressive = isProgressiveModeEnabled && !is_group_mode;
+
+      if (shouldUseProgressive) {
         console.log("🚀 Using Progressive Message Generation");
         await sendProgressiveMessage(
           currentInputText,
           selectedImage || undefined
         );
       } else {
-        console.log("📝 Using Normal Message Generation");
+        console.log("📝 Using Normal Message Generation", {
+          reason: !isProgressiveModeEnabled ? 'Progressive mode disabled' : 'Group mode active'
+        });
         await sendMessage(currentInputText, selectedImage || undefined);
       }
       setCurrentInputText("");

@@ -48,8 +48,8 @@
 }
 
 .default-emotion {
-  color: #95a5a6 !important;
-  text-shadow: 0 0 5px rgba(149, 165, 166, 0.4) !important;
+  color: #e8e8e8 !important;
+  text-shadow: 0 0 5px rgba(232, 232, 232, 0.4) !important;
 }
 
 @import "tw-animate-css";
@@ -490,13 +490,40 @@
     }
   }
   
+  /* Message Bubble Theme Utilities */
+  .message-bubble-user {
+    background: linear-gradient(135deg,
+      rgb(37 99 235 / 0.9) 0%,
+      rgb(29 78 216 / 0.9) 100%);
+    border: 1px solid rgb(59 130 246 / 0.4);
+    box-shadow: 0 4px 12px rgb(59 130 246 / 0.2);
+  }
+
+  .message-bubble-character {
+    background: linear-gradient(135deg,
+      rgb(147 51 234 / 0.9) 0%,
+      rgb(126 34 206 / 0.9) 100%);
+    border: 1px solid rgb(168 85 247 / 0.4);
+    box-shadow: 0 4px 12px rgb(168 85 247 / 0.2);
+  }
+
+  .message-bubble-character.colorful-effects {
+    background: linear-gradient(135deg,
+      rgb(147 51 234 / 0.25) 0%,
+      rgb(59 130 246 / 0.2) 50%,
+      rgb(20 184 166 / 0.2) 100%);
+    border: 1px solid rgb(168 85 247 / 0.4);
+    box-shadow: 0 4px 12px rgb(168 85 247 / 0.2);
+  }
+
   /* 洗練されたUIエフェクト */
   .elegant-card {
-    background: linear-gradient(145deg, 
-      oklch(0.22 0.015 270) 0%, 
+    background: linear-gradient(145deg,
+      oklch(0.22 0.015 270) 0%,
       oklch(0.24 0.02 285) 100%);
     border: 1px solid oklch(0.95 0.01 270 / 15%);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
@@ -549,7 +576,63 @@
   .glass-effect {
     background: oklch(0.22 0.015 270 / 80%);
     backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
     border: 1px solid oklch(0.95 0.01 270 / 20%);
+  }
+
+  /* Background blur utilities */
+  .backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .backdrop-blur {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .backdrop-blur-xl {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Dynamic bubble styles with proper transparency */
+  .bubble-transparent {
+    background: var(--bubble-bg) !important;
+    backdrop-filter: var(--bubble-blur) !important;
+    -webkit-backdrop-filter: var(--bubble-blur) !important;
+  }
+
+  /* User bubble with transparency support */
+  .message-bubble-user-transparent {
+    background: linear-gradient(135deg,
+      rgb(37 99 235 / var(--user-bubble-opacity)) 0%,
+      rgb(29 78 216 / var(--user-bubble-opacity)) 100%);
+    border: 1px solid rgb(59 130 246 / 0.4);
+    box-shadow: 0 4px 12px rgb(59 130 246 / 0.2);
+    backdrop-filter: var(--user-bubble-blur);
+    -webkit-backdrop-filter: var(--user-bubble-blur);
+  }
+
+  /* Character bubble with transparency support */
+  .message-bubble-character-transparent {
+    background: linear-gradient(135deg,
+      rgb(147 51 234 / var(--character-bubble-opacity)) 0%,
+      rgb(126 34 206 / var(--character-bubble-opacity)) 100%);
+    border: 1px solid rgb(168 85 247 / 0.4);
+    box-shadow: 0 4px 12px rgb(168 85 247 / 0.2);
+    backdrop-filter: var(--character-bubble-blur);
+    -webkit-backdrop-filter: var(--character-bubble-blur);
   }
   
   .warm-glow {

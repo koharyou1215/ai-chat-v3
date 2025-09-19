@@ -142,6 +142,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
   };
   const appearanceSettings = useAppStore((state) => state.appearanceSettings);
+  const chatSettings = useAppStore((state) => state.chat);
   const voice = useAppStore((state) => state.voice);
 
   // グループチャット用のセレクター
@@ -776,31 +777,50 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           <div
             ref={menuRef}
             className={cn(
-              "relative px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200",
+              "relative px-4 py-3 rounded-2xl shadow-lg transition-all duration-200",
+              // User messages: Dynamic transparency with backdrop blur
               isUser
-                ? "bg-gradient-to-br from-purple-600/80 to-blue-600/80 text-white border border-purple-400/30"
-                : effects.colorfulBubbles
-                ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
-                : isUser
-                ? "bg-blue-600/20 backdrop-blur-sm text-white border border-blue-400/30" // ユーザーは青系
-                : "bg-purple-600/20 backdrop-blur-sm text-white border border-purple-400/30", // アシスタントは紫系
+                ? chatSettings.bubbleBlur
+                  ? "message-bubble-user-transparent"
+                  : "bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/40 shadow-blue-500/20"
+                : // Character messages: Purple theme with effects consideration
+                  effects.colorfulBubbles
+                ? chatSettings.bubbleBlur
+                  ? "message-bubble-character-transparent"
+                  : "bg-gradient-to-br from-purple-500/25 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
+                : chatSettings.bubbleBlur
+                ? "message-bubble-character-transparent"
+                : "bg-gradient-to-br from-purple-600/90 to-purple-700/90 text-white border border-purple-400/40 shadow-purple-500/20",
               "hover:shadow-xl group-hover:scale-[1.02]",
               selectedText ? "ring-2 ring-yellow-400/50" : "",
               "overflow-visible" // メニューがはみ出すことを許可
             )}
             style={{
-              backgroundColor: `rgba(${
-                effects.colorfulBubbles
-                  ? "147, 51, 234"
-                  : isUser
-                  ? "147, 51, 234"
-                  : "51, 65, 85"
-              }, ${
-                effectSettings.bubbleOpacity
-                  ? effectSettings.bubbleOpacity / 100
-                  : 0.85
-              })`,
-            }}>
+              // CSS custom properties for dynamic transparency and blur
+              "--user-bubble-opacity": isUser
+                ? (chatSettings.bubbleTransparency || 20) / 100
+                : 0.9,
+              "--character-bubble-opacity": !isUser
+                ? effects.colorfulBubbles
+                  ? (effectSettings.bubbleOpacity || 25) / 100
+                  : (chatSettings.bubbleTransparency || 20) / 100
+                : 0.9,
+              "--user-bubble-blur": chatSettings.bubbleBlur
+                ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                : "none",
+              "--character-bubble-blur": chatSettings.bubbleBlur
+                ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                : "none",
+              // Additional background for colorful bubbles effect
+              ...(effects.colorfulBubbles &&
+                !chatSettings.bubbleBlur && {
+                  backgroundColor: `rgba(147, 51, 234, ${
+                    effectSettings.bubbleOpacity
+                      ? effectSettings.bubbleOpacity / 100
+                      : 0.25
+                  })`,
+                }),
+            } as React.CSSProperties}>
             {/* リッチメッセージ表示 */}
             <div style={fontEffectStyles}>
               <RichMessage

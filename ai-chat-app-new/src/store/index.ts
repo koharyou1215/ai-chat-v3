@@ -39,6 +39,7 @@ export type AppStore = ChatSlice &
     trackerManagers: Map<string, TrackerManager>;
     apiManager: SimpleAPIManagerV2;
     promptBuilderService: PromptBuilderService;
+    clearConversationCache: (sessionId: string) => void;
     [key: string]: unknown; // Add index signature for generic operations
   };
 
@@ -72,6 +73,19 @@ const combinedSlices: StateCreator<AppStore, [], [], AppStore> = (
     trackerManagers: new Map(),
     apiManager: simpleAPIManagerV2,
     promptBuilderService: promptBuilderService,
+
+    // 🆕 トラッカー値変更時のプロンプトキャッシュクリア機能
+    clearConversationCache: (sessionId: string) => {
+      try {
+        const store = safeGet();
+        if (store.promptBuilderService && store.promptBuilderService.clearManagerCache) {
+          store.promptBuilderService.clearManagerCache(sessionId);
+          console.log(`✅ [Store] Cleared conversation cache for session: ${sessionId}`);
+        }
+      } catch (error) {
+        console.warn('Failed to clear conversation cache:', error);
+      }
+    },
   };
 };
 

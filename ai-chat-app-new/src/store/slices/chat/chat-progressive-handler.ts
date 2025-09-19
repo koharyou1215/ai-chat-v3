@@ -29,10 +29,32 @@ export const createProgressiveHandler: StateCreator<
   ProgressiveHandler
 > = (set, get) => ({
   sendProgressiveMessage: async (content: string, imageUrl?: string) => {
+    console.log("🚀 [sendProgressiveMessage] Method called", {
+      content: content?.substring(0, 50) + "...",
+      imageUrl: !!imageUrl,
+      timestamp: new Date().toISOString()
+    });
+
     // グループモードの場合は通常送信にフォールバック
     const state = get();
+
+    // Add debugging for progressive mode state
+    console.log("🚀 [sendProgressiveMessage] State check:", {
+      is_group_mode: state.is_group_mode,
+      active_group_session_id: !!state.active_group_session_id,
+      progressiveMode: state.chat?.progressiveMode,
+      progressiveEnabled: state.chat?.progressiveMode?.enabled
+    });
+
     if (state.is_group_mode && state.active_group_session_id) {
+      console.log("🚀 [sendProgressiveMessage] Falling back to group message");
       return await state.sendGroupMessage(content, imageUrl);
+    }
+
+    // Check if progressive mode is actually enabled - if not, fallback to normal message
+    if (!state.chat?.progressiveMode?.enabled) {
+      console.log("🚀 [sendProgressiveMessage] Progressive mode disabled, falling back to normal message");
+      return await state.sendMessage(content, imageUrl);
     }
 
     const activeSessionId = state.active_session_id;
@@ -45,7 +67,10 @@ export const createProgressiveHandler: StateCreator<
     }
     set({ is_generating: true });
 
-    // 1. ユーザーメッセージを作成
+    try {
+      console.log("🚀 [sendProgressiveMessage] Starting progressive generation process");
+
+      // 1. ユーザーメッセージを作成
     const userMessage: UnifiedMessage = {
       id: generateUserMessageId(),
       created_at: new Date().toISOString(),
@@ -355,6 +380,20 @@ export const createProgressiveHandler: StateCreator<
         console.error("❌ Stage 1 (Reflex) failed:", error);
       }
     })();
+
+    } catch (error) {
+      console.error("❌ Progressive Message Generation failed in main setup:", error);
+      set({ is_generating: false });
+
+      // Fallback to normal message sending if progressive fails
+      console.log("🔄 Falling back to normal message generation due to error");
+      try {
+        await state.sendMessage(content, imageUrl);
+      } catch (fallbackError) {
+        console.error("❌ Fallback message sending also failed:", fallbackError);
+      }
+      return;
+    }
 
     // 6. Stage 2: Context (設定に基づく遅延後に開始)
     const chatSettings = get().chat;

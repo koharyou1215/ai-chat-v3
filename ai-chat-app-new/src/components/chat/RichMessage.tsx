@@ -214,7 +214,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         else {
           effectClass = "default-emotion";
           effectStyle =
-            "color: #95a5a6; text-shadow: 0 0 5px rgba(149, 165, 166, 0.4);";
+            "color: #e8e8e8; text-shadow: 0 0 5px rgba(232, 232, 232, 0.4);";
         }
 
         return `<span class="${effectClass}" style="${effectStyle}">「${text}」</span>`;

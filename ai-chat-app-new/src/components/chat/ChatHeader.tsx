@@ -92,6 +92,7 @@ const ChatHeaderContent: React.FC = () => {
     is_group_mode,
     active_group_session_id,
     groupSessions,
+    appearanceSettings, // 追加
   } = useAppStore();
 
   const session = getActiveSession();
@@ -169,8 +170,14 @@ const ChatHeaderContent: React.FC = () => {
 
   return (
     <div
-      className="chat-header fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20 bg-slate-900/95 backdrop-blur-md"
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)", height: "68px" }}>
+      className="chat-header fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b border-purple-400/20"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        height: "68px",
+        backgroundColor: `rgba(15, 23, 42, ${(appearanceSettings?.backgroundOpacity || 95) / 100})`,
+        backdropFilter: `blur(${appearanceSettings?.backgroundBlur || 12}px)`,
+        WebkitBackdropFilter: `blur(${appearanceSettings?.backgroundBlur || 12}px)`,
+      }}>
       <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
         <motion.button
           whileHover={{ scale: 1.1 }}

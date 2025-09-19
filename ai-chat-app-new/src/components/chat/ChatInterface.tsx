@@ -303,10 +303,17 @@ const ChatInterfaceContent: React.FC = () => {
     ? (groupSessions.get(active_group_session_id) as any)
     : null;
 
-  // キャラクターIDを安全に取得
+  // キャラクターIDを安全に取得（修正版：グループセッションでも一貫性のある取得方法）
   const currentCharacterId = useMemo(() => {
     if (is_group_mode && activeGroupSession) {
-      return activeGroupSession.character_ids[0];
+      // グループセッションの場合、characters配列の最初のキャラクターのIDを使用
+      if (activeGroupSession.characters && activeGroupSession.characters.length > 0) {
+        return activeGroupSession.characters[0].id;
+      }
+      // フォールバック：character_idsが利用可能な場合
+      if (activeGroupSession.character_ids && activeGroupSession.character_ids.length > 0) {
+        return activeGroupSession.character_ids[0];
+      }
     }
     if (session && session.participants.characters.length > 0) {
       return session.participants.characters[0].id;
@@ -804,11 +811,17 @@ const ChatInterfaceContent: React.FC = () => {
                   exit={{ x: "100%", opacity: 0 }}
                   transition={{ duration: 0.3, type: "spring", damping: 25 }}
                   className={cn(
-                    "right-panel-content bg-slate-800/80 backdrop-blur-md border-l border-purple-400/20 flex flex-col h-full",
+                    "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
+                    "bg-slate-800/80 backdrop-blur-md",
                     windowWidth < 768
                       ? "fixed right-0 top-0 w-[85vw] h-full z-[60]" // モバイルでは画面の85%幅
                       : "fixed right-0 top-0 h-full w-[380px] z-[60]"
                   )}
+                  style={{
+                    backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
+                    backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                    WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                  }}
                   onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">記憶情報</h3>

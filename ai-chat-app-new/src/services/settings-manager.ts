@@ -76,6 +76,13 @@ export interface UnifiedSettings {
     effectQuality: 'low' | 'medium' | 'high';
     animationSpeed: number;
 
+    // 3D・WebGL設定
+    enable3DEffects: boolean;
+    webglEnabled: boolean;
+    adaptivePerformance: boolean;
+    maxParticles: number;
+    depthEffects: boolean;
+
     // テキスト整形
     textFormatting: 'readable' | 'compact' | 'expanded';
   };
@@ -147,6 +154,11 @@ const settingsSchema = z.object({
     showTrackers: z.boolean(),
     effectQuality: z.enum(['low', 'medium', 'high']),
     animationSpeed: z.number().min(0).max(2),
+    enable3DEffects: z.boolean(),
+    webglEnabled: z.boolean(),
+    adaptivePerformance: z.boolean(),
+    maxParticles: z.number().min(100).max(10000),
+    depthEffects: z.boolean(),
     textFormatting: z.enum(['readable', 'compact', 'expanded']),
   }),
   chat: z.object({
@@ -203,6 +215,11 @@ const DEFAULT_SETTINGS: UnifiedSettings = {
     showTrackers: true,
     effectQuality: 'medium',
     animationSpeed: 0.5,
+    enable3DEffects: true,
+    webglEnabled: true,
+    adaptivePerformance: true,
+    maxParticles: 2000,
+    depthEffects: true,
     textFormatting: 'readable',
   },
   chat: {

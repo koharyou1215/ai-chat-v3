@@ -10,10 +10,7 @@ import {
 import { AppStore } from "@/store";
 // Import will be done dynamically to avoid circular dependencies
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
-import {
-  generateSessionId,
-  generateWelcomeMessageId,
-} from "@/utils/uuid";
+import { generateSessionId, generateWelcomeMessageId } from "@/utils/uuid";
 
 export interface SessionManagement {
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
@@ -23,14 +20,16 @@ export interface SessionManagement {
   updateSession: (session: Partial<UnifiedChatSession> & { id: UUID }) => void;
   clearActiveConversation: () => void;
   exportActiveConversation: () => void;
+  exportSession: (session_id: UUID) => void;
+  exportAllSessions: () => void;
   getActiveSession: () => UnifiedChatSession | null;
   getSessionMessages: (session_id: UUID) => UnifiedMessage[];
-  
+
   // 履歴管理
   saveSessionToHistory: (session_id: UUID) => Promise<void>;
   loadSessionFromHistory: (session_id: UUID) => Promise<void>;
   pinSession: (session_id: UUID, isPinned: boolean) => void;
-  
+
   // ヘルパー関数
   ensureTrackerManagerExists: (character: Character) => void;
 }
@@ -47,7 +46,7 @@ export const createSessionManagement: StateCreator<
     // 🔧 修正: トラッカーマネージャーをキャラクターIDで管理
     const trackerManagers = get().trackerManagers;
     let trackerManager: any;
-    
+
     // キャラクターごとにトラッカーマネージャーを管理
     if (!trackerManagers.has(character.id)) {
       const { TrackerManager } = await import(
@@ -152,7 +151,10 @@ export const createSessionManagement: StateCreator<
       context: {
         session_id: sessionId,
         current_topic: "greeting",
-        current_emotion: { emotion: "neutral", intensity: 0.5, confidence: 0.8 },
+        current_emotion: {
+          primary: "neutral",
+          intensity: 0.5,
+        },
         current_mood: { type: "neutral", intensity: 0.5, stability: 0.8 },
         recent_messages: [],
         recent_topics: [],
@@ -178,6 +180,9 @@ export const createSessionManagement: StateCreator<
         assistant_message_count: 0,
         average_response_time_ms: 0,
       },
+      isPinned: false,
+      isArchived: false,
+      lastAccessedAt: new Date().toISOString(),
     };
 
     set((state) => {
@@ -207,25 +212,39 @@ export const createSessionManagement: StateCreator<
         // 🔧 修正: キャラクターごとのトラッカーマネージャー確認
         const trackerManagers = get().trackerManagers;
         const character = session.participants.characters[0];
-        
+
         if (character && !trackerManagers.has(character.id)) {
           // Async import in a sync function - defer initialization
-          import("@/services/tracker/tracker-manager").then(({ TrackerManager }) => {
-            const trackerManager = new TrackerManager();
-            trackerManager.initializeTrackerSet(
-              character.id,
-              character.trackers
-            );
-            trackerManagers.set(character.id, trackerManager);
-            
-            // TrackerManagersを更新
-            set((_state) => ({
-              trackerManagers: new Map(trackerManagers),
-            }));
-          });
+          import("@/services/tracker/tracker-manager").then(
+            ({ TrackerManager }) => {
+              const trackerManager = new TrackerManager();
+              trackerManager.initializeTrackerSet(
+                character.id,
+                character.trackers
+              );
+              trackerManagers.set(character.id, trackerManager);
+
+              // TrackerManagersを更新
+              set((_state) => ({
+                trackerManagers: new Map(trackerManagers),
+              }));
+            }
+          );
         }
-        
+
         set({ active_session_id: sessionId });
+
+        // 🆕 セッション切り替え時にプロンプトキャッシュをクリア
+        // 新しいセッションのトラッカー状態を反映するため
+        try {
+          const currentState = get();
+          if (currentState.clearConversationCache) {
+            currentState.clearConversationCache(sessionId);
+            console.log(`✅ [setActiveSessionId] Cleared conversation cache for session switch: ${sessionId}`);
+          }
+        } catch (error) {
+          console.warn('Failed to clear conversation cache during session switch:', error);
+        }
       } else {
         set({ active_session_id: sessionId });
       }
@@ -242,9 +261,26 @@ export const createSessionManagement: StateCreator<
       let newActiveSessionId = state.active_session_id;
       // If the deleted session was the active one, switch to another session
       if (state.active_session_id === sessionId) {
-        newActiveSessionId = newSessions.keys().next().value || null;
+        // Prioritize switching to a pinned session, then most recent
+        const sessionArray = Array.from(newSessions.values());
+        if (sessionArray.length > 0) {
+          // First try to find a pinned session
+          const pinnedSession = sessionArray.find(session => session.isPinned);
+          if (pinnedSession) {
+            newActiveSessionId = pinnedSession.id;
+          } else {
+            // Otherwise, get the most recently updated session
+            const sortedSessions = sessionArray.sort((a, b) =>
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            );
+            newActiveSessionId = sortedSessions[0].id;
+          }
+        } else {
+          newActiveSessionId = null;
+        }
       }
 
+      console.log(`Session ${sessionId} deleted. New active session: ${newActiveSessionId}`);
       return {
         sessions: newSessions,
         active_session_id: newActiveSessionId,
@@ -302,18 +338,34 @@ export const createSessionManagement: StateCreator<
   exportActiveConversation: () => {
     const activeSession = get().getActiveSession();
     if (!activeSession) return;
+    get().exportSession(activeSession.id);
+  },
+
+  exportSession: (session_id) => {
+    const session = getSessionSafely(get().sessions, session_id);
+    if (!session) {
+      console.error(`Session ${session_id} not found for export`);
+      return;
+    }
 
     const exportData = {
-      session_id: activeSession.id,
-      title: activeSession.session_info.title,
-      created_at: activeSession.created_at,
-      character: activeSession.participants.characters[0]?.name,
-      messages: activeSession.messages.map((msg) => ({
+      session_id: session.id,
+      title: session.session_info.title,
+      created_at: session.created_at,
+      updated_at: session.updated_at,
+      character: session.participants.characters[0]?.name,
+      persona: session.participants.user?.name,
+      isPinned: session.isPinned,
+      isArchived: session.isArchived,
+      messageCount: session.messages.length,
+      messages: session.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
         timestamp: msg.created_at,
         character: msg.character_name,
+        emotion: msg.expression?.emotion,
       })),
+      statistics: session.statistics,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
@@ -322,13 +374,64 @@ export const createSessionManagement: StateCreator<
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `conversation-${activeSession.session_info.title}-${
+    const safeTitle = session.session_info.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    a.download = `conversation-${safeTitle}-${
       new Date().toISOString().split("T")[0]
     }.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    console.log(`Session "${session.session_info.title}" exported successfully`);
+  },
+
+  exportAllSessions: () => {
+    const sessions = get().sessions;
+    if (!sessions || sessions.size === 0) {
+      console.log('No sessions to export');
+      return;
+    }
+
+    const allSessionsData = {
+      exportedAt: new Date().toISOString(),
+      totalSessions: sessions.size,
+      sessions: Array.from(sessions.values()).map(session => ({
+        session_id: session.id,
+        title: session.session_info.title,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+        character: session.participants.characters[0]?.name,
+        persona: session.participants.user?.name,
+        isPinned: session.isPinned,
+        isArchived: session.isArchived,
+        messageCount: session.messages.length,
+        messages: session.messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+          character: msg.character_name,
+          emotion: msg.expression?.emotion,
+        })),
+        statistics: session.statistics,
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(allSessionsData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `all-conversations-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log(`All ${sessions.size} sessions exported successfully`);
   },
 
   getActiveSession: () => {
@@ -348,13 +451,41 @@ export const createSessionManagement: StateCreator<
     if (!session) return;
 
     try {
-      const response = await fetch("/api/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(session),
-      });
+      // Local storage based history management
+      const historyKey = `ai-chat-history-${session_id}`;
+      const historyData = {
+        ...session,
+        savedAt: new Date().toISOString(),
+        type: 'saved_session'
+      };
 
-      if (!response.ok) throw new Error("Failed to save history");
+      localStorage.setItem(historyKey, JSON.stringify(historyData));
+
+      // Update session list in history index
+      const historyIndexKey = 'ai-chat-history-index';
+      const existingIndex = localStorage.getItem(historyIndexKey);
+      const historyIndex = existingIndex ? JSON.parse(existingIndex) : [];
+
+      // Add session to index if not already present
+      if (!historyIndex.find((item: any) => item.session_id === session_id)) {
+        historyIndex.push({
+          session_id,
+          title: session.session_info.title,
+          savedAt: new Date().toISOString(),
+          character_name: session.participants.characters[0]?.name || 'Unknown',
+          message_count: session.messages.length
+        });
+
+        // Keep only the latest 100 history entries
+        if (historyIndex.length > 100) {
+          historyIndex.sort((a: any, b: any) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+          historyIndex.splice(100);
+        }
+
+        localStorage.setItem(historyIndexKey, JSON.stringify(historyIndex));
+      }
+
+      console.log(`Session ${session_id} saved to history successfully`);
     } catch (error) {
       console.error("Error saving session to history:", error);
     }
@@ -369,10 +500,7 @@ export const createSessionManagement: StateCreator<
       const sessionData = await response.json();
 
       set((state) => ({
-        sessions: createMapSafely(state.sessions).set(
-          session_id,
-          sessionData
-        ),
+        sessions: createMapSafely(state.sessions).set(session_id, sessionData),
         active_session_id: session_id,
       }));
     } catch (error) {
@@ -386,21 +514,31 @@ export const createSessionManagement: StateCreator<
       const session = getSessionSafely(state.sessions, session_id);
       if (!session) return state;
 
-      const updatedSession = { ...session, isPinned };
+      const updatedSession = {
+        ...session,
+        isPinned,
+        updated_at: new Date().toISOString()
+      };
       const newSessions = createMapSafely(state.sessions).set(
         session_id,
         updatedSession
       );
 
-      // APIに更新を送信
-      fetch("/api/history", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: session_id, updates: { isPinned } }),
-      }).catch((error) => {
-        console.error("Error updating pin status:", error);
-      });
+      // Update history if session is saved
+      try {
+        const historyKey = `ai-chat-history-${session_id}`;
+        const existingHistory = localStorage.getItem(historyKey);
+        if (existingHistory) {
+          const historyData = JSON.parse(existingHistory);
+          historyData.isPinned = isPinned;
+          historyData.updated_at = new Date().toISOString();
+          localStorage.setItem(historyKey, JSON.stringify(historyData));
+        }
+      } catch (error) {
+        console.error("Error updating pin status in history:", error);
+      }
 
+      console.log(`Session ${session_id} ${isPinned ? 'pinned' : 'unpinned'} successfully`);
       return { sessions: newSessions };
     });
   },

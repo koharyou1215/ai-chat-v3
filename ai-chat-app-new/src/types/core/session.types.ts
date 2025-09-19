@@ -18,14 +18,14 @@ export interface UnifiedChatSession extends BaseEntity, WithMetadata<SessionMeta
     characters: Character[];
     active_character_ids: Set<UUID>;
   };
-  
+
   // メッセージ
   messages: UnifiedMessage[];
   message_count: number;
-  
+
   // 記憶システム
   memory_system: MemoryLayerInstance;
-  
+
   // 状態管理
   state_management: {
     trackers: Map<UUID, TrackerInstance>;
@@ -34,19 +34,24 @@ export interface UnifiedChatSession extends BaseEntity, WithMetadata<SessionMeta
         intensity: number;
     };
   };
-  
+
   // コンテキスト
   context: ConversationContext;
-  
+
   // セッション情報
   session_info: {
     title: string;
     description: string;
     tags: string[];
   };
-  
+
   // 統計
   statistics: SessionStatistics;
+
+  // 履歴管理
+  isPinned?: boolean;
+  isArchived?: boolean;
+  lastAccessedAt?: Timestamp;
 }
 
 export interface MemoryIndex {

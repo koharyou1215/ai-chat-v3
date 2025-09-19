@@ -37,6 +37,7 @@ import {
   APIConfig,
   APIProvider,
 } from "@/types/core/settings.types";
+import { EmotionalIntelligenceFlags } from "@/types/core/emotional-intelligence.types";
 import { getModelPricing } from "@/constants/model-pricing";
 import {
   ModelPricingDisplay,
@@ -234,6 +235,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAPIProvider,
     effectSettings,
     updateEffectSettings,
+    emotionalIntelligenceFlags,
+    updateEmotionalFlags,
   } = useAppStore();
 
   useEffect(() => {
@@ -409,6 +412,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <EmotionPanel
                     settings={localEffectSettings}
                     updateSetting={updateEffectSetting}
+                    emotionalFlags={emotionalIntelligenceFlags}
+                    updateEmotionalFlags={updateEmotionalFlags}
                   />
                 )}
                 {activeTab === "tracker" && (
@@ -673,30 +678,136 @@ const EmotionPanel: React.FC<{
     key: K,
     value: EffectSettings[K]
   ) => void;
-}> = ({ settings, updateSetting }) => (
+  emotionalFlags: EmotionalIntelligenceFlags;
+  updateEmotionalFlags: (flags: Partial<EmotionalIntelligenceFlags>) => void;
+}> = ({ settings, updateSetting, emotionalFlags, updateEmotionalFlags }) => (
   <div className="space-y-6">
     <h3 className="text-xl font-semibold text-white mb-4">感情分析</h3>
 
-    <SettingItem
-      title="リアルタイム感情検出"
-      description="メッセージから感情を自動検出し、表情を変更します"
-      checked={settings.realtimeEmotion}
-      onChange={(checked) => updateSetting("realtimeEmotion", checked)}
-    />
+    <div className="space-y-4">
+      <h4 className="text-lg font-medium text-white">基盤機能</h4>
 
-    <SettingItem
-      title="感情ベースのスタイル変更"
-      description="検出した感情に基づいてメッセージの見た目を自動変更します"
-      checked={settings.emotionBasedStyling}
-      onChange={(checked) => updateSetting("emotionBasedStyling", checked)}
-    />
+      <SettingItem
+        title="感情分析エンジン"
+        description="メッセージから感情を分析する基本機能を有効にします"
+        checked={emotionalFlags.emotion_analysis_enabled}
+        onChange={(checked) => updateEmotionalFlags({ emotion_analysis_enabled: checked })}
+      />
 
-    <SettingItem
-      title="自動リアクション"
-      description="感情に応じて自動的にビジュアルエフェクトを発動します"
-      checked={settings.autoReactions}
-      onChange={(checked) => updateSetting("autoReactions", checked)}
-    />
+      <SettingItem
+        title="感情記憶システム"
+        description="重要な感情体験を記録・学習する機能を有効にします"
+        checked={emotionalFlags.emotional_memory_enabled}
+        onChange={(checked) => updateEmotionalFlags({ emotional_memory_enabled: checked })}
+      />
+
+      <SettingItem
+        title="基本エフェクト"
+        description="感情に基づく基本的な視覚効果を有効にします"
+        checked={emotionalFlags.basic_effects_enabled}
+        onChange={(checked) => updateEmotionalFlags({ basic_effects_enabled: checked })}
+      />
+    </div>
+
+    <div className="space-y-4">
+      <h4 className="text-lg font-medium text-white">統合機能</h4>
+
+      <SettingItem
+        title="文脈感情分析"
+        description="会話の文脈を考慮した高度な感情分析を有効にします"
+        checked={emotionalFlags.contextual_analysis_enabled}
+        onChange={(checked) => updateEmotionalFlags({ contextual_analysis_enabled: checked })}
+      />
+
+      <SettingItem
+        title="適応パフォーマンス"
+        description="デバイス性能に応じて感情分析の精度を自動調整します"
+        checked={emotionalFlags.adaptive_performance_enabled}
+        onChange={(checked) => updateEmotionalFlags({ adaptive_performance_enabled: checked })}
+      />
+
+      <SettingItem
+        title="視覚エフェクト"
+        description="感情に応じた高度な視覚効果を有効にします"
+        checked={emotionalFlags.visual_effects_enabled}
+        onChange={(checked) => updateEmotionalFlags({ visual_effects_enabled: checked })}
+      />
+    </div>
+
+    <div className="space-y-4">
+      <h4 className="text-lg font-medium text-white">高度機能</h4>
+
+      <SettingItem
+        title="予測分析"
+        description="会話の流れから今後の感情変化を予測します"
+        checked={emotionalFlags.predictive_analysis_enabled}
+        onChange={(checked) => updateEmotionalFlags({ predictive_analysis_enabled: checked })}
+      />
+
+      <SettingItem
+        title="アドバンストエフェクト"
+        description="より洗練された感情表現エフェクトを有効にします"
+        checked={emotionalFlags.advanced_effects_enabled}
+        onChange={(checked) => updateEmotionalFlags({ advanced_effects_enabled: checked })}
+      />
+
+      <SettingItem
+        title="多層分析"
+        description="複数のレイヤーで感情を深く分析します"
+        checked={emotionalFlags.multi_layer_analysis_enabled}
+        onChange={(checked) => updateEmotionalFlags({ multi_layer_analysis_enabled: checked })}
+      />
+    </div>
+
+    <div className="space-y-4">
+      <h4 className="text-lg font-medium text-white">既存エフェクト設定</h4>
+
+      <SettingItem
+        title="リアルタイム感情検出"
+        description="メッセージから感情を自動検出し、表情を変更します"
+        checked={settings.realtimeEmotion}
+        onChange={(checked) => updateSetting("realtimeEmotion", checked)}
+      />
+
+      <SettingItem
+        title="感情ベースのスタイル変更"
+        description="検出した感情に基づいてメッセージの見た目を自動変更します"
+        checked={settings.emotionBasedStyling}
+        onChange={(checked) => updateSetting("emotionBasedStyling", checked)}
+      />
+
+      <SettingItem
+        title="自動リアクション"
+        description="感情に応じて自動的にビジュアルエフェクトを発動します"
+        checked={settings.autoReactions}
+        onChange={(checked) => updateSetting("autoReactions", checked)}
+      />
+    </div>
+
+    <div className="space-y-4">
+      <h4 className="text-lg font-medium text-white">デバッグ・安全設定</h4>
+
+      <SettingItem
+        title="セーフモード"
+        description="安全性を最優先にした保守的な感情分析を行います"
+        checked={emotionalFlags.safe_mode}
+        onChange={(checked) => updateEmotionalFlags({ safe_mode: checked })}
+      />
+
+      <SettingItem
+        title="パフォーマンス監視"
+        description="感情分析の性能を監視・最適化します"
+        checked={emotionalFlags.performance_monitoring}
+        onChange={(checked) => updateEmotionalFlags({ performance_monitoring: checked })}
+      />
+
+      <SettingItem
+        title="デバッグモード"
+        description="開発者向けの詳細なログと情報を表示します"
+        checked={emotionalFlags.debug_mode}
+        onChange={(checked) => updateEmotionalFlags({ debug_mode: checked })}
+      />
+    </div>
   </div>
 );
 
@@ -1516,10 +1627,17 @@ const ChatPanel: React.FC = () => {
             type="checkbox"
             id="progressive-enabled"
             checked={chat.progressiveMode?.enabled || false}
-            onChange={(e) =>
-              updateChatSettings({
+            onChange={(e) => {
+              const newEnabled = e.target.checked;
+              console.log("🔧 Progressive Mode Setting Changed:", {
+                oldValue: chat.progressiveMode?.enabled,
+                newValue: newEnabled,
+                timestamp: new Date().toISOString()
+              });
+
+              const newSettings = {
                 progressiveMode: {
-                  enabled: e.target.checked,
+                  enabled: newEnabled,
                   showIndicators: chat.progressiveMode?.showIndicators ?? true,
                   highlightChanges:
                     chat.progressiveMode?.highlightChanges ?? true,
@@ -1531,8 +1649,27 @@ const ChatPanel: React.FC = () => {
                     intelligence: 2000,
                   },
                 },
-              })
-            }
+              };
+
+              console.log("🔧 Updating chat settings with:", newSettings);
+              updateChatSettings(newSettings);
+
+              // Add a slight delay to verify the setting was applied
+              setTimeout(() => {
+                console.log("🔧 Progressive Mode Setting Verification:", {
+                  appliedValue: chat.progressiveMode?.enabled,
+                  expectedValue: newEnabled,
+                  settingApplied: chat.progressiveMode?.enabled === newEnabled
+                });
+
+                // Optional: Add visual feedback (you could set a state here for a checkmark)
+                if (chat.progressiveMode?.enabled === newEnabled) {
+                  console.log("✅ Progressive mode setting successfully applied");
+                } else {
+                  console.warn("⚠️ Progressive mode setting may not have been applied correctly");
+                }
+              }, 100);
+            }}
             className="mt-1 w-4 h-4 text-blue-600 bg-gray-700 rounded border-gray-600 focus:ring-blue-500"
           />
           <div className="flex-1">

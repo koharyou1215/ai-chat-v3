@@ -15,7 +15,7 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
   message,
   onEmotionDetected
 }) => {
-  const { settings } = useEffectSettings();
+  const { settings, emotionalIntelligenceFlags } = useEffectSettings();
   const [currentEmotion, setCurrentEmotion] = useState<EmotionResult | null>(null);
   const [moodTimeline, setMoodTimeline] = useState<MoodTimeline | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -24,7 +24,7 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
   const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
-    if (!settings.realtimeEmotion || !message.trim()) return;
+    if (!settings.realtimeEmotion || !emotionalIntelligenceFlags.emotion_analysis_enabled || !message.trim()) return;
 
     const analyzeEmotion = async () => {
       setIsAnalyzing(true);
@@ -57,9 +57,9 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [message, settings.realtimeEmotion, onEmotionDetected]);
+  }, [message, settings.realtimeEmotion, emotionalIntelligenceFlags.emotion_analysis_enabled, onEmotionDetected]);
 
-  if (!settings.realtimeEmotion) return null;
+  if (!settings.realtimeEmotion || !emotionalIntelligenceFlags.emotion_analysis_enabled) return null;
 
   return (
     <div className="space-y-1">
@@ -324,11 +324,11 @@ export const EmotionReactions: React.FC<{
   emotion: EmotionResult;
   onReactionTriggered?: (reaction: EmotionResult['suggestedReactions'][0]) => void;
 }> = ({ emotion, onReactionTriggered }) => {
-  const { settings } = useEffectSettings();
+  const { settings, emotionalIntelligenceFlags } = useEffectSettings();
   const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
-    if (!settings.autoReactions) return;
+    if (!settings.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
 
     // Clear existing timeouts
     reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
@@ -348,7 +348,7 @@ export const EmotionReactions: React.FC<{
       reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
       reactionTimeoutsRef.current = [];
     };
-  }, [emotion, settings.autoReactions, onReactionTriggered]);
+  }, [emotion, settings.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled, onReactionTriggered]);
   
   // Cleanup all timeouts on unmount
   useEffect(() => {
@@ -358,7 +358,7 @@ export const EmotionReactions: React.FC<{
     };
   }, []);
 
-  if (!settings.autoReactions) return null;
+  if (!settings.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return null;
 
   return (
     <AnimatePresence>
