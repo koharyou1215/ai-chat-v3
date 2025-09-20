@@ -1,60 +1,64 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Image } from 'lucide-react';
+import React, { useState } from "react";
+import { Image } from "lucide-react";
 
 export function SDTestButton() {
   const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<string>('');
+  const [result, setResult] = useState<string>("");
 
   const testSD = async () => {
     setTesting(true);
-    setResult('テスト中...');
+    setResult("テスト中...");
 
     try {
       // 最小限のパラメータでテスト
-      const response = await fetch('/api/sd/generate', {
-        method: 'POST',
+      const response = await fetch("/api/sd/generate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: 'a simple test, 1girl',
-          negative_prompt: 'bad quality',
+          prompt: "a simple test, 1girl",
+          negative_prompt: "bad quality",
           width: 512,
           height: 512,
           steps: 10,
           cfg_scale: 7,
-          sampler_name: 'Euler',
+          sampler_name: "Euler",
           seed: -1,
           restore_faces: false,
-          enable_hr: false
-        })
+          enable_hr: false,
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.images && data.images[0]) {
-          setResult('✅ SD API動作確認OK！画像を生成しました');
+          setResult("✅ SD API動作確認OK！画像を生成しました");
           // 画像を表示
-          const img = document.createElement('img');
+          const img = document.createElement("img");
           img.src = `data:image/png;base64,${data.images[0]}`;
-          img.style.maxWidth = '200px';
-          img.style.marginTop = '10px';
-          const container = document.getElementById('sd-test-result');
+          img.style.maxWidth = "200px";
+          img.style.marginTop = "10px";
+          const container = document.getElementById("sd-test-result");
           if (container) {
-            container.innerHTML = '';
+            container.innerHTML = "";
             container.appendChild(img);
           }
         } else {
-          setResult('⚠️ レスポンスに画像が含まれていません');
+          setResult("⚠️ レスポンスに画像が含まれていません");
         }
       } else {
         const error = await response.json();
         setResult(`❌ エラー: ${error.error}`);
       }
     } catch (error) {
-      setResult(`❌ 接続エラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setResult(
+        `❌ 接続エラー: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setTesting(false);
     }
@@ -66,10 +70,9 @@ export function SDTestButton() {
       <button
         onClick={testSD}
         disabled={testing}
-        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-md transition-colors"
-      >
-        <Image size={16} />
-        {testing ? 'テスト中...' : 'テスト実行'}
+        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-md transition-colors">
+        <Image size={16} alt="Test icon" />
+        {testing ? "テスト中..." : "テスト実行"}
       </button>
       <div className="mt-2 text-sm text-white">{result}</div>
       <div id="sd-test-result"></div>

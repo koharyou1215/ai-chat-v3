@@ -103,6 +103,15 @@ export class ConversationManager {
       this.memoryLayers.addUnifiedMessage(message);
     }
 
+    // 🧠 Mem0にメッセージをバッチ取り込み
+    try {
+      const { Mem0 } = await import("@/services/mem0/core");
+      await Promise.all(messages.map(msg => Mem0.ingestMessage(msg)));
+      console.log(`✅ [ConversationManager] ${messages.length} messages ingested to Mem0`);
+    } catch (error) {
+      console.warn("⚠️ [ConversationManager] Failed to batch ingest messages to Mem0:", error);
+    }
+
     // インデックス対象メッセージを抽出してバッチ処理
     const messagesToIndex = messages.filter((msg) =>
       this.shouldIndexMessage(msg)
@@ -193,6 +202,14 @@ export class ConversationManager {
       Promise.resolve().then(() => this.memoryLayers.addUnifiedMessage(message))
     );
 
+    // 🧠 Mem0にメッセージを取り込む
+    processingTasks.push(
+      import("@/services/mem0/core")
+        .then(({ Mem0 }) => Mem0.ingestMessage(message))
+        .then(() => console.log(`✅ [ConversationManager] Message ingested to Mem0: ${message.id}`))
+        .catch(error => console.warn("⚠️ [ConversationManager] Failed to ingest message to Mem0:", error))
+    );
+
     // ベクトルストアに追加（コスト最適化考慮）
     if (this.shouldIndexMessage(message)) {
       processingTasks.push(this.vectorStore.addMessage(message));
@@ -220,8 +237,53 @@ export class ConversationManager {
     // 1. 階層的メモリから取得
     const layeredMemory = this.memoryLayers.getLayeredContext(currentInput);
 
-    // 2. ベクトル検索で関連メッセージを取得
-    const relevantMemories = await this.searchRelevantMemories(currentInput);
+    // 2. ベクトル検索で関連メッセージを取得 (Mem0完全統合)
+    let relevantMemories: SearchResult[] = [];
+    try {
+      const { Mem0 } = await import("@/services/mem0/core");
+      const mem0Results = await Mem0.search(
+        currentInput,
+        this.config.maxRelevantMemories
+      );
+
+      // Mem0検索結果をSearchResult形式に変換
+      if (mem0Results && mem0Results.length > 0) {
+        relevantMemories = mem0Results.map((result: any) => ({
+          message: result.message || {
+            id: `mem0_${Date.now()}`,
+            content: result.content || "",
+            role: "assistant" as const,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            session_id: "",
+            is_deleted: false,
+            memory: {
+              importance: { score: result.relevance || 0.5, factors: {} as any },
+              is_pinned: false,
+              is_bookmarked: false,
+              keywords: [],
+              summary: result.summary,
+            },
+            expression: {
+              emotion: { primary: "neutral", intensity: 0.5, emoji: "😐" },
+              style: { font_weight: "normal", text_color: "#ffffff" },
+              effects: [],
+            },
+            edit_history: [],
+            regeneration_count: 0,
+            metadata: {},
+            version: 1,
+          } as UnifiedMessage,
+          similarity: result.similarity || 0.5,
+          relevance: result.relevance || 0.5,
+        }));
+        console.log(`✅ [ConversationManager] Mem0 search returned ${relevantMemories.length} results`);
+      }
+    } catch (error) {
+      console.warn("⚠️ [ConversationManager] Mem0 search failed, using fallback:", error);
+      // フォールバック: 既存のベクトル検索を使用
+      relevantMemories = await this.searchRelevantMemories(currentInput);
+    }
 
     // 3. ピン留めされたメッセージを取得
     const pinnedMessages = this.getPinnedMessages();
@@ -817,6 +879,87 @@ export class ConversationManager {
         recentMessages
       );
     }
+
+    // 🧠 自動メモリーカード作成: 重要な会話を永続化
+    try {
+      const { Mem0 } = await import("@/services/mem0/core");
+
+      // 重要度を計算
+      const importance = this.calculateConversationImportance(recentMessages);
+
+      // 重要度が閾値を超えた場合、メモリーカードを作成
+      if (importance > 0.7 && this.sessionSummary) {
+        // Get character ID from the first message with character info (if available)
+        const characterId = this.allMessages.find(m => m.character_id)?.character_id;
+
+        await Mem0.promoteToMemoryCard(this.sessionSummary, {
+          title: `Conversation Summary - ${new Date().toLocaleDateString()}`,
+          keywords: this.extractKeywordsFromMessages(recentMessages),
+          importance: {
+            score: importance,
+            factors: {
+              emotional_weight: this.calculateEmotionalWeight(recentMessages),
+              repetition_count: 0,
+              user_emphasis: 0.7,
+              ai_judgment: importance,
+            }
+          },
+          character_id: characterId,
+          memory_type: "episodic",
+        } as any);
+
+        console.log(`✅ [ConversationManager] Auto-created memory card with importance ${importance}`);
+      }
+    } catch (error) {
+      console.warn("⚠️ [ConversationManager] Failed to auto-create memory card:", error);
+    }
+  }
+
+  /**
+   * 会話の重要度を計算
+   */
+  private calculateConversationImportance(messages: UnifiedMessage[]): number {
+    if (messages.length === 0) return 0;
+
+    // 各メッセージの重要度の平均値を計算
+    const avgImportance = messages.reduce((sum, msg) =>
+      sum + (msg.memory?.importance?.score || 0), 0) / messages.length;
+
+    // ユーザーメッセージの割合（ユーザー参加度）
+    const userMessageRatio = messages.filter(m => m.role === "user").length / messages.length;
+
+    // 最終的な重要度（平均重要度 * ユーザー参加度で調整）
+    return Math.min(1, avgImportance * (1 + userMessageRatio * 0.5));
+  }
+
+  /**
+   * 感情的な重みを計算
+   */
+  private calculateEmotionalWeight(messages: UnifiedMessage[]): number {
+    const emotions = messages.map(m => m.expression?.emotion?.intensity || 0);
+    return emotions.length > 0 ? emotions.reduce((a, b) => a + b, 0) / emotions.length : 0.5;
+  }
+
+  /**
+   * メッセージからキーワードを抽出
+   */
+  private extractKeywordsFromMessages(messages: UnifiedMessage[]): string[] {
+    const keywords = new Set<string>();
+
+    messages.forEach(msg => {
+      // メッセージ自体のキーワード
+      if (msg.memory?.keywords) {
+        msg.memory.keywords.forEach(kw => keywords.add(kw));
+      }
+
+      // 簡易的な重要単語抽出（3文字以上の単語）
+      const words = msg.content.split(/\s+/)
+        .filter(word => word.length > 3)
+        .slice(0, 3); // 最初の3単語
+      words.forEach(word => keywords.add(word.toLowerCase()));
+    });
+
+    return Array.from(keywords).slice(0, 10); // 最大10個のキーワード
   }
 
   /**
@@ -1105,13 +1248,9 @@ export class ConversationManager {
         `🔍 [ConversationManager] Total memory cards for relevance check: ${allCards.length}`
       );
 
-      const cards = allCards.filter(
-        (card) => !card.is_hidden
-      ); // 非表示カードは除外
-      
-      console.log(
-        `🔍 [ConversationManager] Non-hidden cards: ${cards.length}`
-      );
+      const cards = allCards.filter((card) => !card.is_hidden); // 非表示カードは除外
+
+      console.log(`🔍 [ConversationManager] Non-hidden cards: ${cards.length}`);
 
       // スマートな関連度計算
       const relevantCards = cards

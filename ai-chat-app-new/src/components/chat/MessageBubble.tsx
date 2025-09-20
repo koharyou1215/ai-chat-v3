@@ -109,7 +109,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const getSelectedPersona = useAppStore((state) => state.getSelectedPersona);
 
   // 共通エフェクトフック
-  const { effects, calculateFontEffects, isEffectEnabled, settings: effectSettings } = useMessageEffects();
+  const {
+    effects,
+    calculateFontEffects,
+    isEffectEnabled,
+    settings: effectSettings,
+  } = useMessageEffects();
 
   // フォントエフェクトのスタイル計算（共通フック使用）
   const fontEffectStyles = useMemo(() => {
@@ -470,14 +475,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
   }, [
     message,
-    message.id,
     rollbackSession,
     rollbackGroupSession,
     isGroupChat,
     active_group_session_id,
     activeSessionId,
     groupSessions,
-    sessions,
   ]);
 
   // テキスト選択イベント
@@ -784,7 +787,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   ? "message-bubble-user-transparent"
                   : "bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/40 shadow-blue-500/20"
                 : // Character messages: Purple theme with effects consideration
-                  effects.colorfulBubbles
+                effects.colorfulBubbles
                 ? chatSettings.bubbleBlur
                   ? "message-bubble-character-transparent"
                   : "bg-gradient-to-br from-purple-500/25 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
@@ -795,32 +798,34 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               selectedText ? "ring-2 ring-yellow-400/50" : "",
               "overflow-visible" // メニューがはみ出すことを許可
             )}
-            style={{
-              // CSS custom properties for dynamic transparency and blur
-              "--user-bubble-opacity": isUser
-                ? (chatSettings.bubbleTransparency || 20) / 100
-                : 0.9,
-              "--character-bubble-opacity": !isUser
-                ? effects.colorfulBubbles
-                  ? (effectSettings.bubbleOpacity || 25) / 100
-                  : (chatSettings.bubbleTransparency || 20) / 100
-                : 0.9,
-              "--user-bubble-blur": chatSettings.bubbleBlur
-                ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
-                : "none",
-              "--character-bubble-blur": chatSettings.bubbleBlur
-                ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
-                : "none",
-              // Additional background for colorful bubbles effect
-              ...(effects.colorfulBubbles &&
-                !chatSettings.bubbleBlur && {
-                  backgroundColor: `rgba(147, 51, 234, ${
-                    effectSettings.bubbleOpacity
-                      ? effectSettings.bubbleOpacity / 100
-                      : 0.25
-                  })`,
-                }),
-            } as React.CSSProperties}>
+            style={
+              {
+                // CSS custom properties for dynamic transparency and blur
+                "--user-bubble-opacity": isUser
+                  ? (chatSettings.bubbleTransparency || 20) / 100
+                  : 0.9,
+                "--character-bubble-opacity": !isUser
+                  ? effects.colorfulBubbles
+                    ? (effectSettings.bubbleOpacity || 25) / 100
+                    : (chatSettings.bubbleTransparency || 20) / 100
+                  : 0.9,
+                "--user-bubble-blur": chatSettings.bubbleBlur
+                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  : "none",
+                "--character-bubble-blur": chatSettings.bubbleBlur
+                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  : "none",
+                // Additional background for colorful bubbles effect
+                ...(effects.colorfulBubbles &&
+                  !chatSettings.bubbleBlur && {
+                    backgroundColor: `rgba(147, 51, 234, ${
+                      effectSettings.bubbleOpacity
+                        ? effectSettings.bubbleOpacity / 100
+                        : 0.25
+                    })`,
+                  }),
+              } as React.CSSProperties
+            }>
             {/* リッチメッセージ表示 */}
             <div style={fontEffectStyles}>
               <RichMessage
@@ -837,7 +842,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             </div>
 
             {/* 感情表示（lazily loaded） */}
-            {emotionResult && isEffectEnabled('realtimeEmotion') && (
+            {emotionResult && isEffectEnabled("realtimeEmotion") && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <EmotionDisplay message={processedContent} />
@@ -846,7 +851,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* ホログラムエフェクト（lazily loaded） */}
-            {isEffectEnabled('hologram') && isAssistant && (
+            {isEffectEnabled("hologram") && isAssistant && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <HologramMessage text={processedContent} />
@@ -855,14 +860,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* パーティクルエフェクト（lazily loaded） */}
-            {isEffectEnabled('particles') && (
+            {isEffectEnabled("particles") && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <ParticleText text={processedContent} trigger={isLatest} />
               </Suspense>
             )}
 
             {/* メッセージエフェクト（lazily loaded） */}
-            {isEffectEnabled('typewriter') && (
+            {isEffectEnabled("typewriter") && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <MessageEffects
                   trigger={processedContent}
@@ -1043,7 +1048,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           </div>
 
           {/* 感情リアクション（lazily loaded） */}
-          {emotionResult && isEffectEnabled('autoReactions') && (
+          {emotionResult && isEffectEnabled("autoReactions") && (
             <Suspense fallback={<EffectLoadingFallback />}>
               <div className="mt-2">
                 <EmotionReactions emotion={emotionResult} />

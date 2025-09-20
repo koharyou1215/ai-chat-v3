@@ -13,6 +13,9 @@ export * from './core/emotional-intelligence.types';
 // メッセージ型は重複エクスポートを避けて個別にエクスポート
 export type { UnifiedMessage, MessageRole, MessageEditEntry, MessageMetadata } from './core/message.types';
 
+// Mem0 Character Memory型のエクスポート
+export * from './mem0/character-memory.types';
+
 export * from './api';
 export * from './ui';
 

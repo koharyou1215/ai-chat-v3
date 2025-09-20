@@ -9,6 +9,7 @@ import React, {
   Suspense,
   memo,
 } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { OptimizedMessageBubble } from "./OptimizedMessageBubble";
@@ -80,7 +81,9 @@ const MemoizedEmptyState = memo(() => {
       }
     } else {
       console.warn("⚠️ キャラクターまたはペルソナが見つかりません");
-      alert("キャラクターまたはペルソナが読み込まれていません。サイドバーから選択してください。");
+      alert(
+        "キャラクターまたはペルソナが読み込まれていません。サイドバーから選択してください。"
+      );
       toggleLeftSidebar();
     }
   }, [characters, getSelectedPersona, createSession, toggleLeftSidebar]);
@@ -98,7 +101,9 @@ const MemoizedEmptyState = memo(() => {
         color: "rgba(255, 255, 255, 0.5)",
       }}>
       <Bot size={48} className="mb-4" />
-      <h2 className="text-xl font-semibold" style={{ fontSize: "1.25rem", fontWeight: 600 }}>
+      <h2
+        className="text-xl font-semibold"
+        style={{ fontSize: "1.25rem", fontWeight: 600 }}>
         セッションがありません
       </h2>
       <p>キャラクターを選択して会話を始めましょう。</p>
@@ -143,8 +148,14 @@ const OptimizedThinkingIndicator = memo(() => {
       <div className="flex items-center justify-center p-4">
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+          <div
+            className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+            style={{ animationDelay: "0.2s" }}
+          />
+          <div
+            className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+            style={{ animationDelay: "0.4s" }}
+          />
           <span className="text-sm text-white/60">AIが考え中...</span>
         </div>
       </div>
@@ -181,12 +192,8 @@ OptimizedThinkingIndicator.displayName = "OptimizedThinkingIndicator";
 
 const OptimizedChatInterfaceContent: React.FC = memo(() => {
   // Performance optimization hook
-  const {
-    createOptimizedCallback,
-    smartMemo,
-    metrics,
-    shouldSplitComponent,
-  } = usePerformanceOptimization('ChatInterface');
+  const { createOptimizedCallback, smartMemo, metrics, shouldSplitComponent } =
+    usePerformanceOptimization("ChatInterface");
 
   // Optimized store selectors (memoized)
   const {
@@ -234,7 +241,14 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   useVH(); // Safari対応版のVHフックを使用
 
   // Memoized session and character data
-  const { session, character, displaySession, currentMessages, displaySessionId, currentCharacterId } = smartMemo(() => {
+  const {
+    session,
+    character,
+    displaySession,
+    currentMessages,
+    displaySessionId,
+    currentCharacterId,
+  } = smartMemo(() => {
     const session = getActiveSession();
     const character = getSelectedCharacter();
 
@@ -256,8 +270,10 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
 
     // セッションの決定（グループセッションまたは通常セッション）
     const displaySession = is_group_mode ? activeGroupSession : session;
-    const currentMessages = displaySession && displaySession.messages ? displaySession.messages : [];
-    const displaySessionId = displaySession && displaySession.id ? displaySession.id : "";
+    const currentMessages =
+      displaySession && displaySession.messages ? displaySession.messages : [];
+    const displaySessionId =
+      displaySession && displaySession.id ? displaySession.id : "";
 
     return {
       session,
@@ -267,14 +283,29 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       displaySessionId,
       currentCharacterId,
     };
-  }, [getActiveSession, getSelectedCharacter, active_group_session_id, groupSessions, is_group_mode]);
+  }, [
+    getActiveSession,
+    getSelectedCharacter,
+    active_group_session_id,
+    groupSessions,
+    is_group_mode,
+  ]);
 
   // State management
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<"memory" | "tracker" | "history" | "layers">("memory");
-  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 0);
-  const [motionComponents, setMotionComponents] = useState<{ motion?: any; AnimatePresence?: any }>({});
-  const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>([]);
+  const [activeTab, setActiveTab] = useState<
+    "memory" | "tracker" | "history" | "layers"
+  >("memory");
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
+  const [motionComponents, setMotionComponents] = useState<{
+    motion?: any;
+    AnimatePresence?: any;
+  }>({});
+  const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
+    []
+  );
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   // Optimized window resize handler
@@ -310,7 +341,10 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       label: "メモリー",
       component: (
         <Suspense fallback={<PanelLoadingFallback />}>
-          <MemoryGallery session_id={displaySessionId} character_id={currentCharacterId!} />
+          <MemoryGallery
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
         </Suspense>
       ),
     },
@@ -320,7 +354,10 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       label: "トラッカー",
       component: (
         <Suspense fallback={<PanelLoadingFallback />}>
-          <TrackerDisplay session_id={displaySessionId} character_id={currentCharacterId!} />
+          <TrackerDisplay
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
         </Suspense>
       ),
     },
@@ -374,7 +411,8 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
             top: 0,
             bottom: 0,
           }}>
-          {character.background_url.endsWith(".mp4") || character.background_url.includes("video") ? (
+          {character.background_url.endsWith(".mp4") ||
+          character.background_url.includes("video") ? (
             <video
               src={character.background_url}
               autoPlay
@@ -384,9 +422,11 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <img
+            <Image
               src={character.background_url}
               alt="background"
+              width={800}
+              height={600}
               className="w-full h-full object-cover"
             />
           )}
@@ -394,8 +434,13 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       );
     }
 
-    const { backgroundType, backgroundImage, backgroundGradient, backgroundOpacity, backgroundBlur } =
-      appearanceSettings;
+    const {
+      backgroundType,
+      backgroundImage,
+      backgroundGradient,
+      backgroundOpacity,
+      backgroundBlur,
+    } = appearanceSettings;
 
     return (
       <div
@@ -409,13 +454,24 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
           filter: `blur(${backgroundBlur}px)`,
         }}>
         {backgroundType === "image" && backgroundImage ? (
-          <img src={backgroundImage} alt="background" className="w-full h-full object-cover" />
+          <Image
+            src={backgroundImage}
+            alt="background"
+            width={800}
+            height={600}
+            className="w-full h-full object-cover"
+          />
         ) : backgroundType === "gradient" ? (
-          <div className="w-full h-full" style={{ background: backgroundGradient }} />
+          <div
+            className="w-full h-full"
+            style={{ background: backgroundGradient }}
+          />
         ) : (
           <div
             className="w-full h-full"
-            style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            }}
           />
         )}
       </div>
@@ -425,9 +481,13 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   // グループモードかつアクティブなグループセッションがない場合
   if (is_group_mode && !displaySession) {
     return (
-      <div className="flex text-white" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+      <div
+        className="flex text-white"
+        style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
         <ClientOnlyProvider fallback={null}>
-          <AnimatePresence>{isLeftSidebarOpen && <ChatSidebar />}</AnimatePresence>
+          <AnimatePresence>
+            {isLeftSidebarOpen && <ChatSidebar />}
+          </AnimatePresence>
         </ClientOnlyProvider>
 
         <div className="flex-1 flex flex-col">
@@ -459,9 +519,13 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   // 通常モードかつセッションがない場合
   if (!is_group_mode && !session) {
     return (
-      <div className="flex text-white" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+      <div
+        className="flex text-white"
+        style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
         <ClientOnlyProvider fallback={null}>
-          <AnimatePresence>{isLeftSidebarOpen && <ChatSidebar />}</AnimatePresence>
+          <AnimatePresence>
+            {isLeftSidebarOpen && <ChatSidebar />}
+          </AnimatePresence>
         </ClientOnlyProvider>
         <div className="flex-1 flex flex-col items-center justify-center">
           <MemoizedEmptyState />
@@ -471,12 +535,16 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   }
 
   return (
-    <div className="flex text-white h-screen" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+    <div
+      className="flex text-white h-screen"
+      style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
       {/* Background */}
       {backgroundElement}
 
       <ClientOnlyProvider fallback={null}>
-        <AnimatePresence>{isLeftSidebarOpen && <ChatSidebar />}</AnimatePresence>
+        <AnimatePresence>
+          {isLeftSidebarOpen && <ChatSidebar />}
+        </AnimatePresence>
       </ClientOnlyProvider>
 
       {/* Mobile overlay */}
@@ -523,23 +591,33 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
                   <OptimizedMessageBubble
                     key={message.id}
                     message={message}
-                    previousMessage={index > 0 ? currentMessages[index - 1] : undefined}
+                    previousMessage={
+                      index > 0 ? currentMessages[index - 1] : undefined
+                    }
                     isLatest={index === currentMessages.length - 1}
                     isGroupChat={is_group_mode}
                     shouldAnimateEntry={index === currentMessages.length - 1}
-                    disableEffects={metrics?.averageRenderTime ? metrics.averageRenderTime > 32 : false}
+                    disableEffects={
+                      metrics?.averageRenderTime
+                        ? metrics.averageRenderTime > 32
+                        : false
+                    }
                   />
                 ))}
               </AnimatePresence>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center text-white/50">
                 <Bot size={48} className="mb-4" />
-                <h2 className="text-xl font-semibold mb-2">まだメッセージがありません</h2>
+                <h2 className="text-xl font-semibold mb-2">
+                  まだメッセージがありません
+                </h2>
                 <p>新しい会話を始めましょう</p>
               </div>
             )}
 
-            {(is_generating || group_generating) && <OptimizedThinkingIndicator />}
+            {(is_generating || group_generating) && (
+              <OptimizedThinkingIndicator />
+            )}
 
             <div ref={messagesEndRef} />
           </div>
@@ -575,7 +653,9 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
                   )}
                   onClick={(e) => e.stopPropagation()}>
                   <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white">記憶情報</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      記憶情報
+                    </h3>
                     <button
                       onClick={() => setRightPanelOpen(false)}
                       className="p-2 hover:bg-white/10 rounded-full">

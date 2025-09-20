@@ -161,17 +161,14 @@ export function usePerformanceOptimization(componentName: string) {
       // React.useCallback on their side if needed.
       return callback;
     },
-    [isOptimizationEnabled]
+    []
   );
 
   // Optimized memo creator
   // Avoid calling hooks inside callbacks; simply invoke the factory.
-  const createOptimizedMemo = useCallback(
-    <T>(factory: () => T): T => {
-      return factory();
-    },
-    [isOptimizationEnabled]
-  );
+  const createOptimizedMemo = useCallback(<T>(factory: () => T): T => {
+    return factory();
+  }, []);
 
   // Smart memoization based on render frequency
   // Simpler implementation that avoids using hooks inside callbacks.
@@ -195,7 +192,7 @@ export function usePerformanceOptimization(componentName: string) {
   // Optimization suggestions
   const suggestions = useMemo(
     () => globalMonitor.getSuggestions(componentName),
-    [componentName, metrics]
+    [componentName]
   );
 
   // Performance controls

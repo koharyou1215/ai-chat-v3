@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Check, Edit, User } from "lucide-react";
 import { Persona } from "@/types";
@@ -43,9 +44,11 @@ export const PersonaCard: React.FC<PersonaCardProps> = ({
               className="relative flex-shrink-0">
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-400/50 shadow-xl">
                 {persona.avatar_path ? (
-                  <img
+                  <Image
                     src={persona.avatar_path}
                     alt={persona.name}
+                    width={64}
+                    height={64}
                     className="w-full h-full object-cover"
                   />
                 ) : (

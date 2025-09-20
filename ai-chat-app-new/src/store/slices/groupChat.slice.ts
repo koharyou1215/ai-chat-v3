@@ -666,10 +666,33 @@ export const createGroupChatSlice: StateCreator<
       .map((c) => c.name)
       .join("、");
 
-    // キャラクターの位置に応じて履歴を調整
+    // Mem0を使用して最適化された履歴を取得（キャラクター位置も考慮）
     const characterIndex = previousResponses.length; // 今何番目のキャラか
-    const historyReduction = Math.max(10 - characterIndex * 2, 4); // 後のキャラほど履歴を減らす
-    const recentMessages = groupSession.messages.slice(-historyReduction);
+    const maxContextForCharacter = Math.max(20 - characterIndex * 4, 8); // 後のキャラほど軽量化
+
+    let recentMessages;
+    try {
+      const { Mem0 } = require("@/services/mem0/core");
+      const history = Mem0.getCandidateHistory(
+        groupSession.messages,
+        {
+          sessionId: groupSession.id,
+          maxContextMessages: maxContextForCharacter,
+          minRecentMessages: Math.max(3, Math.floor(maxContextForCharacter / 4)), // 最低3ラウンド
+        }
+      );
+      // Mem0の結果をUnifiedMessage形式に変換
+      recentMessages = history.map((h: any) => ({
+        role: h.role,
+        content: h.content,
+        character_id: h.character_id,
+        character_name: h.character_name,
+      }));
+    } catch (e) {
+      // フォールバック: 元のロジック
+      const historyReduction = Math.max(10 - characterIndex * 2, 4);
+      recentMessages = groupSession.messages.slice(-historyReduction);
+    }
     // 全員の発言を含める（グループチャットなので） + 重複除去
     const tempHistory = recentMessages
       .map((msg) => {

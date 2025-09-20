@@ -154,13 +154,31 @@ ${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
 </memory_context>`
         : "";
 
-    // 最近の会話（5メッセージに制限）- トークン使用量を削減
-    const recentMessages = session.messages.slice(-5);
+    // Mem0を使用して最適化された会話履歴を取得
+    let conversationHistoryArray;
+    try {
+      const { Mem0 } = require("@/services/mem0/core");
+      const maxContextMessages = 20; // プログレッシブ用の軽量設定
+      conversationHistoryArray = Mem0.getCandidateHistory(
+        session.messages,
+        {
+          sessionId: session.id,
+          maxContextMessages,
+          minRecentMessages: 5, // 最低5ラウンド保証
+        }
+      );
+    } catch (e) {
+      // フォールバック
+      conversationHistoryArray = session.messages.slice(-5)
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .map(m => ({ role: m.role, content: m.content }));
+    }
+
     const conversationHistory =
-      recentMessages.length > 0
+      conversationHistoryArray.length > 0
         ? `
 <recent_conversation>
-${recentMessages
+${conversationHistoryArray
   .map(
     (msg) =>
       `${msg.role === "user" ? userName : charName}: ${msg.content.slice(
@@ -255,10 +273,7 @@ ${charName}:`;
       tokenLimit: 500,
       temperature: 0.7,
       memoryContext: memorySection,
-      conversationHistory: recentMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+      conversationHistory: conversationHistoryArray,
     };
   }
 

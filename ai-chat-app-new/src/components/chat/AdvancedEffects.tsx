@@ -7,11 +7,12 @@ import { ClientOnly } from "@/components/utils/ClientOnly";
 
 // WebGL Support Detection
 const detectWebGLSupport = (): boolean => {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === "undefined") return false;
 
   try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const canvas = document.createElement("canvas");
+    const gl =
+      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
     return !!(gl && gl instanceof WebGLRenderingContext);
   } catch (e) {
     return false;
@@ -19,15 +20,15 @@ const detectWebGLSupport = (): boolean => {
 };
 
 // Performance Level Detection
-const detectPerformanceLevel = (): 'low' | 'medium' | 'high' => {
-  if (typeof navigator === 'undefined') return 'medium';
+const detectPerformanceLevel = (): "low" | "medium" | "high" => {
+  if (typeof navigator === "undefined") return "medium";
 
   const hardwareConcurrency = navigator.hardwareConcurrency || 4;
   const memory = (navigator as any).deviceMemory || 4;
 
-  if (hardwareConcurrency >= 8 && memory >= 8) return 'high';
-  if (hardwareConcurrency >= 4 && memory >= 4) return 'medium';
-  return 'low';
+  if (hardwareConcurrency >= 8 && memory >= 8) return "high";
+  if (hardwareConcurrency >= 4 && memory >= 4) return "medium";
+  return "low";
 };
 
 class Particle {
@@ -113,8 +114,8 @@ class Particle {
     // Create gradient for 3D effect
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, scaledSize);
     gradient.addColorStop(0, this.color);
-    gradient.addColorStop(0.7, this.color.replace('1)', '0.6)'));
-    gradient.addColorStop(1, 'transparent');
+    gradient.addColorStop(0.7, this.color.replace("1)", "0.6)"));
+    gradient.addColorStop(1, "transparent");
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -146,7 +147,9 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const [webglSupported, setWebglSupported] = useState(false);
-  const [performanceLevel, setPerformanceLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [performanceLevel, setPerformanceLevel] = useState<
+    "low" | "medium" | "high"
+  >("medium");
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef(0);
 
@@ -156,19 +159,23 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
     setPerformanceLevel(detectPerformanceLevel());
   }, []);
 
-  // 3D機能が無効または低パフォーマンス環境の場合は軽量版を表示
-  if (!settings.hologramMessages || !settings.enable3DEffects ||
-      (settings.effectQuality === 'low' && performanceLevel === 'low') ||
-      (!settings.webglEnabled && !webglSupported && settings.adaptivePerformance)) {
-    return null;
-  }
-
   // Initialize 3D hologram effect
   useEffect(() => {
+    // Early return if conditions not met
+    if (
+      !settings.hologramMessages ||
+      !settings.enable3DEffects ||
+      (settings.effectQuality === "low" && performanceLevel === "low") ||
+      (!settings.webglEnabled &&
+        !webglSupported &&
+        settings.adaptivePerformance)
+    ) {
+      return;
+    }
     if (!canvasRef.current || !text) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext("2d")!;
     const rect = canvas.getBoundingClientRect();
 
     // High DPI support
@@ -176,21 +183,27 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
 
     // Generate hologram particles from text
-    ctx.font = '32px Arial';
-    ctx.fillStyle = 'white';
-    ctx.textAlign = 'center';
+    ctx.font = "32px Arial";
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
     ctx.fillText(text, rect.width / 2, rect.height / 2);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const particles: Particle[] = [];
 
     // Create particles from text pixels with performance and settings consideration
-    const baseStep = performanceLevel === 'high' ? 4 : performanceLevel === 'medium' ? 6 : 8;
-    const qualityMultiplier = settings.effectQuality === 'high' ? 0.8 : settings.effectQuality === 'medium' ? 1 : 1.5;
+    const baseStep =
+      performanceLevel === "high" ? 4 : performanceLevel === "medium" ? 6 : 8;
+    const qualityMultiplier =
+      settings.effectQuality === "high"
+        ? 0.8
+        : settings.effectQuality === "medium"
+        ? 1
+        : 1.5;
     const step = Math.max(3, Math.floor(baseStep * qualityMultiplier));
     const maxParticleCount = settings.maxParticles || 2000;
     let particleCount = 0;
@@ -224,11 +237,11 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
       ctx.clearRect(0, 0, rect.width, rect.height);
 
       // Dark background with holographic grid
-      ctx.fillStyle = 'rgba(15, 15, 35, 0.95)';
+      ctx.fillStyle = "rgba(15, 15, 35, 0.95)";
       ctx.fillRect(0, 0, rect.width, rect.height);
 
       // Draw holographic grid lines
-      ctx.strokeStyle = 'rgba(0, 255, 136, 0.1)';
+      ctx.strokeStyle = "rgba(0, 255, 136, 0.1)";
       ctx.lineWidth = 1;
       const gridSize = 20;
 
@@ -253,11 +266,14 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
       });
 
       // Hologram scan line effect
-      const scanY = (timeRef.current * 0.1 * settings.animationSpeed) % (rect.height + 100) - 50;
+      const scanY =
+        ((timeRef.current * 0.1 * settings.animationSpeed) %
+          (rect.height + 100)) -
+        50;
       const gradient = ctx.createLinearGradient(0, scanY - 50, 0, scanY + 50);
-      gradient.addColorStop(0, 'transparent');
-      gradient.addColorStop(0.5, 'rgba(0, 255, 136, 0.3)');
-      gradient.addColorStop(1, 'transparent');
+      gradient.addColorStop(0, "transparent");
+      gradient.addColorStop(0.5, "rgba(0, 255, 136, 0.3)");
+      gradient.addColorStop(1, "transparent");
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, scanY - 50, rect.width, 100);
@@ -272,7 +288,28 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [text, settings.hologramMessages, settings.animationSpeed, settings.effectQuality, performanceLevel]);
+  }, [
+    text,
+    settings.hologramMessages,
+    settings.animationSpeed,
+    settings.effectQuality,
+    performanceLevel,
+    settings.enable3DEffects,
+    settings.webglEnabled,
+    settings.adaptivePerformance,
+    settings.maxParticles,
+    webglSupported,
+  ]);
+
+  // 3D機能が無効または低パフォーマンス環境の場合は軽量版を表示
+  if (
+    !settings.hologramMessages ||
+    !settings.enable3DEffects ||
+    (settings.effectQuality === "low" && performanceLevel === "low") ||
+    (!settings.webglEnabled && !webglSupported && settings.adaptivePerformance)
+  ) {
+    return null;
+  }
 
   return (
     <ClientOnly
@@ -285,14 +322,15 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
         <canvas
           ref={canvasRef}
           className="w-full h-full rounded-lg"
-          style={{ background: 'transparent' }}
+          style={{ background: "transparent" }}
         />
 
         {/* Performance indicator */}
-        {settings.effectQuality === 'high' && (
+        {settings.effectQuality === "high" && (
           <div className="absolute top-2 right-2 text-xs text-green-400/60">
-            {webglSupported && settings.webglEnabled ? '3D WebGL' : '3D Canvas'} • {performanceLevel.toUpperCase()}
-            <br/>
+            {webglSupported && settings.webglEnabled ? "3D WebGL" : "3D Canvas"}{" "}
+            • {performanceLevel.toUpperCase()}
+            <br />
             <span className="text-green-400/40">
               {particlesRef.current.length}/{settings.maxParticles} particles
             </span>
@@ -300,15 +338,16 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
         )}
 
         {/* Hologram border effects */}
-        <div className="absolute inset-0 pointer-events-none rounded-lg"
-             style={{
-               boxShadow: `
+        <div
+          className="absolute inset-0 pointer-events-none rounded-lg"
+          style={{
+            boxShadow: `
                  inset 0 0 20px rgba(0, 255, 136, 0.2),
                  0 0 40px rgba(0, 255, 136, 0.1),
                  0 0 80px rgba(0, 255, 136, 0.05)
                `,
-               border: '1px solid rgba(0, 255, 136, 0.3)'
-             }}
+            border: "1px solid rgba(0, 255, 136, 0.3)",
+          }}
         />
       </div>
     </ClientOnly>
@@ -336,12 +375,15 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     const rect = canvas.getBoundingClientRect();
 
     // High DPI support with performance consideration
-    const dpr = Math.min(window.devicePixelRatio || 1, settings.effectQuality === 'high' ? 2 : 1);
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      settings.effectQuality === "high" ? 2 : 1
+    );
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
 
     // テキストを描画して粒子化
     ctx.font = "32px Arial";
@@ -353,8 +395,16 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     const particles: Particle[] = [];
 
     // ピクセルデータから粒子を生成（パフォーマンスに応じた密度調整）
-    const step = settings.effectQuality === 'high' ? 4 : settings.effectQuality === 'medium' ? 6 : 8;
-    const maxParticleCount = Math.min(settings.maxParticles || 2000, detectPerformanceLevel() === 'low' ? 500 : 2000);
+    const step =
+      settings.effectQuality === "high"
+        ? 4
+        : settings.effectQuality === "medium"
+        ? 6
+        : 8;
+    const maxParticleCount = Math.min(
+      settings.maxParticles || 2000,
+      detectPerformanceLevel() === "low" ? 500 : 2000
+    );
     let particleCount = 0;
 
     for (let y = 0; y < imageData.height; y += step) {
@@ -367,11 +417,23 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
           const g = imageData.data[index + 1];
           const b = imageData.data[index + 2];
           // Enhanced 3D coloring with depth variation
-          const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || detectWebGLSupport() || !settings.adaptivePerformance);
+          const should3DEffects =
+            settings.enable3DEffects &&
+            (settings.webglEnabled ||
+              detectWebGLSupport() ||
+              !settings.adaptivePerformance);
           const depth = should3DEffects ? Math.random() * 0.5 + 0.5 : 1;
-          const color = `rgba(${Math.floor(r * depth)}, ${Math.floor(g * depth)}, ${Math.floor(b * depth)}, ${depth})`;
+          const color = `rgba(${Math.floor(r * depth)}, ${Math.floor(
+            g * depth
+          )}, ${Math.floor(b * depth)}, ${depth})`;
           particles.push(
-            new Particle(x / 2, y / 2, color, canvas.width / 2, canvas.height / 2)
+            new Particle(
+              x / 2,
+              y / 2,
+              color,
+              canvas.width / 2,
+              canvas.height / 2
+            )
           );
           particleCount++;
         }
@@ -387,14 +449,26 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
       ctx.clearRect(0, 0, rect.width, rect.height);
 
       // Add background depth effect
-      const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || detectWebGLSupport() || !settings.adaptivePerformance);
-      if (settings.effectQuality !== 'low' && should3DEffects && settings.depthEffects) {
+      const should3DEffects =
+        settings.enable3DEffects &&
+        (settings.webglEnabled ||
+          detectWebGLSupport() ||
+          !settings.adaptivePerformance);
+      if (
+        settings.effectQuality !== "low" &&
+        should3DEffects &&
+        settings.depthEffects
+      ) {
         const gradient = ctx.createRadialGradient(
-          rect.width / 2, rect.height / 2, 0,
-          rect.width / 2, rect.height / 2, rect.width
+          rect.width / 2,
+          rect.height / 2,
+          0,
+          rect.width / 2,
+          rect.height / 2,
+          rect.width
         );
-        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.05)');
-        gradient.addColorStop(1, 'transparent');
+        gradient.addColorStop(0, "rgba(139, 92, 246, 0.05)");
+        gradient.addColorStop(1, "transparent");
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, rect.width, rect.height);
       }
@@ -414,7 +488,17 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [text, settings.particleEffects, settings.animationSpeed, settings.enable3DEffects, settings.webglEnabled, settings.adaptivePerformance, settings.maxParticles, settings.depthEffects]);
+  }, [
+    text,
+    settings.particleEffects,
+    settings.animationSpeed,
+    settings.enable3DEffects,
+    settings.webglEnabled,
+    settings.adaptivePerformance,
+    settings.maxParticles,
+    settings.depthEffects,
+    settings.effectQuality,
+  ]);
 
   useEffect(() => {
     if (trigger && settings.particleEffects) {
@@ -427,10 +511,19 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   // Performance monitoring and 3D capability check
   const performanceLevel = detectPerformanceLevel();
   const webglSupported = detectWebGLSupport();
-  const shouldRenderHighQuality = settings.effectQuality === 'high' && performanceLevel !== 'low' && settings.enable3DEffects;
-  const should3DEffects = settings.enable3DEffects && (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
+  const shouldRenderHighQuality =
+    settings.effectQuality === "high" &&
+    performanceLevel !== "low" &&
+    settings.enable3DEffects;
+  const should3DEffects =
+    settings.enable3DEffects &&
+    (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
 
-  if (!settings.particleEffects || (!settings.enable3DEffects && settings.adaptivePerformance)) return null;
+  if (
+    !settings.particleEffects ||
+    (!settings.enable3DEffects && settings.adaptivePerformance)
+  )
+    return null;
 
   return (
     <ClientOnly fallback={<div className="w-full h-32 opacity-50" />}>
@@ -443,14 +536,15 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
 
         {/* 3D depth indicators for high quality mode */}
         {shouldRenderHighQuality && settings.particleEffects && (
-          <div className="absolute inset-0 pointer-events-none"
-               style={{
-                 background: `
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `
                    radial-gradient(ellipse at 30% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
                    radial-gradient(ellipse at 70% 60%, rgba(59, 130, 246, 0.08) 0%, transparent 50%)
                  `,
-                 filter: 'blur(20px)'
-               }}
+              filter: "blur(20px)",
+            }}
           />
         )}
       </div>
@@ -551,14 +645,26 @@ export const BackgroundParticles: React.FC = () => {
   const opacity = Math.min(particleIntensity / 100, 0.6); // Cap at 60% opacity
 
   return (
-    <ClientOnly fallback={<div className="absolute inset-0 z-0" style={{ opacity: opacity / 2 }} />}>
+    <ClientOnly
+      fallback={
+        <div
+          className="absolute inset-0 z-0"
+          style={{ opacity: opacity / 2 }}
+        />
+      }>
       <div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
           opacity,
-          background: `radial-gradient(circle at 20% 50%, rgba(147, 51, 234, ${opacity * 0.3}) 0%, transparent 50%),
-                       radial-gradient(circle at 80% 20%, rgba(59, 130, 246, ${opacity * 0.2}) 0%, transparent 50%),
-                       radial-gradient(circle at 40% 80%, rgba(168, 85, 247, ${opacity * 0.25}) 0%, transparent 50%)`,
+          background: `radial-gradient(circle at 20% 50%, rgba(147, 51, 234, ${
+            opacity * 0.3
+          }) 0%, transparent 50%),
+                       radial-gradient(circle at 80% 20%, rgba(59, 130, 246, ${
+                         opacity * 0.2
+                       }) 0%, transparent 50%),
+                       radial-gradient(circle at 40% 80%, rgba(168, 85, 247, ${
+                         opacity * 0.25
+                       }) 0%, transparent 50%)`,
         }}
       />
     </ClientOnly>
@@ -570,7 +676,7 @@ export const BackgroundParticles: React.FC = () => {
  */
 const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
   const { settings } = useEffectSettings();
-  const [displayedText, setDisplayedText] = useState('');
+  const [displayedText, setDisplayedText] = useState("");
   const [isActive, setIsActive] = useState(false);
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -579,16 +685,16 @@ const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
 
     const speed = Math.max(10, 100 - settings.typewriterIntensity);
     setIsActive(true);
-    setDisplayedText('');
+    setDisplayedText("");
 
     const typeText = async () => {
-      const characters = text.split('');
-      let currentText = '';
-      
+      const characters = text.split("");
+      let currentText = "";
+
       for (let i = 0; i < characters.length; i++) {
         currentText += characters[i];
         setDisplayedText(currentText);
-        await new Promise(resolve => setTimeout(resolve, speed));
+        await new Promise((resolve) => setTimeout(resolve, speed));
       }
       setIsActive(false);
     };
@@ -603,7 +709,9 @@ const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
   return (
     <span ref={elementRef}>
       {displayedText}
-      {isActive && <span className="animate-pulse ml-1 text-purple-400">|</span>}
+      {isActive && (
+        <span className="animate-pulse ml-1 text-purple-400">|</span>
+      )}
     </span>
   );
 };
@@ -619,7 +727,7 @@ const FontEffects: React.FC<{ text: string }> = ({ text }) => {
   }
 
   const intensity = settings.fontEffectsIntensity;
-  
+
   const effectStyles = {
     textShadow: `
       0 0 ${intensity * 0.1}px rgb(139, 92, 246),
@@ -631,20 +739,26 @@ const FontEffects: React.FC<{ text: string }> = ({ text }) => {
       hsl(${(intensity * 3.6 + 60) % 360}, 70%, 60%), 
       hsl(${(intensity * 3.6 + 120) % 360}, 70%, 60%)
     )`,
-    backgroundSize: '200% 200%',
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent',
-    animation: `rainbow ${3 - (intensity * 0.02)}s ease-in-out infinite`
+    backgroundSize: "200% 200%",
+    backgroundClip: "text",
+    WebkitBackgroundClip: "text",
+    color: "transparent",
+    animation: `rainbow ${3 - intensity * 0.02}s ease-in-out infinite`,
   };
 
   return (
     <>
       <style jsx>{`
         @keyframes rainbow {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
         }
       `}</style>
       <span style={effectStyles}>{text}</span>
@@ -681,7 +795,7 @@ export const AdvancedEffects: React.FC<{ text: string }> = ({ text }) => {
             <HologramMessage text={text} />
           </div>
         )}
-        
+
         {/* パーティクルテキストエフェクト */}
         {settings.particleText && (
           <div className="absolute inset-0 pointer-events-none">

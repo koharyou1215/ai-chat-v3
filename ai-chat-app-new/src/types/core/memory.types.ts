@@ -76,6 +76,12 @@ export interface MemoryCard extends BaseEntity, WithMetadata {
   
   // ベクトル検索用
   embedding?: number[];
+
+  // Mem0統合用追加フィールド
+  memory_type?: 'episodic' | 'semantic' | 'procedural';
+  accessed_count?: number;
+  last_accessed?: string;
+  context?: Record<string, any>;
 }
 
 export type MemoryCategory = 

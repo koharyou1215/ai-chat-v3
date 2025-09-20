@@ -50,7 +50,7 @@ export interface MessageOperations {
   deleteMessage: (message_id: UUID) => void;
   rollbackSession: (message_id: UUID) => void;
   resetGeneratingState: () => void;
-  addMessage: (message: UnifiedMessage) => void;
+  addMessage: (message: UnifiedMessage) => Promise<void>;
 }
 
 export const createMessageOperations: StateCreator<
@@ -160,6 +160,15 @@ export const createMessageOperations: StateCreator<
         sessionWithUserMessage
       ),
     }));
+
+    // 🧠 Mem0にメッセージを取り込む
+    try {
+      const { Mem0 } = require("@/services/mem0/core");
+      await Mem0.ingestMessage(userMessage);
+      console.log("✅ [sendMessage] User message ingested to Mem0");
+    } catch (error) {
+      console.warn("⚠️ [sendMessage] Failed to ingest user message to Mem0:", error);
+    }
 
     // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
     const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
@@ -323,39 +332,47 @@ export const createMessageOperations: StateCreator<
                 systemPrompt: finalPrompt, // 完全版プロンプトを使用
                 userMessage: content,
                 conversationHistory: (() => {
-                  // 重複除去と履歴クリーンアップ - 設定値を使用
-                  const recentMessages = activeSession.messages.slice(
-                    -maxContextMessages
-                  ); // 設定値を使用
-                  const deduplicatedHistory: Array<{
-                    role: "user" | "assistant";
-                    content: string;
-                  }> = [];
+                  // Use Mem0 centralized history helper (preserve existing semantics)
+                  try {
+                    const { Mem0 } = require("@/services/mem0/core");
+                    const history = Mem0.getCandidateHistory(
+                      activeSession.messages,
+                      {
+                        sessionId: activeSession.id,
+                        maxContextMessages,
+                        minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)), // 最低5ラウンド、または最大メッセージ数の1/4
+                      }
+                    );
 
-                  for (const msg of recentMessages) {
-                    if (msg.role === "user" || msg.role === "assistant") {
-                      const historyEntry = {
-                        role: msg.role as "user" | "assistant",
-                        content: msg.content,
-                      };
-
-                      // 同一内容の重複チェック（連続する場合と全体での重複両方をチェック）
-                      const isDuplicate = deduplicatedHistory.some(
-                        (existing) =>
-                          existing.role === historyEntry.role &&
-                          existing.content === historyEntry.content
-                      );
-
-                      if (!isDuplicate && historyEntry.content.trim()) {
-                        deduplicatedHistory.push(historyEntry);
+                    return history;
+                  } catch (e) {
+                    // Fallback to original logic if Mem0 not available
+                    const recentMessages = activeSession.messages.slice(
+                      -maxContextMessages
+                    );
+                    const deduplicatedHistory: Array<{
+                      role: "user" | "assistant";
+                      content: string;
+                    }> = [];
+                    for (const msg of recentMessages) {
+                      if (msg.role === "user" || msg.role === "assistant") {
+                        const historyEntry = {
+                          role: msg.role as "user" | "assistant",
+                          content: msg.content,
+                        };
+                        const isDuplicate = deduplicatedHistory.some(
+                          (existing) =>
+                            existing.role === historyEntry.role &&
+                            existing.content === historyEntry.content
+                        );
+                        if (!isDuplicate && historyEntry.content.trim())
+                          deduplicatedHistory.push(historyEntry);
                       }
                     }
+                    return deduplicatedHistory.slice(
+                      -Math.floor(maxContextMessages / 2)
+                    );
                   }
-
-                  // 最終的に設定値の半分の件数のみ返す（例: 20設定なら10件）
-                  return deduplicatedHistory.slice(
-                    -Math.floor(maxContextMessages / 2)
-                  );
                 })(),
                 textFormatting: state.effectSettings.textFormatting,
                 apiConfig: {
@@ -541,6 +558,23 @@ export const createMessageOperations: StateCreator<
           ),
         }));
 
+        // 🧠 Mem0にAIレスポンスを取り込む
+        try {
+          const { Mem0 } = require("@/services/mem0/core");
+          await Mem0.ingestMessage(aiResponse);
+          console.log("✅ [sendMessage] AI response ingested to Mem0");
+
+          // キャラクター進化を実行（関係性の更新）
+          if (characterId) {
+            const { Mem0Character } = require("@/services/mem0/character-service");
+            // 最近の会話（ユーザーメッセージとAIレスポンス）を渡して進化
+            await Mem0Character.evolveCharacter(characterId, [userMessage, aiResponse]);
+            console.log("✅ [sendMessage] Character evolution completed");
+          }
+        } catch (error) {
+          console.warn("⚠️ [sendMessage] Failed to ingest AI response to Mem0:", error);
+        }
+
         // トラッカーの自動更新を実行
         if (trackerManager && characterId) {
           console.log(
@@ -571,10 +605,15 @@ export const createMessageOperations: StateCreator<
                 const currentState = get();
                 if (currentState.clearConversationCache) {
                   currentState.clearConversationCache(activeSessionId);
-                  console.log(`✅ [sendMessage] Cleared conversation cache due to tracker updates`);
+                  console.log(
+                    `✅ [sendMessage] Cleared conversation cache due to tracker updates`
+                  );
                 }
               } catch (error) {
-                console.warn('Failed to clear conversation cache after tracker update:', error);
+                console.warn(
+                  "Failed to clear conversation cache after tracker update:",
+                  error
+                );
               }
             }
           } catch (error) {
@@ -626,12 +665,20 @@ export const createMessageOperations: StateCreator<
                   "🎯 Tracker analysis failed:",
                   trackerResult.reason
                 );
-              } else if (trackerResult.status === "fulfilled" && trackerResult.value) {
+              } else if (
+                trackerResult.status === "fulfilled" &&
+                trackerResult.value
+              ) {
                 // 🆕 バックグラウンドトラッカー分析結果の処理
                 const [userUpdates, aiUpdates] = trackerResult.value;
-                const allUpdates = [...(userUpdates || []), ...(aiUpdates || [])];
+                const allUpdates = [
+                  ...(userUpdates || []),
+                  ...(aiUpdates || []),
+                ];
                 if (allUpdates.length > 0) {
-                  console.log(`✅ [sendMessage] Background tracker analysis updated ${allUpdates.length} tracker(s)`);
+                  console.log(
+                    `✅ [sendMessage] Background tracker analysis updated ${allUpdates.length} tracker(s)`
+                  );
 
                   // UI状態を更新
                   set((state) => ({
@@ -643,10 +690,15 @@ export const createMessageOperations: StateCreator<
                     const currentState = get();
                     if (currentState.clearConversationCache) {
                       currentState.clearConversationCache(activeSessionId);
-                      console.log(`✅ [sendMessage] Cleared conversation cache due to background tracker updates`);
+                      console.log(
+                        `✅ [sendMessage] Cleared conversation cache due to background tracker updates`
+                      );
                     }
                   } catch (error) {
-                    console.warn('Failed to clear conversation cache after background tracker update:', error);
+                    console.warn(
+                      "Failed to clear conversation cache after background tracker update:",
+                      error
+                    );
                   }
                 }
               }
@@ -757,13 +809,28 @@ export const createMessageOperations: StateCreator<
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
         get().chat?.memory_limits?.max_context_messages || 40;
-      const conversationHistory = messagesForPrompt
-        .filter((msg) => msg.role === "user" || msg.role === "assistant")
-        .slice(-maxContextMessages) // 設定値を使用
-        .map((msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        }));
+      // 再生成でもMem0を使用
+      let conversationHistory;
+      try {
+        const { Mem0 } = require("@/services/mem0/core");
+        conversationHistory = Mem0.getCandidateHistory(
+          messagesForPrompt,
+          {
+            sessionId: session.id,
+            maxContextMessages,
+            minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
+          }
+        );
+      } catch (e) {
+        // フォールバック
+        conversationHistory = messagesForPrompt
+          .filter((msg) => msg.role === "user" || msg.role === "assistant")
+          .slice(-maxContextMessages)
+          .map((msg) => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          }));
+      }
 
       const apiConfig = get().apiConfig;
       // C案：temperatureをより大きく上げ、seedを追加して多様性を確保
@@ -900,13 +967,28 @@ export const createMessageOperations: StateCreator<
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
         get().chat?.memory_limits?.max_context_messages || 40;
-      const conversationHistory = session.messages
-        .filter((m) => !m.is_deleted)
-        .slice(-maxContextMessages) // 設定値を使用
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }));
+      // 続き生成でもMem0を使用
+      let conversationHistory;
+      try {
+        const { Mem0 } = require("@/services/mem0/core");
+        conversationHistory = Mem0.getCandidateHistory(
+          session.messages.filter((m) => !m.is_deleted),
+          {
+            sessionId: session.id,
+            maxContextMessages,
+            minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
+          }
+        );
+      } catch (e) {
+        // フォールバック
+        conversationHistory = session.messages
+          .filter((m) => !m.is_deleted)
+          .slice(-maxContextMessages)
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+      }
 
       const apiConfig = get().apiConfig || {};
       const aiResponse = await simpleAPIManagerV2.generateMessage(
@@ -1120,7 +1202,7 @@ export const createMessageOperations: StateCreator<
   },
 
   // 📝 メッセージを直接追加（画像生成などで使用）
-  addMessage: (message: UnifiedMessage) => {
+  addMessage: async (message: UnifiedMessage) => {
     const activeSessionId = get().active_session_id;
     if (!activeSessionId) {
       console.error("❌ No active session to add message");
@@ -1147,6 +1229,15 @@ export const createMessageOperations: StateCreator<
         updatedSession
       ),
     }));
+
+    // 🧠 Mem0にメッセージを取り込む
+    try {
+      const { Mem0 } = require("@/services/mem0/core");
+      await Mem0.ingestMessage(message);
+      console.log("✅ [addMessage] Message ingested to Mem0:", message.id);
+    } catch (error) {
+      console.warn("⚠️ [addMessage] Failed to ingest message to Mem0:", error);
+    }
 
     console.log("✅ Message added to session:", message.id);
   },

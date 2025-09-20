@@ -1,7 +1,11 @@
-'use client';
+"use client";
 
-import { lazy, Suspense, ComponentType } from 'react';
-import { ModalLoadingFallback, PanelLoadingFallback, EffectLoadingFallback } from '../lazy/LazyComponents';
+import { lazy, Suspense, ComponentType } from "react";
+import {
+  ModalLoadingFallback,
+  PanelLoadingFallback,
+  EffectLoadingFallback,
+} from "../lazy/LazyComponents";
 
 /**
  * Enhanced dynamic component loading with performance optimizations
@@ -12,8 +16,8 @@ import { ModalLoadingFallback, PanelLoadingFallback, EffectLoadingFallback } fro
 
 // Core SettingsModal shell (loads immediately)
 export const SettingsModalShell = lazy(() =>
-  import('../settings/SettingsModal').then(module => ({
-    default: module.SettingsModal
+  import("../settings/SettingsModal").then((module) => ({
+    default: module.SettingsModal,
   }))
 );
 
@@ -21,29 +25,29 @@ export const SettingsModalShell = lazy(() =>
 export const SettingsPanels = {
   // API Settings Panel
   api: lazy(() =>
-    import('../settings/SettingsModal').then(module => ({
-      default: module.SettingsModal // Will need to extract API panel
+    import("../settings/SettingsModal").then((module) => ({
+      default: module.SettingsModal, // Will need to extract API panel
     }))
   ),
 
   // Appearance Panel
   appearance: lazy(() =>
-    import('../settings/SettingsModal').then(module => ({
-      default: module.SettingsModal // Will need to extract appearance panel
+    import("../settings/SettingsModal").then((module) => ({
+      default: module.SettingsModal, // Will need to extract appearance panel
     }))
   ),
 
   // Effects Panel
   effects: lazy(() =>
-    import('../settings/SettingsModal').then(module => ({
-      default: module.SettingsModal // Will need to extract effects panel
+    import("../settings/SettingsModal").then((module) => ({
+      default: module.SettingsModal, // Will need to extract effects panel
     }))
   ),
 
   // Advanced Panel
   advanced: lazy(() =>
-    import('../settings/SettingsModal').then(module => ({
-      default: module.SettingsModal // Will need to extract advanced panel
+    import("../settings/SettingsModal").then((module) => ({
+      default: module.SettingsModal, // Will need to extract advanced panel
     }))
   ),
 };
@@ -54,7 +58,7 @@ export const SettingsPanels = {
 export const ConditionalEffect = ({
   effectName,
   isEnabled,
-  children
+  children,
 }: {
   effectName: string;
   isEnabled: boolean;
@@ -62,33 +66,29 @@ export const ConditionalEffect = ({
 }) => {
   if (!isEnabled) return null;
 
-  return (
-    <Suspense fallback={<EffectLoadingFallback />}>
-      {children}
-    </Suspense>
-  );
+  return <Suspense fallback={<EffectLoadingFallback />}>{children}</Suspense>;
 };
 
 // Advanced Effects with intelligent loading
 export const AdvancedEffectComponents = {
   // Hologram Effect
   hologram: lazy(() =>
-    import('../shared/effects/HologramEffect').then(module => ({
-      default: module.HologramEffect
+    import("../shared/effects/HologramEffect").then((module) => ({
+      default: module.HologramEffect,
     }))
   ),
 
   // Particle Effect
   particles: lazy(() =>
-    import('../shared/effects/ParticleEffect').then(module => ({
-      default: module.ParticleEffect
+    import("../shared/effects/ParticleEffect").then((module) => ({
+      default: module.ParticleEffect,
     }))
   ),
 
   // Ripple Effect
   ripple: lazy(() =>
-    import('../shared/effects/RippleEffect').then(module => ({
-      default: module.RippleEffect
+    import("../shared/effects/RippleEffect").then((module) => ({
+      default: module.RippleEffect,
     }))
   ),
 };
@@ -98,20 +98,20 @@ export const AdvancedEffectComponents = {
 // Optimized galleries with virtual scrolling consideration
 export const OptimizedGalleries = {
   character: lazy(() =>
-    import('../character/CharacterGallery').then(module => ({
-      default: module.CharacterGallery
+    import("../character/CharacterGallery").then((module) => ({
+      default: module.CharacterGallery,
     }))
   ),
 
   persona: lazy(() =>
-    import('../persona/PersonaGallery').then(module => ({
-      default: module.PersonaGallery
+    import("../persona/PersonaGallery").then((module) => ({
+      default: module.PersonaGallery,
     }))
   ),
 
   memory: lazy(() =>
-    import('../memory/MemoryGallery').then(module => ({
-      default: module.MemoryGallery
+    import("../memory/MemoryGallery").then((module) => ({
+      default: module.MemoryGallery,
     }))
   ),
 };
@@ -122,22 +122,22 @@ export const OptimizedGalleries = {
 export const HeavyProcessingComponents = {
   // Emotion Analysis
   emotionAnalysis: lazy(() =>
-    import('../emotion/EmotionDisplay').then(module => ({
-      default: module.EmotionDisplay
+    import("../emotion/EmotionDisplay").then((module) => ({
+      default: module.EmotionDisplay,
     }))
   ),
 
   // Memory Processing
   memoryProcessor: lazy(() =>
-    import('../memory/MemoryLayerDisplay').then(module => ({
-      default: module.MemoryLayerDisplay
+    import("../memory/MemoryLayerDisplay").then((module) => ({
+      default: module.MemoryLayerDisplay,
     }))
   ),
 
   // Tracker Processing
   trackerProcessor: lazy(() =>
-    import('../tracker/TrackerDisplay').then(module => ({
-      default: module.TrackerDisplay
+    import("../tracker/TrackerDisplay").then((module) => ({
+      default: module.TrackerDisplay,
     }))
   ),
 };
@@ -169,7 +169,9 @@ export const EnhancedLoadingFallbacks = {
   gallery: () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="bg-slate-800/30 border border-white/5 rounded-lg p-4 animate-pulse">
+        <div
+          key={i}
+          className="bg-slate-800/30 border border-white/5 rounded-lg p-4 animate-pulse">
           <div className="w-full h-32 bg-slate-700/30 rounded-lg mb-3" />
           <div className="h-4 bg-slate-700/30 rounded mb-2" />
           <div className="h-3 bg-slate-700/20 rounded w-3/4" />
@@ -187,13 +189,13 @@ export function withPerformanceMonitoring<T extends object>(
   componentName: string
 ) {
   const MonitoredComponent = (props: T) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.time(`${componentName} render`);
     }
 
     const result = <WrappedComponent {...props} />;
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.timeEnd(`${componentName} render`);
     }
 
@@ -247,7 +249,7 @@ export class ComponentPreloader {
   }
 }
 
-export default {
+const DynamicComponents = {
   SettingsModalShell,
   SettingsPanels,
   ConditionalEffect,
@@ -258,3 +260,5 @@ export default {
   withPerformanceMonitoring,
   ComponentPreloader,
 };
+
+export default DynamicComponents;

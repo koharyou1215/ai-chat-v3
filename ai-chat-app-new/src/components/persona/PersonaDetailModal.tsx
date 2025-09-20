@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Save, User, Settings, Upload } from "lucide-react";
 import { Persona } from "@/types";
@@ -67,9 +68,11 @@ export const PersonaDetailModal: React.FC<PersonaDetailModalProps> = ({
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-cyan-400/50">
                 {editingPersona.avatar_path ? (
-                  <img
+                  <Image
                     src={editingPersona.avatar_path}
                     alt={editingPersona.name}
+                    width={80}
+                    height={80}
                     className="w-full h-full object-cover"
                   />
                 ) : (

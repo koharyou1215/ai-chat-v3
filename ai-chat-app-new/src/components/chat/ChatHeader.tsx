@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   PanelLeft,
@@ -174,9 +175,13 @@ const ChatHeaderContent: React.FC = () => {
       style={{
         paddingTop: "env(safe-area-inset-top, 0px)",
         height: "68px",
-        backgroundColor: `rgba(15, 23, 42, ${(appearanceSettings?.backgroundOpacity || 95) / 100})`,
+        backgroundColor: `rgba(15, 23, 42, ${
+          (appearanceSettings?.backgroundOpacity || 95) / 100
+        })`,
         backdropFilter: `blur(${appearanceSettings?.backgroundBlur || 12}px)`,
-        WebkitBackdropFilter: `blur(${appearanceSettings?.backgroundBlur || 12}px)`,
+        WebkitBackdropFilter: `blur(${
+          appearanceSettings?.backgroundBlur || 12
+        }px)`,
       }}>
       <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
         <motion.button
@@ -265,13 +270,17 @@ const ChatHeaderContent: React.FC = () => {
             style={{ pointerEvents: "auto" }}>
             <div className="w-6 h-6 md:w-7 md:h-7 rounded-full overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
               {character && character.avatar_url ? (
-                <img
+                <Image
                   src={character.avatar_url}
                   alt={character.name}
+                  width={28}
+                  height={28}
                   className="w-full h-full object-cover"
                 />
               ) : character ? (
-                <span className="text-white font-bold text-xs">{character.name.charAt(0)}</span>
+                <span className="text-white font-bold text-xs">
+                  {character.name.charAt(0)}
+                </span>
               ) : (
                 <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
               )}
@@ -317,14 +326,20 @@ const ChatHeaderContent: React.FC = () => {
             }}
             style={{ pointerEvents: "auto" }}>
             <div className="w-5 h-5 md:w-6 md:h-6 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-              {persona && persona.avatar_path && persona.avatar_path.trim() !== "" ? (
-                <img
+              {persona &&
+              persona.avatar_path &&
+              persona.avatar_path.trim() !== "" ? (
+                <Image
                   src={persona.avatar_path}
                   alt={persona.name}
+                  width={24}
+                  height={24}
                   className="w-full h-full object-cover"
                 />
               ) : persona ? (
-                <span className="text-white font-bold text-xs">{persona.name.charAt(0)}</span>
+                <span className="text-white font-bold text-xs">
+                  {persona.name.charAt(0)}
+                </span>
               ) : (
                 <UserCircle className="w-3 h-3 md:w-4 md:h-4 text-white" />
               )}

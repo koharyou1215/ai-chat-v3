@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Textarea } from "@/components/ui/textarea";
 import { Character } from "@/types/core/character.types";
 import { Persona } from "@/types/core/persona.types";
@@ -108,9 +109,11 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({
           <div className="bg-slate-800/50 border-2 border-dashed border-slate-600 rounded-lg p-4">
             {formData?.background_url ? (
               <div className="relative">
-                <img
+                <Image
                   src={formData.background_url}
                   alt="Background"
+                  width={400}
+                  height={128}
                   className="w-full h-32 object-cover rounded-lg"
                 />
                 <button

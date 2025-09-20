@@ -1,0 +1,54 @@
+Mem0を使ったメモリー最適化計画。
+
+---
+実装計画タスク
+
+
+コードベース把握と影響範囲調査（チャット/グループ/トラッカーを重点確認）
+設計: `Mem0` インターフェース定義と責務（ingest/getCandidateHistory/search/pin/promote等）
+実装: `src/services/mem0/core.ts` に読み取り専用スタブ実装を追加（既存と併存可能）
+統合(1): API送信用履歴生成を `Mem0.getCandidateHistory()` に切替（まずは読み取り専用）
+統合(2): 短期記憶を5ターン保持するロジックを chat 履歴処理に反映（minRecentMessages=5）
+統合(3): 長期記憶参照を `Mem0.search()` に切替（ConversationManager / PromptBuilder で利用）
+保守: トラッカー機構は既存実装を維持し、`Mem0` は読み取り参照のみ行う方針で固定
+テスト: ユニット + 統合テスト作成（履歴件数・最小保持・トークン制御・検索整合性確認）
+ドキュメント: Mem0 の設計・移行手順・運用ルールをプロジェクト文書に追記
+
+
+---
+
+
+実装状況（現在すでに入っているもの）
+Mem0（src/services/mem0/core.ts）は追加済みで、次を実装済み／スタブで提供しています：
+getCandidateHistory(messages, opts)：重複除去→設定上限（既存の「半分ルール」と minRecentMessages=5 を尊重）で返却。
+ingestMessage(message)：内部で VectorStore.addMessage() を呼ぶ（非同期でインデックス化）。
+search(query,k)：VectorStore.search() を呼び、プロジェクトの memory_cards を簡易キーワードでブーストしてマージして返す（現在は軽量マージ）。
+createEphemeralSummary / promoteToMemoryCard はスタブ（昇格処理の戻り値を返すが永続化は未完成）。
+どこで Mem0 が使われているか
+API送信用の会話履歴生成：src/store/slices/chat/chat-message-operations.ts が Mem0.getCandidateHistory(activeSession.messages, { ..., minRecentMessages: 5 }) を呼ぶ（フォールバックロジックあり）。→ ここが「短期5ターン保証」の実装箇所。
+プロンプト構築：src/services/prompt-builder.service.ts が非同期に Mem0.search() を呼ぶ（非同期・非同期失敗時は既存の memory_cards 場所参照ロジックを継続）。
+会話管理：src/services/memory/conversation-manager.ts に Mem0.search() を呼ぶ試みが入っているが、現時点では「呼び出し → 結果マッピング未完成 → フォールバックで既存の internal searchRelevantMemories」を使う設計になっています（段階的移行）。
+現行（まだ残っている）参照フローの全体像
+短期（API送信用）
+chat-message-operations が latest N（設定上限）を取得 → 重複除去 → slice(-Math.floor(maxContextMessages/2)) だが今は Mem0.getCandidateHistory(..., minRecentMessages:5) に置き換え済み → 最終的に API に送る会話履歴が決定される（min 5ターン保証）。
+中期（会話コンテキスト／応答生成）
+ConversationManager は MemoryLayerManager（immediate/working/episodic/semantic）と VectorStore、DynamicSummarizer を使ってコンテキスト構築。buildContext → optimizeContextTokens でトークン削減を行う。
+ConversationManager の sessionSummary は DynamicSummarizer による要約で定期更新（summarizeInterval 毎）。
+長期（永続メモリ）
+memory_cards（store.memory_cards）が永続的なメモリーカードとして管理され、PromptBuilderService はこれを直接参照して sections.memory を作る。
+Mem0.search() はベクトル検索結果（VectorStore.search）を返しつつ、memory_cards のキーワード一致を軽くブーストしてマージする実装になっています（現状は簡易マージ）。
+ベクトル／索引周りの実装（現状）
+VectorStore（src/services/memory/vector-store.ts）が
+単体/バッチで embedding を呼ぶ（/api/embeddings に POST。未設定時はフォールバック埋め込み）。
+addMessage / addMessagesBatch で埋め込み／保存／（将来の）FAISS追加を行う。
+search(query,k,threshold) はクエリを埋め込み→コサイン類似度でメッセージを判定→上位 k 件を返す。
+Mem0.search() は上の VectorStore.search() を第一選択として利用し、必要なら memory_cards をキーワードで補強して結果を返します。
+まだ未完／注意点
+Mem0.search() の結果→MemoryCard[] や SearchResult[] への厳密なマッピングは今後整備が必要（現状はベクトル結果にカード要約を簡易マージ）。
+Mem0.promoteToMemoryCard() はスタブ（永続化フローは未実装）。
+全てのメッセージ登録パスが Mem0.ingestMessage() を呼ぶようになっていない（ConversationManager.addMessage など既存コードは独自に memoryLayers / vectorStore を更新している）。完全移行には各所で Mem0.ingestMessage() を呼びに行く作業が必要。
+トラッカーは現在そのまま維持する方針（読み取り参照で Mem0 が参照するだけ）。
+結論（要点）
+「短期（APIに送る履歴）」は既に Mem0.getCandidateHistory(..., minRecentMessages:5) 経由で取得するように切替済み（フォールバック有）。
+「長期・検索」は Mem0.search() が VectorStore を実行して結果を返す実装を追加済み（ただし結果の厳密変換・昇格ロジックはまだ整備中）。
+完全な一元化（すべての ingest → Mem0、昇格、カード永続化）にはあと数箇所の呼び出し追加と promote 実装が必要です。

@@ -58,13 +58,13 @@ export class PromptBuilderService {
       );
 
       manager = new ConversationManager(importantMessages, trackerManager);
-      
+
       // Apply memory limits from settings
       const store = useAppStore.getState();
       if (store.chat?.memory_limits) {
         manager.updateMemoryLimits(store.chat.memory_limits);
       }
-      
+
       PromptBuilderService.managerCache.set(sessionId, manager);
       PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
 
@@ -78,7 +78,7 @@ export class PromptBuilderService {
     if (store.chat?.memory_limits) {
       manager.updateMemoryLimits(store.chat.memory_limits);
     }
-    
+
     // 増分更新: 新しいメッセージのみ処理
     const newMessages = messages.slice(lastProcessed);
     if (newMessages.length > 0) {
@@ -242,7 +242,12 @@ export class PromptBuilderService {
 
     // 軽量版: 基本情報のみ（重複しない内容）
     console.log("🔧 [PromptBuilder] Calling buildBasicInfo...");
-    const basePrompt = this.buildBasicInfo(character, user, userInput, trackerManager);
+    const basePrompt = await this.buildBasicInfo(
+      character,
+      user,
+      userInput,
+      trackerManager
+    );
     console.log(
       "✅ [PromptBuilder] buildBasicInfo completed, prompt length:",
       basePrompt.length
@@ -282,12 +287,12 @@ export class PromptBuilderService {
    * 7. Context & History
    * 8. Current Interaction
    */
-  private buildBasicInfo(
+  private async buildBasicInfo(
     character: Character,
     user: Persona,
     userInput: string,
     trackerManager?: TrackerManager
-  ): string {
+  ): Promise<string> {
     // 強制的にログを出力（ターミナルで確認可能）
     console.log("💎💎💎 [PromptBuilder] buildBasicInfo called 💎💎💎");
     console.log("Character:", character?.name);
@@ -360,8 +365,63 @@ export class PromptBuilderService {
       sections.jailbreak = systemSettings.systemPrompts.jailbreak;
     }
 
-    // キャラクター情報セクションを構築
-    sections.character = `## Basic Information
+    // 🧠 Mem0Character統合: CharacterCoreとダイナミック記憶を構築
+    try {
+      const { Mem0Character } = require("@/services/mem0/character-service");
+      const characterContext = await Mem0Character.buildCharacterContext(
+        character.id,
+        userInput,
+        {
+          query: user?.id || "default-user",
+          include_relationship: true,
+          include_memories: true,
+          include_cards: true,
+          max_tokens: 2000,
+        }
+      );
+
+      // CharacterCoreから基本情報を構築
+      const core = characterContext.core;
+      sections.character = `## Basic Information
+Name: ${core.identity.name}
+${core.identity.age ? `Age: ${core.identity.age}` : ""}
+${core.identity.occupation ? `Occupation: ${core.identity.occupation}` : ""}
+${core.identity.role ? `Role: ${core.identity.role}` : ""}
+
+## Personality & Traits
+External: ${core.personality.external}
+Internal: ${core.personality.internal}
+Traits: ${core.personality.traits.join(", ")}
+
+## Communication Style
+Speaking Style: ${core.communication.speaking_style}
+First Person: ${core.communication.first_person}
+Second Person: ${core.communication.second_person}
+${core.communication.verbal_tics.length > 0 ? `Verbal Tics: ${core.communication.verbal_tics.join(", ")}` : ""}
+
+## Behavioral Principles
+${core.principles.map((p: string) => `- ${p}`).join("\n")}
+
+## Relationship State
+Stage: ${characterContext.relationship.stage}
+Trust Level: ${characterContext.relationship.metrics.trust_level}/100
+Familiarity: ${characterContext.relationship.metrics.familiarity}/100
+Emotional Bond: ${characterContext.relationship.metrics.emotional_bond}/100
+Interaction Count: ${characterContext.relationship.metrics.interaction_count}
+
+## Character Memory
+${characterContext.memories.learned_preferences.likes.length > 0 ? `Likes: ${characterContext.memories.learned_preferences.likes.join(", ")}` : ""}
+${characterContext.memories.learned_preferences.dislikes.length > 0 ? `Dislikes: ${characterContext.memories.learned_preferences.dislikes.join(", ")}` : ""}
+${characterContext.memories.context_knowledge.special_topics.length > 0 ? `Special Topics: ${characterContext.memories.context_knowledge.special_topics.join(", ")}` : ""}
+`;
+
+      console.log(
+        `✅ [PromptBuilder] Mem0Character context built - tokens: ${characterContext.token_usage.total}`
+      );
+    } catch (error) {
+      console.warn("⚠️ [PromptBuilder] Mem0Character unavailable, using fallback:", error);
+      // フォールバック: 既存のキャラクター情報構築
+      sections.character = `## Basic Information
 Name: ${processedCharacter.name}
 ${processedCharacter.age ? `Age: ${processedCharacter.age}` : ""}
 ${
@@ -495,6 +555,7 @@ ${
     ? `Current Scenario: ${processedCharacter.scenario}`
     : ""
 }`;
+    }
 
     // 🚨 ペルソナ情報セクション - 簡略化厳禁、全フィールド必須
     // PROMPT_VERIFICATION_GUIDE.md 223-234行目準拠
@@ -506,13 +567,15 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
     // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
     // 引数として渡されたtrackerManagerを優先的に使用
-    const effectiveTrackerManager = trackerManager || 
+    const effectiveTrackerManager =
+      trackerManager ||
       (character?.id && systemSettings.trackerManagers?.get(character.id));
-    
+
     console.log("🔍 [PromptBuilder] Checking tracker managers:", {
       characterId: character?.id,
       hasPassedTrackerManager: !!trackerManager,
-      hasStoreTrackerManager: character?.id && systemSettings.trackerManagers?.has(character.id),
+      hasStoreTrackerManager:
+        character?.id && systemSettings.trackerManagers?.has(character.id),
       usingTrackerManager: !!effectiveTrackerManager,
     });
 
@@ -528,18 +591,23 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
         let trackerInfo = character?.id
           ? effectiveTrackerManager.getDetailedTrackersForPrompt?.(character.id)
           : null;
-        
+
         console.log("🔍 [PromptBuilder] getDetailedTrackersForPrompt result:", {
           hasMethod: !!effectiveTrackerManager.getDetailedTrackersForPrompt,
-          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null",
         });
-        
+
         if (!trackerInfo) {
           trackerInfo = character?.id
-            ? this.getEssentialTrackerInfo(effectiveTrackerManager, character.id)
+            ? this.getEssentialTrackerInfo(
+                effectiveTrackerManager,
+                character.id
+              )
             : null;
           console.log("🔍 [PromptBuilder] getEssentialTrackerInfo result:", {
-            result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null"
+            result: trackerInfo
+              ? trackerInfo.substring(0, 100) + "..."
+              : "null",
           });
         }
 
@@ -566,6 +634,29 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     try {
       const store = useAppStore.getState();
       const memoryCards = store.memory_cards || new Map();
+
+      // Try to enrich memory cards from Mem0 (optional, non-blocking)
+      // Non-blocking attempt to enrich memory cards from Mem0
+      import("@/services/mem0/core")
+        .then(({ Mem0 }) =>
+          Mem0.search(
+            userInput,
+            store.chat?.memory_limits?.max_memory_cards || 50
+          )
+        )
+        .then((mem0Results) => {
+          if (mem0Results && mem0Results.length > 0) {
+            console.log(
+              "🧠 [PromptBuilder] Mem0 search returned results:",
+              mem0Results.length
+            );
+            // Note: mem0Results -> MemoryCard mapping TBD when Mem0.search is implemented
+          }
+        })
+        .catch((err) => {
+          // Non-fatal: continue with store memory_cards
+          console.debug("🧠 [PromptBuilder] Mem0.search unavailable:", err);
+        });
       const relevantCards: any[] = [];
 
       console.log("🧠 [PromptBuilder] Checking memory cards:", {
@@ -598,7 +689,8 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
       if (relevantCards.length > 0) {
         let memoryContent = "";
         // Get max relevant memories from settings
-        const maxRelevantMemories = store.chat?.memory_limits?.max_relevant_memories || 5;
+        const maxRelevantMemories =
+          store.chat?.memory_limits?.max_relevant_memories || 5;
         relevantCards.slice(0, maxRelevantMemories).forEach((card) => {
           // 設定値に基づく最大件数
           memoryContent += `[${card.category || "general"}] ${card.title}: ${
@@ -629,7 +721,7 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
-    
+
     // 🔍 デバッグ: 各セクションの内容を確認
     console.log("📝 [buildBasicInfo] Section contents:", {
       systemLength: sections.system?.length || 0,
@@ -806,55 +898,8 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
       );
 
       // 拡張プロンプトを取得
-      let prompt = await enhancePrompt();
+      const prompt = await enhancePrompt();
       const promptDuration = performance.now() - promptStartTime;
-
-      // 🔧 トークン制限の適用
-      const store = useAppStore.getState();
-      const maxPromptTokens = store.chat?.memory_limits?.max_prompt_tokens || 32000;
-
-      // 日本語の場合、1文字 ≈ 3トークンとして推定
-      const estimatedTokens = prompt.length * 3;
-
-      if (estimatedTokens > maxPromptTokens) {
-        console.warn(`⚠️ プロンプトがトークン制限を超過: ${estimatedTokens} > ${maxPromptTokens}`);
-
-        // 最大文字数を計算（トークン数 / 3）
-        const maxChars = Math.floor(maxPromptTokens / 3);
-
-        // 会話履歴部分を見つけて短縮
-        const conversationHistoryIndex = prompt.indexOf('<conversation_history>');
-        const recentConversationIndex = prompt.indexOf('<recent_conversation>');
-        const historyStartIndex = Math.max(conversationHistoryIndex, recentConversationIndex);
-
-        if (historyStartIndex > 0) {
-          // 履歴より前の部分を保持
-          const beforeHistory = prompt.substring(0, historyStartIndex);
-          // 現在の入力部分を保持
-          const currentInputIndex = prompt.lastIndexOf('## Current Input');
-          const afterHistory = currentInputIndex > 0 ? prompt.substring(currentInputIndex) : '';
-
-          // 残りの文字数を計算
-          const remainingChars = maxChars - beforeHistory.length - afterHistory.length;
-
-          if (remainingChars > 100) {
-            // 会話履歴を短縮
-            const historySection = prompt.substring(historyStartIndex, currentInputIndex > 0 ? currentInputIndex : prompt.length);
-            const truncatedHistory = historySection.substring(0, remainingChars) + '\n... [履歴を短縮しました] ...\n';
-
-            prompt = beforeHistory + truncatedHistory + afterHistory;
-            console.log(`✅ プロンプトを${maxChars}文字（約${maxPromptTokens}トークン）に短縮しました`);
-          } else {
-            // 単純に最大文字数で切り詰め
-            prompt = prompt.substring(0, maxChars) + '\n... [プロンプトを短縮しました] ...';
-            console.log(`✅ プロンプトを${maxChars}文字に強制短縮しました`);
-          }
-        } else {
-          // 単純に最大文字数で切り詰め
-          prompt = prompt.substring(0, maxChars) + '\n... [プロンプトを短縮しました] ...';
-          console.log(`✅ プロンプトを${maxChars}文字に短縮しました`);
-        }
-      }
 
       const totalDuration = performance.now() - startTime;
 
@@ -864,7 +909,6 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
         `📊 Prompt built in ${totalDuration.toFixed(1)}ms ` +
           `(session: ${session.id}, messages: ${session.messages.length}, ` +
           `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
-          `estimated tokens: ${Math.floor(prompt.length * 3)}, ` +
           `generation: ${promptDuration.toFixed(1)}ms)`
       );
 
