@@ -806,8 +806,55 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
       );
 
       // 拡張プロンプトを取得
-      const prompt = await enhancePrompt();
+      let prompt = await enhancePrompt();
       const promptDuration = performance.now() - promptStartTime;
+
+      // 🔧 トークン制限の適用
+      const store = useAppStore.getState();
+      const maxPromptTokens = store.chat?.memory_limits?.max_prompt_tokens || 32000;
+
+      // 日本語の場合、1文字 ≈ 3トークンとして推定
+      const estimatedTokens = prompt.length * 3;
+
+      if (estimatedTokens > maxPromptTokens) {
+        console.warn(`⚠️ プロンプトがトークン制限を超過: ${estimatedTokens} > ${maxPromptTokens}`);
+
+        // 最大文字数を計算（トークン数 / 3）
+        const maxChars = Math.floor(maxPromptTokens / 3);
+
+        // 会話履歴部分を見つけて短縮
+        const conversationHistoryIndex = prompt.indexOf('<conversation_history>');
+        const recentConversationIndex = prompt.indexOf('<recent_conversation>');
+        const historyStartIndex = Math.max(conversationHistoryIndex, recentConversationIndex);
+
+        if (historyStartIndex > 0) {
+          // 履歴より前の部分を保持
+          const beforeHistory = prompt.substring(0, historyStartIndex);
+          // 現在の入力部分を保持
+          const currentInputIndex = prompt.lastIndexOf('## Current Input');
+          const afterHistory = currentInputIndex > 0 ? prompt.substring(currentInputIndex) : '';
+
+          // 残りの文字数を計算
+          const remainingChars = maxChars - beforeHistory.length - afterHistory.length;
+
+          if (remainingChars > 100) {
+            // 会話履歴を短縮
+            const historySection = prompt.substring(historyStartIndex, currentInputIndex > 0 ? currentInputIndex : prompt.length);
+            const truncatedHistory = historySection.substring(0, remainingChars) + '\n... [履歴を短縮しました] ...\n';
+
+            prompt = beforeHistory + truncatedHistory + afterHistory;
+            console.log(`✅ プロンプトを${maxChars}文字（約${maxPromptTokens}トークン）に短縮しました`);
+          } else {
+            // 単純に最大文字数で切り詰め
+            prompt = prompt.substring(0, maxChars) + '\n... [プロンプトを短縮しました] ...';
+            console.log(`✅ プロンプトを${maxChars}文字に強制短縮しました`);
+          }
+        } else {
+          // 単純に最大文字数で切り詰め
+          prompt = prompt.substring(0, maxChars) + '\n... [プロンプトを短縮しました] ...';
+          console.log(`✅ プロンプトを${maxChars}文字に短縮しました`);
+        }
+      }
 
       const totalDuration = performance.now() - startTime;
 
@@ -817,6 +864,7 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
         `📊 Prompt built in ${totalDuration.toFixed(1)}ms ` +
           `(session: ${session.id}, messages: ${session.messages.length}, ` +
           `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
+          `estimated tokens: ${Math.floor(prompt.length * 3)}, ` +
           `generation: ${promptDuration.toFixed(1)}ms)`
       );
 

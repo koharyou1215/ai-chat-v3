@@ -154,8 +154,8 @@ ${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
 </memory_context>`
         : "";
 
-    // 最近の会話（20メッセージ）- より多くのコンテキストを保持
-    const recentMessages = session.messages.slice(-20);
+    // 最近の会話（5メッセージに制限）- トークン使用量を削減
+    const recentMessages = session.messages.slice(-5);
     const conversationHistory =
       recentMessages.length > 0
         ? `
@@ -165,7 +165,7 @@ ${recentMessages
     (msg) =>
       `${msg.role === "user" ? userName : charName}: ${msg.content.slice(
         0,
-        200
+        150
       )}`
   )
   .join("\n")}
@@ -185,7 +185,7 @@ ${trackerInfo}
 </relationship_state>`
       : "";
 
-    const prompt = `
+    let prompt = `
 AI=${charName}, User=${userName}
 
 ${characterInfo}
@@ -203,6 +203,40 @@ ${conversationHistory}
 ## 現在の入力
 ${userName}: ${input}
 ${charName}:`;
+
+    // 🔧 トークン制限の適用（Stage 2: 最大10,000トークン）
+    const maxTokensForStage2 = 10000;
+    const maxCharsForStage2 = Math.floor(maxTokensForStage2 / 3);
+
+    if (prompt.length > maxCharsForStage2) {
+      console.warn(`⚠️ Stage 2プロンプトが制限を超過: ${prompt.length} > ${maxCharsForStage2}文字`);
+
+      // 基本部分を保持
+      const beforeHistory = `AI=${charName}, User=${userName}
+
+${characterInfo}
+${personaInfo}
+${memorySection}
+${trackerSection}
+`;
+      const afterHistory = `
+
+## 応答指示
+- 会話の文脈と記憶を踏まえて応答してください
+- 相手との関係性を考慮してください
+- 3-5文程度で自然に応答してください
+- 過去の会話内容を適切に参照してください
+
+## 現在の入力
+${userName}: ${input}
+${charName}:`;
+
+      const remainingChars = maxCharsForStage2 - beforeHistory.length - afterHistory.length;
+      const truncatedHistory = conversationHistory.substring(0, Math.max(remainingChars, 500)) + '\n... [履歴を短縮] ...\n';
+
+      prompt = beforeHistory + truncatedHistory + afterHistory;
+      console.log(`✅ Stage 2プロンプトを${maxCharsForStage2}文字（約${maxTokensForStage2}トークン）に短縮`);
+    }
 
     return {
       stage: "context",
@@ -363,13 +397,13 @@ Keywords: ${m.keywords.join(", ")}
 </memory_system>`
         : "";
 
-    // 完全な会話履歴
+    // 完全な会話履歴（10メッセージに制限）
     const fullConversationHistory =
       session.messages.length > 0
         ? `
 <conversation_history>
 ${session.messages
-  .slice(-30)
+  .slice(-10)
   .map(
     (msg) => `
 ${msg.role === "user" ? userName : charName}: ${msg.content}
@@ -393,7 +427,7 @@ ${fullTrackerInfo}
 </relationship_dynamics>`
       : "";
 
-    const prompt = `
+    let prompt = `
 AI=${charName}, User=${userName}
 
 ${systemSection}
@@ -418,6 +452,51 @@ Consider the user's emotional state, the conversation trajectory, and any implic
 ## Current Input
 ${userName}: ${input}
 ${charName}:`;
+
+    // 🔧 トークン制限の適用（Stage 3: 最大15,000トークン）
+    const maxTokensForStage3 = 15000;
+    const maxCharsForStage3 = Math.floor(maxTokensForStage3 / 3);
+
+    if (prompt.length > maxCharsForStage3) {
+      console.warn(`⚠️ Stage 3プロンプトが制限を超過: ${prompt.length} > ${maxCharsForStage3}文字`);
+
+      // 重要部分を保持
+      const essentialPart = `AI=${charName}, User=${userName}
+
+${systemSection}
+${fullCharacterInfo}
+${fullPersonaInfo}
+`;
+      const endPart = `
+
+## Advanced Response Guidelines
+- Provide deep insights and thoughtful analysis when appropriate
+- Reference specific past conversations and shared experiences
+- Show emotional depth and understanding
+- Offer creative suggestions or alternative perspectives
+- Maintain character authenticity while demonstrating intelligence
+- Consider long-term relationship dynamics
+- Balance detail with natural conversation flow
+
+## Current Context Analysis
+Consider the user's emotional state, the conversation trajectory, and any implicit needs or desires that haven't been directly expressed.
+
+## Current Input
+${userName}: ${input}
+${charName}:`;
+
+      const remainingChars = maxCharsForStage3 - essentialPart.length - endPart.length;
+
+      // メモリーと履歴を制限内に収める
+      const memoryChars = Math.floor(remainingChars * 0.3);
+      const historyChars = Math.floor(remainingChars * 0.7);
+
+      const truncatedMemory = fullMemorySection.substring(0, memoryChars) + '\n... [メモリー短縮] ...';
+      const truncatedHistory = fullConversationHistory.substring(0, historyChars) + '\n... [履歴短縮] ...';
+
+      prompt = essentialPart + truncatedMemory + '\n' + truncatedHistory + endPart;
+      console.log(`✅ Stage 3プロンプトを${maxCharsForStage3}文字（約${maxTokensForStage3}トークン）に短縮`);
+    }
 
     return {
       stage: "intelligence",

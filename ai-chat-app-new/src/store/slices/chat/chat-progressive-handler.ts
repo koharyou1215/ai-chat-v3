@@ -575,9 +575,42 @@ export const createProgressiveHandler: StateCreator<
       try {
         const systemInstructions = get().systemPrompts.system;
 
+        // 🔧 FIX: activeSessionを再取得して最新の状態を使用
+        const currentState = get();
+        const currentActiveSession = getSessionSafely(
+          currentState.sessions,
+          activeSessionId
+        );
+
+        if (!currentActiveSession) {
+          console.error("❌ Active session not found");
+          return;
+        }
+
+        // 🔧 FIX: sessionWithUserMessageを再構築
+        const currentSessionWithUserMessage = {
+          ...currentActiveSession,
+          messages: currentActiveSession.messages.filter(
+            (m) => m.id !== messageId
+          ),
+        };
+
+        // 🔧 FIX: memoryCardsを再度取得
+        let currentMemoryCards: MemoryCard[] = [];
+        try {
+          currentMemoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
+            currentSessionWithUserMessage.messages,
+            content
+          );
+          console.log(`✅ Memory cards retrieved: ${currentMemoryCards.length}`);
+        } catch (error) {
+          console.error("❌ Memory retrieval failed:", error);
+          currentMemoryCards = [];
+        }
+
         console.log("🔍 DEBUG: buildIntelligencePrompt called with", {
           content: content.substring(0, 50) + "...",
-          memoryCardsCount: memoryCards.length,
+          memoryCardsCount: currentMemoryCards.length,
           trackerManager: !!trackerManager,
           systemInstructionsLength: systemInstructions?.length || 0,
         });
@@ -585,8 +618,8 @@ export const createProgressiveHandler: StateCreator<
         const intelligencePrompt =
           await progressivePromptBuilder.buildIntelligencePrompt(
             content,
-            sessionWithUserMessage,
-            memoryCards,
+            currentSessionWithUserMessage,
+            currentMemoryCards,
             trackerManager || undefined,
             systemInstructions
           );
