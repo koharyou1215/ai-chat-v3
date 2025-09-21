@@ -691,21 +691,27 @@ const EmotionPanel: React.FC<{
         title="感情分析エンジン"
         description="メッセージから感情を分析する基本機能を有効にします"
         checked={emotionalFlags.emotion_analysis_enabled}
-        onChange={(checked) => updateEmotionalFlags({ emotion_analysis_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ emotion_analysis_enabled: checked })
+        }
       />
 
       <SettingItem
         title="感情記憶システム"
         description="重要な感情体験を記録・学習する機能を有効にします"
         checked={emotionalFlags.emotional_memory_enabled}
-        onChange={(checked) => updateEmotionalFlags({ emotional_memory_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ emotional_memory_enabled: checked })
+        }
       />
 
       <SettingItem
         title="基本エフェクト"
         description="感情に基づく基本的な視覚効果を有効にします"
         checked={emotionalFlags.basic_effects_enabled}
-        onChange={(checked) => updateEmotionalFlags({ basic_effects_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ basic_effects_enabled: checked })
+        }
       />
     </div>
 
@@ -716,21 +722,27 @@ const EmotionPanel: React.FC<{
         title="文脈感情分析"
         description="会話の文脈を考慮した高度な感情分析を有効にします"
         checked={emotionalFlags.contextual_analysis_enabled}
-        onChange={(checked) => updateEmotionalFlags({ contextual_analysis_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ contextual_analysis_enabled: checked })
+        }
       />
 
       <SettingItem
         title="適応パフォーマンス"
         description="デバイス性能に応じて感情分析の精度を自動調整します"
         checked={emotionalFlags.adaptive_performance_enabled}
-        onChange={(checked) => updateEmotionalFlags({ adaptive_performance_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ adaptive_performance_enabled: checked })
+        }
       />
 
       <SettingItem
         title="視覚エフェクト"
         description="感情に応じた高度な視覚効果を有効にします"
         checked={emotionalFlags.visual_effects_enabled}
-        onChange={(checked) => updateEmotionalFlags({ visual_effects_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ visual_effects_enabled: checked })
+        }
       />
     </div>
 
@@ -741,21 +753,27 @@ const EmotionPanel: React.FC<{
         title="予測分析"
         description="会話の流れから今後の感情変化を予測します"
         checked={emotionalFlags.predictive_analysis_enabled}
-        onChange={(checked) => updateEmotionalFlags({ predictive_analysis_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ predictive_analysis_enabled: checked })
+        }
       />
 
       <SettingItem
         title="アドバンストエフェクト"
         description="より洗練された感情表現エフェクトを有効にします"
         checked={emotionalFlags.advanced_effects_enabled}
-        onChange={(checked) => updateEmotionalFlags({ advanced_effects_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ advanced_effects_enabled: checked })
+        }
       />
 
       <SettingItem
         title="多層分析"
         description="複数のレイヤーで感情を深く分析します"
         checked={emotionalFlags.multi_layer_analysis_enabled}
-        onChange={(checked) => updateEmotionalFlags({ multi_layer_analysis_enabled: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ multi_layer_analysis_enabled: checked })
+        }
       />
     </div>
 
@@ -798,7 +816,9 @@ const EmotionPanel: React.FC<{
         title="パフォーマンス監視"
         description="感情分析の性能を監視・最適化します"
         checked={emotionalFlags.performance_monitoring}
-        onChange={(checked) => updateEmotionalFlags({ performance_monitoring: checked })}
+        onChange={(checked) =>
+          updateEmotionalFlags({ performance_monitoring: checked })
+        }
       />
 
       <SettingItem
@@ -1085,7 +1105,7 @@ const AIPanel: React.FC<{
                 <option value="qwen/qwen3-next-80b-a3b-instruct">
                   Qwen3 Next 80B A3B Instruct
                 </option>
-                <option value="x-ai/grok-code-fast-1">Grok Code Fast</option>
+                <option value="x-ai/grok-4-fast:free">grok-4-fast:free</option>
                 <option value="nousresearch/hermes-4-405b">
                   Hermes 4 405B
                 </option>
@@ -1632,7 +1652,7 @@ const ChatPanel: React.FC = () => {
               console.log("🔧 Progressive Mode Setting Changed:", {
                 oldValue: chat.progressiveMode?.enabled,
                 newValue: newEnabled,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
               });
 
               const newSettings = {
@@ -1659,14 +1679,18 @@ const ChatPanel: React.FC = () => {
                 console.log("🔧 Progressive Mode Setting Verification:", {
                   appliedValue: chat.progressiveMode?.enabled,
                   expectedValue: newEnabled,
-                  settingApplied: chat.progressiveMode?.enabled === newEnabled
+                  settingApplied: chat.progressiveMode?.enabled === newEnabled,
                 });
 
                 // Optional: Add visual feedback (you could set a state here for a checkmark)
                 if (chat.progressiveMode?.enabled === newEnabled) {
-                  console.log("✅ Progressive mode setting successfully applied");
+                  console.log(
+                    "✅ Progressive mode setting successfully applied"
+                  );
                 } else {
-                  console.warn("⚠️ Progressive mode setting may not have been applied correctly");
+                  console.warn(
+                    "⚠️ Progressive mode setting may not have been applied correctly"
+                  );
                 }
               }, 100);
             }}

@@ -285,3 +285,4 @@ export const formatPricePerMillion = (
   return `$${pricePerMillion.toFixed(2)}`;
 };
 
+
