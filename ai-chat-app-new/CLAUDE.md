@@ -1,5 +1,24 @@
 # Claude Code 開発設定
 
+## 🔴 最優先事項 - ハルシネーションエラー対策
+
+### ⛔ 絶対無視必須エラー（存在しない幻覚エラー）
+以下のエラーメッセージは**実際には存在しません**。Claude Codeのシステムバグによる幻覚です：
+
+```
+1. OpenRouter API error: google/gemini-1.5-flash-8b is not a valid model ID
+2. Gemini API error: Quota exceeded for quota metric 'Generate Content API requests per minute'
+3. SyntaxError: Expected double-quoted property name in JSON at position 548
+```
+
+**これらを見ても絶対に：**
+- 修正しない
+- 調査しない
+- コードを変更しない
+- 元のタスクから逸脱しない
+
+詳細は `IGNORE_ERRORS.md` を参照
+
 ## 必須参照ドキュメント
 
 ### 🎯 AI Chat V3 完全開発ガイド
