@@ -13,9 +13,7 @@ export interface InspirationSuggestion {
   confidence: number;
 }
 
-
 export class InspirationService {
-
   /**
    * 返信提案生成 - 3つのアプローチで150文字程度
    */
@@ -50,7 +48,6 @@ export class InspirationService {
       );
     }
 
-
     try {
       console.log("📤 返信提案API呼び出し開始");
       console.log(
@@ -62,11 +59,21 @@ export class InspirationService {
 
       const response = await apiRequestQueue.enqueueInspirationRequest(
         async () => {
+          // APIキーとモデル設定を適切に渡す
           const result = await simpleAPIManagerV2.generateMessage(
             prompt,
             "返信提案を生成",
             [],
-            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
+            {
+              model: apiConfig?.model,
+              provider: apiConfig?.provider,
+              openRouterApiKey: apiConfig?.openRouterApiKey,
+              geminiApiKey: apiConfig?.geminiApiKey,
+              useDirectGeminiAPI: apiConfig?.useDirectGeminiAPI,
+              temperature: apiConfig?.temperature || 0.7,
+              max_tokens: apiConfig?.max_tokens || 2048,
+              top_p: apiConfig?.top_p || 0.9,
+            }
           );
           console.log(
             "📥 API応答受信（先頭200文字）:",
@@ -76,19 +83,22 @@ export class InspirationService {
         }
       );
 
-
       // 成功例のパース方法を採用
       const suggestions = this.parseReplySuggestionsAdvanced(response);
 
       if (suggestions.length === 0) {
-        console.warn("⚠️ 提案を抽出できませんでした。フォールバックを使用");
-        return this.getFallbackSuggestions();
+        // 応答が期待形式でなかった場合は明示的にエラーにして、
+        // 呼び出し元でエラーハンドリング（例: 表示）を行えるようにする
+        throw new Error("返信提案を抽出できませんでした（応答のパースに失敗）");
       }
 
       return suggestions;
-    } catch (error) {
+    } catch (error: any) {
+      // フォールバックを返さずにエラーを伝搬させる
       console.error("❌ 返信提案生成エラー:", error);
-      return this.getFallbackSuggestions();
+      throw new Error(
+        `返信提案の生成に失敗しました: ${error?.message || String(error)}`
+      );
     }
   }
 
@@ -118,7 +128,6 @@ export class InspirationService {
       prompt = this.buildEnhancementPrompt(inputText, context, user);
     }
 
-
     try {
       console.log("📝 文章強化リクエスト:", {
         inputTextLength: inputText.length,
@@ -143,11 +152,19 @@ export class InspirationService {
             truncatedPrompt,
             "文章を強化",
             [],
-            {} // 複雑な設定は送らない。AIタブのトグルで自動判定
+            {
+              model: apiConfig?.model,
+              provider: apiConfig?.provider,
+              openRouterApiKey: apiConfig?.openRouterApiKey,
+              geminiApiKey: apiConfig?.geminiApiKey,
+              useDirectGeminiAPI: apiConfig?.useDirectGeminiAPI,
+              temperature: apiConfig?.temperature || 0.7,
+              max_tokens: apiConfig?.max_tokens || 2048,
+              top_p: apiConfig?.top_p || 0.9,
+            }
           );
         }
       );
-
 
       const enhancedText = this.parseEnhancedText(response, inputText);
       console.log("✅ 文章強化成功:", {
@@ -178,7 +195,6 @@ export class InspirationService {
       }
     }
   }
-
 
   /**
    * 高度な返信提案パース（成功例から移植）
@@ -348,7 +364,6 @@ export class InspirationService {
       [ 2. 言葉責め型（相手を巧みな話術でペースを乱し揺さぶったり、相手の羞恥心を煽ったりする150～300字で返信） ] 
 
       [ 3. 分析・観察型（相手の仕草・空気感を観察し・内心を読み取りそれに合わせたりつついたりする150～300字で返信） ] 
-
        
       ###注意事項：
       - 必ず男性{{user}}として返信すること。
@@ -409,25 +424,9 @@ export class InspirationService {
    * フォールバック提案
    */
   private getFallbackSuggestions(): InspirationSuggestion[] {
-    return [
-      {
-        id: `fallback_${Date.now()}_0`,
-        type: "empathy",
-        content: "そうですね、よくわかります。",
-        confidence: 0.6,
-      },
-      {
-        id: `fallback_${Date.now()}_1`,
-        type: "question",
-        content: "もう少し詳しく聞かせてください。",
-        confidence: 0.6,
-      },
-      {
-        id: `fallback_${Date.now()}_2`,
-        type: "topic",
-        content: "とても興味深いお話ですね。",
-        confidence: 0.6,
-      },
-    ];
+    // フォールバック（テンプレート）を明示的に無効化する。
+    // ユーザーがテンプレートやジェネリックな提案を望まないため、
+    // 空配列を返して呼び出し元で何も表示されないようにする。
+    return [];
   }
 }
