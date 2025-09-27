@@ -5,8 +5,16 @@ import { generateMemoryId } from '@/utils/uuid';
 import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface MemorySlice {
-  memory_cards: Map<UUID, MemoryCard>;
+  // セッションごとに分離された記憶データ
+  memory_cards_by_session: Map<UUID, Map<UUID, MemoryCard>>; // session_id -> memory_cards
+  memory_layers_by_session: Map<UUID, Map<UUID, MemoryLayer>>; // session_id -> memory_layers
+  current_session_id: UUID | null;
   pinned_memories: MemoryCard[];
+
+  // セッション管理
+  setCurrentSessionId: (session_id: UUID) => void;
+  getCurrentSessionMemoryCards: () => Map<UUID, MemoryCard>;
+  getCurrentSessionMemoryLayers: () => Map<UUID, MemoryLayer>;
 
   // メモリーカードの作成・管理 - null返却を許可
   createMemoryCard: (
@@ -33,12 +41,12 @@ export interface MemorySlice {
   togglePinMemory: (id: UUID) => void;
   getMemoryStatistics: () => MemoryStatistics;
   clearMemoryCards: () => void;
+  clearSessionMemoryCards: (session_id: UUID) => void;
 
   // Lazy initialization
   initializeMemoryCards: () => void;
 
   // 新機能：メモリーレイヤー管理 (Memory Manager V2)
-  memoryLayers: Map<UUID, MemoryLayer>;
   addMessageToLayers: (message: UnifiedMessage) => void;
 }
 
@@ -108,16 +116,32 @@ export const createMemorySlice: StateCreator<
   };
 
   return {
-    memory_cards: new Map(), // Lazy load on first access
+    memory_cards_by_session: new Map(),
+    memory_layers_by_session: new Map(),
+    current_session_id: null,
     pinned_memories: [],
+
+    // セッション管理
+    setCurrentSessionId: (session_id: UUID) => {
+      set((state) => ({ ...state, current_session_id: session_id }));
+    },
+
+    getCurrentSessionMemoryCards: () => {
+      const state = get();
+      if (!state.current_session_id) return new Map();
+      return state.memory_cards_by_session.get(state.current_session_id) || new Map();
+    },
+
+    getCurrentSessionMemoryLayers: () => {
+      const state = get();
+      if (!state.current_session_id) return new Map();
+      return state.memory_layers_by_session.get(state.current_session_id) || new Map();
+    },
 
     // Lazy initialization method for memory cards
     initializeMemoryCards: () => {
-      const currentState = get() as { memory_cards: Map<string, any> };
-      if (currentState.memory_cards.size === 0) {
-        const loadedCards = loadMemoryCards();
-        set((state) => ({ ...state, memory_cards: loadedCards }));
-      }
+      // セッションごとの初期化は各セッション開始時に行う
+      console.log("Memory cards initialization called");
     },
 
     createMemoryCard: async (message_ids, session_id, character_id) => {
@@ -210,17 +234,18 @@ export const createMemorySlice: StateCreator<
         // セッションストレージに保存
         sessionStorageService.saveMemoryCard(session_id, newMemoryCard);
 
-        // ストアに追加
+        // ストアに追加（セッションごとに分離）
         set((state) => {
-          const newMemoryCards = new Map(state.memory_cards);
-          newMemoryCards.set(newMemoryCard.id, newMemoryCard);
+          const sessionMemoryCards = state.memory_cards_by_session.get(session_id) || new Map();
+          const newSessionMemoryCards = new Map(sessionMemoryCards);
+          newSessionMemoryCards.set(newMemoryCard.id, newMemoryCard);
 
-          // セッション固有データとして管理（キャラクター定義には保存しない）
-          // LocalStorageへの保存は削除（セッションストレージで管理）
+          const newMemoryCardsBySession = new Map(state.memory_cards_by_session);
+          newMemoryCardsBySession.set(session_id, newSessionMemoryCards);
 
           return {
             ...state,
-            memory_cards: newMemoryCards,
+            memory_cards_by_session: newMemoryCardsBySession,
           };
         });
 
@@ -235,7 +260,17 @@ export const createMemorySlice: StateCreator<
 
     updateMemoryCard: (id, updates) => {
       set((state) => {
-        const memoryCard = state.memory_cards.get(id);
+        // 全セッションから該当するメモリーカードを検索
+        let foundSessionId: UUID | null = null;
+        let memoryCard: MemoryCard | undefined;
+
+        for (const [sessionId, sessionCards] of state.memory_cards_by_session.entries()) {
+          if (sessionCards.has(id)) {
+            foundSessionId = sessionId;
+            memoryCard = sessionCards.get(id);
+            break;
+          }
+        }
         if (!memoryCard) {
           console.warn(`Memory card with id ${id} not found`);
           return state;
@@ -247,41 +282,47 @@ export const createMemorySlice: StateCreator<
           updated_at: new Date().toISOString(),
         };
 
-        const newMemoryCards = new Map(state.memory_cards);
-        newMemoryCards.set(id, updatedCard);
+        if (!foundSessionId) return state;
 
-        // ローカルストレージにも保存
-        try {
-          const memoryCardsArray = Array.from(newMemoryCards.values());
-          localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
-        } catch (error) {
-          console.error("Failed to save memory cards to localStorage:", error);
-        }
+        const sessionMemoryCards = state.memory_cards_by_session.get(foundSessionId)!;
+        const newSessionMemoryCards = new Map(sessionMemoryCards);
+        newSessionMemoryCards.set(id, updatedCard);
+
+        const newMemoryCardsBySession = new Map(state.memory_cards_by_session);
+        newMemoryCardsBySession.set(foundSessionId, newSessionMemoryCards);
 
         return {
           ...state,
-          memory_cards: newMemoryCards,
+          memory_cards_by_session: newMemoryCardsBySession,
         };
       });
     },
 
     deleteMemoryCard: (id) => {
       set((state) => {
-        const newMemoryCards = new Map(state.memory_cards);
-        const deleted = newMemoryCards.delete(id);
+        // 全セッションから該当するメモリーカードを検索して削除
+        let foundSessionId: UUID | null = null;
+        let deleted = false;
 
-        if (!deleted) {
+        for (const [sessionId, sessionCards] of state.memory_cards_by_session.entries()) {
+          if (sessionCards.has(id)) {
+            foundSessionId = sessionId;
+            deleted = true;
+            break;
+          }
+        }
+
+        if (!deleted || !foundSessionId) {
           console.warn(`Memory card with id ${id} not found for deletion`);
           return state;
         }
 
-        // ローカルストレージからも削除
-        try {
-          const memoryCardsArray = Array.from(newMemoryCards.values());
-          localStorage.setItem("memory_cards", JSON.stringify(memoryCardsArray));
-        } catch (error) {
-          console.error("Failed to save memory cards to localStorage:", error);
-        }
+        const sessionMemoryCards = state.memory_cards_by_session.get(foundSessionId)!;
+        const newSessionMemoryCards = new Map(sessionMemoryCards);
+        newSessionMemoryCards.delete(id);
+
+        const newMemoryCardsBySession = new Map(state.memory_cards_by_session);
+        newMemoryCardsBySession.set(foundSessionId, newSessionMemoryCards);
 
         // pinned_memoriesからも削除
         const newPinnedMemories = state.pinned_memories.filter(
@@ -290,7 +331,7 @@ export const createMemorySlice: StateCreator<
 
         return {
           ...state,
-          memory_cards: newMemoryCards,
+          memory_cards_by_session: newMemoryCardsBySession,
           pinned_memories: newPinnedMemories,
         };
       });
@@ -298,35 +339,52 @@ export const createMemorySlice: StateCreator<
 
     getMemoryCard: (id) => {
       const state = get();
-      return state.memory_cards.get(id);
+      // 全セッションから検索
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        if (sessionCards.has(id)) {
+          return sessionCards.get(id);
+        }
+      }
+      return undefined;
     },
 
     getPinnedMemories: () => {
       const state = get();
-      return Array.from(state.memory_cards.values()).filter(
-        (memory) => memory.is_pinned
-      );
+      const allMemories: MemoryCard[] = [];
+      // 全セッションのメモリーから収集
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        allMemories.push(...Array.from(sessionCards.values()));
+      }
+      return allMemories.filter((memory) => memory.is_pinned);
     },
 
     getMemoriesByCategory: (category: MemoryCategoryType) => {
       const state = get();
-      return Array.from(state.memory_cards.values()).filter(
-        (memory) => memory.category === category
-      );
+      const allMemories: MemoryCard[] = [];
+      // 全セッションのメモリーから収集
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        allMemories.push(...Array.from(sessionCards.values()));
+      }
+      return allMemories.filter((memory) => memory.category === category);
     },
 
     getMemoriesBySession: (session_id) => {
       const state = get();
-      return Array.from(state.memory_cards.values()).filter(
-        (memory) => memory.session_id === session_id
-      );
+      const sessionCards = state.memory_cards_by_session.get(session_id) || new Map();
+      return Array.from(sessionCards.values());
     },
 
     searchMemories: (query) => {
       const state = get();
       const lowerQuery = query.toLowerCase();
+      const allMemories: MemoryCard[] = [];
 
-      return Array.from(state.memory_cards.values()).filter((memory) => {
+      // 全セッションのメモリーから収集
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        allMemories.push(...Array.from(sessionCards.values()));
+      }
+
+      return allMemories.filter((memory) => {
         return (
           memory.title?.toLowerCase().includes(lowerQuery) ||
           memory.summary?.toLowerCase().includes(lowerQuery) ||
@@ -340,7 +398,12 @@ export const createMemorySlice: StateCreator<
 
     filterMemories: (filters) => {
       const state = get();
-      let memories = Array.from(state.memory_cards.values());
+      let memories: MemoryCard[] = [];
+
+      // 全セッションのメモリーから収集
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        memories.push(...Array.from(sessionCards.values()));
+      }
 
       if (filters.categories && filters.categories.length > 0) {
         memories = memories.filter((memory) =>
@@ -408,8 +471,18 @@ export const createMemorySlice: StateCreator<
 
     togglePinMemory: (id) => {
       set((state) => {
-        const memory = state.memory_cards.get(id);
-        if (!memory) {
+        // 全セッションから該当するメモリーカードを検索
+        let foundSessionId: UUID | null = null;
+        let memory: MemoryCard | undefined;
+
+        for (const [sessionId, sessionCards] of state.memory_cards_by_session.entries()) {
+          if (sessionCards.has(id)) {
+            foundSessionId = sessionId;
+            memory = sessionCards.get(id);
+            break;
+          }
+        }
+        if (!memory || !foundSessionId) {
           console.warn(`Memory card with id ${id} not found for pin toggle`);
           return state;
         }
@@ -420,8 +493,12 @@ export const createMemorySlice: StateCreator<
           updated_at: new Date().toISOString(),
         };
 
-        const newMemoryCards = new Map(state.memory_cards);
-        newMemoryCards.set(id, updatedMemory);
+        const sessionMemoryCards = state.memory_cards_by_session.get(foundSessionId)!;
+        const newSessionMemoryCards = new Map(sessionMemoryCards);
+        newSessionMemoryCards.set(id, updatedMemory);
+
+        const newMemoryCardsBySession = new Map(state.memory_cards_by_session);
+        newMemoryCardsBySession.set(foundSessionId, newSessionMemoryCards);
 
         // pinned_memoriesも更新
         let newPinnedMemories = [...state.pinned_memories];
@@ -435,7 +512,7 @@ export const createMemorySlice: StateCreator<
 
         return {
           ...state,
-          memory_cards: newMemoryCards,
+          memory_cards_by_session: newMemoryCardsBySession,
           pinned_memories: newPinnedMemories,
         };
       });
@@ -443,7 +520,12 @@ export const createMemorySlice: StateCreator<
 
     getMemoryStatistics: () => {
       const state = get();
-      const memories = Array.from(state.memory_cards.values());
+      const memories: MemoryCard[] = [];
+
+      // 全セッションのメモリーから収集
+      for (const sessionCards of state.memory_cards_by_session.values()) {
+        memories.push(...Array.from(sessionCards.values()));
+      }
 
       const categories: Record<string, number> = {};
       memories.forEach((memory) => {
@@ -459,26 +541,40 @@ export const createMemorySlice: StateCreator<
 
     clearMemoryCards: () => {
       set((state) => {
-        try {
-          localStorage.removeItem("memory_cards");
-        } catch (error) {
-          console.error("Failed to clear memory cards from localStorage:", error);
-        }
-
         return {
           ...state,
-          memory_cards: new Map(),
+          memory_cards_by_session: new Map(),
+          memory_layers_by_session: new Map(),
           pinned_memories: [],
         };
       });
     },
 
-    // メモリーレイヤー管理 (Memory Manager V2)
-    memoryLayers: new Map(),
+    clearSessionMemoryCards: (session_id: UUID) => {
+      set((state) => {
+        const newMemoryCardsBySession = new Map(state.memory_cards_by_session);
+        const newMemoryLayersBySession = new Map(state.memory_layers_by_session);
 
+        newMemoryCardsBySession.delete(session_id);
+        newMemoryLayersBySession.delete(session_id);
+
+        return {
+          ...state,
+          memory_cards_by_session: newMemoryCardsBySession,
+          memory_layers_by_session: newMemoryLayersBySession,
+        };
+      });
+    },
+
+    // メモリーレイヤー管理 (Memory Manager V2)
     addMessageToLayers: (message) => {
+      const state = get();
+      if (!state.current_session_id) {
+        console.log('No current session ID, skipping addMessageToLayers');
+        return;
+      }
       // この機能は必要に応じて実装
-      console.log('addMessageToLayers called with:', message.id);
+      console.log('addMessageToLayers called for session:', state.current_session_id, 'message:', message.id);
     },
   };
 };

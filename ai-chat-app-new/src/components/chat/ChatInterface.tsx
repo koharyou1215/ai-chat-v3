@@ -646,11 +646,13 @@ const ChatInterfaceContent: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={character.background_url}
-                  alt="background"
-                  className="w-full h-full object-cover"
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${character.background_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
                 />
               )}
             </div>

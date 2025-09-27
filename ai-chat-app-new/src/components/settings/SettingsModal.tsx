@@ -1062,8 +1062,8 @@ const AIPanel: React.FC<{
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <optgroup label="Google">
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-2.5-flash-light">
+                <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash</option>
+                <option value="google/gemini-2.5-flash-lite-preview-09-2025">
                   Gemini 2.5 Flash Light
                 </option>
               </optgroup>
@@ -2936,6 +2936,28 @@ const AppearancePanel: React.FC = () => {
                 }
                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                背景ぼかしを有効にする
+              </label>
+              <div>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={appearanceSettings.backgroundBlurEnabled}
+                    onChange={(e) =>
+                      updateAppearanceSetting(
+                        "backgroundBlurEnabled",
+                        e.target.checked
+                      )
+                    }
+                    className="form-checkbox h-5 w-5 text-purple-600"
+                  />
+                  <span className="text-sm text-gray-300">有効</span>
+                </label>
+              </div>
             </div>
 
             <div>

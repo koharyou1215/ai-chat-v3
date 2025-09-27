@@ -35,14 +35,14 @@ export interface SettingsSliceV2 extends AISettings {
     timeFormat: "12" | "24";
     currency: string;
   };
-  effectSettings: UnifiedSettings['effects'];
+  effectSettings: UnifiedSettings["effects"];
   appearanceSettings: any; // 既存の外観設定型を維持
   emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
 
   // Actions - 統一設定マネージャーへの委譲
   updateUnifiedSettings: (updates: Partial<UnifiedSettings>) => void;
   updateLanguageSettings: (settings: any) => void;
-  updateEffectSettings: (settings: Partial<UnifiedSettings['effects']>) => void;
+  updateEffectSettings: (settings: Partial<UnifiedSettings["effects"]>) => void;
   updateAppearanceSettings: (settings: any) => void;
   updateEmotionalFlags: (flags: Partial<EmotionalIntelligenceFlags>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
@@ -50,7 +50,9 @@ export interface SettingsSliceV2 extends AISettings {
   setEnableJailbreakPrompt: (enable: boolean) => void;
   updateChatSettings: (settings: Partial<ChatSettings>) => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
-  updateImageGenerationSettings: (settings: Partial<ImageGenerationSettings>) => void;
+  updateImageGenerationSettings: (
+    settings: Partial<ImageGenerationSettings>
+  ) => void;
   updateAPIConfig: (config: Partial<APIConfig>) => void;
   setAPIProvider: (provider: APIProvider) => void;
   setAPIModel: (model: string) => void;
@@ -71,7 +73,12 @@ export interface SettingsSliceV2 extends AISettings {
   syncFromUnifiedSettings: () => void;
 }
 
-export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], SettingsSliceV2> = (set, get) => {
+export const createSettingsSliceV2: StateCreator<
+  SettingsSliceV2,
+  [],
+  [],
+  SettingsSliceV2
+> = (set, get) => {
   // 統一設定から初期値を取得
   const initialSettings = settingsManager.getSettings();
 
@@ -95,14 +102,15 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
       language: initialSettings.ui.language,
       timezone: "Asia/Tokyo",
       dateFormat: "YYYY/MM/DD",
-      timeFormat: initialSettings.ui.language === 'ja' ? "24" : "12",
-      currency: initialSettings.ui.language === 'ja' ? "JPY" : "USD",
+      timeFormat: initialSettings.ui.language === "ja" ? "24" : "12",
+      currency: initialSettings.ui.language === "ja" ? "JPY" : "USD",
     },
 
     effectSettings: initialSettings.effects,
 
     appearanceSettings: {
-      theme: initialSettings.ui.theme === 'auto' ? 'dark' : initialSettings.ui.theme,
+      theme:
+        initialSettings.ui.theme === "auto" ? "dark" : initialSettings.ui.theme,
       primaryColor: "#8b5cf6",
       accentColor: "#ec4899",
       backgroundColor: "#0f0f23",
@@ -111,7 +119,8 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
       secondaryTextColor: "#9ca3af",
       borderColor: "#374151",
       shadowColor: "#000000",
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       fontSize: initialSettings.ui.fontSize,
       fontWeight: "normal",
       lineHeight: "normal",
@@ -121,9 +130,17 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
       sidebarWidth: "normal",
       backgroundType: initialSettings.ui.background?.type || "gradient",
       backgroundGradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      backgroundImage: initialSettings.ui.background?.type === 'image' ? initialSettings.ui.background.value : "",
+      backgroundImage:
+        initialSettings.ui.background?.type === "image"
+          ? initialSettings.ui.background.value
+          : "",
       backgroundBlur: 10,
+      backgroundBlurEnabled: true,
       backgroundOpacity: 100,
+      // favicon settings (public/ 配置があればそのまま使えるようデフォルトを用意)
+      faviconPath: "/favicon.ico",
+      faviconSvg: "/favicon.svg",
+      appleTouchIcon: "/apple-touch-icon.png",
       enableAnimations: true,
       transitionDuration: "normal",
       customCSS: "",
@@ -147,7 +164,12 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
 
     // AI Settings (既存の型を維持)
     apiConfig: {
-      provider: (initialSettings.api.provider === "openai" || initialSettings.api.provider === "anthropic" || initialSettings.api.provider === "google" || initialSettings.api.provider === "groq" ? "openrouter" : initialSettings.api.provider) as APIProvider,
+      provider: (initialSettings.api.provider === "openai" ||
+      initialSettings.api.provider === "anthropic" ||
+      initialSettings.api.provider === "google" ||
+      initialSettings.api.provider === "groq"
+        ? "openrouter"
+        : initialSettings.api.provider) as APIProvider,
       model: initialSettings.api.model || "gpt-4o-mini",
       temperature: initialSettings.api.temperature || 0.7,
       max_tokens: initialSettings.api.maxTokens || 2048,
@@ -258,7 +280,7 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     updateLanguageSettings: (settings) => {
       // 言語設定を統一設定に変換
       if (settings.language) {
-        settingsManager.updateCategory('ui', { language: settings.language });
+        settingsManager.updateCategory("ui", { language: settings.language });
       }
       set((state) => ({
         languageSettings: { ...state.languageSettings, ...settings },
@@ -266,7 +288,7 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     },
 
     updateEffectSettings: (settings) => {
-      settingsManager.updateCategory('effects', settings);
+      settingsManager.updateCategory("effects", settings);
       set((state) => ({
         effectSettings: { ...state.effectSettings, ...settings },
       }));
@@ -275,11 +297,14 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     updateAppearanceSettings: (settings) => {
       // 外観設定の一部を統一設定に反映
       if (settings.fontSize) {
-        settingsManager.updateCategory('ui', { fontSize: settings.fontSize });
+        settingsManager.updateCategory("ui", { fontSize: settings.fontSize });
       }
       if (settings.theme) {
-        settingsManager.updateCategory('ui', {
-          theme: settings.theme === 'dark' || settings.theme === 'light' ? settings.theme : 'auto'
+        settingsManager.updateCategory("ui", {
+          theme:
+            settings.theme === "dark" || settings.theme === "light"
+              ? settings.theme
+              : "auto",
         });
       }
       set((state) => ({
@@ -322,11 +347,13 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
 
       // チャット設定を統一設定に反映
       const chatUpdates: any = {};
-      if ('enterToSend' in settings) chatUpdates.enterToSend = settings.enterToSend;
-      if ('autoScroll' in settings) chatUpdates.autoScroll = settings.autoScroll;
+      if ("enterToSend" in settings)
+        chatUpdates.enterToSend = settings.enterToSend;
+      if ("autoScroll" in settings)
+        chatUpdates.autoScroll = settings.autoScroll;
 
       if (Object.keys(chatUpdates).length > 0) {
-        settingsManager.updateCategory('chat', chatUpdates);
+        settingsManager.updateCategory("chat", chatUpdates);
       }
 
       set((state) => {
@@ -334,11 +361,11 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
         console.log("🔧 [updateChatSettings] Previous state:", state.chat);
         console.log("🔧 [updateChatSettings] New state:", newChatSettings);
 
-        if ('progressiveMode' in settings) {
+        if ("progressiveMode" in settings) {
           console.log("🔧 [updateChatSettings] Progressive mode update:", {
             oldEnabled: state.chat?.progressiveMode?.enabled,
             newEnabled: newChatSettings.progressiveMode?.enabled,
-            settingsParam: settings.progressiveMode
+            settingsParam: settings.progressiveMode,
           });
         }
 
@@ -364,11 +391,13 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
       const apiUpdates: any = {};
       if (config.provider) apiUpdates.provider = config.provider;
       if (config.model) apiUpdates.model = config.model;
-      if (config.temperature !== undefined) apiUpdates.temperature = config.temperature;
-      if (config.max_tokens !== undefined) apiUpdates.maxTokens = config.max_tokens;
+      if (config.temperature !== undefined)
+        apiUpdates.temperature = config.temperature;
+      if (config.max_tokens !== undefined)
+        apiUpdates.maxTokens = config.max_tokens;
 
       if (Object.keys(apiUpdates).length > 0) {
-        settingsManager.updateCategory('api', apiUpdates);
+        settingsManager.updateCategory("api", apiUpdates);
       }
 
       set((state) => ({ apiConfig: { ...state.apiConfig, ...config } }));
@@ -376,25 +405,25 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     },
 
     setAPIProvider: (provider) => {
-      settingsManager.updateCategory('api', { provider });
+      settingsManager.updateCategory("api", { provider });
       set((state) => ({ apiConfig: { ...state.apiConfig, provider } }));
       simpleAPIManagerV2.setAPIConfig(get().apiConfig);
     },
 
     setAPIModel: (model) => {
-      settingsManager.updateCategory('api', { model });
+      settingsManager.updateCategory("api", { model });
       set((state) => ({ apiConfig: { ...state.apiConfig, model } }));
       simpleAPIManagerV2.setAPIConfig(get().apiConfig);
     },
 
     setOpenRouterApiKey: (key) => {
-      settingsManager.updateCategory('api', { openrouterApiKey: key });
+      settingsManager.updateCategory("api", { openrouterApiKey: key });
       set({ openRouterApiKey: key });
       simpleAPIManagerV2.setOpenRouterApiKey(key);
     },
 
     setGeminiApiKey: (key) => {
-      settingsManager.updateCategory('api', { geminiApiKey: key });
+      settingsManager.updateCategory("api", { geminiApiKey: key });
       set({ geminiApiKey: key });
       simpleAPIManagerV2.setGeminiApiKey(key);
     },
@@ -406,14 +435,18 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
     },
 
     setTemperature: (temp) => {
-      settingsManager.updateCategory('api', { temperature: temp });
-      set((state) => ({ apiConfig: { ...state.apiConfig, temperature: temp } }));
+      settingsManager.updateCategory("api", { temperature: temp });
+      set((state) => ({
+        apiConfig: { ...state.apiConfig, temperature: temp },
+      }));
       simpleAPIManagerV2.setAPIConfig(get().apiConfig);
     },
 
     setMaxTokens: (tokens) => {
-      settingsManager.updateCategory('api', { maxTokens: tokens });
-      set((state) => ({ apiConfig: { ...state.apiConfig, max_tokens: tokens } }));
+      settingsManager.updateCategory("api", { maxTokens: tokens });
+      set((state) => ({
+        apiConfig: { ...state.apiConfig, max_tokens: tokens },
+      }));
       const newConfig = get().apiConfig;
       simpleAPIManagerV2.setAPIConfig(newConfig);
     },
@@ -472,12 +505,17 @@ export const createSettingsSliceV2: StateCreator<SettingsSliceV2, [], [], Settin
           language: unified.ui.language,
           timezone: "Asia/Tokyo",
           dateFormat: "YYYY/MM/DD",
-          timeFormat: unified.ui.language === 'ja' ? "24" : "12",
-          currency: unified.ui.language === 'ja' ? "JPY" : "USD",
+          timeFormat: unified.ui.language === "ja" ? "24" : "12",
+          currency: unified.ui.language === "ja" ? "JPY" : "USD",
         },
         apiConfig: {
           ...get().apiConfig,
-          provider: (unified.api.provider === "openai" || unified.api.provider === "anthropic" || unified.api.provider === "google" || unified.api.provider === "groq" ? "openrouter" : unified.api.provider) as APIProvider,
+          provider: (unified.api.provider === "openai" ||
+          unified.api.provider === "anthropic" ||
+          unified.api.provider === "google" ||
+          unified.api.provider === "groq"
+            ? "openrouter"
+            : unified.api.provider) as APIProvider,
           model: unified.api.model || get().apiConfig.model,
           temperature: unified.api.temperature || get().apiConfig.temperature,
           max_tokens: unified.api.maxTokens || get().apiConfig.max_tokens,

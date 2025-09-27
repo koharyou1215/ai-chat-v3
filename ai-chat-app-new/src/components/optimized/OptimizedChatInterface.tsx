@@ -9,7 +9,7 @@ import React, {
   Suspense,
   memo,
 } from "react";
-import Image from "next/image";
+// Use regular background-image divs for robustness with external URLs
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { OptimizedMessageBubble } from "./OptimizedMessageBubble";
@@ -422,12 +422,13 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <Image
-              src={character.background_url}
-              alt="background"
-              width={800}
-              height={600}
-              className="w-full h-full object-cover"
+            <div
+              className="w-full h-full"
+              style={{
+                backgroundImage: `url(${character.background_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             />
           )}
         </div>
@@ -454,12 +455,13 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
           filter: `blur(${backgroundBlur}px)`,
         }}>
         {backgroundType === "image" && backgroundImage ? (
-          <Image
-            src={backgroundImage}
-            alt="background"
-            width={800}
-            height={600}
-            className="w-full h-full object-cover"
+          <div
+            className="w-full h-full"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
           />
         ) : backgroundType === "gradient" ? (
           <div

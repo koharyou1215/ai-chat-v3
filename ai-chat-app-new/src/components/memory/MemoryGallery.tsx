@@ -34,7 +34,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { memory_cards, createMemoryCard, getActiveSession, ensureTrackerManagerExists, initializeMemoryCards } = useAppStore();
+  const { getCurrentSessionMemoryCards, createMemoryCard, getActiveSession, ensureTrackerManagerExists, initializeMemoryCards, togglePinMemory } = useAppStore();
 
   // Lazy initialize memory cards on mount
   useEffect(() => {
@@ -43,8 +43,10 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
 
   // メモリーカードのフィルタリングとソート
   const filteredAndSortedMemories = useMemo(() => {
-    if (!memory_cards) return [];
-    let filtered = Array.from(memory_cards.values());
+    // 現在のセッションの記憶カードを取得
+    const currentSessionCards = getCurrentSessionMemoryCards ? getCurrentSessionMemoryCards() : new Map();
+    if (!currentSessionCards || currentSessionCards.size === 0) return [];
+    let filtered = Array.from(currentSessionCards.values());
 
     // セッション・キャラクターフィルタ
     if (session_id || character_id) {
@@ -268,10 +270,10 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       <div className="p-4 border-t border-white/10 text-xs text-white/50">
         <div className="flex justify-between">
           <span>
-            {filteredAndSortedMemories.length} / {memory_cards.size} 件の記憶を表示
+            {filteredAndSortedMemories.length} / {getCurrentSessionMemoryCards ? getCurrentSessionMemoryCards().size : 0} 件の記憶を表示
           </span>
           <span>
-            ピン留め: {Array.from(memory_cards.values()).filter(m => m.is_pinned).length} 件
+            ピン留め: {filteredAndSortedMemories.filter(m => m.is_pinned).length} 件
           </span>
         </div>
       </div>

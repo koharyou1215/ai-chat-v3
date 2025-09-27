@@ -579,6 +579,20 @@
     -webkit-backdrop-filter: blur(12px) saturate(120%);
     border: 1px solid oklch(0.95 0.01 270 / 20%);
   }
+  /* Disable all backdrop filters when blur is disabled via HTML attribute */
+  html[data-background-blur="disabled"] .glass-effect,
+  html[data-background-blur="disabled"] .backdrop-blur-sm,
+  html[data-background-blur="disabled"] .backdrop-blur,
+  html[data-background-blur="disabled"] .backdrop-blur-md,
+  html[data-background-blur="disabled"] .backdrop-blur-lg,
+  html[data-background-blur="disabled"] .backdrop-blur-xl,
+  html[data-background-blur="disabled"] .bubble-transparent,
+  html[data-background-blur="disabled"] .message-bubble-user-transparent,
+  html[data-background-blur="disabled"] .message-bubble-character-transparent,
+  html[data-background-blur="disabled"] .elegant-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 
   /* Background blur utilities */
   .backdrop-blur-sm {

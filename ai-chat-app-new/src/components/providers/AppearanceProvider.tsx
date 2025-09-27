@@ -6,11 +6,50 @@ import { useAppStore } from "@/store";
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { appearanceSettings, effectSettings, getSelectedCharacter, selectedCharacterId } =
-    useAppStore();
+  const {
+    appearanceSettings,
+    effectSettings,
+    getSelectedCharacter,
+    selectedCharacterId,
+  } = useAppStore();
   const currentCharacter = getSelectedCharacter();
 
   useEffect(() => {
+    // favicon / apple-touch-icon を実行時に head に挿入（public/ に置くだけでも動くが、即時反映のためここで確実に設定）
+    try {
+      const existingLink = document.querySelector('link[rel="icon"]');
+      if (!existingLink) {
+        const link = document.createElement("link");
+        link.rel = "icon";
+        link.href = appearanceSettings.faviconPath || "/favicon.ico";
+        document.head.appendChild(link);
+      } else {
+        (existingLink as HTMLLinkElement).href = appearanceSettings.faviconPath || "/favicon.ico";
+      }
+
+      const existingSvg = document.querySelector('link[type="image/svg+xml"]');
+      if (!existingSvg) {
+        const svgLink = document.createElement("link");
+        svgLink.rel = "icon";
+        svgLink.type = "image/svg+xml";
+        svgLink.href = appearanceSettings.faviconSvg || "/favicon.svg";
+        document.head.appendChild(svgLink);
+      } else {
+        (existingSvg as HTMLLinkElement).href = appearanceSettings.faviconSvg || "/favicon.svg";
+      }
+
+      const existingApple = document.querySelector('link[rel="apple-touch-icon"]');
+      if (!existingApple) {
+        const apple = document.createElement("link");
+        apple.rel = "apple-touch-icon";
+        apple.href = appearanceSettings.appleTouchIcon || "/apple-touch-icon.png";
+        document.head.appendChild(apple);
+      } else {
+        (existingApple as HTMLLinkElement).href = appearanceSettings.appleTouchIcon || "/apple-touch-icon.png";
+      }
+    } catch (e) {
+      // 実行環境で document が使えない場合は無視
+    }
     // CSS変数を設定して、全体のスタイルを動的に変更
     const root = document.documentElement;
     const hasCharacterBackground = !!(
@@ -66,7 +105,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--message-spacing",
-      messageSpacingMap[appearanceSettings.messageSpacing as keyof typeof messageSpacingMap]
+      messageSpacingMap[
+        appearanceSettings.messageSpacing as keyof typeof messageSpacingMap
+      ]
     );
 
     const borderRadiusMap = {
@@ -78,7 +119,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--message-border-radius",
-      borderRadiusMap[appearanceSettings.messageBorderRadius as keyof typeof borderRadiusMap]
+      borderRadiusMap[
+        appearanceSettings.messageBorderRadius as keyof typeof borderRadiusMap
+      ]
     );
 
     const chatWidthMap = {
@@ -99,7 +142,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--sidebar-width",
-      sidebarWidthMap[appearanceSettings.sidebarWidth as keyof typeof sidebarWidthMap]
+      sidebarWidthMap[
+        appearanceSettings.sidebarWidth as keyof typeof sidebarWidthMap
+      ]
     );
 
     // 背景設定を適用 - bodyにdata属性も設定
@@ -124,6 +169,12 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
         `${appearanceSettings.backgroundOpacity}`
       );
       root.setAttribute("data-background-type", "image");
+      // 背景ぼかしの有効/無効をHTML属性に反映
+      if (appearanceSettings.backgroundBlurEnabled === false) {
+        root.setAttribute("data-background-blur", "disabled");
+      } else {
+        root.setAttribute("data-background-blur", "enabled");
+      }
       // body要素の背景をクリア
       body.style.setProperty("background", "transparent", "important");
     } else if (appearanceSettings.backgroundType === "solid") {
@@ -132,6 +183,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
         appearanceSettings.backgroundColor
       );
       root.setAttribute("data-background-type", "solid");
+      if (appearanceSettings.backgroundBlurEnabled === false) {
+        root.setAttribute("data-background-blur", "disabled");
+      } else {
+        root.setAttribute("data-background-blur", "enabled");
+      }
       body.style.setProperty("background", "transparent", "important");
     } else if (appearanceSettings.backgroundType === "gradient") {
       root.style.setProperty(
@@ -139,6 +195,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
         appearanceSettings.backgroundGradient
       );
       root.setAttribute("data-background-type", "gradient");
+      if (appearanceSettings.backgroundBlurEnabled === false) {
+        root.setAttribute("data-background-blur", "disabled");
+      } else {
+        root.setAttribute("data-background-blur", "enabled");
+      }
       body.style.setProperty("background", "transparent", "important");
     }
 
@@ -150,13 +211,14 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     root.style.setProperty(
       "--transition-duration",
-      transitionDurationMap[appearanceSettings.transitionDuration as keyof typeof transitionDurationMap]
+      transitionDurationMap[
+        appearanceSettings.transitionDuration as keyof typeof transitionDurationMap
+      ]
     );
     root.style.setProperty(
       "--enable-animations",
       appearanceSettings.enableAnimations ? "1" : "0"
     );
-
 
     // カスタムCSSを適用
     const existingCustomStyle = document.getElementById(
@@ -172,7 +234,12 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       style.textContent = appearanceSettings.customCSS;
       document.head.appendChild(style);
     }
-  }, [appearanceSettings, effectSettings, selectedCharacterId, currentCharacter]);
+  }, [
+    appearanceSettings,
+    effectSettings,
+    selectedCharacterId,
+    currentCharacter,
+  ]);
 
   // グローバルスタイルも追加
   useEffect(() => {

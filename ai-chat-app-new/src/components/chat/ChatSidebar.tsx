@@ -154,6 +154,12 @@ const ChatSidebar: React.FC = React.memo(() => {
           setGroupMode(true);
           setActiveGroupSession(sessionId);
 
+          // 記憶システムのセッションIDも切り替え（グループセッション）
+          const memorySlice = useAppStore.getState() as any;
+          if (memorySlice.setCurrentSessionId) {
+            memorySlice.setCurrentSessionId(sessionId);
+          }
+
           // キャラクターとペルソナの状態も同期（グループの場合は最初のキャラクター）
           if (groupSession.characters.length > 0) {
             setSelectedCharacterId(groupSession.characters[0].id);
@@ -177,6 +183,12 @@ const ChatSidebar: React.FC = React.memo(() => {
           setActiveGroupSession(null);
           setGroupMode(false);
           setActiveSessionId(sessionId);
+
+          // 記憶システムのセッションIDも切り替え
+          const memorySlice = useAppStore.getState() as any;
+          if (memorySlice.setCurrentSessionId) {
+            memorySlice.setCurrentSessionId(sessionId);
+          }
 
           // キャラクターとペルソナの状態も同期
           if (session.participants.characters.length > 0) {

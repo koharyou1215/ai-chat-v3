@@ -195,6 +195,11 @@ export const createSessionManagement: StateCreator<
         trackerManager
       );
 
+      // 記憶システムのセッションIDも設定
+      if ((state as any).setCurrentSessionId) {
+        (state as any).setCurrentSessionId(newSession.id);
+      }
+
       return {
         sessions: newSessions,
         trackerManagers: newTrackerManagers,
@@ -206,6 +211,12 @@ export const createSessionManagement: StateCreator<
   },
 
   setActiveSessionId: (sessionId) => {
+    // 記憶システムのセッションIDも同時に設定
+    const state = get();
+    if ((state as any).setCurrentSessionId) {
+      (state as any).setCurrentSessionId(sessionId);
+    }
+
     if (sessionId) {
       const session = getSessionSafely(get().sessions, sessionId);
       if (session) {
