@@ -247,14 +247,19 @@ export class GeminiClient {
         
         // Handle different finish reasons appropriately
         if (candidate.finishReason === 'MAX_TOKENS') {
-          console.warn('Gemini response truncated due to token limit');
-          return '申し訳ございませんが、レスポンスが長すぎて切り詰められました。より短い入力でお試しください。';
+          console.warn('⚠️ Gemini応答がトークン制限で切り詰められました');
+          // 🔧 部分的な応答がある場合はそれを返す（インスピレーションパースを試行可能にする）
+          if (candidate.content?.parts?.[0]?.text) {
+            console.log('✅ 部分的な応答を返します');
+            return candidate.content.parts[0].text;
+          }
+          throw new Error('MAX_TOKENS: トークン制限に達しました。max_tokensを増やしてください。');
         } else if (candidate.finishReason === 'SAFETY') {
-          throw new Error('Gemini response blocked by safety filters');
+          throw new Error('Gemini応答が安全フィルターでブロックされました');
         } else if (candidate.finishReason === 'RECITATION') {
-          throw new Error('Gemini response blocked due to recitation concerns');
+          throw new Error('Gemini応答が引用検出でブロックされました');
         } else if (candidate.finishReason) {
-          throw new Error(`Gemini response blocked. Reason: ${candidate.finishReason}`);
+          throw new Error(`Gemini応答がブロックされました: ${candidate.finishReason}`);
         }
         
         throw new Error('No content parts in Gemini response');
@@ -381,8 +386,12 @@ export class GeminiClient {
                   fullContent += text;
                   onChunk(text);
                 }
-              } catch (_parseError) {
-                // JSON parsing error - skip this chunk
+              } catch (parseError) {
+                // 🔧 JSONパースエラーを警告として出力（完全に黙殺しない）
+                console.warn('⚠️ Streaming JSON parse error:', {
+                  error: parseError instanceof Error ? parseError.message : String(parseError),
+                  chunk: line.substring(0, 100)
+                });
                 continue;
               }
             }

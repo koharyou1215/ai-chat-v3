@@ -1,7 +1,8 @@
 // Automatic Memory Management Service
 // Automatically creates memory cards from conversations
 
-import { UnifiedMessage, MemoryCard } from "@/types";
+import { UnifiedMessage, MemoryCard, EmotionTag } from "@/types";
+import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
 // Removed unused import
 
 export class AutoMemoryManager {
@@ -9,6 +10,7 @@ export class AutoMemoryManager {
   private messageBuffer: UnifiedMessage[] = [];
   private readonly BUFFER_SIZE = 2; // 2メッセージで積極的生成
   private readonly IMPORTANCE_THRESHOLD = 0.1; // さらに低い閾値で頻繁に生成
+  private readonly EMOTIONAL_IMPACT_THRESHOLD = 0.7; // 感情的重要度の閾値
   private readonly TIME_THRESHOLD = 30 * 1000; // 30秒に短縮
   private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
   private memoryCount: number = 0; // 生成されたメモリーの数
@@ -20,10 +22,12 @@ export class AutoMemoryManager {
     message: UnifiedMessage,
     sessionId: string,
     characterId?: string,
+    emotionResult?: EmotionResult,
     createMemoryCardFn?: (
       messageIds: string[],
       sessionId: string,
-      characterId?: string
+      characterId?: string,
+      emotionTags?: EmotionTag[]
     ) => Promise<MemoryCard | null>
   ): Promise<void> {
     this.messageBuffer.push(message);
@@ -40,10 +44,31 @@ export class AutoMemoryManager {
       return;
     }
 
+    // 感情分析結果から感情タグを生成
+    let emotionTags: EmotionTag[] | undefined;
+    let emotionalImpact = 0;
+
+    if (emotionResult) {
+      emotionTags = [
+        {
+          emotion: emotionResult.primary,
+          intensity: emotionResult.intensity
+        },
+        ...emotionResult.secondary.map(emotion => ({
+          emotion,
+          intensity: emotionResult.intensity * 0.6
+        }))
+      ];
+
+      // 感情的インパクトの計算
+      emotionalImpact = emotionResult.intensity * emotionResult.confidence;
+    }
+
     // 自動作成の条件をチェック
     const shouldCreateMemory = await this.shouldCreateMemoryCard(
       message,
-      this.messageBuffer
+      this.messageBuffer,
+      emotionalImpact
     );
 
     if (shouldCreateMemory && createMemoryCardFn) {
@@ -54,7 +79,7 @@ export class AutoMemoryManager {
         );
         const messageIds = relevantMessages.map((msg) => msg.id);
 
-        await createMemoryCardFn(messageIds, sessionId, characterId);
+        await createMemoryCardFn(messageIds, sessionId, characterId, emotionTags);
         this.memoryCount++;
         console.log(
           `🧠 [AutoMemory] Generated memory card #${this.memoryCount} for important conversation`
@@ -64,6 +89,12 @@ export class AutoMemoryManager {
             .map((m) => m.content.substring(0, 30) + "...")
             .join(" | ")}`
         );
+
+        if (emotionalImpact >= this.EMOTIONAL_IMPACT_THRESHOLD) {
+          console.log(
+            `💕 [EmotionalMemory] High emotional impact detected (${(emotionalImpact * 100).toFixed(1)}%) - ${emotionResult?.primary}`
+          );
+        }
 
         // 処理済みマーク
         this.lastProcessedMessageId = message.id;
@@ -79,7 +110,8 @@ export class AutoMemoryManager {
    */
   private async shouldCreateMemoryCard(
     currentMessage: UnifiedMessage,
-    messageHistory: UnifiedMessage[]
+    messageHistory: UnifiedMessage[],
+    emotionalImpact: number = 0
   ): Promise<boolean> {
     // 1. 重要キーワードの検出
     const importantKeywords = [
@@ -126,6 +158,9 @@ export class AutoMemoryManager {
     // メッセージ数による基本スコア追加
     const messageCountBonus = Math.min(0.3, messageHistory.length * 0.05);
 
+    // 感情的インパクトの重み（高い場合は自動的にメモリー作成）
+    const emotionalImpactBonus = emotionalImpact >= this.EMOTIONAL_IMPACT_THRESHOLD ? 1.0 : emotionalImpact * 0.5;
+
     // 総合スコア計算（より寛容に）
     const totalScore =
       (hasImportantKeywords ? 0.4 : 0) +
@@ -133,7 +168,8 @@ export class AutoMemoryManager {
       conversationDepth * 0.3 +
       userEmphasis * 0.3 +
       timeImportance * 0.2 +
-      messageCountBonus;
+      messageCountBonus +
+      emotionalImpactBonus;
 
     console.log("[AutoMemory] Importance calculation:", {
       hasImportantKeywords,
@@ -141,6 +177,8 @@ export class AutoMemoryManager {
       conversationDepth,
       userEmphasis,
       timeImportance,
+      emotionalImpact,
+      emotionalImpactBonus,
       totalScore,
       threshold: this.IMPORTANCE_THRESHOLD,
       shouldCreate: totalScore >= this.IMPORTANCE_THRESHOLD,

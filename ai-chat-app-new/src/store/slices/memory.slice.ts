@@ -144,7 +144,7 @@ export const createMemorySlice: StateCreator<
       console.log("Memory cards initialization called");
     },
 
-    createMemoryCard: async (message_ids, session_id, character_id) => {
+    createMemoryCard: async (message_ids, session_id, character_id, emotion_tags) => {
       // セッションからメッセージを取得
       const state = get();
 
@@ -213,12 +213,15 @@ export const createMemorySlice: StateCreator<
             `メッセージID: ${message_ids.join(", ")}`,
 
           auto_tags: [],
+          emotion_tags: emotion_tags || [], // 感情タグの統合
 
           // メタデータ
           importance: {
             score: (generatedContent as { importance_score?: number }).importance_score || 5.0,
             factors: {
-              emotional_weight: 5.0,
+              emotional_weight: emotion_tags && emotion_tags.length > 0
+                ? emotion_tags.reduce((sum, tag) => sum + tag.intensity, 0) / emotion_tags.length * 10
+                : 5.0,
               repetition_count: 1,
               user_emphasis: 5.0,
               ai_judgment: 5.0,

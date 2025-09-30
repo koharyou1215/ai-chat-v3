@@ -834,6 +834,7 @@ export const createProgressiveHandler: StateCreator<
             progressiveMessage,
             activeSessionId,
             characterId,
+            undefined, // TODO: 感情分析結果を統合
             get().createMemoryCard
           );
         }, 100);

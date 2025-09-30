@@ -59,27 +59,44 @@ export class InspirationService {
 
       const response = await apiRequestQueue.enqueueInspirationRequest(
         async () => {
-          // APIキーとモデル設定を適切に渡す
-          const result = await simpleAPIManagerV2.generateMessage(
-            prompt,
-            "返信提案を生成",
-            [],
-            {
+          try {
+            // APIキーとモデル設定を適切に渡す
+            const result = await simpleAPIManagerV2.generateMessage(
+              prompt,
+              "返信提案を生成",
+              [],
+              {
+                model: apiConfig?.model,
+                provider: apiConfig?.provider,
+                openRouterApiKey: apiConfig?.openRouterApiKey,
+                geminiApiKey: apiConfig?.geminiApiKey,
+                useDirectGeminiAPI: apiConfig?.useDirectGeminiAPI,
+                temperature: apiConfig?.temperature || 0.7,
+                max_tokens: apiConfig?.max_tokens || 4096, // 🔧 2048→4096に増加
+                top_p: apiConfig?.top_p || 0.9,
+              }
+            );
+            console.log(
+              "📥 API応答受信（先頭200文字）:",
+              result.substring(0, 200)
+            );
+
+            // 🔧 空の応答を検出
+            if (!result || result.trim().length === 0) {
+              throw new Error("APIから空の応答が返されました");
+            }
+
+            return result;
+          } catch (error) {
+            // 🔧 より詳細なエラーログ（model、provider情報を含む）
+            console.error("❌ インスピレーションAPI呼び出しエラー:", {
+              error: error instanceof Error ? error.message : String(error),
               model: apiConfig?.model,
               provider: apiConfig?.provider,
-              openRouterApiKey: apiConfig?.openRouterApiKey,
-              geminiApiKey: apiConfig?.geminiApiKey,
               useDirectGeminiAPI: apiConfig?.useDirectGeminiAPI,
-              temperature: apiConfig?.temperature || 0.7,
-              max_tokens: apiConfig?.max_tokens || 2048,
-              top_p: apiConfig?.top_p || 0.9,
-            }
-          );
-          console.log(
-            "📥 API応答受信（先頭200文字）:",
-            result.substring(0, 200)
-          );
-          return result;
+            });
+            throw error;
+          }
         }
       );
 

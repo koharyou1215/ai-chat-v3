@@ -311,19 +311,37 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
   │   │   ├── gemini-client.ts
 │   │   ├── openrouter-client.ts
   │   │   └── vector-search.ts
+│   ├── emotion/            # Emotional Intelligence System v2.0
+  │   │   ├── BaseEmotionAnalyzer.ts
+  │   │   ├── SoloEmotionAnalyzer.ts
+  │   │   ├── GroupEmotionAnalyzer.ts
+  │   │   ├── EmotionalIntelligenceCache.ts
+  │   │   ├── AdaptivePerformanceManager.ts
+  │   │   └── EmotionAnalyzer.ts (legacy)
 │   ├── memory/             # Memory system
   │   │   ├── conversation-manager.ts
   │   │   ├── dynamic-summarizer.ts
   │   │   ├── memory-layer-manager.ts
+  │   │   ├── memory-card-generator.ts
+  │   │   ├── auto-memory-manager.ts
   │   │   └── vector-store.ts
+│   ├── mem0/               # Centralized Memory Service
+  │   │   ├── core.ts
+  │   │   └── character-service.ts
 │   ├── tracker/            # Tracker system
   │   │   └── tracker-manager.ts
 │   ├── simple-api-manager-v2.ts  # Simplified API Manager (replaced complex api-manager.ts)
 │   ├── inspiration-service.ts # Suggestion generation service
-  │   └── prompt-builder.service.ts
+│   ├── prompt-builder.service.ts
+│   └── progressive-prompt-builder.service.ts
 ├── store/                  # Zustand State Management
 │   ├── slices/             # State slices
-  │   │   ├── chat.slice.ts
+  │   │   ├── chat.slice.ts (refactored - 83 lines core)
+  │   │   ├── chat/         # Chat slice modules (September 2025 refactoring)
+  │   │   │   ├── chat-message-operations.ts
+  │   │   │   ├── chat-session-management.ts
+  │   │   │   ├── chat-tracker-integration.ts
+  │   │   │   └── chat-progressive-handler.ts
   │   │   ├── groupChat.slice.ts
   │   │   ├── character.slice.ts
   │   │   ├── persona.slice.ts
@@ -346,7 +364,10 @@ User Action → Settings Modal → Zustand Store → Immediate UI Update
   │   │   ├── tracker.types.ts
   │   │   ├── context.types.ts
   │   │   ├── expression.types.ts
+  │   │   ├── emotional-intelligence.types.ts (NEW - October 2025)
   │   │   └── settings.types.ts
+│   ├── mem0/               # Mem0 type definitions
+  │   │   └── character-memory.types.ts
 │   ├── api/                # API type definitions
   │   │   ├── requests.types.ts
   │   │   └── responses.types.ts
@@ -1268,6 +1289,434 @@ const safeMode = typeof window !== 'undefined' &&
 5. **WebGL Integration**: Advanced 3D effects using Three.js and WebGL
 6. **Animation Debouncing**: Prevents effect spam and ensures smooth performance
 
+---
+## 🧠 Emotional Intelligence System v2.0
+
+### System Architecture
+
+The Emotional Intelligence System v2.0 provides advanced emotion analysis capabilities for both solo and group chat interactions, with multi-layer analysis and performance optimization.
+
+```typescript
+// src/types/core/emotional-intelligence.types.ts
+export interface EmotionalWeight {
+  primaryEmotion: 'joy' | 'sadness' | 'anger' | 'fear' | 'surprise' |
+                  'disgust' | 'neutral' | 'love' | 'excitement' | 'anxiety';
+  intensity: number;        // 0.0-1.0
+  confidence: number;       // 0.0-1.0
+  context: string;          // Contextual description
+  triggers: string[];       // Emotion triggers
+  timestamp: string;
+}
+
+export interface MultiLayerEmotionResult {
+  surface: {                // Surface-level emotions
+    joy: number;
+    sadness: number;
+    anger: number;
+    fear: number;
+    surprise: number;
+    disgust: number;
+    confidence: number;
+    intensity: number;
+  };
+
+  contextual: {             // Contextual emotions
+    current_emotion: string;
+    previous_emotion?: string;
+    emotion_transition?: string;
+    relationship_impact: number;
+    confidence: number;
+  };
+
+  deep: {                   // Deep psychological emotions
+    joy: number;
+    sadness: number;
+    anger: number;
+    fear: number;
+    surprise: number;
+    disgust: number;
+    trust: number;
+    anticipation: number;
+    intensity: number;
+    confidence: number;
+  };
+}
+```
+
+### Core Components
+
+#### **BaseEmotionAnalyzer**
+```typescript
+// src/services/emotion/BaseEmotionAnalyzer.ts
+export class BaseEmotionAnalyzer {
+  private emotionKeywords = {
+    joy: ['嬉しい', '楽しい', '喜び', '幸せ', 'ありがとう', '最高', '✨', '😊'],
+    sadness: ['悲しい', '辛い', 'つらい', '寂しい', '落ち込む', '😢', '😭'],
+    anger: ['腹立つ', '怒り', 'むかつく', 'イライラ', '💢', '😠'],
+    fear: ['怖い', '不安', '心配', 'ドキドキ', '😰', '😱'],
+    // ... other emotions
+  };
+
+  async analyzeEmotion(
+    message: UnifiedMessage,
+    context: ConversationalContext
+  ): Promise<EmotionAnalysisResult>
+}
+```
+
+**Features:**
+- ✅ Keyword-based emotion detection (Japanese/English)
+- ✅ Emoji emotion mapping
+- ✅ Context-aware analysis
+- ✅ Non-blocking processing with Worker threads
+- ✅ Built-in caching for performance
+
+#### **SoloEmotionAnalyzer**
+```typescript
+// src/services/emotion/SoloEmotionAnalyzer.ts
+export class SoloEmotionAnalyzer extends BaseEmotionAnalyzer {
+  async analyzeSoloEmotion(
+    message: UnifiedMessage,
+    recentMessages: UnifiedMessage[],
+    character: Character
+  ): Promise<MultiLayerEmotionResult>
+}
+```
+
+**Specialized for 1-on-1 Conversations:**
+- Deep relationship tracking
+- Emotional intimacy calculation
+- Long-term emotional patterns
+- Personal emotional memory
+
+#### **GroupEmotionAnalyzer**
+```typescript
+// src/services/emotion/GroupEmotionAnalyzer.ts
+export class GroupEmotionAnalyzer extends BaseEmotionAnalyzer {
+  async analyzeGroupEmotion(
+    message: UnifiedMessage,
+    groupContext: ConversationalContext,
+    activeCharacters: Character[]
+  ): Promise<Map<UUID, EmotionAnalysisResult>>
+}
+```
+
+**Specialized for Group Dynamics:**
+- Multi-character emotional states
+- Group emotional atmosphere
+- Inter-character emotional influence
+- Conflict/harmony detection
+
+#### **EmotionalIntelligenceCache**
+```typescript
+// src/services/emotion/EmotionalIntelligenceCache.ts
+export interface EmotionCacheEntry {
+  key: string;
+  emotion: EmotionalWeight;
+  timestamp: string;
+  hitCount: number;
+  similarity: number;
+}
+
+export class EmotionalIntelligenceCache {
+  async getOrAnalyze(
+    messageContent: string,
+    analyzer: () => Promise<EmotionalWeight>
+  ): Promise<EmotionalWeight>
+}
+```
+
+**Performance Features:**
+- LRU cache with configurable size
+- Similarity-based cache matching
+- Hit rate monitoring
+- Automatic cache invalidation
+
+#### **AdaptivePerformanceManager**
+```typescript
+// src/services/emotion/AdaptivePerformanceManager.ts
+export class AdaptivePerformanceManager {
+  adjustPerformance(metrics: PerformanceMetrics): EmotionalPerformanceConfig
+
+  // Adapts analysis frequency based on:
+  // - CPU usage
+  // - Memory consumption
+  // - Cache hit rate
+  // - Error rate
+}
+```
+
+### Emotional Memory System
+
+```typescript
+export interface EmotionalMemory {
+  id: UUID;
+  timestamp: string;
+  description: string;
+  participantIds: UUID[];
+  emotionalImpact: number;    // 0.0-1.0
+  significance: number;       // 0.0-1.0
+  clarity: number;            // 0.0-1.0
+  emotionalCharge: number;    // -1.0 to 1.0
+  keywords: string[];
+  consequences: string[];
+}
+```
+
+**Features:**
+- Automatic capture of significant emotional moments
+- Decay over time (fading memories)
+- Retrieval based on similarity and recency
+- Integration with Memory Card system
+
+### Visual Effects Integration
+
+```typescript
+export interface EmotionalExpression {
+  visualEffects: VisualEffect[];    // Color shifts, glows, particles
+  audioEffects: AudioEffect[];      // Ambient sounds, voice filters
+  textEffects: TextStyleEffect[];   // Font weight, size, animations
+  intensity: number;                 // Overall intensity
+  synchronization: boolean;          // Sync control
+}
+```
+
+**Effect Types:**
+- **Visual**: `color_shift`, `glow`, `pulse`, `particle`, `wave`
+- **Audio**: `ambient`, `voice_filter`, `environmental`
+- **Text**: `typewriter`, `fade_in`, `glow` animations
+
+### System Control Flags
+
+```typescript
+export interface EmotionalIntelligenceFlags {
+  // Phase 1: Foundation
+  emotion_analysis_enabled: boolean;
+  emotional_memory_enabled: boolean;
+  basic_effects_enabled: boolean;
+
+  // Phase 2: Integration
+  contextual_analysis_enabled: boolean;
+  adaptive_performance_enabled: boolean;
+  visual_effects_enabled: boolean;
+
+  // Phase 3: Advanced
+  predictive_analysis_enabled: boolean;
+  advanced_effects_enabled: boolean;
+  multi_layer_analysis_enabled: boolean;
+
+  // Safety
+  safe_mode: boolean;
+  fallback_to_legacy: boolean;
+  performance_monitoring: boolean;
+  debug_mode: boolean;
+}
+```
+
+### Usage Example
+
+```typescript
+import { BaseEmotionAnalyzer } from '@/services/emotion/BaseEmotionAnalyzer';
+import { SoloEmotionAnalyzer } from '@/services/emotion/SoloEmotionAnalyzer';
+
+// Solo chat analysis
+const soloAnalyzer = new SoloEmotionAnalyzer();
+const result = await soloAnalyzer.analyzeSoloEmotion(
+  userMessage,
+  recentMessages,
+  currentCharacter
+);
+
+// Access multi-layer results
+console.log('Surface emotion:', result.surface);
+console.log('Contextual:', result.contextual);
+console.log('Deep analysis:', result.deep);
+```
+
+### Integration Points
+
+**Chat Interface:**
+- Real-time emotion display during typing
+- Automatic visual effects based on detected emotions
+- Message bubble styling adapts to emotional context
+
+**Memory System:**
+- Emotional memories auto-captured for significant moments
+- Emotion data enhances memory card relevance
+- Emotional context improves memory retrieval
+
+**Tracker System:**
+- Emotional state updates character trackers
+- Long-term emotional patterns tracked
+- Relationship dynamics reflected in tracker values
+
+### Performance Considerations
+
+**Default Configuration:**
+```typescript
+const defaultSettings: EmotionalIntelligenceSettings = {
+  analysisQuality: {
+    accuracy: 'balanced',
+    contextWindow: 10,
+    analysisLayers: ['surface', 'contextual'],
+    confidenceThreshold: 0.6
+  },
+  performanceConfig: {
+    emotionAnalysisFrequency: 'standard',
+    contextDepth: 'medium',
+    cacheSize: 'standard',
+    workerThreads: 2,
+    realTimeEffects: false  // OFF by default for performance
+  },
+  expressionIntensity: 0.7,
+  enableVisualEffects: false,   // OFF by default
+  enableAudioEffects: false,    // OFF by default
+  cacheMaxSize: 1000,
+  cacheTTL: 3600  // 1 hour
+}
+```
+
+**Safe Mode Adjustments:**
+```typescript
+if (safeMode) {
+  // Reduced analysis frequency
+  emotionAnalysisFrequency: 'reduced',
+  // Shallow context only
+  contextDepth: 'shallow',
+  // Minimal cache
+  cacheSize: 'minimal',
+  // Disable real-time effects
+  realTimeEffects: false
+}
+```
+
+### Status & Roadmap
+
+**✅ Completed (October 2025):**
+- Type system完備 (emotional-intelligence.types.ts)
+- BaseEmotionAnalyzer実装
+- SoloEmotionAnalyzer実装
+- GroupEmotionAnalyzer実装
+- EmotionalIntelligenceCache実装
+- AdaptivePerformanceManager実装
+
+**🔄 In Progress:**
+- UI integration for real-time emotion display
+- Visual effects activation system
+- Emotional memory auto-capture
+- Performance monitoring dashboard
+
+**📋 Planned:**
+- Multi-language emotion detection (English full support)
+- Voice tone emotion analysis integration
+- Predictive emotional state modeling
+- Group emotional dynamics visualization
+
+---
+## 📦 Mem0 Service - Centralized Memory Management
+
+### Overview
+
+Mem0 Service provides a unified interface for memory management, integrating vector search, dynamic summarization, and memory card systems.
+
+```typescript
+// src/services/mem0/core.ts
+export class Mem0Service {
+  private summarizer: DynamicSummarizer;
+  private vectorStore: VectorStore;
+
+  async ingestMessage(message: UnifiedMessage): Promise<void>
+  getCandidateHistory(messages: UnifiedMessage[], opts: GetHistoryOptions)
+  async search(query: string, options: SearchOptions): Promise<SearchResult[]>
+  async createEphemeralSummary(messages: UnifiedMessage[]): Promise<string>
+  async promoteToMemoryCard(summary: string, metadata: MemoryMetadata): Promise<MemoryCard>
+}
+```
+
+### Key Methods
+
+#### **ingestMessage**
+```typescript
+async ingestMessage(message: UnifiedMessage): Promise<void> {
+  // Update vector store asynchronously
+  await this.vectorStore.addMessage(message);
+
+  // Cost-optimized processing
+  // - Batch embeddings
+  // - Deduplicate similar content
+  // - Update indices incrementally
+}
+```
+
+#### **getCandidateHistory**
+```typescript
+getCandidateHistory(
+  messages: UnifiedMessage[],
+  opts: GetHistoryOptions
+): Array<{role: 'user' | 'assistant'; content: string}> {
+  const { maxContextMessages, minRecentMessages = 5 } = opts;
+
+  // 1. Take latest maxContextMessages
+  // 2. Deduplicate
+  // 3. Ensure minRecentMessages guaranteed
+  // 4. Trim to optimal size
+}
+```
+
+**Features:**
+- Automatic deduplication
+- Guaranteed minimum recent messages
+- Token-aware trimming
+- Cost optimization
+
+#### **search**
+```typescript
+async search(query: string, options: SearchOptions): Promise<SearchResult[]> {
+  // Unified search across:
+  // - Vector store (semantic search)
+  // - Memory cards (keyword + category)
+  // - Pinned messages
+  // - Conversation summaries
+}
+```
+
+### Integration with Existing Systems
+
+**VectorStore Integration:**
+```typescript
+// src/services/memory/vector-store.ts
+class VectorStore {
+  private messages: Map<string, UnifiedMessage> = new Map();
+  private embeddings: Map<string, number[]> = new Map();
+
+  async addMessage(message: UnifiedMessage): Promise<void>
+  async searchSimilar(query: string, limit: number): Promise<SearchResult[]>
+  cosineSimilarity(a: number[], b: number[]): number
+}
+```
+
+**DynamicSummarizer Integration:**
+```typescript
+// src/services/memory/dynamic-summarizer.ts
+class DynamicSummarizer {
+  async summarizeConversation(messages: UnifiedMessage[]): Promise<string>
+  async updateSummary(existingSummary: string, newMessages: UnifiedMessage[]): Promise<string>
+}
+```
+
+### Status
+
+**Current Implementation:** ⚠️ Stub Phase
+- Core interfaces defined
+- Basic integration points established
+- Ready for future expansion
+
+**Future Enhancements:**
+- Full vector search implementation
+- Automatic memory promotion logic
+- Cross-session memory retrieval
+- Memory quality scoring
+
   ---
 🔧 **Development Workflow**
 
@@ -1646,13 +2095,23 @@ git push origin main    # Triggers Vercel auto-deploy
     *   `src/components/settings/SettingsModal.tsx`  # 7-Tab Settings System
     *   `src/store/slices/settings.slice.ts`         # Unified Settings Store
     *   `src/components/chat/MessageEffects.tsx`     # Visual Effects Engine
-    *   `src/services/emotion/EmotionAnalyzer.ts`    # AI Emotion Detection
+    *   `src/services/emotion/EmotionAnalyzer.ts`    # AI Emotion Detection (legacy)
     *   `src/contexts/EffectSettingsContext.tsx`     # Backward Compatibility
+
+*   🧠 **Emotional Intelligence System v2.0 (October 2025)**
+    *   `src/types/core/emotional-intelligence.types.ts`  # Complete type system
+    *   `src/services/emotion/BaseEmotionAnalyzer.ts`     # Foundation engine
+    *   `src/services/emotion/SoloEmotionAnalyzer.ts`     # Solo chat specialization
+    *   `src/services/emotion/GroupEmotionAnalyzer.ts`    # Group chat specialization
+    *   `src/services/emotion/EmotionalIntelligenceCache.ts`  # Performance cache
+    *   `src/services/emotion/AdaptivePerformanceManager.ts`  # Dynamic optimization
 
 *   📊 **Data & Memory Management**
     *   `src/services/tracker/tracker-manager.ts`    # Tracker System
     *   `src/services/memory/memory-layer-manager.ts` # 5-Layer Memory
-    *   `src/store/slices/chat.slice.ts`            # Chat State Management
+    *   `src/services/mem0/core.ts`                  # Mem0 Centralized Service
+    *   `src/store/slices/chat.slice.ts`            # Chat State Management (refactored)
+    *   `src/store/slices/chat/*.ts`                # Chat slice modules (4 files)
     *   `src/components/tracker/TrackerDisplay.tsx`  # Tracker UI
 
 *   🎨 **Visual & Audio Systems**
@@ -1747,6 +2206,88 @@ This AI Chat V3 project is designed with a strong emphasis on type safety, maint
 4. **Blue UI Elements**: Legacy from previous UI design - can be updated to purple theme
 
 ## 🆕 Latest Updates
+
+### Update: October 2025
+
+#### 🧠 Emotional Intelligence System v2.0 (September-October 2025)
+- **新システム導入**: 汎用感情分析基盤の実装完了
+  - **BaseEmotionAnalyzer**: ソロ・グループチャット共通の感情分析エンジン
+  - **SoloEmotionAnalyzer**: 個別チャット特化の感情分析
+  - **GroupEmotionAnalyzer**: グループチャット特化の感情分析
+  - **EmotionalIntelligenceCache**: 高速キャッシュシステム
+  - **AdaptivePerformanceManager**: パフォーマンス最適化マネージャー
+- **多層感情分析**: 表層・文脈・深層の3段階分析システム
+- **感情記憶システム**: 重要な感情体験の自動記録・参照機能
+- **視覚・音響効果統合**: 感情に基づく視覚効果とテキスト装飾の自動適用
+- **型定義完備**: `emotional-intelligence.types.ts`に完全な型システム実装
+- **Status**: ✅ 基盤実装完了、段階的機能有効化中
+
+#### 🗃️ Mem0 Service - 中央集権メモリー管理 (September 2025)
+- **Mem0Service導入**: 統合メモリー管理サービスの実装
+  - `ingestMessage`: メッセージの自動取り込みとレイヤー更新
+  - `getCandidateHistory`: 重複排除済み履歴の取得
+  - `search`: ベクトル検索・メモリーカード統合検索
+  - `createEphemeralSummary`: 一時サマリー生成
+  - `promoteToMemoryCard`: メモリーカード昇格
+- **VectorStore統合**: 高速ベクトル検索機能の実装
+- **DynamicSummarizer統合**: 動的サマリー生成機能
+- **Status**: ⚠️ スタブ実装段階、将来の拡張に備えた基盤構築完了
+
+#### 🔧 Tracker System Stability Improvements (September 27, 2025)
+- **クラッシュ修正**: 右サイドバー > Tracker開閉時のクラッシュを完全修正
+  - **問題**: `trackerManagers`がMapとオブジェクトの混在状態で未防御アクセス
+  - **解決**: `getTrackerManagerSafe`ヘルパー関数実装でMap/Object両対応
+  - **ファイル**: `src/components/tracker/TrackerDisplay.tsx`
+- **エフェクトトグル改善**: 文字透過度とぼかし効果の切り替え動作を安定化
+  - **問題**: `bubbleBlur`設定がboolean型で正しく保存されない
+  - **解決**: `Boolean(checked)`で明示的型変換実装
+  - **ファイル**: `src/components/settings/SettingsModal/panels/EffectsPanel/MessageEffects.tsx`
+
+#### 🤖 Model Configuration Updates (September 29, 2025)
+**対応モデル一覧 (2025年10月時点)**
+
+**Google (Native API):**
+- `google/gemini-2.5-pro` - Gemini 2.5 Pro (最高性能)
+- `google/gemini-2.5-flash-preview-09-2025` - Gemini 2.5 Flash (高速)
+- `google/gemini-2.5-flash-lite-preview-09-2025` - Gemini 2.5 Flash Lite (軽量)
+
+**Anthropic (OpenRouter):**
+- `anthropic/claude-opus-4` - Claude Opus 4 (最高品質)
+- `anthropic/claude-sonnet-4.5` - Claude Sonnet 4.5 (バランス型) ← **NEW**
+
+**xAI (OpenRouter):**
+- `x-ai/grok-4` - Grok-4 (標準)
+- `x-ai/grok-4-fast:free` - Grok-4 Fast (無料・高速)
+
+**OpenAI (OpenRouter):**
+- `openai/gpt-5-chat` - GPT-5 Chat (最新世代)
+- `openai/gpt-5-mini` - GPT-5 Mini (軽量版)
+
+**Standard (OpenRouter):**
+- `deepseek/deepseek-v3.2-exp` - DeepSeek V3.2 Experimental ← **UPDATED**
+- `mistralai/mistral-medium-3.1` - Mistral Medium 3.1
+- `meta-llama/llama-4-maverick` - Llama 4 Maverick
+
+**Specialized (OpenRouter):**
+- `qwen/qwen3-max` - Qwen3 Max
+- `qwen/qwen-plus-2025-07-28:thinking` - Qwen Plus (思考モード)
+- `qwen/qwen-plus-2025-07-28` - Qwen Plus (標準)
+- `qwen/qwen3-next-80b-a3b-thinking` - Qwen3 Next 80B (思考)
+- `qwen/qwen3-next-80b-a3b-instruct` - Qwen3 Next 80B (指示)
+- `nousresearch/hermes-4-405b` - Hermes 4 405B
+- `z-ai/glm-4.5` - GLM-4.5
+- `moonshotai/kimi-k2-0905` - Kimi K2
+
+**削除されたモデル:**
+- ❌ `anthropic/claude-sonnet-4` → `claude-sonnet-4.5`に更新
+- ❌ `deepseek/deepseek-chat-v3.1` → `deepseek-v3.2-exp`に更新
+- ❌ `x-ai/grok-code-fast-1` → 削除
+- ❌ `openai/gpt-4`, `openai/gpt-3.5-turbo` → GPT-5シリーズに移行
+
+**更新ファイル:**
+- `src/components/settings/SettingsModal.tsx` - UI選択肢
+- `src/constants/model-pricing.ts` - 価格・表示名定義
+- `src/services/simple-api-manager-v2.ts` - デフォルトモデル設定
 
 ### Critical Update: August 31, 2025
 

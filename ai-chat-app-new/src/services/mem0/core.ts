@@ -113,10 +113,16 @@ export class Mem0Service {
       accessed_count: meta.accessed_count || 0,
       last_accessed: meta.last_accessed,
       context: meta.context || {},
+
+      // Required BaseEntity fields
+      version: meta.version || 1,
+      metadata: meta.metadata || {},
     };
 
     // Add to store
-    const memoryCards = new Map(store.memory_cards || new Map());
+    const memoryCards = store.memory_cards instanceof Map
+      ? new Map(store.memory_cards)
+      : new Map();
     memoryCards.set(card.id, card);
 
     // Update store

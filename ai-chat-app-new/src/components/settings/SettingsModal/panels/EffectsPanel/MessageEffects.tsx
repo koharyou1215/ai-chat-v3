@@ -134,12 +134,12 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
         </div>
       </div>
 
-      <SettingItem
-        title="背景ぼかし効果"
-        description="吹き出し背景にぼかし効果を適用します（半透明時により美しい見た目になります）"
-        checked={settings.bubbleBlur}
-        onChange={(checked) => updateSetting("bubbleBlur", checked)}
-      />
+    <SettingItem
+      title="背景ぼかし効果"
+      description="吹き出し背景にぼかし効果を適用します（半透明時により美しい見た目になります）"
+      checked={!!settings.bubbleBlur}
+      onChange={(checked) => updateSetting("bubbleBlur", Boolean(checked))}
+    />
     </div>
   </div>
 );

@@ -164,10 +164,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   );
 
   const emotionAnalysisEnabled = useAppStore(
-    (state) =>
-      // @ts-expect-error - emotionalIntelligenceFlags is optional
-      state.settings?.emotionalIntelligenceFlags?.emotion_analysis_enabled ??
-      false
+    (state) => state.emotionalIntelligenceFlags.emotion_analysis_enabled
   );
 
   // マージンと要素選択のキャッシュ
@@ -872,6 +869,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 <MessageEffects
                   trigger={processedContent}
                   position={{ x: 0, y: 0 }}
+                  emotion={emotionResult || undefined}
                 />
               </Suspense>
             )}

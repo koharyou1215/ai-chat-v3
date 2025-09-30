@@ -71,7 +71,7 @@ export function SDTestButton() {
         onClick={testSD}
         disabled={testing}
         className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-md transition-colors">
-        <Image size={16} alt="Test icon" />
+        <Image size={16} />
         {testing ? "テスト中..." : "テスト実行"}
       </button>
       <div className="mt-2 text-sm text-white">{result}</div>

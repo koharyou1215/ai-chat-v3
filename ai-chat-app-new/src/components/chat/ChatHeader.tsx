@@ -50,7 +50,6 @@ const getModelDisplayName = (modelId: string): string => {
   if (modelId.includes("gemini-2.5-flash")) return "Gemini 2.5 Flash";
 
   if (modelId.startsWith("x-ai/")) {
-    if (modelId.includes("grok-code-fast-1")) return "Grok Code";
     return "Grok-4";
   }
   if (modelId.startsWith("openai/")) return "GPT-5";

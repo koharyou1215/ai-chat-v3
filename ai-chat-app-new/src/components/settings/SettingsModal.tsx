@@ -1061,54 +1061,42 @@ const AIPanel: React.FC<{
               onChange={(e) => handleModelChange(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <optgroup label="Google">
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
                 <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash</option>
-                <option value="google/gemini-2.5-flash-lite-preview-09-2025">
-                  Gemini 2.5 Flash Light
-                </option>
+                <option value="google/gemini-2.5-flash-lite-preview-09-2025">Gemini 2.5 Flash Light</option>
               </optgroup>
+
               <optgroup label="Anthropic (OpenRouter)">
                 <option value="anthropic/claude-opus-4">Claude Opus 4</option>
-                <option value="anthropic/claude-sonnet-4">
-                  Claude Sonnet 4
-                </option>
+                <option value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
               </optgroup>
+
               <optgroup label="xAI (OpenRouter)">
                 <option value="x-ai/grok-4">Grok-4</option>
+                <option value="x-ai/grok-4-fast:free">grok-4-fast:free</option>
               </optgroup>
+
               <optgroup label="OpenAI (OpenRouter)">
+               
+               
                 <option value="openai/gpt-5-chat">GPT-5</option>
                 <option value="openai/gpt-5-mini">GPT-5 Mini</option>
               </optgroup>
+
               <optgroup label="Standard (OpenRouter)">
-                <option value="deepseek/deepseek-chat-v3.1">
-                  DeepSeek Chat v3
-                </option>
-                <option value="mistralai/mistral-medium-3.1">
-                  Mistral Medium 3.1
-                </option>
-                <option value="meta-llama/llama-4-maverick">
-                  Llama 4 Maverick
-                </option>
+                <option value="deepseek/deepseek-v3.2-exp">DeepSeek v3.2 Experimental</option>
+                <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
+                <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
               </optgroup>
+
               <optgroup label="Specialized (OpenRouter)">
                 <option value="qwen/qwen3-max">qwen3-max</option>
-                <option value="qwen/qwen-plus-2025-07-28:thinking">
-                  Qwen Plus 2025 07 28 Thinking
-                </option>
-                <option value="qwen/qwen-plus-2025-07-28">
-                  Qwen Plus 2025 07 28
-                </option>
-                <option value="qwen/qwen3-next-80b-a3b-thinking">
-                  Qwen3 Next 80B A3B Thinking
-                </option>
-                <option value="qwen/qwen3-next-80b-a3b-instruct">
-                  Qwen3 Next 80B A3B Instruct
-                </option>
-                <option value="x-ai/grok-4-fast:free">grok-4-fast:free</option>
-                <option value="nousresearch/hermes-4-405b">
-                  Hermes 4 405B
-                </option>
+                <option value="qwen/qwen-plus-2025-07-28:thinking">Qwen Plus 2025 07 28 Thinking</option>
+                <option value="qwen/qwen-plus-2025-07-28">Qwen Plus 2025 07 28</option>
+                <option value="qwen/qwen3-next-80b-a3b-thinking">Qwen3 Next 80B A3B Thinking</option>
+                <option value="qwen/qwen3-next-80b-a3b-instruct">Qwen3 Next 80B A3B Instruct</option>
+                
+                <option value="nousresearch/hermes-4-405b">Hermes 4 405B</option>
                 <option value="z-ai/glm-4.5">GLM-4.5</option>
                 <option value="moonshotai/kimi-k2-0905">Kimi K2</option>
               </optgroup>

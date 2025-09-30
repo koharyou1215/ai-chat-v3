@@ -434,6 +434,12 @@ export const MessageInput: React.FC = React.memo(() => {
           placeholder="メッセージを入力..."
           className="flex-1 bg-transparent text-white/90 placeholder-white/30 resize-none outline-none max-h-[120px]"
           rows={1}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          data-form-type="other"
+          inputMode="text"
         />
 
         <div className="flex gap-1">

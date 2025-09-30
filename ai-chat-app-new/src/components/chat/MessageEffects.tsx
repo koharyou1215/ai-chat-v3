@@ -3,40 +3,68 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffectSettings } from '@/hooks/useEffectSettings';
+import { EmotionResult } from '@/services/emotion/EmotionAnalyzer';
 
 interface MessageEffectsProps {
   trigger: string;
   position: { x: number; y: number };
+  emotion?: EmotionResult; // 感情分析結果からの自動エフェクト
 }
 
 export const MessageEffects: React.FC<MessageEffectsProps> = ({
   trigger,
-  position
+  position,
+  emotion
 }) => {
-  const { settings } = useEffectSettings();
+  const { settings, emotionalIntelligenceFlags } = useEffectSettings();
   const [effects, setEffects] = useState<Array<{ id: string; type?: string; delay?: number; x?: number; y?: number; angle?: number; distance?: number }>>([]);
   const timeoutsRef = React.useRef<NodeJS.Timeout[]>([]);
 
+  // 感情ベースの自動エフェクトトリガー
   useEffect(() => {
-    if (!settings.particleEffects || !trigger || effects.length > 0) return;
+    if (!settings || !settings.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
+    if (!emotion || emotion.intensity < 0.5) return; // 低強度は無視
 
+    const emotionEffectMap: Record<string, () => void> = {
+      'joy': () => createSparkles(),
+      'love': () => createHeartShower(),
+      'excitement': () => createConfetti(),
+      'surprise': () => createStarBurst(),
+      'gratitude': () => createSparkles(),
+      'happiness': () => createRainbow(),
+    };
+
+    const effectFn = emotionEffectMap[emotion.primary];
+    if (effectFn) {
+      effectFn();
+    }
+  }, [emotion, settings?.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled]);
+
+  // キーワードベースのエフェクトトリガー（既存機能）
+  useEffect(() => {
+    // 防御的チェック：settings が未定義の場合は無視
+    if (!settings || !settings.particleEffects || !trigger) return;
+
+    // effects.length チェックは副作用の重複トリガーを防げない場合があるため、
+    // 明示的なキーワードベースの発火管理を使用する
     const effectMap: Record<string, () => void> = {
       '愛してる': () => createHeartShower(),
       'おめでとう': () => createConfetti(),
       'ありがとう': () => createSparkles(),
       '素晴らしい': () => createStarBurst(),
-      '最高': () => createRainbow()
+      '最高': () => createRainbow(),
     };
 
-    // 初回のみ実行し、重複を防ぐ
-    let hasTriggered = false;
-    Object.keys(effectMap).forEach(keyword => {
-      if (!hasTriggered && trigger.includes(keyword)) {
+    // 文字列マッチングは大文字小文字の差を考慮
+    const lowered = trigger.toLowerCase();
+
+    for (const keyword of Object.keys(effectMap)) {
+      if (lowered.includes(keyword)) {
         effectMap[keyword]();
-        hasTriggered = true;
+        break; // 一つだけトリガー
       }
-    });
-  }, [trigger, settings.particleEffects, effects.length]);
+    }
+  }, [trigger, settings?.particleEffects]);
 
   // コンポーネントアンマウント時のクリーンアップ
   React.useEffect(() => {

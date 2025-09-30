@@ -2,6 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS Safari inputAccessoryView対策 */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari専用のスタイル */
+  input::-webkit-input-placeholder,
+  textarea::-webkit-input-placeholder {
+    opacity: 1;
+  }
+
+  /* フォーム要素のiOS固有の見た目を無効化 */
+  input,
+  textarea,
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+
+  /* inputAccessoryViewを非表示にする試み */
+  input:focus,
+  textarea:focus {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* モバイル環境でのボタンタップ最適化 */
+* {
+  /* iOS Safariのタップハイライトを無効化 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+/* ボタンのモバイル最適化 */
+button,
+[role="button"],
+[data-slot="button"],
+.elegant-button {
+  /* タッチデバイスでのタップ遅延を解消 */
+  touch-action: manipulation;
+  /* ダブルタップによるズームを無効化 */
+  -ms-touch-action: manipulation;
+  /* ユーザー選択を無効化してタップ時のハイライトを防ぐ */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  /* アウトラインを無効化（フォーカスリングは別途スタイリング） */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* モバイルデバイスでのホバー効果を無効化 */
+@media (hover: none) and (pointer: coarse) {
+  button:hover,
+  [role="button"]:hover,
+  [data-slot="button"]:hover,
+  .elegant-button:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* アクティブ状態のみ適用 */
+  button:active,
+  [role="button"]:active,
+  [data-slot="button"]:active,
+  .elegant-button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease-out;
+  }
+}
+
 /* フォントエフェクト用のアニメーション */
 @keyframes rainbow-text {
   0% {

@@ -55,16 +55,16 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     description: "Anthropicの最高性能モデル",
   },
   {
-    id: "anthropic/claude-sonnet-4",
-    name: "Claude Sonnet 4",
+    id: "anthropic/claude-sonnet-4.5",
+    name: "Claude Sonnet 4.5",
     provider: "openrouter",
     pricing: {
-      input: 0.000003, // $3 per 1M tokens
-      output: 0.000015, // $15 per 1M tokens
+      input: 0.0000035, // $3.5 per 1M tokens
+      output: 0.0000175, // $17.5 per 1M tokens
       currency: "USD",
     },
     contextWindow: 200000,
-    description: "バランスの取れた高性能モデル",
+    description: "バランスの取れた高性能モデル (v4.5)",
   },
 
   // xAI Grok Models (OpenRouter)
@@ -80,6 +80,19 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     contextWindow: 128000,
     description: "xAIの最新モデル",
   },
+  {
+    id: "x-ai/grok-4-fast:free",
+    name: "Grok 4 Fast（無料版）",
+    provider: "openrouter",
+    pricing: {
+      input: 0, // 無料
+      output: 0, // 無料
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "⚠️ 無料版: コンテンツフィルタが厳格で、応答が途中で停止する場合があります。デバッグログを確認してfinish_reasonとcontent lengthをチェックしてください。",
+  },
+  // grok-code-fast-1 removed from UI list
 
   // OpenAI Models (OpenRouter)
   {
@@ -109,16 +122,16 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
 
   // Standard Models (OpenRouter)
   {
-    id: "deepseek/deepseek-chat-v3.1",
-    name: "DeepSeek Chat v3",
+    id: "deepseek/deepseek-v3.2-exp",
+    name: "DeepSeek v3.2 Experimental",
     provider: "openrouter",
     pricing: {
-      input: 0.00000014, // $0.14 per 1M tokens
-      output: 0.00000028, // $0.28 per 1M tokens
+      input: 0.00000016, // $0.16 per 1M tokens
+      output: 0.00000032, // $0.32 per 1M tokens
       currency: "USD",
     },
     contextWindow: 64000,
-    description: "高コストパフォーマンスのモデル",
+    description: "DeepSeek v3.2 実験的バージョン",
   },
   {
     id: "mistralai/mistral-medium-3.1",
@@ -207,18 +220,7 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     contextWindow: 128000,
     description: "思考プロセスを可視化するモデル",
   },
-  {
-    id: "x-ai/grok-code-fast-1",
-    name: "Grok Code Fast",
-    provider: "openrouter",
-    pricing: {
-      input: 0.0000005, // $0.50 per 1M tokens
-      output: 0.0000005, // $0.50 per 1M tokens
-      currency: "USD",
-    },
-    contextWindow: 128000,
-    description: "コード生成に特化したモデル",
-  },
+  // removed x-ai/grok-code-fast-1
   {
     id: "nousresearch/hermes-4-405b",
     name: "Hermes 4 405B",
@@ -284,8 +286,6 @@ export const formatPricePerMillion = (
   }
   return `$${pricePerMillion.toFixed(2)}`;
 };
-
-
 
 
 

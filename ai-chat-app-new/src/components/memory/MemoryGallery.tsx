@@ -61,8 +61,8 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       filtered = filtered.filter(memory =>
         memory.original_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         memory.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        memory.keywords.some(keyword => keyword.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        memory.auto_tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        memory.keywords.some((keyword: string) => keyword.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        memory.auto_tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -113,7 +113,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     });
 
     return filtered;
-  }, [memory_cards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
+  }, [getCurrentSessionMemoryCards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
 
   const handleCreateMemory = async () => {
     try {

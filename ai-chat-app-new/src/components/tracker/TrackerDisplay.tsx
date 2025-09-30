@@ -85,9 +85,17 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   );
   const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Get tracker data from store with initialization check
+  // Safe access helper for trackerManagers which may be a Map or plain object
+  const getTrackerManagerSafe = (trackerManagers: any, id: string | undefined): TrackerManager | undefined => {
+    if (!trackerManagers || !id) return undefined;
+    if (trackerManagers instanceof Map) return trackerManagers.get(id) as TrackerManager | undefined;
+    if (typeof trackerManagers === "object") return (trackerManagers as any)[id] as TrackerManager | undefined;
+    return undefined;
+  };
+
+  // Get tracker data from store with initialization check (safe for serialized store shape)
   const trackerManager = useAppStore((state) =>
-    state.trackerManagers.get(character_id)
+    getTrackerManagerSafe(state.trackerManagers, character_id)
   );
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);
@@ -102,11 +110,15 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       });
 
       // セッション切り替え時にトラッカーマネージャーの状態確認
-      const currentManager = useAppStore.getState().trackerManagers.get(character_id);
+      const rawManagers = useAppStore.getState().trackerManagers;
+      const currentManager = getTrackerManagerSafe(rawManagers, character_id);
       if (currentManager) {
         // 既存のマネージャーがある場合、一度状態を強制更新
         useAppStore.setState((state) => ({
-          trackerManagers: new Map(state.trackerManagers),
+          trackerManagers:
+            state.trackerManagers instanceof Map
+              ? new Map(state.trackerManagers)
+              : new Map(Object.entries(state.trackerManagers || {})),
         }));
         console.log(`✅ [TrackerDisplay] Refreshed tracker manager state for session switch`);
       }
@@ -141,12 +153,14 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       newManager.initializeTrackerSet(character_id, character.trackers);
 
       // Update the store - キャラクターIDをキーとして使用
-      useAppStore.setState((state) => ({
-        trackerManagers: new Map(state.trackerManagers).set(
-          character_id,
-          newManager
-        ),
-      }));
+      useAppStore.setState((state) => {
+        const base =
+          state.trackerManagers instanceof Map
+            ? new Map(state.trackerManagers) as Map<string, TrackerManager>
+            : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
+        base.set(character_id, newManager);
+        return { trackerManagers: base };
+      });
 
       console.log(
         `[TrackerDisplay] Tracker manager initialized with ${character.trackers.length} trackers`
@@ -164,12 +178,14 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       );
       const newManager = new TrackerManager();
       newManager.initializeTrackerSet(character_id, character.trackers);
-      useAppStore.setState((state) => ({
-        trackerManagers: new Map(state.trackerManagers).set(
-          character_id,
-          newManager
-        ),
-      }));
+      useAppStore.setState((state) => {
+        const base =
+          state.trackerManagers instanceof Map
+            ? new Map(state.trackerManagers) as Map<string, TrackerManager>
+            : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
+        base.set(character_id, newManager);
+        return { trackerManagers: base };
+      });
     }
   }, [character_id, character]);
 
@@ -287,7 +303,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
 
     // Force re-render by updating the store
     useAppStore.setState((state) => ({
-      trackerManagers: new Map(state.trackerManagers),
+      trackerManagers: new Map(state.trackerManagers) as Map<string, TrackerManager>,
     }));
 
     // 🆕 トラッカー値変更時に自動的にプロンプト更新フラグを設定

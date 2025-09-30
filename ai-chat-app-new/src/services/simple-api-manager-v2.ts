@@ -23,9 +23,9 @@ export class SimpleAPIManagerV2 {
     // 🔧 FIX: デフォルト設定削除 - ユーザー選択モデルのみ使用
     this.currentConfig = {
       provider: "openrouter", // デフォルトをopenrouterに変更
-      model: "gpt-4o-mini",
+      model: "anthropic/claude-sonnet-4.5",
       temperature: 0.7,
-      max_tokens: 2048,
+      max_tokens: 4096, // 🔧 2048→4096に増加（インスピレーション提案とプロンプトに十分な容量を確保）
       top_p: 0.9,
       frequency_penalty: 0,
       presence_penalty: 0,
@@ -389,19 +389,77 @@ export class SimpleAPIManagerV2 {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
 
-    if (!content) {
-      throw new Error("OpenRouterからの応答が空です");
+    // 🔧 完全なAPIレスポンスをデバッグログ出力（Grok等の問題診断用）
+    console.log("📥 OpenRouter完全レスポンス:", JSON.stringify(data, null, 2));
+
+    const choice = data.choices?.[0];
+    if (!choice) {
+      throw new Error("OpenRouterからの応答が不正です（choices配列が空）");
     }
 
-    // 使用量情報をログに出力
+    const finishReason = choice.finish_reason;
+    const content = choice.message?.content || "";
+
+    // 🔧 finish_reason と content の状態をログ出力
+    console.log(`📋 OpenRouter finish_reason: "${finishReason}", content length: ${content.length}`);
+
+    // 🔧 finish_reason別の詳細なハンドリング（Grok 4 Fast問題対応）
+    if (finishReason === "length") {
+      console.warn("⚠️ トークン制限で応答が切り詰められました");
+      if (content) {
+        // 部分的な応答でも返す（インスピレーションのパースを試行可能にする）
+        console.log("✅ 部分的な応答を返します");
+        return { content: formatMessageContent(content, "readable"), usage: data.usage };
+      } else {
+        throw new Error(
+          `トークン制限に達しました（max_tokens: ${options?.max_tokens || 4096}）。` +
+          `max_tokensを増やすか、プロンプトを短縮してください。`
+        );
+      }
+    } else if (finishReason === "content_filter" || finishReason === "moderation") {
+      throw new Error(
+        `コンテンツがモデレーションでブロックされました (reason: ${finishReason})。` +
+        `別のモデルを試すか、入力内容を変更してください。`
+      );
+    } else if (finishReason === "stop") {
+      // 正常終了
+      if (!content) {
+        console.error("🚨 finish_reason=stop だが contentが空！");
+        throw new Error(
+          `モデル${model}から空の応答が返されました。モデルの制限に達した可能性があります。`
+        );
+      }
+    } else if (!finishReason) {
+      // finish_reasonがnullまたはundefined（Grok 4 Fast無料版で発生）
+      console.warn(`⚠️ finish_reasonがnullです（モデル: ${model}）`);
+      if (!content) {
+        throw new Error(
+          `モデル${model}から不完全な応答が返されました。` +
+          `finish_reason=null, content=empty。APIの制限またはモデルの問題の可能性があります。`
+        );
+      }
+      // contentがある場合はログを出力して続行
+      console.log("✅ finish_reasonはnullですが、contentがあるため続行します");
+    } else {
+      // 未知のfinish_reason
+      console.warn(`⚠️ 未知のfinish_reason: "${finishReason}"`);
+      if (!content) {
+        throw new Error(
+          `モデル${model}から空の応答が返されました (finish_reason: ${finishReason})`
+        );
+      }
+    }
+
+    // 使用量情報を詳細にログ出力
     if (data.usage) {
       console.log("📊 OpenRouter API使用量:", {
         model: model,
         promptTokens: data.usage.prompt_tokens,
         completionTokens: data.usage.completion_tokens,
         totalTokens: data.usage.total_tokens,
+        finish_reason: finishReason,
+        contentLength: content.length,
         promptCost: data.usage.prompt_tokens * 0.000002, // 概算コスト
         completionCost: data.usage.completion_tokens * 0.000002, // 概算コスト
         totalCost: data.usage.total_tokens * 0.000002, // 概算コスト
@@ -493,12 +551,13 @@ export class SimpleAPIManagerV2 {
       {
         provider: "OpenRouter",
         models: [
-          { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
-          { id: "anthropic/claude-3-haiku", name: "Claude 3 Haiku" },
+          { id: "anthropic/claude-opus-4", name: "Claude Opus 4" },
+          { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
           { id: "openai/gpt-4", name: "GPT-4" },
           { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
+          { id: "x-ai/grok-4-fast:free", name: "grok-4-fast:free" },
+          { id: "deepseek/deepseek-v3.2-exp", name: "DeepSeek V3.2 Experimental" },
           { id: "meta-llama/llama-3.1-405b", name: "Llama 3.1 405B" },
-          { id: "deepseek/deepseek-chat-v3.1", name: "DeepSeek Chat V3.1" },
           { id: "qwen/qwen3-next-80b-a3b-thinking", name: "Qwen3 Next 80B Thinking" },
           { id: "qwen/qwen3-next-80b-a3b-instruct", name: "Qwen3 Next 80B Instruct" },
         ],

@@ -630,6 +630,7 @@ export const createMessageOperations: StateCreator<
                   aiResponse,
                   activeSessionId,
                   activeSession.participants.characters[0]?.id,
+                  undefined, // TODO: 感情分析結果を統合
                   get().createMemoryCard
                 )
               : Promise.resolve(null),
