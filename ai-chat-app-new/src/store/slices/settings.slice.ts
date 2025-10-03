@@ -128,22 +128,20 @@ export const createSettingsSliceV2: StateCreator<
       messageBorderRadius: "medium",
       chatMaxWidth: "normal",
       sidebarWidth: "normal",
-      backgroundType: initialSettings.ui.background?.type || "gradient",
-      backgroundGradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      backgroundImage:
-        initialSettings.ui.background?.type === "image"
-          ? initialSettings.ui.background.value
-          : "",
-      backgroundBlur: 10,
-      backgroundBlurEnabled: true,
-      backgroundOpacity: 100,
+      backgroundType: initialSettings.ui.backgroundType || "gradient",
+      backgroundGradient: initialSettings.ui.backgroundGradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      // 🔧 FIX: backgroundTypeに関わらず、backgroundImageを常に保持
+      backgroundImage: initialSettings.ui.backgroundImage || "",
+      backgroundBlur: initialSettings.ui.backgroundBlur || 10,
+      backgroundBlurEnabled: initialSettings.ui.backgroundBlurEnabled ?? true,
+      backgroundOpacity: initialSettings.ui.backgroundOpacity || 100,
       // favicon settings (public/ 配置があればそのまま使えるようデフォルトを用意)
-      faviconPath: "/favicon.ico",
-      faviconSvg: "/favicon.svg",
-      appleTouchIcon: "/apple-touch-icon.png",
-      enableAnimations: true,
-      transitionDuration: "normal",
-      customCSS: "",
+      faviconPath: initialSettings.ui.faviconPath || "/favicon.ico",
+      faviconSvg: initialSettings.ui.faviconSvg || "/favicon.svg",
+      appleTouchIcon: initialSettings.ui.appleTouchIcon || "/apple-touch-icon.png",
+      enableAnimations: initialSettings.ui.enableAnimations ?? true,
+      transitionDuration: initialSettings.ui.transitionDuration || "normal",
+      customCSS: initialSettings.ui.customCSS || "",
     },
 
     emotionalIntelligenceFlags: {
@@ -305,6 +303,22 @@ export const createSettingsSliceV2: StateCreator<
             settings.theme === "dark" || settings.theme === "light"
               ? settings.theme
               : "auto",
+        });
+      }
+      // 🔧 FIX: backgroundImage/backgroundTypeも統一設定に保存
+      if (settings.backgroundImage !== undefined) {
+        settingsManager.updateCategory("ui", {
+          backgroundImage: settings.backgroundImage,
+        });
+      }
+      if (settings.backgroundType !== undefined) {
+        settingsManager.updateCategory("ui", {
+          backgroundType: settings.backgroundType,
+        });
+      }
+      if (settings.backgroundGradient !== undefined) {
+        settingsManager.updateCategory("ui", {
+          backgroundGradient: settings.backgroundGradient,
         });
       }
       set((state) => ({
