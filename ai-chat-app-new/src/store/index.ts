@@ -459,6 +459,9 @@ const createStore = () => {
         // Only persist state, not actions (functions)
         // UI状態はハイドレーション問題を避けるため永続化しない
         partialize: (state) => ({
+          // ═══════════════════════════════════════
+          // Session Data ONLY
+          // ═══════════════════════════════════════
           // Chat sessions
           sessions: state.sessions,
           active_session_id: state.active_session_id,
@@ -470,7 +473,9 @@ const createStore = () => {
           is_group_mode: state.is_group_mode,
           // Note: showCharacterReselectionModal is not persisted (UI state)
 
-          // Characters and Personas
+          // ═══════════════════════════════════════
+          // Character & Persona Data
+          // ═══════════════════════════════════════
           characters: state.characters,
           selectedCharacterId: state.selectedCharacterId,
           // Note: isCharactersLoaded is intentionally NOT persisted
@@ -478,33 +483,41 @@ const createStore = () => {
           personas: state.personas,
           activePersonaId: state.activePersonaId,
 
-          // Settings - all settings for persistence
-          apiConfig: state.apiConfig,
-          openRouterApiKey: state.openRouterApiKey,
-          geminiApiKey: state.geminiApiKey,
-          systemPrompts: state.systemPrompts,
-          enableSystemPrompt: state.enableSystemPrompt,
-          enableJailbreakPrompt: state.enableJailbreakPrompt,
-          chat: state.chat,
-          voice: state.voice,
-          imageGeneration: state.imageGeneration,
-          languageSettings: state.languageSettings,
-          effectSettings: state.effectSettings,
-          appearanceSettings: state.appearanceSettings,
-          emotionalIntelligenceFlags: state.emotionalIntelligenceFlags,
-
+          // ═══════════════════════════════════════
           // Memory System
+          // ═══════════════════════════════════════
           memories: state.memories,
           memoryCards: state.memory_cards,
           memoryLayers: state.memoryLayers,
 
+          // ═══════════════════════════════════════
           // Suggestion Data
+          // ═══════════════════════════════════════
           suggestions: state.suggestions,
           suggestionData: state.suggestionData,
 
-          // UI状態は永続化しない（ハイドレーション問題回避のため）
-          // isLeftSidebarOpen: false, // 常にfalseで初期化
-          // isRightPanelOpen: false, // 常にfalseで初期化
+          // ═══════════════════════════════════════
+          // ⚠️ ALL SETTINGS REMOVED
+          // ═══════════════════════════════════════
+          // Settings are now managed by settingsManager
+          // and persisted in localStorage["unified-settings"]
+          //
+          // Removed from persist:
+          // - apiConfig, openRouterApiKey, geminiApiKey
+          // - systemPrompts, enableSystemPrompt, enableJailbreakPrompt
+          // - chat, voice, imageGeneration
+          // - languageSettings, effectSettings, appearanceSettings
+          // - emotionalIntelligenceFlags
+          //
+          // Access settings via:
+          //   const settings = useAppStore(state => state.unifiedSettings);
+          //   const updateCategory = useAppStore(state => state.updateCategory);
+
+          // ═══════════════════════════════════════
+          // UI State (NOT persisted)
+          // ═══════════════════════════════════════
+          // isLeftSidebarOpen, isRightPanelOpen are intentionally NOT persisted
+          // to avoid hydration issues
         }),
       })
     );
