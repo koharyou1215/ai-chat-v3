@@ -41,6 +41,10 @@ export interface SettingsSliceV2 extends AISettings {
 
   // Actions - 統一設定マネージャーへの委譲
   updateUnifiedSettings: (updates: Partial<UnifiedSettings>) => void;
+  updateCategory: <K extends keyof UnifiedSettings>(
+    category: K,
+    updates: Partial<UnifiedSettings[K]>
+  ) => void;
   updateLanguageSettings: (settings: any) => void;
   updateEffectSettings: (settings: Partial<UnifiedSettings["effects"]>) => void;
   updateAppearanceSettings: (settings: any) => void;
@@ -273,6 +277,17 @@ export const createSettingsSliceV2: StateCreator<
     // Actions
     updateUnifiedSettings: (updates) => {
       settingsManager.updateSettings(updates);
+    },
+
+    updateCategory: (category, updates) => {
+      settingsManager.updateCategory(category, updates);
+
+      // サイドエフェクト: API設定が更新された場合はsimpleAPIManagerV2に通知
+      if (category === 'api') {
+        const currentAPI = get().apiConfig;
+        const updatedAPI = { ...currentAPI, ...updates };
+        simpleAPIManagerV2.setAPIConfig(updatedAPI);
+      }
     },
 
     updateLanguageSettings: (settings) => {

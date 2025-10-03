@@ -825,6 +825,20 @@ class SettingsManager {
     this.updateSettings({
       [category]: { ...this.settings[category], ...updates },
     } as Partial<UnifiedSettings>);
+
+    // サイドエフェクト: API設定が更新された場合は関連サービスに通知
+    if (category === 'api') {
+      this.notifyAPIChange();
+    }
+  }
+
+  /**
+   * API設定変更時のサイドエフェクト処理
+   */
+  private notifyAPIChange(): void {
+    // simpleAPIManagerV2への通知は settings.slice.ts で行う
+    // ここでは設定の永続化のみを担当
+    // Note: simpleAPIManagerV2への通知は、settings.sliceのupdateCategory経由で行われる
   }
 
   /**
