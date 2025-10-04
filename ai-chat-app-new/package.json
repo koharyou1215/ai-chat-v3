@@ -29,7 +29,8 @@
     "postanalyze:prod": "node scripts/post-analysis.js",
     "golden-master:generate": "tsx tests/golden-master/generate-golden-master.ts",
     "golden-master:test": "jest tests/golden-master/compare-prompts.test.ts",
-    "golden-master:full": "npm run golden-master:generate && npm run golden-master:test"
+    "golden-master:full": "npm run golden-master:generate && npm run golden-master:test",
+    "validate:prompt-v2": "tsx scripts/validate-prompt-v2.ts"
   },
   "dependencies": {
     "@composio/mcp": "^1.0.9",
