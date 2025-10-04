@@ -16,6 +16,7 @@ import {
 } from "@/utils/chat/mem0-integration-helper";
 import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import { createMessageLifecycleOperations } from "./operations/message-lifecycle-operations";
 
 // 🧠 感情から絵文字への変換ヘルパー
 export const getEmotionEmoji = (emotion: string): string => {
@@ -63,7 +64,10 @@ export const createMessageOperations: StateCreator<
   [],
   [],
   MessageOperations
-> = (set, get) => ({
+> = (set, get, api) => ({
+  // 🆕 Phase 3.1: Lifecycle operations (addMessage, deleteMessage, rollbackSession, resetGeneratingState)
+  ...createMessageLifecycleOperations(set, get, api),
+
   sendMessage: async (content, imageUrl) => {
     debugLog("🚀 [sendMessage] Method called (to file)", {
       content: content?.substring(0, 50) + "...",
@@ -1113,110 +1117,6 @@ export const createMessageOperations: StateCreator<
     }
   },
 
-  deleteMessage: (message_id) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-
-    const activeSession = getSessionSafely(get().sessions, activeSessionId);
-    if (activeSession) {
-      const updatedMessages = activeSession.messages.filter(
-        (msg) => msg.id !== message_id
-      );
-      const updatedSession = {
-        ...activeSession,
-        messages: updatedMessages,
-        message_count: updatedMessages.length,
-        updated_at: new Date().toISOString(),
-      };
-      set((_state) => ({
-        sessions: createMapSafely(_state.sessions).set(
-          activeSessionId,
-          updatedSession
-        ),
-      }));
-    }
-  },
-
-  rollbackSession: (message_id) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) return;
-
-    const session = getSessionSafely(get().sessions, activeSessionId);
-    if (!session) return;
-
-    const messageIndex = session.messages.findIndex((m) => m.id === message_id);
-    if (messageIndex === -1) {
-      console.error("Rollback failed: message not found");
-      return;
-    }
-
-    // 1. チャット履歴を切り詰める
-    const rollbackMessages = session.messages.slice(0, messageIndex + 1);
-
-    const updatedSession = {
-      ...session,
-      messages: rollbackMessages,
-      message_count: rollbackMessages.length,
-      updated_at: new Date().toISOString(),
-    };
-
-    set((state) => ({
-      sessions: createMapSafely(state.sessions).set(
-        activeSessionId,
-        updatedSession
-      ),
-    }));
-
-    // 2. ConversationManagerのキャッシュをクリア
-    promptBuilderService.clearManagerCache(activeSessionId);
-
-    // 3. トラッカーをリセット
-    const characterId = session.participants.characters[0]?.id;
-    if (characterId) {
-      const trackerManager = getTrackerManagerSafely(
-        get().trackerManagers,
-        characterId
-      );
-      if (trackerManager) {
-        // 全てのトラッカーを初期値にリセット
-        trackerManager.initializeTrackerSet(
-          characterId,
-          session.participants.characters[0]?.trackers || []
-        );
-      }
-    }
-  },
-
-  // 🚨 緊急修復機能: 生成状態を強制リセット
-  resetGeneratingState: () => {
-    set({ is_generating: false });
-  },
-
-  // 📝 メッセージを直接追加（画像生成などで使用）
-  addMessage: async (message: UnifiedMessage) => {
-    const activeSessionId = get().active_session_id;
-    if (!activeSessionId) {
-      console.error("❌ No active session to add message");
-      return;
-    }
-
-    const session = getSessionSafely(get().sessions, activeSessionId);
-    if (!session) {
-      console.error("❌ Session not found:", activeSessionId);
-      return;
-    }
-
-    // セッションを更新（共通ヘルパー使用）
-    set({
-      sessions: updateSessionSafely(get().sessions, activeSessionId, {
-        addMessage: message,
-        updateTimestamp: true,
-      }),
-    });
-
-    // 🧠 Mem0にメッセージを取り込む（共通ヘルパー使用）
-    await ingestMessageToMem0Safely(message, "addMessage");
-
-    console.log("✅ Message added to session:", message.id);
-  },
+  // ❌ REMOVED: deleteMessage, rollbackSession, resetGeneratingState, addMessage
+  // → Moved to operations/message-lifecycle-operations.ts (Phase 3.1)
 });
