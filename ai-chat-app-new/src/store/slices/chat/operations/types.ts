@@ -15,5 +15,10 @@ export interface MessageContinuationHandler {
   continueLastMessage: () => Promise<void>;
 }
 
+export interface MessageRegenerationHandler {
+  regenerateLastMessage: () => Promise<void>;
+}
+
 export type MessageLifecycleSlice = MessageLifecycleOperations;
 export type MessageContinuationSlice = MessageContinuationHandler;
+export type MessageRegenerationSlice = MessageRegenerationHandler;
