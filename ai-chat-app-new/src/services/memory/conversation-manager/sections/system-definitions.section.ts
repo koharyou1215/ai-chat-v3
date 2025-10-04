@@ -6,6 +6,7 @@
  * Purpose: Define AI and User variables
  */
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SystemDefinitionsContext {
   // No context needed for this section
 }

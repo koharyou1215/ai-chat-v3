@@ -131,37 +131,57 @@ export const QuickSettingsPanel: React.FC<QuickSettingsPanelProps> = ({ isOpen, 
           <h3 className="text-sm font-medium text-purple-400 uppercase tracking-wider">
             3D機能
           </h3>
-          
+
           <ToggleSwitch
             label="ホログラムメッセージ"
-            checked={effectSettings.hologramMessages}
-            onChange={(checked) => updateEffectSettings({ hologramMessages: checked })}
+            checked={effectSettings.threeDEffects?.hologram.enabled ?? false}
+            onChange={(checked) => updateEffectSettings({
+              threeDEffects: {
+                ...effectSettings.threeDEffects!,
+                hologram: { ...effectSettings.threeDEffects!.hologram, enabled: checked }
+              }
+            })}
             icon="🔮"
-            description={effectSettings.hologramMessages ? "有効" : "無効"}
+            description={effectSettings.threeDEffects?.hologram.enabled ? "有効" : "無効"}
           />
 
           <ToggleSwitch
             label="パーティクルテキスト"
-            checked={effectSettings.particleText}
-            onChange={(checked) => updateEffectSettings({ particleText: checked })}
+            checked={effectSettings.threeDEffects?.particleText.enabled ?? false}
+            onChange={(checked) => updateEffectSettings({
+              threeDEffects: {
+                ...effectSettings.threeDEffects!,
+                particleText: { ...effectSettings.threeDEffects!.particleText, enabled: checked }
+              }
+            })}
             icon="🌟"
-            description={effectSettings.particleText ? "有効" : "無効"}
+            description={effectSettings.threeDEffects?.particleText.enabled ? "有効" : "無効"}
           />
 
           <ToggleSwitch
             label="リップルエフェクト"
-            checked={effectSettings.rippleEffects}
-            onChange={(checked) => updateEffectSettings({ rippleEffects: checked })}
+            checked={effectSettings.threeDEffects?.ripple.enabled ?? false}
+            onChange={(checked) => updateEffectSettings({
+              threeDEffects: {
+                ...effectSettings.threeDEffects!,
+                ripple: { ...effectSettings.threeDEffects!.ripple, enabled: checked }
+              }
+            })}
             icon="💫"
-            description={effectSettings.rippleEffects ? "有効" : "無効"}
+            description={effectSettings.threeDEffects?.ripple.enabled ? "有効" : "無効"}
           />
 
           <ToggleSwitch
             label="背景パーティクル"
-            checked={effectSettings.backgroundParticles}
-            onChange={(checked) => updateEffectSettings({ backgroundParticles: checked })}
+            checked={effectSettings.threeDEffects?.backgroundParticles.enabled ?? false}
+            onChange={(checked) => updateEffectSettings({
+              threeDEffects: {
+                ...effectSettings.threeDEffects!,
+                backgroundParticles: { ...effectSettings.threeDEffects!.backgroundParticles, enabled: checked }
+              }
+            })}
             icon="🌌"
-            description={effectSettings.backgroundParticles ? "有効" : "無効"}
+            description={effectSettings.threeDEffects?.backgroundParticles.enabled ? "有効" : "無効"}
           />
         </div>
 
@@ -173,26 +193,44 @@ export const QuickSettingsPanel: React.FC<QuickSettingsPanelProps> = ({ isOpen, 
           
           <ToggleSwitch
             label="リアルタイム感情分析"
-            checked={effectSettings.realtimeEmotion}
-            onChange={(checked) => updateEffectSettings({ realtimeEmotion: checked })}
+            checked={effectSettings.emotion?.realtimeDetection ?? false}
+            onChange={(checked) => updateEffectSettings({
+              emotion: {
+                ...effectSettings.emotion!,
+                realtimeDetection: checked
+              }
+            })}
             icon="🎭"
-            description={effectSettings.realtimeEmotion ? "有効" : "無効"}
+            description={effectSettings.emotion?.realtimeDetection ? "有効" : "無効"}
           />
 
           <ToggleSwitch
             label="感情ベーススタイリング"
-            checked={effectSettings.emotionBasedStyling}
-            onChange={(checked) => updateEffectSettings({ emotionBasedStyling: checked })}
+            checked={effectSettings.emotion?.display.applyColors ?? false}
+            onChange={(checked) => updateEffectSettings({
+              emotion: {
+                ...effectSettings.emotion!,
+                display: {
+                  ...effectSettings.emotion!.display,
+                  applyColors: checked
+                }
+              }
+            })}
             icon="🎨"
-            description={effectSettings.emotionBasedStyling ? "有効" : "無効"}
+            description={effectSettings.emotion?.display.applyColors ? "有効" : "無効"}
           />
 
           <ToggleSwitch
             label="自動リアクション"
-            checked={effectSettings.autoReactions}
-            onChange={(checked) => updateEffectSettings({ autoReactions: checked })}
+            checked={effectSettings.emotion?.autoReactions ?? false}
+            onChange={(checked) => updateEffectSettings({
+              emotion: {
+                ...effectSettings.emotion!,
+                autoReactions: checked
+              }
+            })}
             icon="😊"
-            description={effectSettings.autoReactions ? "有効" : "無効"}
+            description={effectSettings.emotion?.autoReactions ? "有効" : "無効"}
           />
         </div>
 

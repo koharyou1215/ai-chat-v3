@@ -194,7 +194,6 @@ export const createSettingsSliceV2: StateCreator<
     enableJailbreakPrompt: false,
 
     chat: {
-      bubbleTransparency: 20,
       bubbleBlur: true,
       responseFormat: "normal",
       memoryCapacity: 20,

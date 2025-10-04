@@ -64,6 +64,14 @@ export const createSessionManagement: StateCreator<
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
+      metadata: {
+        mode: 'single' as const,
+        ai_model: 'default',
+        temperature: 0.7,
+        max_tokens: 2000,
+        language: 'ja',
+        timezone: 'Asia/Tokyo',
+      },
       participants: {
         user: persona,
         characters: [character],

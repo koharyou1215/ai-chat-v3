@@ -7,7 +7,7 @@
 
 import type { Character, Persona } from '@/types';
 import type { ConversationManager } from '../conversation-manager';
-import { replaceVariablesInCharacter } from '@/utils/variable-replacer';
+import { replaceVariablesInCharacter, replaceVariables } from '@/utils/variable-replacer';
 import { PromptBuilder } from './prompt-builder';
 
 export interface SystemSettings {
@@ -50,7 +50,7 @@ export async function generatePromptRefactored(
   // Use new PromptBuilder
   const builder = new PromptBuilder();
 
-  const prompt = await builder.build({
+  let prompt = await builder.build({
     userInput,
     character,
     persona,
@@ -63,6 +63,9 @@ export async function generatePromptRefactored(
     pinnedMessages,
     trackerManager: (this as any).trackerManager,
   });
+
+  // 🔒 line 735 - Apply variable replacement to entire prompt (EXACT COPY)
+  prompt = replaceVariables(prompt, variableContext);
 
   return prompt;
 }

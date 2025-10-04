@@ -560,6 +560,7 @@ export const createGroupChatSlice: StateCreator<
                     response,
                     activeGroupSessionId,
                     response.character_id,
+                    undefined,
                     get().createMemoryCard
                   )
                 )
@@ -695,7 +696,7 @@ export const createGroupChatSlice: StateCreator<
     }
     // 全員の発言を含める（グループチャットなので） + 重複除去
     const tempHistory = recentMessages
-      .map((msg) => {
+      .map((msg: UnifiedMessage) => {
         if (msg.role === "user") {
           return {
             role: "user" as const,
@@ -721,7 +722,7 @@ export const createGroupChatSlice: StateCreator<
         }
         return null;
       })
-      .filter((msg) => msg !== null) as Array<{
+      .filter((msg: { role: string; content: string } | null) => msg !== null) as Array<{
       role: "user" | "assistant";
       content: string;
     }>;
@@ -1138,7 +1139,6 @@ ${
 
   // 互換性エイリアス: 旧 API 名 `updateSessionCharacters` を使用する外部コードのためのラッパー
   updateSessionCharacters: (sessionId: UUID, newCharacters: Character[]) => {
-    // @ts-expect-error - 互換性ラッパー
     get().updateGroupMembers(sessionId, newCharacters);
   },
 

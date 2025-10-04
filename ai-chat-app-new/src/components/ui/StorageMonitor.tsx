@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HardDrive, Trash2, AlertTriangle, Info } from 'lucide-react';
-import { StorageCleaner } from '@/utils/storage-cleaner';
+import { StorageManager } from '@/utils/storage';
 
 export const StorageMonitor: React.FC = () => {
   const [storageInfo, setStorageInfo] = useState<{
@@ -113,7 +113,7 @@ export const StorageMonitor: React.FC = () => {
   };
 
   const runCleanup = () => {
-    StorageCleaner.cleanupLocalStorage();
+    StorageManager.cleanupLocalStorage();
     alert('クリーンアップを実行しました。');
     checkStorage(); // 再チェック
   };

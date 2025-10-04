@@ -37,7 +37,14 @@ export async function POST(request: NextRequest) {
       console.error("❌ Upload API: No file provided");
       return NextResponse.json(
         { success: false, error: "No file provided" },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
       );
     }
 
@@ -66,7 +73,14 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `サポートされていないファイル形式です: ${file.type}`,
         },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
       );
     }
     const maxSize = 50 * 1024 * 1024; // 50MB
@@ -77,7 +91,14 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `ファイルサイズが大きすぎます。最大サイズ: 50MB`,
         },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
       );
     }
 
@@ -101,7 +122,7 @@ export async function POST(request: NextRequest) {
         const dataUrl = `data:${file.type};base64,${base64}`;
         
         console.log(`✅ Upload API: Created data URL. Size: ${base64.length} bytes`);
-        
+
         return NextResponse.json({
           success: true,
           url: dataUrl,
@@ -109,6 +130,12 @@ export async function POST(request: NextRequest) {
           size: file.size,
           type: file.type,
           isDataUrl: true,
+        }, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         });
       } catch (dataUrlError) {
         console.error("❌ Upload API: Data URL creation failed:", dataUrlError);
@@ -152,6 +179,12 @@ export async function POST(request: NextRequest) {
           filename: filename,
           size: file.size,
           type: file.type,
+        }, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         });
       } catch (localError) {
         console.error("❌ Upload API: Local storage failed:", localError);
@@ -181,6 +214,12 @@ export async function POST(request: NextRequest) {
         filename: filename,
         size: file.size,
         type: file.type,
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
       });
     } catch (blobError) {
       console.error(
@@ -198,7 +237,7 @@ export async function POST(request: NextRequest) {
         console.log(
           `✅ Upload API: Fallback to data URL successful. Size: ${base64.length} bytes`
         );
-        
+
         return NextResponse.json({
           success: true,
           url: dataUrl,
@@ -206,6 +245,12 @@ export async function POST(request: NextRequest) {
           size: file.size,
           type: file.type,
           isDataUrl: true,
+        }, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         });
       } catch (fallbackError) {
         console.error(
@@ -234,7 +279,14 @@ export async function POST(request: NextRequest) {
         details:
           process.env.NODE_ENV === "development" ? String(error) : undefined,
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
     );
   }
 }

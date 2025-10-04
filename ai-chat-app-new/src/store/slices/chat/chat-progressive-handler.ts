@@ -12,7 +12,7 @@ import { messageTransitionService } from "@/services/message-transition.service"
 import { autoMemoryManager } from "@/services/memory/auto-memory-manager";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
-import { getTrackerManagerSafely } from "./chat-message-operations";
+import { getTrackerManagerSafely } from "./operations/message-send-handler";
 
 export interface ProgressiveHandler {
   sendProgressiveMessage: (content: string, imageUrl?: string) => Promise<void>;
@@ -69,6 +69,15 @@ export const createProgressiveHandler: StateCreator<
     }
     set({ is_generating: true });
 
+    // 変数を関数スコープで宣言（後で初期化）
+    let sessionWithUserMessage: typeof activeSession;
+    let messageId: UUID;
+    let startTime: number;
+    let progressiveMessage: ProgressiveMessage;
+    let memoryCards: MemoryCard[] = [];
+    let trackerManager: ReturnType<typeof getTrackerManagerSafely>;
+    let characterId: UUID | undefined;
+
     try {
       console.log(
         "🚀 [sendProgressiveMessage] Starting progressive generation process"
@@ -111,12 +120,11 @@ export const createProgressiveHandler: StateCreator<
       };
 
       // 2. ユーザーメッセージを即座にUIに反映
-      const sessionWithUserMessage = {
+      sessionWithUserMessage = {
         ...activeSession,
         messages: [...activeSession.messages, userMessage],
         message_count: activeSession.message_count + 1,
         updated_at: new Date().toISOString(),
-        last_message_at: new Date().toISOString(),
       };
 
       set((state) => ({
@@ -127,11 +135,12 @@ export const createProgressiveHandler: StateCreator<
       }));
 
       // 3. プログレッシブメッセージの初期化
-      const messageId = generateAIMessageId();
-      const startTime = Date.now();
+      messageId = generateAIMessageId();
+      startTime = Date.now();
+      characterId = activeSession.participants.characters[0]?.id;
 
       // 🔧 FIX: ProgressiveMessage型に合わせてmetadataを修正
-      const progressiveMessage: ProgressiveMessage = {
+      progressiveMessage = {
         id: messageId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -213,10 +222,9 @@ export const createProgressiveHandler: StateCreator<
       }));
 
       // 4. 並列実行の準備
-      const characterId = activeSession.participants.characters[0]?.id;
-      const trackerManager = characterId
+      trackerManager = characterId
         ? getTrackerManagerSafely(get().trackerManagers, characterId)
-        : null;
+        : undefined;
 
       console.log("🔍 DEBUG: Tracker Manager Check", {
         characterId,
@@ -227,7 +235,6 @@ export const createProgressiveHandler: StateCreator<
       });
 
       console.log("🧠 Starting memory retrieval...");
-      let memoryCards: MemoryCard[] = [];
       try {
         memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
           sessionWithUserMessage.messages,
@@ -466,12 +473,9 @@ export const createProgressiveHandler: StateCreator<
           }
         );
 
-        const contextResponse =
-          typeof contextResult === "string"
-            ? contextResult
-            : contextResult.content;
-        const contextUsage =
-          typeof contextResult === "object" ? contextResult.usage : undefined;
+        // contextResult is always a string (as per generateMessage return type)
+        const contextResponse = contextResult;
+        const contextUsage = undefined; // generateMessage doesn't return usage info
 
         console.log(
           "✨ Stage 2 Response received:",
@@ -682,14 +686,9 @@ export const createProgressiveHandler: StateCreator<
           }
         );
 
-        const intelligenceResponse =
-          typeof intelligenceResult === "string"
-            ? intelligenceResult
-            : intelligenceResult.content;
-        const intelligenceUsage =
-          typeof intelligenceResult === "object"
-            ? intelligenceResult.usage
-            : undefined;
+        // intelligenceResult is always a string (as per generateMessage return type)
+        const intelligenceResponse = intelligenceResult;
+        const intelligenceUsage = undefined; // generateMessage doesn't return usage info
 
         console.log(
           "✨ Stage 3 Response received:",
@@ -744,7 +743,11 @@ export const createProgressiveHandler: StateCreator<
           progressiveData: {
             ...progressiveMessage.metadata.progressiveData,
             stages: { ...progressiveMessage.stages },
-            currentStage: "intelligence",
+            currentStage: "intelligence" as const,
+            transitions: {
+              reflexToContext: progressiveMessage.transitions?.reflexToContext,
+              contextToIntelligence: progressiveMessage.transitions?.contextToIntelligence,
+            },
             ui: { ...progressiveMessage.ui },
             metadata: {
               totalTokens:

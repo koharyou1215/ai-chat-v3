@@ -179,7 +179,9 @@ button,
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  /* ✅ SSR対応: デフォルト背景色を設定（AppearanceProviderで上書き可能） */
+  --background: oklch(0.15 0.02 270);
+  --background-color: oklch(0.15 0.02 270);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -214,7 +216,9 @@ button,
 
 .dark {
   /* 温かみのあるダークベース - 純黒ではなく微妙に暖色を含む */
-  --background: oklch(0.16 0.01 270);
+  /* ✅ SSR対応: ダークモードのデフォルト背景色を設定 */
+  --background: oklch(0.15 0.02 270);
+  --background-color: oklch(0.15 0.02 270);
   --foreground: oklch(0.98 0.005 60);
   
   /* カード系 - 少し明るく、温かみを追加 */
@@ -277,8 +281,9 @@ button,
   }
   body {
     @apply text-foreground;
-    /* 背景は透明にして、AppearanceProviderで制御 */
-    background: transparent !important;
+    /* ✅ SSR対応: デフォルト背景色を設定（AppearanceProviderで上書き可能） */
+    /* 優先順位: --background（画像/グラデーション） > --background-color（単色） */
+    background: var(--background, var(--background-color, oklch(0.15 0.02 270))) !important;
     
     /* 日本語フォント対応 */
     font-family: var(--font-inter), 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', 'Yu Gothic Medium', 'Yu Gothic', sans-serif;
@@ -288,19 +293,7 @@ button,
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* 背景画像設定 */
-  html[data-background-type="image"] {
-    background: var(--background) center center/cover no-repeat fixed !important;
-  }
-
-  html[data-background-type="gradient"] {
-    background: var(--background) !important;
-  }
-
-  html[data-background-type="solid"] {
-    background: var(--background) !important;
-  }
-
+  /* 背景画像設定は AppearanceProvider の ::before 疑似要素で制御 */
 
   /* タイプライターエフェクト */
   .typewriter-cursor {

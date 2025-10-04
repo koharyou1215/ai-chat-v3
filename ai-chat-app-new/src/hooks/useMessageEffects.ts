@@ -26,21 +26,21 @@ export function useMessageEffects() {
 
   // エフェクト設定の計算（メモ化）
   const effectConfig = useMemo((): EffectConfig => ({
-    enabled: settings.particleEffects || settings.fontEffects || settings.hologramMessages,
+    enabled: settings.particleEffects || settings.fontEffects || settings.threeDEffects?.hologram.enabled,
     intensity: Math.max(
       settings.particleEffectsIntensity,
       settings.fontEffectsIntensity,
-      settings.hologramIntensity
+      settings.threeDEffects?.hologram.intensity || 0
     ),
     animationSpeed: settings.animationSpeed,
     quality: settings.effectQuality,
   }), [
     settings.particleEffects,
     settings.fontEffects,
-    settings.hologramMessages,
+    settings.threeDEffects?.hologram.enabled,
     settings.particleEffectsIntensity,
     settings.fontEffectsIntensity,
-    settings.hologramIntensity,
+    settings.threeDEffects?.hologram.intensity,
     settings.animationSpeed,
     settings.effectQuality,
   ]);
@@ -49,22 +49,22 @@ export function useMessageEffects() {
   const effects = useMemo(() => ({
     particles: settings.particleEffects,
     font: settings.fontEffects,
-    hologram: settings.hologramMessages,
+    hologram: settings.threeDEffects?.hologram.enabled,
     typewriter: settings.typewriterEffect,
-    ripple: settings.rippleEffects,
-    background: settings.backgroundParticles,
-    particleText: settings.particleText,
+    ripple: settings.threeDEffects?.ripple.enabled,
+    background: settings.threeDEffects?.backgroundParticles.enabled,
+    particleText: settings.threeDEffects?.particleText.enabled,
     colorfulBubbles: settings.colorfulBubbles,
     realtimeEmotion: settings.realtimeEmotion,
     autoReactions: settings.autoReactions,
   }), [
     settings.particleEffects,
     settings.fontEffects,
-    settings.hologramMessages,
+    settings.threeDEffects?.hologram.enabled,
     settings.typewriterEffect,
-    settings.rippleEffects,
-    settings.backgroundParticles,
-    settings.particleText,
+    settings.threeDEffects?.ripple.enabled,
+    settings.threeDEffects?.backgroundParticles.enabled,
+    settings.threeDEffects?.particleText.enabled,
     settings.colorfulBubbles,
     settings.realtimeEmotion,
     settings.autoReactions,

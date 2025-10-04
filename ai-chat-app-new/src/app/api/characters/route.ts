@@ -39,7 +39,15 @@ export async function GET(request: NextRequest) {
           console.log(
             `Characters API: Loaded ${characters.length} characters from manifest`
           );
-          return NextResponse.json(characters);
+
+          // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
+          return NextResponse.json(characters, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+              'Pragma': 'no-cache',
+              'Expires': '0',
+            },
+          });
         } else {
           // Fallback: try to fetch from URL
           const baseUrl = request.url.replace("/api/characters", "");
@@ -71,7 +79,15 @@ export async function GET(request: NextRequest) {
             console.log(
               `Characters API: Loaded ${characters.length} characters from URL manifest`
             );
-            return NextResponse.json(characters);
+
+            // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
+            return NextResponse.json(characters, {
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              },
+            });
           }
         }
       } catch (manifestError) {
@@ -89,7 +105,15 @@ export async function GET(request: NextRequest) {
     // ディレクトリが存在するかチェック
     if (!fs.existsSync(charactersDir)) {
       console.warn("Characters API: Characters directory not found");
-      return NextResponse.json([]);
+
+      // ✅ ディレクトリ不在時もキャッシュ制御ヘッダーを追加
+      return NextResponse.json([], {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
     }
 
     // ディレクトリ内のJSONファイルを取得
@@ -144,10 +168,26 @@ export async function GET(request: NextRequest) {
     console.log(
       `Characters API: Loaded ${characters.length} characters from filesystem`
     );
-    return NextResponse.json(characters);
+
+    // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
+    return NextResponse.json(characters, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     console.error("Characters API: Error reading characters:", error);
-    return NextResponse.json([]);
+
+    // ✅ エラー時もキャッシュ制御ヘッダーを追加
+    return NextResponse.json([], {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   }
 }
 

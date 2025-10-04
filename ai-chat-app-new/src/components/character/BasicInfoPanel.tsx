@@ -88,7 +88,7 @@ export const BasicInfoPanel: React.FC<BasicInfoPanelProps> = ({
                   title="クリックまたはドラッグ＆ドロップで画像をアップロード">
                   {(formData as Character)?.avatar_url ? (
                     <Image
-                      src={(formData as Character).avatar_url}
+                      src={(formData as Character).avatar_url || '/default-avatar.png'}
                       alt="Avatar"
                       width={200}
                       height={200}

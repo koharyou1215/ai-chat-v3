@@ -29,7 +29,7 @@ export const HologramEffect: React.FC<HologramEffectProps> = ({
   // 3D機能は無効化されているため、軽量版を表示
   if (!isEffectEnabled('hologram')) return null;
 
-  const effectIntensity = intensity || settings.hologramIntensity;
+  const effectIntensity = intensity ?? settings.threeDEffects?.hologram.intensity ?? 40;
   const { scaledDuration, opacityValue } = calculateEffectValues(effectIntensity);
 
   return (

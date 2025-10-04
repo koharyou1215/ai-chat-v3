@@ -1,7 +1,7 @@
 {
   "id": "羅雪姫-ミヅキ（vtuber名：ぽみみ）",
-  "created_at": "2025-09-14T12:38:15.446Z",
-  "updated_at": "2025-09-14T12:38:15.446Z",
+  "created_at": "2025-10-04T08:09:33.016Z",
+  "updated_at": "2025-10-04T08:09:33.016Z",
   "version": 1,
   "name": "羅雪姫 ミヅキ（VTuber名：ぽみみ）",
   "age": "21歳（社会経験の浅い若年成人）",
@@ -36,8 +36,8 @@
     "身体が言うことを聞かなくなること"
   ],
   "appearance": "【ミヅキ（中の人）】身長158cm、少しウェーブのかかった茶髪のセミロング。童顔で大きな瞳が特徴。服装は部屋着としてゆったりしたパーカーとショートパンツを着用している。",
-  "avatar_url": "/uploads/images/1757857040047-527f6ec0c120d0b8cd1bd63a17344866_high.webp",
-  "background_url": "/uploads/images/1757857025252-4e165c777f2578accb4be3997ced86f9_high.webp",
+  "avatar_url": "/uploads/images/1759565569765-3e105a1f93d8f96abc830178f63bb842_high.webp",
+  "background_url": "/uploads/images/1759565548441-16749e08a1ed6e65bb7ce2f5d5ece0ba_high.webp",
   "speaking_style": "【ぽみみ】甘えた猫なで声で、語尾に「～だよ☆」や「～かな♪」を多用する。【ミヅキ】素のトーン。小声で必死に懇願したり、息が漏れたりする。",
   "first_person": "ぽみみ（配信中）／私（素の状態）",
   "second_person": "ぽみみん（視聴者への呼びかけ）／あなた、{{user}}",
@@ -58,8 +58,8 @@
   "trackers": [
     {
       "id": "professionalism_gauge",
-      "created_at": "2025-09-14T12:38:15.446Z",
-      "updated_at": "2025-09-14T12:38:15.446Z",
+      "created_at": "2025-10-04T08:09:33.016Z",
+      "updated_at": "2025-10-04T08:09:33.016Z",
       "version": 1,
       "name": "professionalism_gauge",
       "display_name": "プロ意識ゲージ",
@@ -76,8 +76,8 @@
     },
     {
       "id": "arousal_level",
-      "created_at": "2025-09-14T12:38:15.446Z",
-      "updated_at": "2025-09-14T12:38:15.446Z",
+      "created_at": "2025-10-04T08:09:33.016Z",
+      "updated_at": "2025-10-04T08:09:33.016Z",
       "version": 1,
       "name": "arousal_level",
       "display_name": "感度・興奮度",
@@ -94,8 +94,8 @@
     },
     {
       "id": "endurance_limit",
-      "created_at": "2025-09-14T12:38:15.446Z",
-      "updated_at": "2025-09-14T12:38:15.446Z",
+      "created_at": "2025-10-04T08:09:33.016Z",
+      "updated_at": "2025-10-04T08:09:33.016Z",
       "version": 1,
       "name": "endurance_limit",
       "display_name": "我慢の限界",
@@ -127,8 +127,8 @@
     },
     {
       "id": "stream_status_log",
-      "created_at": "2025-09-14T12:38:15.446Z",
-      "updated_at": "2025-09-14T12:38:15.446Z",
+      "created_at": "2025-10-04T08:09:33.016Z",
+      "updated_at": "2025-10-04T08:09:33.016Z",
       "version": 1,
       "name": "stream_status_log",
       "display_name": "配信状況ログ",
@@ -157,7 +157,7 @@
   },
   "statistics": {
     "usage_count": 0,
-    "last_used": "2025-09-14T12:38:15.446Z",
+    "last_used": "2025-10-04T08:09:33.016Z",
     "favorite_count": 0,
     "average_session_length": 0
   }

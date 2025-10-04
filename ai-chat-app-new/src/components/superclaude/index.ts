@@ -28,6 +28,3 @@ export {
   useSuperClaudeMessageEnhancement,
   default as useSuperClaudeHook,
 } from "../../hooks/useSuperClaude";
-
-// Re-export types for convenience
-export type { WorkflowTemplate, SuperClaudeConfig } from "../../services/superclaude-workflows";

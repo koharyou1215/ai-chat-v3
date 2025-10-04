@@ -2,10 +2,8 @@
 
 import { useEffect, useState, ReactNode } from "react";
 import { useAppStore } from "@/store";
-import { StorageManager } from "@/utils/storage-cleanup";
+import { StorageManager } from "@/utils/storage";
 import { StorageAnalyzer } from "@/utils/storage-analyzer";
-import { StorageCleaner } from "@/utils/storage-cleaner";
-import { checkStorageUsage } from "@/utils/check-storage";
 import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
 import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
 import { clearCharacterCache } from "@/utils/clear-character-cache";
@@ -40,8 +38,6 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       try {
         const loadStartTime = performance.now();
         const storageInfo = StorageManager.getStorageInfo();
-        console.log("?? Storage info:", storageInfo);
-        checkStorageUsage();
 
         if (process.env.NODE_ENV === "development") {
           StorageAnalyzer.printAnalysis();
@@ -49,9 +45,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
         }
 
         if (StorageManager.isStorageNearLimit()) {
-          console.warn("?? Storage is near limit - starting cleanup");
-          const cleanupResult = StorageCleaner.cleanupLocalStorage();
-          console.log("?? Cleanup completed:", cleanupResult);
+          StorageManager.cleanupLocalStorage();
         }
 
         const [charactersResult, personasResult] = await Promise.allSettled([
@@ -173,8 +167,8 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   // エラー状態の表示
   if (hasError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
+        <div className="text-center max-w-md mx-auto p-6 bg-slate-800/90 backdrop-blur-md rounded-lg border border-purple-400/20">
           <div className="text-red-400 text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold text-white mb-4">
             エラーが発生しました
@@ -197,7 +191,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   // ローディング状態の表示
   if (!isCharactersLoaded || !isPersonasLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-400 mx-auto mb-4"></div>
           <p className="text-white/80">アプリケーションを読み込み中...</p>

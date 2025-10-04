@@ -42,7 +42,7 @@ import {
 import { EnhancementModal } from "../chat/EnhancementModal";
 import { GroupChatInterface } from "../chat/GroupChatInterface";
 import ChatSidebar from "../chat/ChatSidebar";
-import { ClientOnlyProvider } from "../ClientOnlyProvider";
+import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
 import useVH from "@/hooks/useVH";
@@ -236,6 +236,8 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
     isScenarioModalOpen,
     toggleScenarioModal,
     appearanceSettings,
+    active_session_id,
+    sessions,
   } = useAppStore();
 
   useVH(); // Safari対応版のVHフックを使用
@@ -248,7 +250,7 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
     currentMessages,
     displaySessionId,
     currentCharacterId,
-  } = smartMemo(() => {
+  } = useMemo(() => {
     const session = getActiveSession();
     const character = getSelectedCharacter();
 
@@ -284,11 +286,11 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       currentCharacterId,
     };
   }, [
-    getActiveSession,
-    getSelectedCharacter,
     active_group_session_id,
     groupSessions,
     is_group_mode,
+    active_session_id,
+    sessions,
   ]);
 
   // State management
@@ -400,7 +402,9 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
   }, []);
 
   // Memoized background rendering
+  // 🎯 背景優先度: キャラクター個別背景 > 外観設定のURL背景 > その他の背景タイプ
   const backgroundElement = smartMemo(() => {
+    // 1. キャラクター個別背景を最優先で適用
     if (character?.background_url) {
       return (
         <div
@@ -443,6 +447,45 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
       backgroundBlur,
     } = appearanceSettings;
 
+    // 2. キャラクター背景がない場合、外観設定のURL背景をデフォルトとして適用
+    // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
+    if (backgroundImage && backgroundImage.trim() !== "") {
+      return (
+        <div
+          className="fixed inset-0 overflow-hidden z-0"
+          style={{
+            left: windowWidth >= 768 && isLeftSidebarOpen ? "320px" : "0",
+            right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
+            top: 0,
+            bottom: 0,
+            opacity: backgroundOpacity / 100,
+            filter: `blur(${backgroundBlur}px)`,
+          }}>
+          {backgroundImage.endsWith(".mp4") ||
+          backgroundImage.includes("video") ? (
+            <video
+              src={backgroundImage}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="w-full h-full"
+              style={{
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // 3. URL背景がない場合、backgroundTypeに応じた背景を適用
     return (
       <div
         className="fixed inset-0 overflow-hidden z-0"
@@ -454,19 +497,15 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
           opacity: backgroundOpacity / 100,
           filter: `blur(${backgroundBlur}px)`,
         }}>
-        {backgroundType === "image" && backgroundImage ? (
-          <div
-            className="w-full h-full"
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          />
-        ) : backgroundType === "gradient" ? (
+        {backgroundType === "gradient" ? (
           <div
             className="w-full h-full"
             style={{ background: backgroundGradient }}
+          />
+        ) : backgroundType === "solid" ? (
+          <div
+            className="w-full h-full"
+            style={{ background: appearanceSettings.backgroundColor }}
           />
         ) : (
           <div

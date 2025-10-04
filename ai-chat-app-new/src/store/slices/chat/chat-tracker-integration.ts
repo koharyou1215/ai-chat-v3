@@ -233,15 +233,15 @@ export class TrackerIntegrationHelper {
     
     try {
       // 詳細版を試行、失敗したら軽量版にフォールバック
-      let trackerInfo = trackerManager.getDetailedTrackersForPrompt?.(characterId);
-      
+      let trackerInfo: string | null = trackerManager.getDetailedTrackersForPrompt?.(characterId) || null;
+
       if (!trackerInfo) {
         trackerInfo = TrackerIntegrationHelper.getEssentialTrackerInfo(
           trackerManager,
           characterId
         );
       }
-      
+
       return trackerInfo;
     } catch (error) {
       console.warn("Failed to get tracker info for prompt:", error);
@@ -291,20 +291,28 @@ export class TrackerIntegrationHelper {
     characterId: UUID
   ): Promise<Array<{ name: string; change: number }>> {
     if (!trackerManager) return [];
-    
+
     try {
-      const updates = await trackerManager.analyzeMessageForTrackerUpdates(
+      const internalUpdates = await trackerManager.analyzeMessageForTrackerUpdates(
         message,
         characterId
       );
-      
+
+      // InternalTrackerUpdateを{ name: string; change: number }に変換
+      const updates = internalUpdates.map(update => ({
+        name: update.tracker_name,
+        change: typeof update.new_value === 'number' && typeof update.old_value === 'number'
+          ? update.new_value - update.old_value
+          : 0
+      }));
+
       if (updates && updates.length > 0) {
         console.log(
           `🎯 Found ${updates.length} tracker updates from message analysis`
         );
       }
-      
-      return updates || [];
+
+      return updates;
     } catch (error) {
       console.error("Failed to analyze message for tracker updates:", error);
       return [];

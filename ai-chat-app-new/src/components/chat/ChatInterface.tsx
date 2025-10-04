@@ -37,7 +37,7 @@ import { EnhancementModal } from "./EnhancementModal";
 
 import { GroupChatInterface } from "./GroupChatInterface";
 import ChatSidebar from "./ChatSidebar";
-import { ClientOnlyProvider } from "../ClientOnlyProvider";
+import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
 import useVH from "@/hooks/useVH";
@@ -666,7 +666,55 @@ const ChatInterfaceContent: React.FC = () => {
           backgroundGradient,
           backgroundOpacity,
           backgroundBlur,
+          backgroundColor,
         } = useAppStore.getState().appearanceSettings;
+
+        // 🎯 外観設定のURL背景をデフォルトとして適用
+        // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
+        if (backgroundImage && backgroundImage.trim() !== "") {
+          // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
+          const imageOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
+
+          return (
+            <div
+              className="fixed inset-0 overflow-hidden z-0"
+              style={{
+                left: windowWidth >= 768 && isLeftSidebarOpen ? "320px" : "0",
+                right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
+                top: 0,
+                bottom: 0,
+                opacity: imageOpacity,
+                filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+              }}>
+              {backgroundImage.endsWith(".mp4") ||
+              backgroundImage.includes("video") ? (
+                <video
+                  src={backgroundImage}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={backgroundImage}
+                  alt="background"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // 画像読み込み失敗時は要素を非表示
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
+            </div>
+          );
+        }
+
+        // URL背景がない場合、backgroundTypeに応じた背景を適用
+        // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
+        const finalOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
 
         return (
           <div
@@ -676,21 +724,21 @@ const ChatInterfaceContent: React.FC = () => {
               right: isRightPanelOpen && windowWidth >= 768 ? "380px" : "0",
               top: 0,
               bottom: 0,
-              opacity: backgroundOpacity / 100,
-              filter: `blur(${backgroundBlur}px)`,
+              opacity: finalOpacity,
+              filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
             }}>
-            {backgroundType === "image" && backgroundImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={backgroundImage}
-                alt="background"
-                className="w-full h-full object-cover"
-              />
-            ) : backgroundType === "gradient" ? (
+            {backgroundType === "gradient" ? (
               <div
                 className="w-full h-full"
                 style={{
                   background: backgroundGradient,
+                }}
+              />
+            ) : backgroundType === "solid" ? (
+              <div
+                className="w-full h-full"
+                style={{
+                  background: backgroundColor,
                 }}
               />
             ) : (

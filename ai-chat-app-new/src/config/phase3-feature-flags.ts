@@ -40,7 +40,7 @@ export interface Phase3FeatureFlags {
  * Phase 3 Feature Flags のデフォルト設定
  */
 export const PHASE3_FEATURE_FLAGS: Phase3FeatureFlags = {
-  USE_NEW_SEND_HANDLER: false, // デフォルトは既存実装を使用
+  USE_NEW_SEND_HANDLER: true, // Phase 3.5完了: 新実装をデフォルトで使用
   DEBUG_COMPARE_IMPLEMENTATIONS: false,
   ENABLE_PERFORMANCE_LOGGING: false,
 };

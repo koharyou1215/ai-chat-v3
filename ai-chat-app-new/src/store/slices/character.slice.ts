@@ -139,7 +139,21 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     // Then merge with persisted data (for user-uploaded images)
 
     try {
-      const response = await fetch('/api/characters');
+      // ✅ キャッシュバスティング: ビルドIDまたはタイムスタンプをクエリパラメータに追加
+      const buildId = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_BUILD_TIME || Date.now().toString();
+      const cacheBuster = forceReload ? `&_t=${Date.now()}` : '';
+      const apiUrl = `/api/characters?v=${buildId}${cacheBuster}`;
+
+      const response = await fetch(apiUrl, {
+        // ✅ Safari対応: reload を使用（no-storeより確実）
+        cache: 'reload' as RequestCache,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
+
       if (!response.ok) {
         console.error('character.slice: Failed to fetch character list:', response.status, response.statusText);
         return;

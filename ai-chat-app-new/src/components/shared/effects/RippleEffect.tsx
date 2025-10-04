@@ -35,7 +35,7 @@ export const RippleEffect: React.FC<RippleEffectProps> = ({
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
 
-  const effectIntensity = intensity || settings.rippleIntensity;
+  const effectIntensity = intensity ?? settings.threeDEffects?.ripple.intensity ?? 60;
   const { scaledDuration, opacityValue } = calculateEffectValues(effectIntensity);
 
   const handleClick = (e: React.MouseEvent) => {

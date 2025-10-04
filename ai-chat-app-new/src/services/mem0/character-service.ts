@@ -15,6 +15,7 @@ import {
   Character,
   CharacterMemoryUpdate,
   RelationshipMilestone,
+  MemoryCard,
 } from "@/types";
 import { useAppStore } from "@/store";
 import { Mem0 } from "./core";
@@ -390,11 +391,39 @@ export class Mem0CharacterService implements IMem0CharacterService {
     };
     tokenUsage.total = tokenUsage.core + tokenUsage.relationship + tokenUsage.memories;
 
+    // Convert EnhancedMemoryCard[] to MemoryCard[] by adding required fields
+    const memoryCards: MemoryCard[] = relevantCards.map(card => ({
+      ...card,
+      embedding: card.embedding ? Array.from(card.embedding) : undefined,
+      source_message_ids: [],
+      original_message_ids: [],
+      category: 'other' as const,
+      auto_tags: [],
+      original_content: card.summary,
+      emotion_tags: [],
+      importance: {
+        score: card.character_relevance || 5.0,
+        factors: {
+          emotional_weight: card.relationship_impact || 5.0,
+          repetition_count: 0,
+          user_emphasis: 5.0,
+          ai_judgment: 5.0,
+        },
+      },
+      confidence: 0.8,
+      is_edited: false,
+      is_verified: card.auto_generated === false,
+      is_pinned: false,
+      is_hidden: false,
+      version: 1,
+      metadata: {},
+    }));
+
     return {
       core,
       relationship,
       memories,
-      relevant_cards: relevantCards,
+      relevant_cards: memoryCards,
       token_usage: tokenUsage,
     };
   }

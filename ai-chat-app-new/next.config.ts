@@ -231,6 +231,16 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // ✅ Safari対応: HTMLページのキャッシュ制御
+        source: "/:path((?!_next|api|static|favicon.ico).*)*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
     ];
   },
 
@@ -238,6 +248,11 @@ const nextConfig: NextConfig = {
   env: {
     PORT: process.env.PORT || "3000",
     ANALYZE: process.env.ANALYZE,
+    // ✅ ビルドIDを環境変数として公開（キャッシュバスティング用）
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ||
+                          process.env.RAILWAY_GIT_COMMIT_SHA ||
+                          Date.now().toString(),
+    NEXT_PUBLIC_BUILD_TIME: Date.now().toString(),
   },
 
   // 出力設定

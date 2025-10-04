@@ -30,7 +30,8 @@
     "golden-master:generate": "tsx tests/golden-master/generate-golden-master.ts",
     "golden-master:test": "jest tests/golden-master/compare-prompts.test.ts",
     "golden-master:full": "npm run golden-master:generate && npm run golden-master:test",
-    "validate:prompt-v2": "tsx scripts/validate-prompt-v2.ts"
+    "validate:prompt-v2": "tsx scripts/validate-prompt-v2.ts",
+    "validate:phase1": "tsx scripts/validate-phase1-simple.ts"
   },
   "dependencies": {
     "@composio/mcp": "^1.0.9",

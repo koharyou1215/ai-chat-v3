@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import ErrorBoundary from "@/components/utils/ErrorBoundary";
 import { StorageInitializer } from "@/components/utils/StorageInitializer";
 import HydrationFix from "@/components/utils/HydrationFix";
 
@@ -44,7 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full">
-      <body className={`${inter.className} text-white h-full`} suppressHydrationWarning>
+      <body className={`${inter.className} h-full`} suppressHydrationWarning>
         <HydrationFix />
         <ErrorBoundary>
           <StorageInitializer />

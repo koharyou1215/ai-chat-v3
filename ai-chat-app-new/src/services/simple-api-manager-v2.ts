@@ -551,11 +551,11 @@ export class SimpleAPIManagerV2 {
       {
         provider: "OpenRouter",
         models: [
-          { id: "anthropic/claude-opus-4", name: "Claude Opus 4" },
+          { id: "anthropic/claude-opus-4.1", name: "Claude Opus 4" },
           { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
           { id: "openai/gpt-4", name: "GPT-4" },
           { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-          { id: "x-ai/grok-4-fast:free", name: "grok-4-fast:free" },
+          { id: "x-ai/grok-4-fast", name: "grok-4-fast" },
           { id: "deepseek/deepseek-v3.2-exp", name: "DeepSeek V3.2 Experimental" },
           { id: "meta-llama/llama-3.1-405b", name: "Llama 3.1 405B" },
           { id: "qwen/qwen3-next-80b-a3b-thinking", name: "Qwen3 Next 80B Thinking" },

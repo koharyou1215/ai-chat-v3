@@ -90,6 +90,11 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
             const response = await fetch('/api/upload/image', {
                 method: 'POST',
                 body: uploadFormData,
+                // ✅ Safari対応: キャッシュ無効化ヘッダー追加
+                cache: 'no-store' as RequestCache,
+                headers: {
+                    'Pragma': 'no-cache',
+                },
             });
 
             console.log('Response received:', { 

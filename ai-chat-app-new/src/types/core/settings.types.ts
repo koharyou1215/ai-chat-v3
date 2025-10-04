@@ -10,7 +10,6 @@ export interface SystemPrompts {
 }
 
 export interface ChatSettings {
-  bubbleTransparency: number;
   bubbleBlur: boolean;
   responseFormat: ChatResponseFormat;
   memoryCapacity: number;
@@ -173,3 +172,58 @@ export const getProgressiveModeWithDefaults = (
     intelligence: 2000,
   },
 });
+
+// Effect Settings for Settings Modal
+export interface EffectSettings {
+  colorfulBubbles: boolean;
+  fontEffects: boolean;
+  particleEffects: boolean;
+  typewriterEffect: boolean;
+  colorfulBubblesIntensity: number;
+  fontEffectsIntensity: number;
+  particleEffectsIntensity: number;
+  typewriterIntensity: number;
+  bubbleOpacity: number;
+  bubbleBlur: boolean;
+
+  // 🎯 Phase 2.1: New nested 3D structure
+  threeDEffects?: {
+    enabled: boolean;
+    hologram: { enabled: boolean; intensity: number };
+    particleText: { enabled: boolean; intensity: number };
+    ripple: { enabled: boolean; intensity: number };
+    backgroundParticles: { enabled: boolean; intensity: number };
+    depth: { enabled: boolean };
+    quality: 'low' | 'medium' | 'high';
+  };
+
+  // 🔄 Phase 2.1: Deprecated flat 3D fields (for backward compatibility)
+  hologramMessages?: boolean;
+  particleText?: boolean;
+  rippleEffects?: boolean;
+  backgroundParticles?: boolean;
+  hologramIntensity?: number;
+  particleTextIntensity?: number;
+  rippleIntensity?: number;
+  backgroundParticlesIntensity?: number;
+
+  progressiveResponse?: boolean;
+  progressiveResponseSpeed?: number;
+  shadowEffects?: boolean;
+  shadowEffectsIntensity?: number;
+  glowEffects?: boolean;
+  glowEffectsIntensity?: number;
+  neonText?: boolean;
+  neonTextIntensity?: number;
+  enableEmotionDisplay?: boolean;
+  enableEmotionParticles?: boolean;
+  emotionDisplayIntensity?: number;
+  emotionParticlesIntensity?: number;
+  backgroundDim?: boolean;
+  backgroundDimIntensity?: number;
+  backgroundImage?: string | null;
+  backgroundImageOpacity?: number;
+  backgroundImageBlur?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+}

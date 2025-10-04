@@ -23,7 +23,7 @@ import {
 import { UISlice, createUISlice } from "./slices/ui.slice";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { StateCreator } from "zustand";
-import { StorageCleaner } from "@/utils/storage-cleaner";
+import { StorageManager } from "@/utils/storage";
 // Model migration removed - no auto-conversion
 
 export type AppStore = ChatSlice &
@@ -167,7 +167,8 @@ const createStore = () => {
                 const sizeInMB = sizeInBytes / (1024 * 1024);
 
                 if (sizeInMB > 2) {
-                  // 2MB制限でより安全に
+                  // Run storage cleanup before saving
+                  StorageManager.cleanupLocalStorage();
 
                   // 古いセッションデータをクリーンアップ
                   try {
@@ -319,27 +320,19 @@ const createStore = () => {
                     "🚨 LocalStorage quota exceeded! Attempting emergency cleanup..."
                   );
 
-                  // StorageCleanerを使用して効率的なクリーンアップ
+                  // StorageManagerを使用して効率的なクリーンアップ
                   try {
-                    StorageCleaner.cleanupLocalStorage();
+                    StorageManager.cleanupLocalStorage();
 
                     // 再試行
                     window.localStorage.setItem(name, value);
                   } catch (retryError) {
-                    console.error(
-                      "❌ Emergency cleanup failed, trying more aggressive cleanup:",
-                      retryError
-                    );
-
                     // より激しいクリーンアップ
                     try {
-                      StorageCleaner.emergencyReset();
+                      StorageManager.emergencyReset();
                       window.localStorage.setItem(name, value);
                     } catch (finalError) {
-                      console.error(
-                        "❌ All cleanup attempts failed:",
-                        finalError
-                      );
+                      // All cleanup attempts failed
                     }
                   }
                 } else {
@@ -597,3 +590,8 @@ try {
 }
 
 export { useAppStore };
+
+// 🧪 E2Eテスト用: ブラウザコンソール/Playwrightからアクセス可能にする
+if (typeof window !== 'undefined') {
+  (window as any).useAppStore = useAppStore;
+}

@@ -150,12 +150,33 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     // 背景設定を適用 - bodyにdata属性も設定
     const body = document.body;
 
-    // 背景設定を適用（キャラクター背景は優先しない）
-    if (
-      appearanceSettings.backgroundType === "image" &&
-      appearanceSettings.backgroundImage
-    ) {
-      // 外観設定の画像背景を適用
+    // 背景優先度: キャラクター個別背景 > 外観設定のURL背景 > その他の背景タイプ
+    if (currentCharacter?.background_url) {
+      // キャラクター個別背景を最優先で適用
+      root.style.setProperty(
+        "--background",
+        `url(${currentCharacter.background_url})`
+      );
+      root.style.setProperty(
+        "--background-blur",
+        `${appearanceSettings.backgroundBlur}px`
+      );
+      root.style.setProperty(
+        "--background-opacity",
+        `${appearanceSettings.backgroundOpacity}`
+      );
+      root.setAttribute("data-background-type", "character-image");
+      // 背景ぼかしの有効/無効をHTML属性に反映
+      if (appearanceSettings.backgroundBlurEnabled === false) {
+        root.setAttribute("data-background-blur", "disabled");
+      } else {
+        root.setAttribute("data-background-blur", "enabled");
+      }
+      // body要素の背景をクリア
+      body.style.setProperty("background", "transparent", "important");
+    } else if (appearanceSettings.backgroundImage && appearanceSettings.backgroundImage.trim() !== "") {
+      // キャラクター背景がない場合、外観設定のURL背景をデフォルトとして適用
+      // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
       root.style.setProperty(
         "--background",
         `url(${appearanceSettings.backgroundImage})`
@@ -283,7 +304,8 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
         }
         
         /* 画像背景の場合は固定レイヤーとして適用 */
-        html[data-background-type="image"]::before {
+        html[data-background-type="image"]::before,
+        html[data-background-type="character-image"]::before {
           content: '';
           position: fixed;
           top: 0;
@@ -297,22 +319,12 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
           z-index: -1;
           pointer-events: none;
         }
-        
-        /* 単色背景の場合 */
-        html[data-background-type="solid"] {
-          background: var(--background) !important;
-          min-height: 100vh !important;
-        }
-        
-        /* グラデーション背景の場合 */
+
+        /* 単色・グラデーション背景の場合はhtml要素に直接適用 */
+        html[data-background-type="solid"],
         html[data-background-type="gradient"] {
           background: var(--background) !important;
           min-height: 100vh !important;
-        }
-        
-        /* 背景画像のオーバーレイ効果を削除 */
-        html[data-background-type="image"]::before {
-          display: none !important;
         }
         
         /* チャット領域のスタイル適用 */

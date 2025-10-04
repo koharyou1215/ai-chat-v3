@@ -19,7 +19,7 @@ import { GroupChatMode as _GroupChatMode } from "@/types/core/group-chat.types";
 import { VoiceCallInterface } from "../voice/VoiceCallInterface";
 import { VoiceCallModal } from "../voice/VoiceCallModal";
 import { useTranslation, commonTexts } from "@/hooks/useLanguage";
-import { ClientOnlyProvider } from "../ClientOnlyProvider";
+import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { QuickSettingsPanel } from "../settings/QuickSettingsPanel";
 
 // モデル名を短縮表示する関数
@@ -93,6 +93,7 @@ const ChatHeaderContent: React.FC = () => {
     active_group_session_id,
     groupSessions,
     appearanceSettings, // 追加
+    startEditingCharacter, // キャラクター編集用
   } = useAppStore();
 
   const session = getActiveSession();
@@ -264,7 +265,9 @@ const ChatHeaderContent: React.FC = () => {
             className="flex items-center gap-1 cursor-pointer relative z-10 min-w-0 flex-shrink"
             onClick={() => {
               console.log("Character info clicked!");
-              setShowCharacterGallery(true);
+              if (character) {
+                startEditingCharacter(character);
+              }
             }}
             style={{ pointerEvents: "auto" }}>
             <div className="w-6 h-6 md:w-7 md:h-7 rounded-full overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">

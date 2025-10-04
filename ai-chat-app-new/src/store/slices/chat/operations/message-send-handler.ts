@@ -55,8 +55,9 @@ const getEmotionEmoji = (emotion: string): string => {
 
 /**
  * TrackerManager を安全に取得
+ * Exported for use by other handlers (e.g., chat-progressive-handler)
  */
-const getTrackerManagerSafely = (
+export const getTrackerManagerSafely = (
   trackerManagers: any,
   key: string
 ): TrackerManager | undefined => {

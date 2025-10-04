@@ -180,7 +180,7 @@ ${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
 <recent_conversation>
 ${conversationHistoryArray
   .map(
-    (msg) =>
+    (msg: { role: string; content: string }) =>
       `${msg.role === "user" ? userName : charName}: ${msg.content.slice(
         0,
         150

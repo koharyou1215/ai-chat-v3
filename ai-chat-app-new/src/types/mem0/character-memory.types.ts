@@ -2,6 +2,7 @@
 // 2025-09-20: Advanced character memory management system
 
 import { Character, TrackerDefinition, UnifiedMessage, UUID } from "@/types";
+import { MemoryCard } from "@/types/core/memory.types";
 
 // ===== Core Character Types (不変の芯) =====
 
@@ -98,7 +99,7 @@ export interface CharacterMemory {
   shared_experiences: {
     events: MemoryEvent[];
     conversations: ConversationSummary[];
-    promises: Promise[];
+    promises: CharacterPromise[];
   };
 
   // Context Understanding
@@ -133,9 +134,9 @@ export interface ConversationSummary {
 }
 
 /**
- * 約束・予定
+ * キャラクターの約束・予定
  */
-export interface Promise {
+export interface CharacterPromise {
   id: string;
   content: string;
   made_at: string;

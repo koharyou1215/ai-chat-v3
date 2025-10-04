@@ -23,14 +23,29 @@ export function useEffectSettings() {
       typewriterIntensity: 70,
       bubbleOpacity: 85,
       bubbleBlur: true,
-      hologramMessages: false,
-      particleText: false,
-      rippleEffects: false,
-      backgroundParticles: false,
-      hologramIntensity: 40,
-      particleTextIntensity: 35,
-      rippleIntensity: 60,
-      backgroundParticlesIntensity: 25,
+      threeDEffects: {
+        enabled: true,
+        hologram: {
+          enabled: false,
+          intensity: 40,
+        },
+        particleText: {
+          enabled: false,
+          intensity: 35,
+        },
+        ripple: {
+          enabled: false,
+          intensity: 60,
+        },
+        backgroundParticles: {
+          enabled: false,
+          intensity: 25,
+        },
+        depth: {
+          enabled: true,
+        },
+        quality: 'medium',
+      },
       realtimeEmotion: false,
       emotionBasedStyling: false,
       autoReactions: false,
@@ -39,11 +54,9 @@ export function useEffectSettings() {
       showTrackers: true,
       effectQuality: 'medium',
       animationSpeed: 1.0,
-      enable3DEffects: true,
       webglEnabled: true,
       adaptivePerformance: true,
       maxParticles: 2000,
-      depthEffects: true,
       textFormatting: 'readable',
     });
   };

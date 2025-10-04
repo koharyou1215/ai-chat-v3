@@ -799,12 +799,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               {
                 // CSS custom properties for dynamic transparency and blur
                 "--user-bubble-opacity": isUser
-                  ? (chatSettings.bubbleTransparency || 20) / 100
+                  ? (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
                 "--character-bubble-opacity": !isUser
                   ? effects.colorfulBubbles
-                    ? (effectSettings.bubbleOpacity || 25) / 100
-                    : (chatSettings.bubbleTransparency || 20) / 100
+                    ? (effectSettings.bubbleOpacity || 85) / 100
+                    : (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
                 "--user-bubble-blur": chatSettings.bubbleBlur
                   ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
@@ -997,21 +997,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         />
                         {isGeneratingImage ? "画像生成中..." : "画像を生成"}
                       </DropdownMenuItem>
-                      {voice.autoPlay && (
-                        <DropdownMenuItem
-                          onClick={handleSpeak}
-                          disabled={
-                            !message.content || !message.content.trim()
-                          }>
-                          <Volume2
-                            className={cn(
-                              "h-4 w-4 mr-2",
-                              isSpeaking && "animate-pulse text-blue-500"
-                            )}
-                          />
-                          {isSpeaking ? "読み上げ中..." : "読み上げ"}
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem
+                        onClick={handleSpeak}
+                        disabled={
+                          !message.content || !message.content.trim()
+                        }>
+                        <Volume2
+                          className={cn(
+                            "h-4 w-4 mr-2",
+                            isSpeaking && "animate-pulse text-blue-500"
+                          )}
+                        />
+                        {isSpeaking ? "読み上げ中..." : "読み上げ"}
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleDelete}
                         className="text-red-600">

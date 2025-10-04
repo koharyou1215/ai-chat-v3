@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType } from '@/types';
+import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType, EmotionTag } from '@/types';
 import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
 import { generateMemoryId } from '@/utils/uuid';
 import { sessionStorageService } from '@/services/session-storage.service';
@@ -11,6 +11,9 @@ export interface MemorySlice {
   current_session_id: UUID | null;
   pinned_memories: MemoryCard[];
 
+  // 後方互換性のためのプロパティ（現在のセッションのメモリーカードを参照）
+  memory_cards: Map<UUID, MemoryCard>;
+
   // セッション管理
   setCurrentSessionId: (session_id: UUID) => void;
   getCurrentSessionMemoryCards: () => Map<UUID, MemoryCard>;
@@ -20,7 +23,8 @@ export interface MemorySlice {
   createMemoryCard: (
     message_ids: UUID[],
     session_id: UUID,
-    character_id?: UUID
+    character_id?: UUID,
+    emotion_tags?: EmotionTag[]
   ) => Promise<MemoryCard | null>;
   updateMemoryCard: (id: UUID, updates: Partial<MemoryCard>) => void;
   deleteMemoryCard: (id: UUID) => void;
@@ -120,10 +124,18 @@ export const createMemorySlice: StateCreator<
     memory_layers_by_session: new Map(),
     current_session_id: null,
     pinned_memories: [],
+    memory_cards: new Map(), // 後方互換性のため初期化
 
     // セッション管理
     setCurrentSessionId: (session_id: UUID) => {
-      set((state) => ({ ...state, current_session_id: session_id }));
+      set((state) => {
+        const newMemoryCards = state.memory_cards_by_session.get(session_id) || new Map();
+        return {
+          ...state,
+          current_session_id: session_id,
+          memory_cards: newMemoryCards // 現在のセッションのメモリーカードに更新
+        };
+      });
     },
 
     getCurrentSessionMemoryCards: () => {
@@ -220,7 +232,7 @@ export const createMemorySlice: StateCreator<
             score: (generatedContent as { importance_score?: number }).importance_score || 5.0,
             factors: {
               emotional_weight: emotion_tags && emotion_tags.length > 0
-                ? emotion_tags.reduce((sum, tag) => sum + tag.intensity, 0) / emotion_tags.length * 10
+                ? emotion_tags.reduce((sum: number, tag: { emotion: string; intensity: number }) => sum + tag.intensity, 0) / emotion_tags.length * 10
                 : 5.0,
               repetition_count: 1,
               user_emphasis: 5.0,

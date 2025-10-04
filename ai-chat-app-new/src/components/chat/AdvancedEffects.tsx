@@ -114,7 +114,15 @@ class Particle {
     // Create gradient for 3D effect
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, scaledSize);
     gradient.addColorStop(0, this.color);
-    gradient.addColorStop(0.7, this.color.replace("1)", "0.6)"));
+
+    // Parse rgba color and reconstruct with correct alpha value
+    const rgbaMatch = this.color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)?/);
+    let colorWithAlpha = this.color;
+    if (rgbaMatch) {
+      const [, r, g, b] = rgbaMatch;
+      colorWithAlpha = `rgba(${r}, ${g}, ${b}, 0.6)`;
+    }
+    gradient.addColorStop(0.7, colorWithAlpha);
     gradient.addColorStop(1, "transparent");
 
     ctx.fillStyle = gradient;
@@ -163,8 +171,8 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
   useEffect(() => {
     // Early return if conditions not met
     if (
-      !settings.hologramMessages ||
-      !settings.enable3DEffects ||
+      !settings.threeDEffects?.hologram.enabled ||
+      !settings.threeDEffects?.enabled ||
       (settings.effectQuality === "low" && performanceLevel === "low") ||
       (!settings.webglEnabled &&
         !webglSupported &&
@@ -290,11 +298,11 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
     };
   }, [
     text,
-    settings.hologramMessages,
+    settings.threeDEffects?.hologram.enabled,
     settings.animationSpeed,
     settings.effectQuality,
     performanceLevel,
-    settings.enable3DEffects,
+    settings.threeDEffects?.enabled,
     settings.webglEnabled,
     settings.adaptivePerformance,
     settings.maxParticles,
@@ -303,8 +311,8 @@ export const HologramMessage: React.FC<{ text: string }> = ({ text }) => {
 
   // 3D機能が無効または低パフォーマンス環境の場合は軽量版を表示
   if (
-    !settings.hologramMessages ||
-    !settings.enable3DEffects ||
+    !settings.threeDEffects?.hologram.enabled ||
+    !settings.threeDEffects?.enabled ||
     (settings.effectQuality === "low" && performanceLevel === "low") ||
     (!settings.webglEnabled && !webglSupported && settings.adaptivePerformance)
   ) {
@@ -418,7 +426,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
           const b = imageData.data[index + 2];
           // Enhanced 3D coloring with depth variation
           const should3DEffects =
-            settings.enable3DEffects &&
+            settings.threeDEffects?.enabled &&
             (settings.webglEnabled ||
               detectWebGLSupport() ||
               !settings.adaptivePerformance);
@@ -450,14 +458,14 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
 
       // Add background depth effect
       const should3DEffects =
-        settings.enable3DEffects &&
+        settings.threeDEffects?.enabled &&
         (settings.webglEnabled ||
           detectWebGLSupport() ||
           !settings.adaptivePerformance);
       if (
         settings.effectQuality !== "low" &&
         should3DEffects &&
-        settings.depthEffects
+        settings.threeDEffects?.depth.enabled
       ) {
         const gradient = ctx.createRadialGradient(
           rect.width / 2,
@@ -492,11 +500,11 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     text,
     settings.particleEffects,
     settings.animationSpeed,
-    settings.enable3DEffects,
+    settings.threeDEffects?.enabled,
     settings.webglEnabled,
     settings.adaptivePerformance,
     settings.maxParticles,
-    settings.depthEffects,
+    settings.threeDEffects?.depth.enabled,
     settings.effectQuality,
   ]);
 
@@ -514,14 +522,14 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   const shouldRenderHighQuality =
     settings.effectQuality === "high" &&
     performanceLevel !== "low" &&
-    settings.enable3DEffects;
+    settings.threeDEffects?.enabled;
   const should3DEffects =
-    settings.enable3DEffects &&
+    settings.threeDEffects?.enabled &&
     (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
 
   if (
     !settings.particleEffects ||
-    (!settings.enable3DEffects && settings.adaptivePerformance)
+    (!settings.threeDEffects?.enabled && settings.adaptivePerformance)
   )
     return null;
 
@@ -566,7 +574,7 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
   const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
 
   const handleClick = (e: React.MouseEvent) => {
-    if (!settings.rippleEffects) return;
+    if (!settings.threeDEffects?.ripple.enabled) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -595,7 +603,7 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
   return (
     <div className="relative overflow-hidden" onClick={handleClick}>
       {children}
-      {settings.rippleEffects && (
+      {settings.threeDEffects?.ripple.enabled && (
         <AnimatePresence>
           {ripples.map((ripple) => (
             <motion.div
@@ -639,9 +647,9 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
  */
 export const BackgroundParticles: React.FC = () => {
   const { settings } = useEffectSettings();
-  if (!settings.backgroundParticles) return null;
+  if (!settings.threeDEffects?.backgroundParticles.enabled) return null;
 
-  const particleIntensity = settings.backgroundParticlesIntensity || 25;
+  const particleIntensity = settings.threeDEffects?.backgroundParticles.intensity || 25;
   const opacity = Math.min(particleIntensity / 100, 0.6); // Cap at 60% opacity
 
   return (
@@ -790,14 +798,14 @@ export const AdvancedEffects: React.FC<{ text: string }> = ({ text }) => {
         )}
 
         {/* ホログラムエフェクト */}
-        {settings.hologramMessages && (
+        {settings.threeDEffects?.hologram.enabled && (
           <div className="absolute inset-0 pointer-events-none">
             <HologramMessage text={text} />
           </div>
         )}
 
         {/* パーティクルテキストエフェクト */}
-        {settings.particleText && (
+        {settings.threeDEffects?.particleText.enabled && (
           <div className="absolute inset-0 pointer-events-none">
             <ParticleText text={text} trigger={true} />
           </div>
