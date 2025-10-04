@@ -21,6 +21,7 @@ import {
   replaceVariables,
   replaceVariablesInCharacter,
 } from "@/utils/variable-replacer";
+import { generatePromptRefactored } from "./conversation-manager/integration";
 
 /**
  * 統合会話管理システム
@@ -739,6 +740,41 @@ export class ConversationManager {
     );
 
     return prompt;
+  }
+
+  /**
+   * プロンプトの生成 (リファクタリング版)
+   *
+   * 🔒 Phase 1: Section-based implementation
+   * Strategy: Character-by-character exact copy via modular sections
+   * Purpose: Parallel validation of refactored prompt generation
+   *
+   * @param userInput ユーザー入力
+   * @param character キャラクター情報
+   * @param persona ペルソナ情報
+   * @param systemSettings システム設定
+   * @returns 生成されたプロンプト
+   */
+  async generatePromptV2(
+    userInput: string,
+    character?: Character,
+    persona?: Persona,
+    systemSettings?: {
+      systemPrompts: {
+        system?: string;
+        jailbreak?: string;
+      };
+      enableSystemPrompt: boolean;
+      enableJailbreakPrompt: boolean;
+    }
+  ): Promise<string> {
+    return generatePromptRefactored.call(
+      this,
+      userInput,
+      character,
+      persona,
+      systemSettings
+    );
   }
 
   /**
