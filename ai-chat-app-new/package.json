@@ -8,9 +8,10 @@
   },
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "npm run type-check && next build",
     "start": "next start",
     "lint": "next lint",
+    "prepare": "husky install",
     "analyze": "ANALYZE=true npm run build",
     "analyze:server": "ANALYZE=true npm run build && echo 'Bundle analyzer available at http://localhost:8888'",
     "analyze:prod": "cross-env NODE_ENV=production ANALYZE=true npm run build && echo 'Production bundle analysis saved to bundle-analysis/'",
@@ -25,7 +26,10 @@
     "clean": "rimraf .next out node_modules/.cache bundle-analysis",
     "clean:build": "npm run clean && npm run build",
     "preanalyze:prod": "if not exist bundle-analysis mkdir bundle-analysis",
-    "postanalyze:prod": "node scripts/post-analysis.js"
+    "postanalyze:prod": "node scripts/post-analysis.js",
+    "golden-master:generate": "tsx tests/golden-master/generate-golden-master.ts",
+    "golden-master:test": "jest tests/golden-master/compare-prompts.test.ts",
+    "golden-master:full": "npm run golden-master:generate && npm run golden-master:test"
   },
   "dependencies": {
     "@composio/mcp": "^1.0.9",
@@ -76,6 +80,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.1.3",
+    "husky": "^9.1.7",
     "postcss": "^8",
     "rimraf": "^5.0.10",
     "tailwindcss": "^3.4.1",
