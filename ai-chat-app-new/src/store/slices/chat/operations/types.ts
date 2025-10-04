@@ -11,4 +11,9 @@ export interface MessageLifecycleOperations {
   resetGeneratingState: () => void;
 }
 
+export interface MessageContinuationHandler {
+  continueLastMessage: () => Promise<void>;
+}
+
 export type MessageLifecycleSlice = MessageLifecycleOperations;
+export type MessageContinuationSlice = MessageContinuationHandler;
