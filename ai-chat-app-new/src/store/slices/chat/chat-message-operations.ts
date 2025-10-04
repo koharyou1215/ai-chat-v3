@@ -19,6 +19,8 @@ import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
 import { createMessageLifecycleOperations } from "./operations/message-lifecycle-operations";
 import { createMessageContinuationHandler } from "./operations/message-continuation-handler";
 import { createMessageRegenerationHandler } from "./operations/message-regeneration-handler";
+import { createMessageSendHandler } from "./operations/message-send-handler";
+import { PHASE3_FEATURE_FLAGS } from "@/config/phase3-feature-flags";
 
 // 🧠 感情から絵文字への変換ヘルパー
 export const getEmotionEmoji = (emotion: string): string => {
@@ -66,17 +68,12 @@ export const createMessageOperations: StateCreator<
   [],
   [],
   MessageOperations
-> = (set, get, api) => ({
-  // 🆕 Phase 3.1: Lifecycle operations (addMessage, deleteMessage, rollbackSession, resetGeneratingState)
-  ...createMessageLifecycleOperations(set, get, api),
+> = (set, get, api) => {
+  // 🆕 Phase 3.4: New send handler
+  const newSendHandler = createMessageSendHandler(set, get, api);
 
-  // 🆕 Phase 3.2: Continuation handler (continueLastMessage)
-  ...createMessageContinuationHandler(set, get, api),
-
-  // 🆕 Phase 3.3: Regeneration handler (regenerateLastMessage)
-  ...createMessageRegenerationHandler(set, get, api),
-
-  sendMessage: async (content, imageUrl) => {
+  // 既存の sendMessage 実装（レガシー）
+  const legacySendMessage = async (content: string, imageUrl?: string) => {
     debugLog("🚀 [sendMessage] Method called (to file)", {
       content: content?.substring(0, 50) + "...",
       imageUrl: !!imageUrl,
@@ -744,14 +741,33 @@ export const createMessageOperations: StateCreator<
         set({ is_generating: false });
       }
     })();
-  },
+  };
 
-  // ❌ REMOVED: regenerateLastMessage
-  // → Moved to operations/message-regeneration-handler.ts (Phase 3.3)
+  return {
+    // 🆕 Phase 3.1: Lifecycle operations
+    ...createMessageLifecycleOperations(set, get, api),
 
-  // ❌ REMOVED: continueLastMessage
-  // → Moved to operations/message-continuation-handler.ts (Phase 3.2)
+    // 🆕 Phase 3.2: Continuation handler
+    ...createMessageContinuationHandler(set, get, api),
 
-  // ❌ REMOVED: deleteMessage, rollbackSession, resetGeneratingState, addMessage
-  // → Moved to operations/message-lifecycle-operations.ts (Phase 3.1)
-});
+    // 🆕 Phase 3.3: Regeneration handler
+    ...createMessageRegenerationHandler(set, get, api),
+
+    // 🆕 Phase 3.4: Send message with Feature Flag
+    sendMessage: async (content, imageUrl) => {
+      if (PHASE3_FEATURE_FLAGS.USE_NEW_SEND_HANDLER) {
+        // 新実装を使用
+        console.log("✨ [Phase 3.4] Using NEW send handler");
+        const result = await newSendHandler.sendMessage(content, imageUrl);
+        if (!result.success) {
+          console.error("❌ [Phase 3.4] New handler failed:", result.error);
+        }
+        return;
+      } else {
+        // 既存実装を使用
+        console.log("📦 [Phase 3.4] Using LEGACY send handler");
+        return await legacySendMessage(content, imageUrl);
+      }
+    },
+  };
+};
