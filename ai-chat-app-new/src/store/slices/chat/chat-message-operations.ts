@@ -9,6 +9,11 @@ import { SoloEmotionAnalyzer } from "@/services/emotion/SoloEmotionAnalyzer";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { ChatErrorHandler } from "@/services/chat/error-handler.service";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
+import { updateSessionSafely } from "@/utils/chat/session-update-helper";
+import {
+  ingestMessageToMem0Safely,
+  ingestConversationPairToMem0,
+} from "@/utils/chat/mem0-integration-helper";
 import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
 
@@ -161,14 +166,8 @@ export const createMessageOperations: StateCreator<
       ),
     }));
 
-    // 🧠 Mem0にメッセージを取り込む
-    try {
-      const { Mem0 } = require("@/services/mem0/core");
-      await Mem0.ingestMessage(userMessage);
-      console.log("✅ [sendMessage] User message ingested to Mem0");
-    } catch (error) {
-      console.warn("⚠️ [sendMessage] Failed to ingest user message to Mem0:", error);
-    }
+    // 🧠 Mem0にメッセージを取り込む（共通ヘルパー使用）
+    await ingestMessageToMem0Safely(userMessage, "sendMessage");
 
     // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
     const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
@@ -558,22 +557,13 @@ export const createMessageOperations: StateCreator<
           ),
         }));
 
-        // 🧠 Mem0にAIレスポンスを取り込む
-        try {
-          const { Mem0 } = require("@/services/mem0/core");
-          await Mem0.ingestMessage(aiResponse);
-          console.log("✅ [sendMessage] AI response ingested to Mem0");
-
-          // キャラクター進化を実行（関係性の更新）
-          if (characterId) {
-            const { Mem0Character } = require("@/services/mem0/character-service");
-            // 最近の会話（ユーザーメッセージとAIレスポンス）を渡して進化
-            await Mem0Character.evolveCharacter(characterId, [userMessage, aiResponse]);
-            console.log("✅ [sendMessage] Character evolution completed");
-          }
-        } catch (error) {
-          console.warn("⚠️ [sendMessage] Failed to ingest AI response to Mem0:", error);
-        }
+        // 🧠 Mem0にAIレスポンスを取り込む + キャラクター進化（共通ヘルパー使用）
+        await ingestConversationPairToMem0(
+          userMessage,
+          aiResponse,
+          characterId,
+          "sendMessage"
+        );
 
         // トラッカーの自動更新を実行
         if (trackerManager && characterId) {
@@ -1216,29 +1206,16 @@ export const createMessageOperations: StateCreator<
       return;
     }
 
-    // メッセージを追加
-    const updatedSession: UnifiedChatSession = {
-      ...session,
-      messages: [...session.messages, message],
-      updated_at: new Date().toISOString(),
-    };
+    // セッションを更新（共通ヘルパー使用）
+    set({
+      sessions: updateSessionSafely(get().sessions, activeSessionId, {
+        addMessage: message,
+        updateTimestamp: true,
+      }),
+    });
 
-    // セッションを更新
-    set((state) => ({
-      sessions: createMapSafely(state.sessions).set(
-        activeSessionId,
-        updatedSession
-      ),
-    }));
-
-    // 🧠 Mem0にメッセージを取り込む
-    try {
-      const { Mem0 } = require("@/services/mem0/core");
-      await Mem0.ingestMessage(message);
-      console.log("✅ [addMessage] Message ingested to Mem0:", message.id);
-    } catch (error) {
-      console.warn("⚠️ [addMessage] Failed to ingest message to Mem0:", error);
-    }
+    // 🧠 Mem0にメッセージを取り込む（共通ヘルパー使用）
+    await ingestMessageToMem0Safely(message, "addMessage");
 
     console.log("✅ Message added to session:", message.id);
   },
