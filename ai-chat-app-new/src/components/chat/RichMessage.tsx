@@ -279,7 +279,7 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
     };
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         {/* Main content */}
         <div className="text-white/90 leading-relaxed" style={fontEffectStyles}>
           {contentAnalysis.shouldUseMarkdown ? (

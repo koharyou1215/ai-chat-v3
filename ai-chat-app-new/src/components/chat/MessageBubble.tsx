@@ -164,7 +164,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   );
 
   const emotionAnalysisEnabled = useAppStore(
-    (state) => state.emotionalIntelligenceFlags.emotion_analysis_enabled
+    (state) => state.unifiedSettings.emotionalIntelligence.enabled &&
+               state.unifiedSettings.emotionalIntelligence.analysis.basic
   );
 
   // マージンと要素選択のキャッシュ
@@ -727,7 +728,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         exit={{ scale: 0.95, opacity: 0 }}
         transition={bubbleTransition}
         className={cn(
-          "group relative flex items-start gap-3 mb-4 max-w-[85%] md:max-w-[75%]",
+          "group relative flex items-start gap-3 mb-2 max-w-[85%] md:max-w-[75%]",
           isUser ? "ml-auto flex-row-reverse" : "mr-auto",
           "overflow-visible" // メニューがはみ出すことを許可
         )}
@@ -777,18 +778,18 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           <div
             ref={menuRef}
             className={cn(
-              "relative px-4 py-3 rounded-2xl shadow-lg transition-all duration-200",
+              "relative px-4 pt-3 pb-1.5 rounded-2xl shadow-lg transition-all duration-200",
               // User messages: Dynamic transparency with backdrop blur
               isUser
-                ? chatSettings.bubbleBlur
+                ? effectSettings.bubbleBlur
                   ? "message-bubble-user-transparent"
                   : "bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/40 shadow-blue-500/20"
                 : // Character messages: Purple theme with effects consideration
                 effects.colorfulBubbles
-                ? chatSettings.bubbleBlur
+                ? effectSettings.bubbleBlur
                   ? "message-bubble-character-transparent"
                   : "bg-gradient-to-br from-purple-500/25 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
-                : chatSettings.bubbleBlur
+                : effectSettings.bubbleBlur
                 ? "message-bubble-character-transparent"
                 : "bg-gradient-to-br from-purple-600/90 to-purple-700/90 text-white border border-purple-400/40 shadow-purple-500/20",
               "hover:shadow-xl group-hover:scale-[1.02]",
@@ -806,15 +807,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     ? (effectSettings.bubbleOpacity || 85) / 100
                     : (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
-                "--user-bubble-blur": chatSettings.bubbleBlur
+                "--user-bubble-blur": effectSettings.bubbleBlur
                   ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
                   : "none",
-                "--character-bubble-blur": chatSettings.bubbleBlur
+                "--character-bubble-blur": effectSettings.bubbleBlur
                   ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
                   : "none",
                 // Additional background for colorful bubbles effect
                 ...(effects.colorfulBubbles &&
-                  !chatSettings.bubbleBlur && {
+                  !effectSettings.bubbleBlur && {
                     backgroundColor: `rgba(147, 51, 234, ${
                       effectSettings.bubbleOpacity
                         ? effectSettings.bubbleOpacity / 100
@@ -848,7 +849,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             )}
 
             {/* ホログラムエフェクト（lazily loaded） */}
-            {isEffectEnabled("hologram") && isAssistant && (
+            {isEffectEnabled("hologram") && (
               <Suspense fallback={<EffectLoadingFallback />}>
                 <div className="mt-2">
                   <HologramMessage text={processedContent} />
@@ -1046,9 +1047,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {/* 感情リアクション（lazily loaded） */}
           {emotionResult && isEffectEnabled("autoReactions") && (
             <Suspense fallback={<EffectLoadingFallback />}>
-              <div className="mt-2">
-                <EmotionReactions emotion={emotionResult} />
-              </div>
+              <EmotionReactions emotion={emotionResult} />
             </Suspense>
           )}
         </div>
