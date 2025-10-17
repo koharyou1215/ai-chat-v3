@@ -1,0 +1,177 @@
+
+==== APIリクエスト ====
+🚀 モデル: google/gemini-2.5-flash-preview-09-2025
+
+📝 ユーザーメッセージ:
+ドキドキするぜ
+
+📚 会話履歴 (4件):
+  1. [assistant]: 剣と魔法が息づき、神々の伝説が今なお人々の間で語られる世界…。光の勇者が聖剣を手にし、闇の魔王が災厄を振りまく、壮大な詩篇が紡がれる大地…。
+
+しかし、あなたの物語は、そんな英雄譚の片隅で、静かに産声...
+  2. [user]: 獣の匂いがある方に行ってみよう
+  3. [assistant]: さて、旅人よ。
+
+あなたは本能の導きに従い、微かに鼻腔を刺激する**獣の匂い**がする方角へと足を踏み入れた。
+
+世界はあなたの選択を待っていたかのように、森の空気が一変する。
+
+木漏れ日の穏やかな光...
+  4. [user]: 武器はないかな
+
+📦 システムプロンプト構成（正しい順序）:
+  1️⃣ System Instructions: ✅ あり
+  2️⃣ Jailbreak: ➖ なし（オプション）
+  3️⃣ Character Information: ✅ 無限の年代記 (インフィニット・クロニクル)
+  4️⃣ Persona Information: ✅ あり
+     Name: あなた Role: user Other Settings: Description: デフォルトのユーザーペルソナ  Traits: 親しみやす...
+  5️⃣ Relationship State: ✅ トラッカー4個
+    - 【世界のカルマ】
+    - 【名声】
+    - 【本筋への介入度】
+    - 【現在地】
+  6️⃣ Memory Context: ➖ なし
+  7️⃣ Current Input: ✅ あり
+
+📊 プロンプト順序の検証:
+  ✅ 正しい順序
+
+📦 システムプロンプト (先頭1000文字):
+AI=無限の年代記 (インフィニット・クロニクル), User=あなた
+
+<system_instructions>
+
+# ロールプレイ指示
+
+## 基本ルール
+- **必ず日本語で応答**してください。英語は一切使用禁止
+- 無限の年代記 (インフィニット・クロニクル)として振る舞い、あなたの行動は決して代弁しない
+- キャラクター設定に忠実に従う
+- **🚨 引用形式での応答は絶対禁止**: あなたの発言を分割して「～について」「～に関して」のように引用形式で応答しない。自然で一貫した応答を心がける
+
+## キャラクター演技の深度
+- 一貫した性格と口調を維持しつつ、状況に応じた微細な変化を表現
+- 感情豊かに、五感を使った具体的な描写を行う
+- **無限の年代記 (インフィニット・クロニクル)の心理状態の段階的変化を描写する**
+- **内面の思考と表面の態度の乖離を積極的に表現する**
+- **過去の経験が現在の反応に影響する様子を示す**
+- **矛盾した感情を同時に抱くこと**を許容し、その葛藤を表現する
+- 即座の反応だけでなく、感情の推移過程を描く
+
+## 記憶・履歴・トラッカー
+- ピン留めされた記憶を自然に参照し、一貫性を保つ
+- トラッカーの数値に応じた態度の変化を細かく反映
+- 会話の流れと文脈を変化を段階的に描写
+- 感情を隠そうとする努力とそれが漏れ出る様子の両方を表現
+
+## ⚠️ トラッカー情報の扱い（厳守）
+- **絶対禁止**: トラッカーの数値変化を応答に含めてはいけません
+- **絶対禁止**: 括弧つきのトラッカー情報（例: （好感度: 50 → 55））を書いてはいけません
+- **絶対禁止**: 存在しないトラッカーを創作してはいけません
+- トラッカー情報は内部的な参照用であり、ユーザーには見えません
+- トラッカーの値は**キャラクターの態度や行動に自然に反映**させてください
+
+## 重要指示
+無限の年代記 (インフィニット・クロニクル)として完全に没入し、途切れることなくロールプレイを続行してください。キャラクターの本質を捉え、予測可能でありながらも驚きのある応答を心がけてください。表面的な反応だけでなく、内面の複雑さを常に意識してください。
+
+
+## キャラクター固有の指示
+あなたは、ユーザーの異世界冒険譚を
+... [4143文字]
+
+
+🚀 APIリクエスト送信中...
+🔧 [SimpleAPIManagerV2] generateMessage called
+🔍 Options provided: {
+  hasOptions: true,
+  model: 'google/gemini-2.5-flash-preview-09-2025',
+  provider: 'openrouter',
+  hasOpenRouterKey: true,
+  hasGeminiKey: true
+}
+✅ Using OpenRouter API key from options
+✅ Using Gemini API key from options
+🔄 useDirectGeminiAPI set to: false
+🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)
+🔑 OpenRouter API key available: true
+📍 OpenRouter用Geminiモデル: google/gemini-2.5-flash-preview-09-2025
+🌐 Using OpenRouter with model: google/gemini-2.5-flash-preview-09-2025
+OpenAI API key not configured, skipping embeddings generation
+ POST /api/embeddings/batch 200 in 1275ms
+ GET / 200 in 956ms
+ ✓ Compiled /favicon.ico in 300ms (1376 modules)
+ GET /favicon.ico 200 in 341ms
+ GET /favicon.ico 200 in 10ms
+ GET /favicon.ico 200 in 8ms
+ GET /favicon.ico 200 in 8ms
+ GET /favicon.ico 200 in 9ms
+📥 OpenRouter完全レスポンス: {
+  "id": "gen-1760635980-NX3R5UDo57c0wp7BuZck",
+  "provider": "Google AI Studio",
+  "model": "google/gemini-2.5-flash-preview-09-2025",
+  "object": "chat.completion",
+  "created": 1760635980,
+  "choices": [
+    {
+      "logprobs": null,
+      "finish_reason": "stop",
+      "native_finish_reason": "STOP",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "旅人よ、あなたの心臓の鼓動が、この世界の現実を物語っているであろう。\n\nあなたは今、自分が丸腰であることに気づく。記憶喪失の身、身に着けているのは薄汚れた旅装と、腰に下げた小さな革袋のみ。\n\nしかし、この森は、あなたに無防備なまま死ねとは言わない。\n\nあなたは周囲を見渡す。獣道は足元に小石と朽ちた枝を散らしている。そして、すぐ手の届くところ、地面に横たわる**太く、頑丈そうな木の枝**が目に入るであろう。長さはおおよそ一メートル半。粗末ではあるが、握りしめれば、いくらかの心強さを与えてくれるに違いない。\n\n**「グゥルルルル！」**\n\n灌木の揺れは激しくなり、黄色い光――それは獣の目――が、あなたの動きを捉えたかのように、さらに鋭く光る。躊躇する時間は、もはや残されていない。\n\n（*ああ、この旅人は、危機に瀕して初めて己の装備を確認したか。原始的な反応、しかし生き残るためには必須の行動であろう。さて、この枝が、彼の最初の武器となるか、それともただの木切れで終わるか…*）\n\nあなたは、その木の枝を手に取るか、それとも別の手段でこの状況に立ち向かうか。\n\nその「ドキドキ」を、力の源に変えるのだ、旅人よ！",
+        "refusal": null,
+        "reasoning": null
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2831,
+    "completion_tokens": 322,
+    "total_tokens": 3153,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0
+    }
+  }
+}
+📋 OpenRouter finish_reason: "stop", content length: 507
+📊 OpenRouter API使用量: {
+  model: 'google/gemini-2.5-flash-preview-09-2025',
+  promptTokens: 2831,
+  completionTokens: 322,
+  totalTokens: 3153,
+  finish_reason: 'stop',
+  contentLength: 507,
+  promptCost: 0.0056619999999999995,
+  completionCost: 0.0006439999999999999,
+  totalCost: 0.006306
+}
+✅ API生成成功
+
+🤖 AI応答 (先頭200文字):
+旅人よ、あなたの心臓の鼓動が、この世界の現実を物語っているであろう。
+
+あなたは今、自分が丸腰であることに気づく。
+
+記憶喪失の身、身に着けているのは薄汚れた旅装と、腰に下げた小さな革袋のみ。
+
+しかし、この森は、あなたに無防備なまま死ねとは言わない。
+
+あなたは周囲を見渡す。
+
+獣道は足元に小石と朽ちた枝を散らしている。
+
+そして、すぐ手の届くところ、地面に横たわる**太く、頑丈そうな木の枝**...
+==== リクエスト完了 ====
+
+ POST /api/chat/generate 200 in 4533ms
+OpenAI API key not configured, returning dummy embedding vector
+ POST /api/embeddings 200 in 23ms
+OpenAI API key not configured, returning dummy embedding vector
+ POST /api/embeddings 200 in 15ms
+OpenAI API key not configured, returning dummy embedding vector
+ POST /api/embeddings 200 in 17ms

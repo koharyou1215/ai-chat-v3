@@ -3,6 +3,7 @@
  * トラッカー値とメモリーカードがキャラクター定義ファイルに保存されないことを確認
  */
 
+import { describe, it, expect, beforeEach } from 'vitest';
 import { sessionStorageService } from '@/services/session-storage.service';
 import { generateSessionId, generateMemoryId, generateInstanceId } from '@/utils/uuid';
 import type { TrackerInstance, MemoryCard } from '@/types';

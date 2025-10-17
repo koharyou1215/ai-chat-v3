@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>詳細設定分析</title>
+  <style>
+    body { font-family: monospace; background: #0f0f23; color: #fff; padding: 20px; }
+    pre { background: #1e1e2e; padding: 15px; border-radius: 8px; overflow-x: auto; }
+    h1 { color: #8b5cf6; }
+    h2 { color: #ec4899; margin-top: 30px; }
+    .error { color: #ef4444; }
+    .success { color: #10b981; }
+    .warning { color: #f59e0b; }
+    button { background: #8b5cf6; color: #fff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>🔬 詳細設定分析</h1>
+  <button onclick="analyze()">分析開始</button>
+  <button onclick="fixSettings()">設定を修正</button>
+  <div id="output"></div>
+  
+  <script>
+    function analyze() {
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+
+      const log = (msg, type = '') => {
+        const div = document.createElement('div');
+        div.className = type;
+        div.innerHTML = msg;
+        output.appendChild(div);
+      };
+
+      const logJson = (title, data) => {
+        const h2 = document.createElement('h2');
+        h2.textContent = title;
+        output.appendChild(h2);
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(data, null, 2);
+        output.appendChild(pre);
+      };
+
+      log('<h2>1️⃣ LocalStorage の unified-settings</h2>');
+      const unifiedStr = localStorage.getItem('unified-settings');
+      if (unifiedStr) {
+        try {
+          const unified = JSON.parse(unifiedStr);
+          logJson('unified-settings', {
+            'chat.progressiveMode': unified.chat?.progressiveMode,
+            'chat全体': unified.chat
+          });
+
+          if (unified.chat?.progressiveMode?.enabled === true) {
+            log('✅ unified-settings: プログレッシブモードは有効', 'success');
+          } else if (unified.chat?.progressiveMode?.enabled === false) {
+            log('❌ unified-settings: プログレッシブモードは無効', 'error');
+          } else {
+            log('⚠️ unified-settings: プログレッシブモード設定が undefined', 'warning');
+            log('実際の値: ' + unified.chat?.progressiveMode?.enabled, 'warning');
+          }
+        } catch (e) {
+          log('❌ unified-settings の解析エラー: ' + e.message, 'error');
+        }
+      } else {
+        log('❌ unified-settings が存在しません', 'error');
+      }
+
+      log('<h2>2️⃣ LocalStorage の ai-chat-v3-storage</h2>');
+      const storeStr = localStorage.getItem('ai-chat-v3-storage');
+      if (storeStr) {
+        try {
+          const store = JSON.parse(storeStr);
+          logJson('ai-chat-v3-storage', {
+            'state.chat.progressiveMode': store.state?.chat?.progressiveMode,
+          });
+
+          if (store.state?.chat?.progressiveMode?.enabled === true) {
+            log('✅ ai-chat-v3-storage: プログレッシブモードは有効', 'success');
+          } else if (store.state?.chat?.progressiveMode?.enabled === false) {
+            log('❌ ai-chat-v3-storage: プログレッシブモードは無効', 'error');
+          } else {
+            log('⚠️ ai-chat-v3-storage: プログレッシブモード設定が undefined', 'warning');
+          }
+        } catch (e) {
+          log('❌ ai-chat-v3-storage の解析エラー: ' + e.message, 'error');
+        }
+      } else {
+        log('⚠️ ai-chat-v3-storage が存在しません', 'warning');
+      }
+
+      log('<h2>3️⃣ 実行時のZustandストア</h2>');
+      log('ブラウザコンソールで以下を実行してください:', 'warning');
+      log('<pre>window.useAppStore?.getState().chat.progressiveMode</pre>');
+
+      log('<h2>4️⃣ 不整合チェック</h2>');
+      if (unifiedStr && storeStr) {
+        try {
+          const unified = JSON.parse(unifiedStr);
+          const store = JSON.parse(storeStr);
+          const unifiedEnabled = unified.chat?.progressiveMode?.enabled;
+          const storeEnabled = store.state?.chat?.progressiveMode?.enabled;
+
+          if (unifiedEnabled !== storeEnabled) {
+            log('⚠️ 不整合検出！', 'warning');
+            log(`unified-settings: ${unifiedEnabled}`, 'warning');
+            log(`ai-chat-v3-storage: ${storeEnabled}`, 'warning');
+            log('これが原因の可能性があります。', 'error');
+          } else {
+            log('✅ unified-settings と ai-chat-v3-storage は一致しています', 'success');
+          }
+        } catch (e) {
+          log('エラー: ' + e.message, 'error');
+        }
+      }
+    }
+
+    function fixSettings() {
+      try {
+        // unified-settings を修正
+        const unifiedStr = localStorage.getItem('unified-settings');
+        if (unifiedStr) {
+          const unified = JSON.parse(unifiedStr);
+          if (!unified.chat) unified.chat = {};
+          unified.chat.progressiveMode = {
+            enabled: true,
+            showIndicators: true,
+            highlightChanges: true,
+            glowIntensity: 'medium',
+            stageDelays: {
+              reflex: 0,
+              context: 1000,
+              intelligence: 2000,
+            },
+          };
+          localStorage.setItem('unified-settings', JSON.stringify(unified));
+          alert('✅ unified-settings を修正しました。ページをリロードしてください。');
+        }
+
+        // ai-chat-v3-storage はZustandが自動管理するため、触らない
+      } catch (e) {
+        alert('❌ エラー: ' + e.message);
+      }
+    }
+
+    // ページ読み込み時に自動実行
+    window.onload = analyze;
+  </script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>プログレッシブモード診断</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #0f0f23;
+      color: #fff;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 { color: #8b5cf6; }
+    h2 { color: #ec4899; margin-top: 30px; }
+    .box {
+      background: #1e1e2e;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border: 2px solid #374151;
+    }
+    .success { border-color: #10b981; }
+    .error { border-color: #ef4444; }
+    .warning { border-color: #f59e0b; }
+    pre {
+      background: #0a0a15;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+    .status {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 5px;
+      margin: 5px 0;
+    }
+    .status.on { background: #10b981; color: #000; }
+    .status.off { background: #ef4444; color: #fff; }
+    .status.unknown { background: #f59e0b; color: #000; }
+    button {
+      background: #8b5cf6;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-size: 14px;
+    }
+    button:hover { background: #7c3aed; }
+    .instruction {
+      background: #1e3a5f;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #3b82f6;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 プログレッシブモード診断ツール</h1>
+
+  <div class="instruction">
+    <strong>📝 使い方:</strong><br>
+    1. このページを開いたまま、別タブでチャット画面を開く<br>
+    2. 設定画面で「3段階プログレッシブ応答を有効化」をON/OFFする<br>
+    3. このページに戻って「🔄 再確認」ボタンをクリック<br>
+    4. 設定値が正しく反映されているか確認
+  </div>
+
+  <button onclick="checkSettings()">🔄 再確認</button>
+  <button onclick="forceEnable()">✅ 強制的に有効化</button>
+  <button onclick="forceDisable()">❌ 強制的に無効化</button>
+  <button onclick="clearAll()">🗑️ すべてクリア</button>
+
+  <div id="results"></div>
+
+  <script>
+    function checkSettings() {
+      const output = document.getElementById('results');
+      output.innerHTML = '';
+
+      // ==============================================
+      // 1. unified-settings の確認
+      // ==============================================
+      const h2_1 = document.createElement('h2');
+      h2_1.textContent = '1️⃣ unified-settings (設定マネージャー)';
+      output.appendChild(h2_1);
+
+      const unifiedStr = localStorage.getItem('unified-settings');
+      if (unifiedStr) {
+        try {
+          const unified = JSON.parse(unifiedStr);
+          const progressiveMode = unified.chat?.progressiveMode;
+
+          const box1 = document.createElement('div');
+          box1.className = 'box ' + (progressiveMode?.enabled ? 'success' : 'error');
+
+          const statusSpan = document.createElement('span');
+          statusSpan.className = 'status ' + (progressiveMode?.enabled ? 'on' : 'off');
+          statusSpan.textContent = progressiveMode?.enabled ? 'ON' : 'OFF';
+
+          box1.innerHTML = '<strong>プログレッシブモード状態: </strong>';
+          box1.appendChild(statusSpan);
+
+          const pre1 = document.createElement('pre');
+          pre1.textContent = JSON.stringify(progressiveMode, null, 2);
+          box1.appendChild(pre1);
+
+          output.appendChild(box1);
+        } catch (e) {
+          const errorBox = document.createElement('div');
+          errorBox.className = 'box error';
+          errorBox.textContent = '❌ エラー: ' + e.message;
+          output.appendChild(errorBox);
+        }
+      } else {
+        const warnBox = document.createElement('div');
+        warnBox.className = 'box warning';
+        warnBox.textContent = '⚠️ unified-settings が存在しません';
+        output.appendChild(warnBox);
+      }
+
+      // ==============================================
+      // 2. ai-chat-v3-storage の確認
+      // ==============================================
+      const h2_2 = document.createElement('h2');
+      h2_2.textContent = '2️⃣ ai-chat-v3-storage (Zustandストア)';
+      output.appendChild(h2_2);
+
+      const storeStr = localStorage.getItem('ai-chat-v3-storage');
+      if (storeStr) {
+        try {
+          const store = JSON.parse(storeStr);
+          const progressiveMode = store.state?.chat?.progressiveMode;
+
+          const box2 = document.createElement('div');
+          box2.className = 'box ' + (progressiveMode?.enabled ? 'success' : 'error');
+
+          const statusSpan2 = document.createElement('span');
+          statusSpan2.className = 'status ' + (progressiveMode?.enabled ? 'on' : 'off');
+          statusSpan2.textContent = progressiveMode?.enabled ? 'ON' : 'OFF';
+
+          box2.innerHTML = '<strong>プログレッシブモード状態: </strong>';
+          box2.appendChild(statusSpan2);
+
+          const pre2 = document.createElement('pre');
+          pre2.textContent = JSON.stringify(progressiveMode, null, 2);
+          box2.appendChild(pre2);
+
+          output.appendChild(box2);
+        } catch (e) {
+          const errorBox = document.createElement('div');
+          errorBox.className = 'box error';
+          errorBox.textContent = '❌ エラー: ' + e.message;
+          output.appendChild(errorBox);
+        }
+      } else {
+        const warnBox = document.createElement('div');
+        warnBox.className = 'box warning';
+        warnBox.textContent = '⚠️ ai-chat-v3-storage が存在しません';
+        output.appendChild(warnBox);
+      }
+
+      // ==============================================
+      // 3. 整合性チェック
+      // ==============================================
+      const h2_3 = document.createElement('h2');
+      h2_3.textContent = '3️⃣ 整合性チェック';
+      output.appendChild(h2_3);
+
+      if (unifiedStr && storeStr) {
+        try {
+          const unified = JSON.parse(unifiedStr);
+          const store = JSON.parse(storeStr);
+
+          const unifiedEnabled = unified.chat?.progressiveMode?.enabled;
+          const storeEnabled = store.state?.chat?.progressiveMode?.enabled;
+
+          const box3 = document.createElement('div');
+          if (unifiedEnabled === storeEnabled) {
+            box3.className = 'box success';
+            box3.innerHTML = `
+              <strong>✅ 整合性: OK</strong><br>
+              両方とも <span class="status ${unifiedEnabled ? 'on' : 'off'}">${unifiedEnabled ? 'ON' : 'OFF'}</span>
+            `;
+          } else {
+            box3.className = 'box error';
+            box3.innerHTML = `
+              <strong>❌ 整合性: NG（不一致）</strong><br>
+              unified-settings: <span class="status ${unifiedEnabled ? 'on' : 'off'}">${unifiedEnabled ? 'ON' : 'OFF'}</span><br>
+              ai-chat-v3-storage: <span class="status ${storeEnabled ? 'on' : 'off'}">${storeEnabled ? 'ON' : 'OFF'}</span><br>
+              <br>
+              <strong style="color: #f59e0b;">⚠️ これが原因でプログレッシブモードが動作していない可能性があります</strong>
+            `;
+          }
+          output.appendChild(box3);
+        } catch (e) {
+          const errorBox = document.createElement('div');
+          errorBox.className = 'box error';
+          errorBox.textContent = '❌ エラー: ' + e.message;
+          output.appendChild(errorBox);
+        }
+      }
+
+      // ==============================================
+      // 4. デバッグ情報
+      // ==============================================
+      const h2_4 = document.createElement('h2');
+      h2_4.textContent = '4️⃣ デバッグ情報';
+      output.appendChild(h2_4);
+
+      const debugBox = document.createElement('div');
+      debugBox.className = 'box';
+      debugBox.innerHTML = `
+        <strong>localStorage keys:</strong><br>
+        <pre>${Object.keys(localStorage).join('\n')}</pre>
+      `;
+      output.appendChild(debugBox);
+    }
+
+    function forceEnable() {
+      try {
+        // unified-settings を更新
+        const unifiedStr = localStorage.getItem('unified-settings');
+        if (unifiedStr) {
+          const unified = JSON.parse(unifiedStr);
+          if (!unified.chat) unified.chat = {};
+          unified.chat.progressiveMode = {
+            enabled: true,
+            showIndicators: true,
+            highlightChanges: true,
+            glowIntensity: 'medium',
+            stageDelays: { reflex: 0, context: 1000, intelligence: 2000 }
+          };
+          localStorage.setItem('unified-settings', JSON.stringify(unified));
+        }
+
+        // ai-chat-v3-storage を更新
+        const storeStr = localStorage.getItem('ai-chat-v3-storage');
+        if (storeStr) {
+          const store = JSON.parse(storeStr);
+          if (!store.state) store.state = {};
+          if (!store.state.chat) store.state.chat = {};
+          store.state.chat.progressiveMode = {
+            enabled: true,
+            showIndicators: true,
+            highlightChanges: true,
+            glowIntensity: 'medium',
+            stageDelays: { reflex: 0, context: 1000, intelligence: 2000 }
+          };
+          localStorage.setItem('ai-chat-v3-storage', JSON.stringify(store));
+        }
+
+        alert('✅ プログレッシブモードを強制的に有効化しました。\nページをリロードしてください。');
+        checkSettings();
+      } catch (e) {
+        alert('❌ エラー: ' + e.message);
+      }
+    }
+
+    function forceDisable() {
+      try {
+        // unified-settings を更新
+        const unifiedStr = localStorage.getItem('unified-settings');
+        if (unifiedStr) {
+          const unified = JSON.parse(unifiedStr);
+          if (unified.chat && unified.chat.progressiveMode) {
+            unified.chat.progressiveMode.enabled = false;
+          }
+          localStorage.setItem('unified-settings', JSON.stringify(unified));
+        }
+
+        // ai-chat-v3-storage を更新
+        const storeStr = localStorage.getItem('ai-chat-v3-storage');
+        if (storeStr) {
+          const store = JSON.parse(storeStr);
+          if (store.state?.chat?.progressiveMode) {
+            store.state.chat.progressiveMode.enabled = false;
+          }
+          localStorage.setItem('ai-chat-v3-storage', JSON.stringify(store));
+        }
+
+        alert('✅ プログレッシブモードを強制的に無効化しました。\nページをリロードしてください。');
+        checkSettings();
+      } catch (e) {
+        alert('❌ エラー: ' + e.message);
+      }
+    }
+
+    function clearAll() {
+      if (confirm('⚠️ すべてのLocalStorageをクリアします。\nチャット履歴、設定、メモリーカードがすべて削除されます。\n本当によろしいですか？')) {
+        localStorage.clear();
+        alert('✅ すべてクリアしました。ページをリロードしてください。');
+        checkSettings();
+      }
+    }
+
+    // ページ読み込み時に自動実行
+    window.onload = checkSettings;
+  </script>
+</body>
+</html>

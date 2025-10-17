@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>実行フロー確認ページ</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0f0f23;
+      color: #fff;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #8b5cf6;
+      border-bottom: 2px solid #8b5cf6;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #ec4899;
+      margin-top: 30px;
+    }
+    pre {
+      background: #1e1e2e;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 15px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .success {
+      background: #10b981;
+      color: #000;
+    }
+    .error {
+      background: #ef4444;
+      color: #fff;
+    }
+    .warning {
+      background: #f59e0b;
+      color: #000;
+    }
+    .info {
+      background: #3b82f6;
+      color: #fff;
+    }
+    button {
+      background: #8b5cf6;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #7c3aed;
+    }
+    .code {
+      background: #1e1e2e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #ec4899;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    table th,
+    table td {
+      border: 1px solid #374151;
+      padding: 10px;
+      text-align: left;
+    }
+    table th {
+      background: #1e1e2e;
+      color: #8b5cf6;
+    }
+    table tr:nth-child(even) {
+      background: #1a1a2e;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 実行フロー確認ページ</h1>
+
+  <div>
+    <button onclick="checkStoreState()">1. ストア状態を確認</button>
+    <button onclick="monitorConsoleLogs()">2. コンソールログを監視</button>
+    <button onclick="injectDebugCode()">3. デバッグコードを注入</button>
+    <button onclick="clearOutput()">出力をクリア</button>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    let originalConsoleLog = console.log;
+    let capturedLogs = [];
+
+    function log(message, type = 'info') {
+      const output = document.getElementById('output');
+      const div = document.createElement('div');
+      div.className = `status ${type}`;
+      div.innerHTML = message;
+      output.appendChild(div);
+    }
+
+    function logJson(title, data) {
+      const output = document.getElementById('output');
+      const h2 = document.createElement('h2');
+      h2.textContent = title;
+      output.appendChild(h2);
+
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(data, null, 2);
+      output.appendChild(pre);
+    }
+
+    function logTable(title, data) {
+      const output = document.getElementById('output');
+      const h2 = document.createElement('h2');
+      h2.textContent = title;
+      output.appendChild(h2);
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const tbody = document.createElement('tbody');
+
+      // Header
+      const headerRow = document.createElement('tr');
+      Object.keys(data[0] || {}).forEach(key => {
+        const th = document.createElement('th');
+        th.textContent = key;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      // Body
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        Object.values(row).forEach(value => {
+          const td = document.createElement('td');
+          td.textContent = typeof value === 'object' ? JSON.stringify(value) : value;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      output.appendChild(table);
+    }
+
+    function clearOutput() {
+      document.getElementById('output').innerHTML = '';
+    }
+
+    function checkStoreState() {
+      clearOutput();
+      log('='.repeat(80), 'info');
+      log('🔍 Zustand ストア状態の確認', 'info');
+      log('='.repeat(80), 'info');
+
+      try {
+        // useAppStoreのgetStateメソッドを使ってストアにアクセス
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+
+        // メインウィンドウに戻って確認
+        if (window.opener && window.opener.useAppStore) {
+          const store = window.opener.useAppStore.getState();
+          logJson('✅ Zustand Store State', {
+            chat: store.chat,
+            is_generating: store.is_generating,
+            active_session_id: store.active_session_id,
+            sendProgressiveMessage: typeof store.sendProgressiveMessage,
+            sendMessage: typeof store.sendMessage,
+          });
+
+          if (store.chat?.progressiveMode) {
+            log('✅ プログレッシブモード設定:', 'success');
+            logTable('設定詳細', [{
+              enabled: store.chat.progressiveMode.enabled,
+              showIndicators: store.chat.progressiveMode.showIndicators,
+              highlightChanges: store.chat.progressiveMode.highlightChanges,
+              glowIntensity: store.chat.progressiveMode.glowIntensity,
+            }]);
+          } else {
+            log('❌ プログレッシブモード設定が見つかりません', 'error');
+          }
+
+          if (typeof store.sendProgressiveMessage === 'function') {
+            log('✅ sendProgressiveMessage メソッドが存在します', 'success');
+          } else {
+            log('❌ sendProgressiveMessage メソッドが見つかりません', 'error');
+          }
+        } else {
+          log('⚠️ このページから直接ストアにアクセスできません', 'warning');
+          log('メインアプリケーションのコンソールで以下を実行してください:', 'info');
+          log('<pre>window.useAppStore.getState().chat.progressiveMode</pre>', 'info');
+        }
+      } catch (e) {
+        log('❌ エラー: ' + e.message, 'error');
+        log('以下のコマンドをブラウザコンソールで実行してください:', 'warning');
+        log('<pre>const state = window.useAppStore?.getState();\nconsole.log("chat.progressiveMode:", state?.chat?.progressiveMode);\nconsole.log("sendProgressiveMessage:", typeof state?.sendProgressiveMessage);</pre>', 'info');
+      }
+    }
+
+    function monitorConsoleLogs() {
+      clearOutput();
+      log('='.repeat(80), 'info');
+      log('📊 コンソールログ監視開始', 'info');
+      log('='.repeat(80), 'info');
+      log('メッセージを送信して、以下のログが表示されるか確認してください:', 'info');
+
+      log('', 'info');
+      log('<strong>期待されるログ:</strong>', 'info');
+      log('1. <span class="code">🔍 Progressive Mode Check (Enhanced):</span>', 'info');
+      log('2. <span class="code">🚀 Using Progressive Message Generation</span> または <span class="code">📝 Using Normal Message Generation</span>', 'info');
+      log('3. <span class="code">🚀 [sendProgressiveMessage] Method called</span> (プログレッシブモードの場合)', 'info');
+
+      log('', 'info');
+      log('<strong>ブラウザの開発者ツールを開いて、コンソールタブを確認してください。</strong>', 'warning');
+      log('F12キーを押すと開発者ツールが開きます。', 'info');
+
+      log('', 'info');
+      log('<strong>確認する値:</strong>', 'info');
+      const checkItems = [
+        { 項目: 'chat', 説明: 'chat オブジェクトの存在' },
+        { 項目: 'progressiveMode', 説明: 'progressiveMode オブジェクトの存在' },
+        { 項目: 'enabled', 説明: 'プログレッシブモードが有効か (true/false)' },
+        { 項目: 'enabledType', 説明: 'enabled の型 (boolean であるべき)' },
+        { 項目: 'is_group_mode', 説明: 'グループモードか (false であるべき)' },
+        { 項目: 'should_use_progressive', 説明: 'プログレッシブを使用するか (true であるべき)' },
+      ];
+      logTable('確認項目', checkItems);
+
+      // 実際のコンソールログをキャプチャ
+      console.log = function(...args) {
+        originalConsoleLog.apply(console, args);
+        const logMessage = args.map(arg =>
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+
+        if (logMessage.includes('Progressive') || logMessage.includes('sendProgressiveMessage') || logMessage.includes('sendMessage')) {
+          capturedLogs.push({
+            timestamp: new Date().toISOString(),
+            message: logMessage
+          });
+
+          // リアルタイムで表示
+          const logDiv = document.createElement('div');
+          logDiv.className = 'status info';
+          logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${logMessage}`;
+          document.getElementById('output').appendChild(logDiv);
+        }
+      };
+
+      log('', 'success');
+      log('✅ 監視を開始しました。メッセージを送信してください。', 'success');
+    }
+
+    function injectDebugCode() {
+      clearOutput();
+      log('='.repeat(80), 'info');
+      log('💉 デバッグコードの注入', 'info');
+      log('='.repeat(80), 'info');
+
+      log('以下のコードをブラウザコンソールにコピー＆ペーストして実行してください:', 'warning');
+
+      const debugCode = `
+// デバッグ用: ストアの状態を確認
+(function() {
+  console.log("=".repeat(60));
+  console.log("🔍 デバッグ情報");
+  console.log("=".repeat(60));
+
+  if (typeof window.useAppStore === 'undefined') {
+    console.error("❌ window.useAppStore が見つかりません");
+    return;
+  }
+
+  const state = window.useAppStore.getState();
+
+  console.log("1️⃣ chat設定:", state.chat);
+  console.log("2️⃣ progressiveMode:", state.chat?.progressiveMode);
+  console.log("3️⃣ enabled:", state.chat?.progressiveMode?.enabled);
+  console.log("4️⃣ enabled の型:", typeof state.chat?.progressiveMode?.enabled);
+  console.log("5️⃣ is_group_mode:", state.is_group_mode);
+  console.log("6️⃣ sendProgressiveMessage:", typeof state.sendProgressiveMessage);
+  console.log("7️⃣ sendMessage:", typeof state.sendMessage);
+
+  const shouldUseProgressive = state.chat?.progressiveMode?.enabled === true && !state.is_group_mode;
+  console.log("");
+  console.log("🎯 判定結果:");
+  console.log("  shouldUseProgressive:", shouldUseProgressive);
+  console.log("  理由:", !shouldUseProgressive ?
+    (!state.chat?.progressiveMode?.enabled ? "プログレッシブモードが無効" : "グループモード") :
+    "プログレッシブモード有効");
+
+  console.log("=".repeat(60));
+})();
+`;
+
+      const pre = document.createElement('pre');
+      pre.textContent = debugCode;
+      pre.style.background = '#1e1e2e';
+      pre.style.padding = '15px';
+      pre.style.borderRadius = '8px';
+      pre.style.cursor = 'pointer';
+      pre.title = 'クリックでコピー';
+      pre.onclick = function() {
+        navigator.clipboard.writeText(debugCode).then(() => {
+          log('✅ クリップボードにコピーしました！ブラウザコンソールに貼り付けてください。', 'success');
+        });
+      };
+      document.getElementById('output').appendChild(pre);
+
+      log('', 'info');
+      log('👆 上のコードをクリックするとクリップボードにコピーされます', 'info');
+    }
+  </script>
+</body>
+</html>

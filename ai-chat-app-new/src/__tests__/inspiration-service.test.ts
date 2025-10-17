@@ -3,6 +3,7 @@
  * インスピレーション機能の品質検証テスト
  */
 
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InspirationService } from '../services/inspiration-service';
 import { Character, Persona, UnifiedMessage } from '@/types';
 
@@ -225,7 +226,7 @@ describe('InspirationService - Placeholder Replacement', () => {
     const messages: UnifiedMessage[] = [];
 
     // generateReplySuggestionsをモック
-    const buildContextSpy = jest
+    const buildContextSpy = vi
       .spyOn(service as any, 'buildContext')
       .mockReturnValue('会話履歴');
 
