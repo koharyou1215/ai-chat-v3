@@ -482,66 +482,6 @@ const AppearancePanel: React.FC = () => {
                 placeholder="https://example.com/image.jpg"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景ぼかし: {appearanceSettings.backgroundBlur}px
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="20"
-                value={appearanceSettings.backgroundBlur}
-                onChange={(e) =>
-                  updateAppearanceSetting(
-                    "backgroundBlur",
-                    parseInt(e.target.value)
-                  )
-                }
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景ぼかしを有効にする
-              </label>
-              <div>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={appearanceSettings.backgroundBlurEnabled ?? true}
-                    onChange={(e) =>
-                      updateAppearanceSetting(
-                        "backgroundBlurEnabled",
-                        e.target.checked
-                      )
-                    }
-                    className="form-checkbox h-5 w-5 text-purple-600"
-                  />
-                  <span className="text-sm text-gray-300">有効</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景透明度: {appearanceSettings.backgroundOpacity}%
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={appearanceSettings.backgroundOpacity}
-                onChange={(e) =>
-                  updateAppearanceSetting(
-                    "backgroundOpacity",
-                    parseInt(e.target.value)
-                  )
-                }
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
           </div>
         )}
       </div>

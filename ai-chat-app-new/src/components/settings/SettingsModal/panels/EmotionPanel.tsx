@@ -2,8 +2,10 @@
 
 import React from "react";
 import { EffectSettings } from "@/types/core/settings.types";
-import { EmotionalIntelligenceFlags } from "@/types/core/emotional-intelligence.types";
+import type { UnifiedSettings } from "@/services/settings-manager";
 import { SettingItem } from "../components/SettingItem";
+
+type EmotionalIntelligenceSettings = UnifiedSettings['emotionalIntelligence'];
 
 interface EmotionPanelProps {
   settings: EffectSettings;
@@ -11,8 +13,8 @@ interface EmotionPanelProps {
     key: K,
     value: EffectSettings[K]
   ) => void;
-  emotionalFlags: EmotionalIntelligenceFlags;
-  updateEmotionalFlags: (flags: Partial<EmotionalIntelligenceFlags>) => void;
+  emotionalIntelligence: EmotionalIntelligenceSettings;
+  updateEmotionalIntelligence: (updates: Partial<EmotionalIntelligenceSettings>) => void;
 }
 
 /**
@@ -22,8 +24,8 @@ interface EmotionPanelProps {
 export const EmotionPanel: React.FC<EmotionPanelProps> = ({
   settings,
   updateSetting,
-  emotionalFlags,
-  updateEmotionalFlags,
+  emotionalIntelligence,
+  updateEmotionalIntelligence,
 }) => {
   return (
     <div className="space-y-6">
@@ -35,27 +37,29 @@ export const EmotionPanel: React.FC<EmotionPanelProps> = ({
         <SettingItem
           title="感情分析エンジン"
           description="メッセージから感情を分析する基本機能を有効にします"
-          checked={emotionalFlags.emotion_analysis_enabled}
+          checked={emotionalIntelligence.enabled}
           onChange={(checked) =>
-            updateEmotionalFlags({ emotion_analysis_enabled: checked })
+            updateEmotionalIntelligence({ enabled: checked })
+          }
+        />
+
+        <SettingItem
+          title="基本分析"
+          description="基本的な感情分析を実行します"
+          checked={emotionalIntelligence.analysis.basic}
+          onChange={(checked) =>
+            updateEmotionalIntelligence({
+              analysis: { ...emotionalIntelligence.analysis, basic: checked }
+            })
           }
         />
 
         <SettingItem
           title="感情記憶システム"
           description="重要な感情体験を記録・学習する機能を有効にします"
-          checked={emotionalFlags.emotional_memory_enabled}
+          checked={emotionalIntelligence.memoryEnabled}
           onChange={(checked) =>
-            updateEmotionalFlags({ emotional_memory_enabled: checked })
-          }
-        />
-
-        <SettingItem
-          title="基本エフェクト"
-          description="感情に基づく基本的な視覚効果を有効にします"
-          checked={emotionalFlags.basic_effects_enabled}
-          onChange={(checked) =>
-            updateEmotionalFlags({ basic_effects_enabled: checked })
+            updateEmotionalIntelligence({ memoryEnabled: checked })
           }
         />
       </div>
@@ -66,27 +70,20 @@ export const EmotionPanel: React.FC<EmotionPanelProps> = ({
         <SettingItem
           title="文脈感情分析"
           description="会話の文脈を考慮した高度な感情分析を有効にします"
-          checked={emotionalFlags.contextual_analysis_enabled}
+          checked={emotionalIntelligence.analysis.contextual}
           onChange={(checked) =>
-            updateEmotionalFlags({ contextual_analysis_enabled: checked })
+            updateEmotionalIntelligence({
+              analysis: { ...emotionalIntelligence.analysis, contextual: checked }
+            })
           }
         />
 
         <SettingItem
           title="適応パフォーマンス"
           description="デバイス性能に応じて感情分析の精度を自動調整します"
-          checked={emotionalFlags.adaptive_performance_enabled}
+          checked={emotionalIntelligence.adaptivePerformance}
           onChange={(checked) =>
-            updateEmotionalFlags({ adaptive_performance_enabled: checked })
-          }
-        />
-
-        <SettingItem
-          title="視覚エフェクト"
-          description="感情に応じた高度な視覚効果を有効にします"
-          checked={emotionalFlags.visual_effects_enabled}
-          onChange={(checked) =>
-            updateEmotionalFlags({ visual_effects_enabled: checked })
+            updateEmotionalIntelligence({ adaptivePerformance: checked })
           }
         />
       </div>
@@ -97,46 +94,96 @@ export const EmotionPanel: React.FC<EmotionPanelProps> = ({
         <SettingItem
           title="予測分析"
           description="会話の流れから今後の感情変化を予測します"
-          checked={emotionalFlags.predictive_analysis_enabled}
+          checked={emotionalIntelligence.analysis.predictive}
           onChange={(checked) =>
-            updateEmotionalFlags({ predictive_analysis_enabled: checked })
-          }
-        />
-
-        <SettingItem
-          title="アドバンストエフェクト"
-          description="より洗練された感情表現エフェクトを有効にします"
-          checked={emotionalFlags.advanced_effects_enabled}
-          onChange={(checked) =>
-            updateEmotionalFlags({ advanced_effects_enabled: checked })
+            updateEmotionalIntelligence({
+              analysis: { ...emotionalIntelligence.analysis, predictive: checked }
+            })
           }
         />
 
         <SettingItem
           title="多層分析"
           description="複数のレイヤーで感情を深く分析します"
-          checked={emotionalFlags.multi_layer_analysis_enabled}
+          checked={emotionalIntelligence.analysis.multiLayer}
           onChange={(checked) =>
-            updateEmotionalFlags({ multi_layer_analysis_enabled: checked })
+            updateEmotionalIntelligence({
+              analysis: { ...emotionalIntelligence.analysis, multiLayer: checked }
+            })
           }
         />
       </div>
 
       <div className="space-y-4">
-        <h4 className="text-lg font-medium text-white">既存エフェクト設定</h4>
+        <h4 className="text-lg font-medium text-white">感情表示エフェクト</h4>
 
         <SettingItem
-          title="感情表示"
-          description="メッセージに感情インジケーターを表示します"
-          checked={settings.enableEmotionDisplay ?? false}
-          onChange={(checked) => updateSetting("enableEmotionDisplay", checked)}
+          title="リアルタイム検出"
+          description="入力中の感情をリアルタイムで検出します"
+          checked={settings.emotion.realtimeDetection}
+          onChange={(checked) =>
+            updateSetting("emotion", {
+              ...settings.emotion,
+              realtimeDetection: checked
+            })
+          }
         />
 
         <SettingItem
-          title="感情パーティクル"
-          description="感情に基づくパーティクルエフェクトを表示します"
-          checked={settings.enableEmotionParticles ?? false}
-          onChange={(checked) => updateSetting("enableEmotionParticles", checked)}
+          title="自動リアクション"
+          description="感情に応じた自動応答を有効にします"
+          checked={settings.emotion.autoReactions}
+          onChange={(checked) =>
+            updateSetting("emotion", {
+              ...settings.emotion,
+              autoReactions: checked
+            })
+          }
+        />
+
+        <SettingItem
+          title="感情アイコン表示"
+          description="感情アイコンを表示します"
+          checked={settings.emotion.display.showIcon}
+          onChange={(checked) =>
+            updateSetting("emotion", {
+              ...settings.emotion,
+              display: {
+                ...settings.emotion.display,
+                showIcon: checked
+              }
+            })
+          }
+        />
+
+        <SettingItem
+          title="感情テキスト表示"
+          description="感情名をテキストで表示します"
+          checked={settings.emotion.display.showText}
+          onChange={(checked) =>
+            updateSetting("emotion", {
+              ...settings.emotion,
+              display: {
+                ...settings.emotion.display,
+                showText: checked
+              }
+            })
+          }
+        />
+
+        <SettingItem
+          title="感情カラー適用"
+          description="感情に応じた色を適用します"
+          checked={settings.emotion.display.applyColors}
+          onChange={(checked) =>
+            updateSetting("emotion", {
+              ...settings.emotion,
+              display: {
+                ...settings.emotion.display,
+                applyColors: checked
+              }
+            })
+          }
         />
       </div>
 
@@ -145,25 +192,38 @@ export const EmotionPanel: React.FC<EmotionPanelProps> = ({
 
         <SettingItem
           title="セーフモード"
-          description="安全性を最優先にした保守的な感情分析を行います"
-          checked={emotionalFlags.safe_mode}
-          onChange={(checked) => updateEmotionalFlags({ safe_mode: checked })}
+          description="エラー時に安全な動作を保証します"
+          checked={emotionalIntelligence.safeMode}
+          onChange={(checked) =>
+            updateEmotionalIntelligence({ safeMode: checked })
+          }
+        />
+
+        <SettingItem
+          title="レガシーフォールバック"
+          description="問題発生時に旧システムへ自動切り替えします"
+          checked={emotionalIntelligence.fallbackToLegacy}
+          onChange={(checked) =>
+            updateEmotionalIntelligence({ fallbackToLegacy: checked })
+          }
         />
 
         <SettingItem
           title="パフォーマンス監視"
-          description="感情分析の性能を監視・最適化します"
-          checked={emotionalFlags.performance_monitoring}
+          description="性能メトリクスを記録します"
+          checked={emotionalIntelligence.performanceMonitoring}
           onChange={(checked) =>
-            updateEmotionalFlags({ performance_monitoring: checked })
+            updateEmotionalIntelligence({ performanceMonitoring: checked })
           }
         />
 
         <SettingItem
           title="デバッグモード"
-          description="開発者向けの詳細なログと情報を表示します"
-          checked={emotionalFlags.debug_mode}
-          onChange={(checked) => updateEmotionalFlags({ debug_mode: checked })}
+          description="詳細なログを出力します"
+          checked={emotionalIntelligence.debugMode}
+          onChange={(checked) =>
+            updateEmotionalIntelligence({ debugMode: checked })
+          }
         />
       </div>
     </div>

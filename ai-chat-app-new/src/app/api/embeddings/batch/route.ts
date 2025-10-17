@@ -108,10 +108,11 @@ async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
         }
 
         lastError = error;
-        console.log(
-          `Embedding attempt ${attempt}/${maxRetries} failed:`,
-          error.message
-        );
+
+        // 🔥 Cost Optimization: Reduce log verbosity
+        if (attempt === maxRetries) {
+          console.warn(`⚠️ [Embeddings] All retry attempts failed:`, error.message);
+        }
 
         if (attempt < maxRetries) {
           // Exponential backoff: 1s, 2s, 4s
@@ -146,9 +147,10 @@ async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
       return embeddings;
     } catch (error) {
       lastError = error as Error;
-      console.log(`Embedding attempt ${attempt}/${maxRetries} failed:`, error);
 
+      // 🔥 Cost Optimization: Only log final retry failure
       if (attempt === maxRetries) {
+        console.error(`❌ [Embeddings] Final attempt ${attempt}/${maxRetries} failed:`, error);
         throw lastError;
       }
 

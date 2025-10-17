@@ -63,9 +63,9 @@ export const createMessageRegenerationHandler: StateCreator<
 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
-      const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId
-        ? getTrackerManagerSafely(get().trackerManagers, characterId)
+      // 🔧 修正: sessionIdでTrackerManagerを取得
+      const trackerManager = activeSessionId
+        ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
         : null;
 
       // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）

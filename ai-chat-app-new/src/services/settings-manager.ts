@@ -55,6 +55,26 @@ class SettingsManager {
     }
   }
 
+  /**
+   * クライアントサイドでの明示的な初期化
+   * 本番環境のSSR後のハイドレーション対策
+   */
+  public ensurePersistence(): void {
+    if (typeof window === 'undefined') return;
+
+    // 設定が存在しない場合は現在の設定を保存
+    if (!this.storage.hasStoredSettings()) {
+      this.storage.saveSettings(this.settings);
+      console.log('🔧 [SettingsManager] Ensured persistence on client side');
+    } else {
+      // 設定が存在する場合は読み込み直す
+      const storedSettings = this.storage.loadSettings(DEFAULT_SETTINGS);
+      this.settings = storedSettings;
+      this.notifyListeners();
+      console.log('🔄 [SettingsManager] Reloaded settings from storage');
+    }
+  }
+
   static getInstance(): SettingsManager {
     if (!SettingsManager.instance) {
       SettingsManager.instance = new SettingsManager();
@@ -109,6 +129,9 @@ class SettingsManager {
     category: K,
     updates: Partial<UnifiedSettings[K]>
   ): void {
+    console.log(`🔧 [SettingsManager.updateCategory] category="${category}"`, updates);
+    console.log(`🔧 [SettingsManager.updateCategory] Current listeners count: ${this.listeners.size}`);
+
     this.updateSettings({
       [category]: { ...this.settings[category], ...updates },
     } as Partial<UnifiedSettings>);
@@ -155,7 +178,11 @@ class SettingsManager {
    * リスナーに通知
    */
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener({ ...this.settings }));
+    console.log(`📢 [SettingsManager.notifyListeners] Notifying ${this.listeners.size} listeners`);
+    this.listeners.forEach(listener => {
+      console.log(`📢 [SettingsManager.notifyListeners] Calling listener with settings`);
+      listener({ ...this.settings });
+    });
   }
 
   /**

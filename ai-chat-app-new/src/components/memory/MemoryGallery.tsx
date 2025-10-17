@@ -253,7 +253,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
           </div>
         ) : (
           <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {filteredAndSortedMemories.map((memory) => (
                 <MemoryCardComponent
                   key={memory.id}

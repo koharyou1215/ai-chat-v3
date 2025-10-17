@@ -5,7 +5,7 @@ import { ModelInfo } from "@/types/core/settings.types";
 export const MODEL_PRICING_DATA: ModelInfo[] = [
   // Google Gemini Models
   {
-    id: "gemini-2.5-pro",
+    id: "google/gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     provider: "gemini",
     pricing: {
@@ -14,10 +14,10 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
       currency: "USD",
     },
     contextWindow: 2000000,
-    description: "Googleの最新の高性能モデル",
+    description: "Googleの最新の高性能モデル - 200万トークンのコンテキストウィンドウ",
   },
   {
-    id: "gemini-2.5-flash",
+    id: "google/gemini-2.5-flash-preview-09-2025",
     name: "Gemini 2.5 Flash",
     provider: "gemini",
     pricing: {
@@ -26,10 +26,10 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
       currency: "USD",
     },
     contextWindow: 1000000,
-    description: "高速でコスト効率の良いモデル",
+    description: "高速でコスト効率の良いモデル - 100万トークンのコンテキストウィンドウ",
   },
   {
-    id: "gemini-2.5-flash-light",
+    id: "google/gemini-2.5-flash-lite-preview-09-2025",
     name: "Gemini 2.5 Flash Light",
     provider: "gemini",
     pricing: {
@@ -38,7 +38,7 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
       currency: "USD",
     },
     contextWindow: 1000000,
-    description: "軽量で高速なモデル",
+    description: "軽量で高速なモデル - 最もコスト効率が良い",
   },
 
   // Anthropic Claude Models (OpenRouter)
@@ -66,6 +66,18 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     contextWindow: 200000,
     description: "バランスの取れた高性能モデル (v4.5)",
   },
+  {
+    id: "anthropic/claude-haiku-4.5",
+    name: "Claude Haiku 4.5",
+    provider: "openrouter",
+    pricing: {
+      input: 0.00000025, // $0.25 per 1M tokens
+      output: 0.00000125, // $1.25 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 200000,
+    description: "高速でコスト効率の良い軽量モデル",
+  },
 
   // xAI Grok Models (OpenRouter)
   {
@@ -91,6 +103,18 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     },
     contextWindow: 128000,
     description: "⚠️ 無料版: コンテンツフィルタが厳格で、応答が途中で停止する場合があります。デバッグログを確認してfinish_reasonとcontent lengthをチェックしてください。",
+  },
+  {
+    id: "x-ai/grok-4-fast",
+    name: "Grok-4 Fast",
+    provider: "openrouter",
+    pricing: {
+      input: 0.000001, // $1 per 1M tokens
+      output: 0.000005, // $5 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "xAIの高速モデル - バランスの取れた性能とコスト",
   },
   // grok-code-fast-1 removed from UI list
 
@@ -122,7 +146,7 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
 
   // Standard Models (OpenRouter)
   {
-    id: "deepseek/deepseek-v3.2-exp",
+    id: "deepseek/-v3.2-exp",
     name: "DeepSeek v3.2 Experimental",
     provider: "openrouter",
     pricing: {
@@ -234,6 +258,54 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     description: "大規模なパラメータを持つモデル",
   },
   {
+    id: "qwen/qwen3-vl-8b-instruct",
+    name: "Qwen 3 VL 8B",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000001, // $0.10 per 1M tokens
+      output: 0.0000003, // $0.30 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 32768,
+    description: "軽量マルチモーダルモデル（視覚＋言語）- 8Bパラメータ",
+  },
+  {
+    id: "qwen/qwen3-vl-30b-a3b-instruct",
+    name: "Qwen 3 VL 30B",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000002, // $0.20 per 1M tokens
+      output: 0.0000006, // $0.60 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 32768,
+    description: "マルチモーダル対応の30Bパラメータモデル（視覚＋言語）",
+  },
+  {
+    id: "qwen/qwen3-vl-235b-a22b-instruct",
+    name: "Qwen 3 VL 235B",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000004, // $0.40 per 1M tokens
+      output: 0.0000012, // $1.20 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 32768,
+    description: "超大規模マルチモーダルモデル（視覚＋言語）- 235Bパラメータ",
+  },
+  {
+    id: "opengvlab/internvl3-78b",
+    name: "InternVL3 78B",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000005, // $0.50 per 1M tokens
+      output: 0.0000015, // $1.50 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 32768,
+    description: "高性能なマルチモーダルモデル - 視覚と言語の統合処理",
+  },
+  {
     id: "z-ai/glm-4.5",
     name: "GLM-4.5",
     provider: "openrouter",
@@ -246,6 +318,30 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     description: "Tsinghua大学の高性能モデル",
   },
   {
+    id: "z-ai/glm-4.6",
+    name: "GLM-4.6",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000006, // $0.60 per 1M tokens
+      output: 0.0000006, // $0.60 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "Tsinghua大学の最新高性能モデル（GLM-4.5の改良版）",
+  },
+  {
+    id: "baidu/ernie-4.5-21b-a3b-thinking",
+    name: "ERNIE 4.5 21B Thinking",
+    provider: "openrouter",
+    pricing: {
+      input: 0.00000007, // $0.07 per 1M tokens
+      output: 0.00000028, // $0.28 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 131072,
+    description: "Baiduの軽量MoEモデル - 21B総パラメータ、3Bアクティブ（論理、数学、コーディングに特化）",
+  },
+  {
     id: "moonshotai/kimi-k2-0905",
     name: "Kimi K2",
     provider: "openrouter",
@@ -256,6 +352,30 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     },
     contextWindow: 128000,
     description: "Moonshot AIの最新モデル",
+  },
+  {
+    id: "inclusionai/ling-1t",
+    name: "Ling-1T",
+    provider: "openrouter",
+    pricing: {
+      input: 0.000001, // $1.00 per 1M tokens
+      output: 0.000003, // $3.00 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 131072,
+    description: "1兆パラメータのオープンウェイトモデル - 効率的な推論に特化（約50Bアクティブパラメータ）",
+  },
+  {
+    id: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+    name: "Llama 3.3 Nemotron Super 49B v1.5",
+    provider: "openrouter",
+    pricing: {
+      input: 0.0000001, // $0.10 per 1M tokens
+      output: 0.0000004, // $0.40 per 1M tokens
+      currency: "USD",
+    },
+    contextWindow: 131072,
+    description: "NVIDIAの49Bパラメータ推論特化モデル - エージェントワークフロー対応（RAG、ツール呼び出し）",
   },
 ];
 

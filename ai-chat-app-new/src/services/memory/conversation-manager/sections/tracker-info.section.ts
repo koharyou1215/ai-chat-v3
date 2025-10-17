@@ -41,7 +41,11 @@ export class TrackerInfoSection {
             trackerInfo.length,
             "characters"
           );
-          prompt += `<relationship_state>\n${trackerInfo}\n</relationship_state>\n\n`;
+          prompt += `<relationship_state>
+⚠️ INTERNAL USE ONLY - DO NOT include tracker values or changes in your response
+⚠️ These values should influence your behavior naturally, but NEVER mention them explicitly
+${trackerInfo}
+</relationship_state>\n\n`;
         } else {
           console.log("❌ [ConversationManager] No tracker info available");
         }

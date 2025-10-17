@@ -26,6 +26,12 @@ import { StateCreator } from "zustand";
 import { StorageManager } from "@/utils/storage";
 // Model migration removed - no auto-conversion
 
+// 🔧 Type-safe persistence serialization types
+type SerializedMap<K, V> = { _type: "map"; value: [K, V][] };
+type SerializedSet<T> = { _type: "set"; value: T[] };
+type SerializedTrackerManager = { _type: "TrackerManager"; value: { trackerSets: Record<string, unknown> } };
+type SerializedValue = SerializedMap<unknown, unknown> | SerializedSet<unknown> | SerializedTrackerManager;
+
 export type AppStore = ChatSlice &
   GroupChatSlice &
   CharacterSlice &
@@ -103,20 +109,31 @@ const createStore = () => {
                 if (
                   typeof window === "undefined" ||
                   typeof localStorage === "undefined"
-                )
-                  return null;
-
-                // Safari でlocalStorageが無効な場合をハンドル
-                if (!window.localStorage) return null;
-
-                const item = window.localStorage.getItem(name);
-                if (!item) {
+                ) {
+                  console.log("🔍 [Storage] SSR環境 - localStorageは利用不可");
                   return null;
                 }
 
+                // Safari でlocalStorageが無効な場合をハンドル
+                if (!window.localStorage) {
+                  console.warn("⚠️ [Storage] window.localStorageが存在しません");
+                  return null;
+                }
+
+                const item = window.localStorage.getItem(name);
+                if (!item) {
+                  console.log("🔍 [Storage] データなし:", name);
+                  return null;
+                }
+
+                console.log("✅ [Storage] データ取得成功:", {
+                  name,
+                  size: `${(new Blob([item]).size / 1024).toFixed(2)}KB`,
+                });
+
                 // JSONの基本的な検証
                 if (!item.startsWith("{") && !item.startsWith("[")) {
-                  console.warn("Invalid JSON format in localStorage, clearing");
+                  console.warn("⚠️ [Storage] Invalid JSON format, clearing:", name);
                   localStorage.removeItem(name);
                   return null;
                 }
@@ -126,16 +143,24 @@ const createStore = () => {
                   try {
                     const parsed = JSON.parse(item);
                     if (!parsed || typeof parsed !== "object") {
-                      console.warn("Invalid storage data structure, clearing");
+                      console.warn("⚠️ [Storage] Invalid data structure, clearing");
                       localStorage.removeItem(name);
                       return null;
                     }
 
                     // 設定が確実に保存されるよう、stateが存在することを確認
                     if (!parsed.state) {
-                      console.warn("Missing state in stored data");
+                      console.warn("⚠️ [Storage] Missing state in stored data");
                       return null;
                     }
+
+                    // 🆕 本番環境デバッグ: セッションデータの確認
+                    console.log("📊 [Storage] Loaded data structure:", {
+                      hasSessions: !!parsed.state?.sessions,
+                      sessionsType: parsed.state?.sessions?._type || 'unknown',
+                      sessionsCount: parsed.state?.sessions?.value?.length || 0,
+                      activeSessionId: parsed.state?.active_session_id || 'none',
+                    });
                   } catch (parseErr) {
                     console.error(
                       "Failed to parse stored settings, clearing corrupted data:",
@@ -355,55 +380,59 @@ const createStore = () => {
             },
           }),
           {
-            replacer: (key: string, value: any) => {
+            replacer: (key: string, value: unknown): unknown => {
               if (value instanceof Map) {
-                return { _type: "map", value: Array.from(value.entries()) };
+                return { _type: "map", value: Array.from(value.entries()) } as SerializedMap<unknown, unknown>;
               }
               if (value instanceof Set) {
-                return { _type: "set", value: Array.from(value.values()) };
+                return { _type: "set", value: Array.from(value.values()) } as SerializedSet<unknown>;
               }
               if (value instanceof TrackerManager) {
                 return {
                   _type: "TrackerManager",
                   value: { trackerSets: value.getTrackerSetsAsObject() },
-                };
+                } as SerializedTrackerManager;
               }
               return value;
             },
-            reviver: (key: string, value: any) => {
+            reviver: (key: string, value: unknown): unknown => {
               if (value && typeof value === "object" && "_type" in value) {
-                if (value._type === "map") {
+                const serialized = value as SerializedValue;
+                if (serialized._type === "map") {
+                  const mapData = serialized as SerializedMap<unknown, unknown>;
                   // Restore TrackerManager instances correctly
                   if (key === "trackerManagers") {
                     const restoredMap = new Map();
                     // value.value が配列であることを確認
-                    if (Array.isArray(value.value)) {
-                      for (const [k, v] of value.value) {
+                    if (Array.isArray(mapData.value)) {
+                      for (const [k, v] of mapData.value) {
                         const manager = new TrackerManager();
                         if (
                           v &&
                           typeof v === "object" &&
                           "value" in v &&
-                          v.value
+                          (v as { value?: unknown }).value
                         ) {
-                          manager.loadFromObject(v.value);
+                          const serialized = v as { value: { trackerSets: Record<string, Record<string, unknown>> } };
+                          manager.loadFromObject(serialized.value);
                         }
                         restoredMap.set(k, manager);
                       }
                     }
                     return restoredMap;
                   }
-                  return new Map(value.value || []); // value.value が存在しない場合を考慮
+                  return new Map(mapData.value || []); // value.value が存在しない場合を考慮
                 }
-                if (value._type === "set") {
-                  return new Set(value.value || []); // value.value が存在しない場合を考慮
+                if (serialized._type === "set") {
+                  const setData = serialized as SerializedSet<unknown>;
+                  return new Set(setData.value || []); // value.value が存在しない場合を考慮
                 }
               }
               return value;
             },
           }
         ),
-        version: 3, // バージョンを3に更新
+        version: 4, // 🔧 バージョン4にアップデート
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Partial<AppStore>;
 
@@ -445,6 +474,21 @@ const createStore = () => {
             }
 
             console.log("🔄 Migration v3: Cleaned up old character data");
+          }
+
+          // 🆕 version 3から4へのマイグレーション
+          if (version < 4) {
+            console.log("🔄 Migration v4: Converting character-scoped to session-scoped trackers");
+
+            // 古い形式のtrackerManagers（characterId → TrackerManager）をクリア
+            if (state.trackerManagers) {
+              console.warn("⚠️ Clearing old character-scoped trackerManagers");
+              console.warn("⚠️ Tracker values will be reset to initial_value on next session");
+              state.trackerManagers = new Map();  // 空のMapで初期化
+            }
+
+            // 既存セッションのTrackerManagerは次のセッション作成時に自動的に再初期化される
+            console.log("✅ Migration v4 complete: Tracker system now session-scoped");
           }
 
           return state as AppStore;
@@ -592,6 +636,5 @@ try {
 export { useAppStore };
 
 // 🧪 E2Eテスト用: ブラウザコンソール/Playwrightからアクセス可能にする
-if (typeof window !== 'undefined') {
-  (window as any).useAppStore = useAppStore;
-}
+// ⚠️ HYDRATION FIX: モジュールレベルでのwindow代入を削除
+// → AppInitializer.tsxのuseEffect内で実行するように移動

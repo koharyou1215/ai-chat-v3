@@ -174,6 +174,21 @@ ${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
         .map(m => ({ role: m.role, content: m.content }));
     }
 
+    // 🔥 過去のStage 2パターンを抽出（ラウンド間の重複回避用）
+    const recentMessages = session.messages.slice(-10);
+    const previousStage2Patterns = recentMessages
+      .filter((m): m is any => m.role === "assistant" && (m as any).stages?.context?.content)
+      .map((m: any) => m.stages.context.content.slice(0, 200))
+      .slice(-3); // 直近3つのStage 2パターン
+
+    const stage2PatternSection = previousStage2Patterns.length > 0
+      ? `\n\n【過去のStage 2パターン - これらと異なる表現を使用してください】
+以下は過去のラウンドでのStage 2（内心の声）です。同じパターン・表現・感情の流れを避けてください：
+${previousStage2Patterns.map((p, i) => `\n[過去 ${i + 1}]\n${p}...`).join('\n')}
+
+🚨 重要：上記と同じ感情表現、同じ文体、同じ心の動きを避け、新しい角度から内面を掘り下げてください。`
+      : "";
+
     const conversationHistory =
       conversationHistoryArray.length > 0
         ? `
@@ -199,6 +214,7 @@ ${conversationHistoryArray
     const trackerSection = trackerInfo
       ? `
 <relationship_state>
+⚠️ INTERNAL USE ONLY - DO NOT include tracker values or changes in your response
 ${trackerInfo}
 </relationship_state>`
       : "";
@@ -211,6 +227,7 @@ ${personaInfo}
 ${memorySection}
 ${trackerSection}
 ${conversationHistory}
+${stage2PatternSection}
 
 ## 応答指示
 - 会話の文脈と記憶を踏まえて応答してください
@@ -292,6 +309,21 @@ ${charName}:`;
     const persona = session.participants.user;
     const charName = character.name;
     const userName = persona?.name || "User";
+
+    // 🔥 過去のStage 3パターンを抽出（ラウンド間の重複回避用）
+    const recentMessages = session.messages.slice(-10);
+    const previousStage3Patterns = recentMessages
+      .filter((m): m is any => m.role === "assistant" && (m as any).stages?.intelligence?.content)
+      .map((m: any) => m.stages.intelligence.content.slice(0, 200))
+      .slice(-3); // 直近3つのStage 3パターン
+
+    const stage3PatternSection = previousStage3Patterns.length > 0
+      ? `\n\n【過去のStage 3パターン - これらと異なる表現を使用してください】
+以下は過去のラウンドでのStage 3（表に出す言動）です。同じパターン・表現・行動提案を避けてください：
+${previousStage3Patterns.map((p, i) => `\n[過去 ${i + 1}]\n${p}...`).join('\n')}
+
+🚨 重要：上記と同じ言い回し、同じ行動提案、同じ話題展開を避け、新しいアプローチで応答してください。`
+      : "";
 
     // システム指示（完全版）
     const systemSection =
@@ -438,6 +470,8 @@ ${msg.memory?.summary ? `[Memory: ${msg.memory.summary}]` : ""}
     const fullTrackerSection = fullTrackerInfo
       ? `
 <relationship_dynamics>
+⚠️ INTERNAL USE ONLY - DO NOT include tracker values or changes in your response
+⚠️ These values should influence your behavior naturally, but NEVER mention them explicitly
 ${fullTrackerInfo}
 </relationship_dynamics>`
       : "";
@@ -451,6 +485,7 @@ ${fullPersonaInfo}
 ${fullMemorySection}
 ${fullTrackerSection}
 ${fullConversationHistory}
+${stage3PatternSection}
 
 ## Advanced Response Guidelines
 - Provide deep insights and thoughtful analysis when appropriate

@@ -178,15 +178,31 @@ export const MessageInput: React.FC = React.memo(() => {
     setIsSending(true);
     try {
       // プログレッシブモードが有効な場合は sendProgressiveMessage を使用
-      // Enhanced debugging for progressive mode settings
-      console.log("🔍 Progressive Mode Check (Enhanced):", {
-        chat: !!chat,
-        progressiveMode: !!chat?.progressiveMode,
-        enabled: chat?.progressiveMode?.enabled,
-        enabledType: typeof chat?.progressiveMode?.enabled,
+      // 🔍 徹底デバッグ: 設定値の全経路を追跡
+      console.log("🔍 [MessageInput.handleSend] Progressive Mode Check (Full Trace):", {
+        // chat オブジェクトの存在確認
+        chat_exists: !!chat,
+        chat_object: chat,
+
+        // progressiveMode の存在確認
+        progressiveMode_exists: !!chat?.progressiveMode,
+        progressiveMode_object: chat?.progressiveMode,
+
+        // enabled の値と型
+        enabled_value: chat?.progressiveMode?.enabled,
+        enabled_type: typeof chat?.progressiveMode?.enabled,
+        enabled_strict_true: chat?.progressiveMode?.enabled === true,
+        enabled_loose_true: chat?.progressiveMode?.enabled == true,
+        enabled_truthy: !!chat?.progressiveMode?.enabled,
+
+        // グループモード状態
         is_group_mode,
+
+        // 最終判定
         should_use_progressive: chat?.progressiveMode?.enabled === true && !is_group_mode,
-        fullChatSettings: chat ? JSON.stringify(chat, null, 2) : 'null',
+
+        // 完全な chat オブジェクト
+        full_chat_settings: JSON.stringify(chat, null, 2),
       });
 
       // More explicit condition checking with proper null safety

@@ -43,21 +43,20 @@ export const createSessionManagement: StateCreator<
   createSession: async (character, persona) => {
     const sessionId = generateSessionId();
 
-    // 🔧 修正: トラッカーマネージャーをキャラクターIDで管理
-    const trackerManagers = get().trackerManagers;
-    let trackerManager: any;
+    // 🔧 修正: セッションIDでトラッカーマネージャーを管理
+    // 同じキャラクターでも新しいセッションなら必ず新規作成
+    const { TrackerManager } = await import(
+      "@/services/tracker/tracker-manager"
+    );
+    const trackerManager = new TrackerManager();
+    trackerManager.initializeTrackerSet(character.id, character.trackers);
 
-    // キャラクターごとにトラッカーマネージャーを管理
-    if (!trackerManagers.has(character.id)) {
-      const { TrackerManager } = await import(
-        "@/services/tracker/tracker-manager"
-      );
-      trackerManager = new TrackerManager();
-      trackerManager.initializeTrackerSet(character.id, character.trackers);
-      trackerManagers.set(character.id, trackerManager);
-    } else {
-      trackerManager = trackerManagers.get(character.id)!;
-    }
+    const trackerManagers = get().trackerManagers;
+    trackerManagers.set(sessionId, trackerManager);  // ← sessionIdで保存
+
+    console.log(
+      `🎯 Created new TrackerManager for session: ${sessionId} (character: ${character.name})`
+    );
 
     const newSession: UnifiedChatSession = {
       id: sessionId,
@@ -198,8 +197,9 @@ export const createSessionManagement: StateCreator<
         newSession.id,
         newSession
       );
+      // 🔧 修正: sessionIdでTrackerManagerを保存
       const newTrackerManagers = createMapSafely(state.trackerManagers).set(
-        character.id,
+        sessionId,  // ← character.id から sessionId に変更
         trackerManager
       );
 

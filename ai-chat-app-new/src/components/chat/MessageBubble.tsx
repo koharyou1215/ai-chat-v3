@@ -598,14 +598,50 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
   }, [selectedText, processedContent]);
 
+  // 編集状態の管理
+  const editingMessageId = useAppStore((state) => state.editingMessageId);
+  const editingContent = useAppStore((state) => state.editingContent);
+  const startEditingMessage = useAppStore((state) => state.startEditingMessage);
+  const cancelEditingMessage = useAppStore((state) => state.cancelEditingMessage);
+  const updateEditingContent = useAppStore((state) => state.updateEditingContent);
+  const sendMessage = useAppStore((state) => state.sendMessage);
+
+  const isEditing = editingMessageId === message.id;
+
   // メッセージの編集開始
   const handleEdit = useCallback(() => {
-    if (selectedText) {
-      console.log("テキスト選択編集:", selectedText);
-    } else {
-      console.log("メッセージ全体編集:", processedContent);
+    startEditingMessage(message.id, processedContent);
+  }, [message.id, processedContent, startEditingMessage]);
+
+  // 編集の保存（ロールバック→再生成）
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingContent.trim()) return;
+
+    try {
+      // 1. このメッセージまでロールバック
+      rollbackSession(message.id);
+
+      // 2. 編集した内容で新しいメッセージを送信（再生成）
+      await sendMessage(editingContent);
+
+      // 3. 編集モードを終了
+      cancelEditingMessage();
+    } catch (error) {
+      console.error("メッセージの編集に失敗しました:", error);
+      alert("編集に失敗しました。もう一度お試しください。");
     }
-  }, [selectedText, processedContent]);
+  }, [
+    editingContent,
+    message.id,
+    rollbackSession,
+    sendMessage,
+    cancelEditingMessage,
+  ]);
+
+  // 編集のキャンセル
+  const handleCancelEdit = useCallback(() => {
+    cancelEditingMessage();
+  }, [cancelEditingMessage]);
 
   // 選択範囲へのアクション適用
   const handleApplyToSelection = useCallback(
@@ -723,7 +759,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     <AnimatePresence>
       <motion.div
         ref={bubbleRef}
-        initial={bubbleAnimation}
+        initial={bubbleAnimation as any}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={bubbleTransition}
@@ -785,7 +821,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   ? "message-bubble-user-transparent"
                   : "bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/40 shadow-blue-500/20"
                 : // Character messages: Purple theme with effects consideration
-                effects.colorfulBubbles
+                effectSettings.colorfulBubbles
                 ? effectSettings.bubbleBlur
                   ? "message-bubble-character-transparent"
                   : "bg-gradient-to-br from-purple-500/25 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
@@ -803,18 +839,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   ? (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
                 "--character-bubble-opacity": !isUser
-                  ? effects.colorfulBubbles
+                  ? effectSettings.colorfulBubbles
                     ? (effectSettings.bubbleOpacity || 85) / 100
                     : (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
+                // 🔧 FIX: Fixed blur value (8px) - no longer dependent on backgroundBlur
                 "--user-bubble-blur": effectSettings.bubbleBlur
-                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  ? "blur(8px)"
                   : "none",
                 "--character-bubble-blur": effectSettings.bubbleBlur
-                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  ? "blur(8px)"
                   : "none",
                 // Additional background for colorful bubbles effect
-                ...(effects.colorfulBubbles &&
+                ...(effectSettings.colorfulBubbles &&
                   !effectSettings.bubbleBlur && {
                     backgroundColor: `rgba(147, 51, 234, ${
                       effectSettings.bubbleOpacity
@@ -824,20 +861,44 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   }),
               } as React.CSSProperties
             }>
-            {/* リッチメッセージ表示 */}
-            <div style={fontEffectStyles}>
-              <RichMessage
-                content={processedContent}
-                role={
-                  message.role === "user" || message.role === "assistant"
-                    ? message.role
-                    : "assistant"
-                }
-                isExpanded={isExpanded}
-                onToggleExpanded={() => setIsExpanded(!isExpanded)}
-                isLatest={isLatest}
-              />
-            </div>
+            {/* リッチメッセージ表示 or 編集モード */}
+            {isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editingContent}
+                  onChange={(e) => updateEditingContent(e.target.value)}
+                  className="w-full min-h-[100px] p-3 bg-white/10 text-white rounded-lg border border-white/20 focus:outline-none focus:border-purple-400 resize-y"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 rounded-lg bg-gray-600/50 hover:bg-gray-600/70 text-white transition-colors">
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors">
+                    保存して再生成
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* ✅ 常にRichMessageを使用（個別文字色付けとグラデーションを維持） */}
+                <RichMessage
+                  content={processedContent}
+                  role={
+                    message.role === "user" || message.role === "assistant"
+                      ? message.role
+                      : "assistant"
+                  }
+                  isExpanded={isExpanded}
+                  onToggleExpanded={() => setIsExpanded(!isExpanded)}
+                  isLatest={isLatest}
+                />
+              </div>
+            )}
 
             {/* 感情表示（lazily loaded） */}
             {emotionResult && isEffectEnabled("realtimeEmotion") && (

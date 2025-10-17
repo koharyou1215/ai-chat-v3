@@ -287,7 +287,7 @@ export class TrackerManager {
   }
 
   /**
-   * プロンプト用に整形されたトラッカー情報を取得
+   * プロンプト用に整形されたトラッカー情報を取得（日本語版）
    */
   getTrackersForPrompt(characterId: string): string {
     const trackerSet = this.trackerSets.get(characterId);
@@ -295,7 +295,7 @@ export class TrackerManager {
       return '';
     }
 
-    let promptText = '<trackers>\n';
+    let promptText = '<トラッカー情報>\n';
     for (const tracker of trackerSet.trackers.values()) {
       // current_value が undefined や null の場合は初期値を表示
       const trackerAsAny = tracker as any;
@@ -305,15 +305,15 @@ export class TrackerManager {
          tracker.config.type === 'boolean' ? (trackerAsAny.config.initial_value ?? false) :
          tracker.config.type === 'text' ? (trackerAsAny.config.initial_value ?? '') :
          'N/A');
-      promptText += `${tracker.display_name}: ${value}\n`;
+      promptText += `【${tracker.display_name}】: ${value}\n`;
     }
-    promptText += '</trackers>';
-    
+    promptText += '</トラッカー情報>';
+
     return promptText;
   }
 
   /**
-   * 詳細なトラッカー情報をプロンプト用に取得（キャラクター設定強化版）
+   * 詳細なトラッカー情報をプロンプト用に取得（日本語版・キャラクター設定強化版）
    */
   getDetailedTrackersForPrompt(characterId: string): string {
     const trackerSet = this.trackerSets.get(characterId);
@@ -322,46 +322,49 @@ export class TrackerManager {
     }
 
     let promptText = '';
-    
+
     for (const tracker of trackerSet.trackers.values()) {
       const value = tracker.current_value ?? 'N/A';
-      
-      // トラッカー情報を詳細に記述
-      promptText += `## ${tracker.display_name}\n`;
-      promptText += `Current Value: ${value}`;
-      
+
+      // トラッカー情報を詳細に記述（日本語）
+      promptText += `## 【${tracker.display_name}】\n`;
+      promptText += `現在の値: ${value}`;
+
       // 数値型の場合は範囲情報も含める
       if (tracker.config.type === 'numeric' && tracker.config.min_value !== undefined && tracker.config.max_value !== undefined) {
-        promptText += ` (Range: ${tracker.config.min_value}-${tracker.config.max_value})`;
+        promptText += ` (範囲: ${tracker.config.min_value}～${tracker.config.max_value})`;
       }
-      
+
       // 状態型の場合は可能な状態を含める
       if (tracker.config.type === 'state' && tracker.config.possible_states && tracker.config.possible_states.length > 0) {
-        promptText += ` (Possible: ${tracker.config.possible_states.join(', ')})`;
+        const possibleStatesText = tracker.config.possible_states
+          .map(s => typeof s === 'string' ? s : s.label || s.id)
+          .join('、');
+        promptText += ` (選択肢: ${possibleStatesText})`;
       }
-      
+
       promptText += '\n';
-      
+
       // 説明があれば含める
       if (tracker.description) {
-        promptText += `Description: ${tracker.description}\n`;
+        promptText += `説明: ${tracker.description}\n`;
       }
-      
+
       // 最近の変更履歴があれば含める（最新3件）
       const recentUpdates = trackerSet.history
         .filter(update => update.tracker_name === tracker.name)
         .slice(-3);
-      
+
       if (recentUpdates.length > 0) {
-        promptText += `Recent Changes:\n`;
+        promptText += `最近の変化:\n`;
         recentUpdates.forEach(update => {
-          promptText += `- ${update.old_value} → ${update.new_value} (${update.reason || 'No reason'})\n`;
+          promptText += `- ${update.old_value} → ${update.new_value} (${update.reason || '理由なし'})\n`;
         });
       }
-      
+
       promptText += '\n';
     }
-    
+
     return promptText;
   }
 

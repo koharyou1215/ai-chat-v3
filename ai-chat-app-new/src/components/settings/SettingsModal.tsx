@@ -26,6 +26,7 @@ import {
   SystemPrompts,
   EffectSettings,
 } from "@/types/core/settings.types";
+import { geminiCacheManager } from "@/services/api/gemini-cache-manager";
 
 // Import all panel components
 import {
@@ -78,8 +79,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAPIProvider,
     effectSettings,
     updateEffectSettings,
-    emotionalIntelligenceFlags,
-    updateEmotionalFlags,
+    unifiedSettings,
+    updateCategory,
   } = useAppStore();
 
   useEffect(() => {
@@ -154,6 +155,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = () => {
     // AI設定（プロンプト）を保存
     updateSystemPrompts(localSystemPrompts);
+
+    // 🔥 Cache Invalidation: システムプロンプト変更時にすべてのキャッシュを無効化
+    geminiCacheManager.invalidateAll();
+    console.log('💾 [Cache] Invalidated all caches due to system prompt changes');
 
     // エフェクト設定を保存
     if (onEffectSettingsChange) {
@@ -255,8 +260,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <EmotionPanel
                     settings={localEffectSettings}
                     updateSetting={updateEffectSetting}
-                    emotionalFlags={emotionalIntelligenceFlags}
-                    updateEmotionalFlags={updateEmotionalFlags}
+                    emotionalIntelligence={unifiedSettings.emotionalIntelligence}
+                    updateEmotionalIntelligence={(updates) => updateCategory('emotionalIntelligence', updates)}
                   />
                 )}
                 {activeTab === "tracker" && (

@@ -13,6 +13,20 @@ import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
 import { validateGeminiModel, formatModelForProvider } from "@/utils/model-migration";
 
+/**
+ * 🔧 Type-safe API response types
+ */
+interface OpenRouterUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+interface OpenRouterResponse {
+  content: string;
+  usage?: OpenRouterUsage;
+}
+
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
   private openRouterApiKey: string | null = null;
@@ -67,8 +81,9 @@ export class SimpleAPIManagerV2 {
 
   /**
    * JSON安全解析機能
+   * 🔧 Returns unknown instead of any for type safety
    */
-  private safeJsonParse(text: string): any {
+  private safeJsonParse(text: string): unknown {
     try {
       // 制御文字を除去
       const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
@@ -100,19 +115,16 @@ export class SimpleAPIManagerV2 {
 
   /**
    * APIキーの設定
+   * 🔧 FIX: LocalStorageへの直接保存を削除（統一設定システムで管理）
    */
   setGeminiApiKey(key: string) {
     this.geminiApiKey = key;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gemini_api_key", key);
-    }
+    // LocalStorage直接保存は統一設定システムに任せる
   }
 
   setOpenRouterApiKey(key: string) {
     this.openRouterApiKey = key;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("openrouter_api_key", key);
-    }
+    // LocalStorage直接保存は統一設定システムに任せる
   }
 
   /**
@@ -299,6 +311,9 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[],
     options?: Partial<APIConfig>
   ): Promise<string> {
+    // 🔥 Performance Measurement: 開始時刻を記録
+    const startTime = Date.now();
+
     if (!this.geminiApiKey) {
       throw new Error(
         "Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。"
@@ -327,17 +342,35 @@ export class SimpleAPIManagerV2 {
       conversationHistory
     );
 
+    // 🔥 Prompt Caching: Pass cache-related options to gemini-client
     const response = await geminiClient.generateMessage(messages, {
       temperature: options?.temperature || 0.7,
       maxTokens: options?.max_tokens || 2048,
       topP: options?.top_p || 0.9,
+      characterId: options?.characterId,
+      personaId: options?.personaId,
+      systemPrompt: systemPrompt, // For cache key generation
+      enableCache: options?.enableCache !== false, // Default to true
     });
+
+    // 🔥 Performance Measurement: 終了時刻と処理時間を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    console.log("📊 [Gemini Performance]");
+    console.log(`  - Generation Time: ${duration}ms`);
+    console.log(`  - Model: ${cleanModel}`);
+    console.log(`  - System Prompt Length: ${systemPrompt.length} chars`);
+    console.log(`  - Response Length: ${response.length} chars`);
+    if (options?.characterId) console.log(`  - Character ID: ${options.characterId}`);
+    if (options?.personaId) console.log(`  - Persona ID: ${options.personaId}`);
 
     return formatMessageContent(response, "readable");
   }
 
   /**
    * OpenRouter使用
+   * 🔧 Returns properly typed OpenRouterResponse
    */
   private async generateWithOpenRouter(
     systemPrompt: string,
@@ -345,7 +378,10 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[],
     model: string,
     options?: Partial<APIConfig>
-  ): Promise<{ content: string; usage?: any }> {
+  ): Promise<OpenRouterResponse> {
+    // 🔥 Performance Measurement: 開始時刻を記録
+    const startTime = Date.now();
+
     if (!this.openRouterApiKey) {
       throw new Error(
         `OpenRouter APIキーが設定されていません。${model}を使用するにはOpenRouter APIキーが必要です。`
@@ -451,19 +487,27 @@ export class SimpleAPIManagerV2 {
       }
     }
 
+    // 🔥 Performance Measurement: 終了時刻と処理時間を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
     // 使用量情報を詳細にログ出力
     if (data.usage) {
-      console.log("📊 OpenRouter API使用量:", {
-        model: model,
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-        finish_reason: finishReason,
-        contentLength: content.length,
-        promptCost: data.usage.prompt_tokens * 0.000002, // 概算コスト
-        completionCost: data.usage.completion_tokens * 0.000002, // 概算コスト
-        totalCost: data.usage.total_tokens * 0.000002, // 概算コスト
-      });
+      console.log("📊 [OpenRouter Performance]");
+      console.log(`  - Generation Time: ${duration}ms`);
+      console.log(`  - Model: ${model}`);
+      console.log(`  - Prompt Tokens: ${data.usage.prompt_tokens}`);
+      console.log(`  - Completion Tokens: ${data.usage.completion_tokens}`);
+      console.log(`  - Total Tokens: ${data.usage.total_tokens}`);
+      console.log(`  - Finish Reason: ${finishReason}`);
+      console.log(`  - Response Length: ${content.length} chars`);
+      console.log(`  - Estimated Cost: $${(data.usage.total_tokens * 0.000002).toFixed(6)}`);
+    } else {
+      // Usage情報がない場合でも基本的なパフォーマンス情報を出力
+      console.log("📊 [OpenRouter Performance]");
+      console.log(`  - Generation Time: ${duration}ms`);
+      console.log(`  - Model: ${model}`);
+      console.log(`  - Response Length: ${content.length} chars`);
     }
 
     return {
@@ -567,6 +611,7 @@ export class SimpleAPIManagerV2 {
 
   /**
    * 接続テスト
+   * 🔧 Uses proper error type guards
    */
   async testConnection(
     model: string
@@ -586,10 +631,11 @@ export class SimpleAPIManagerV2 {
           50
         )}...`,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        message: `${model} との接続に失敗: ${error.message}`,
+        message: `${model} との接続に失敗: ${errorMessage}`,
       };
     }
   }

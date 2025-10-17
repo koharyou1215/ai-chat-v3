@@ -51,14 +51,32 @@ export const createMessageContinuationHandler: StateCreator<
       }
 
       const lastAiMessage = session.messages[lastAiMessageIndex];
-      const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId
-        ? getTrackerManagerSafely(get().trackerManagers, characterId)
+      // 🔧 修正: sessionIdでTrackerManagerを取得
+      const trackerManager = activeSessionId
+        ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
         : null;
 
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
-      // 続き生成の指示をユーザープロンプトに含める（システムプロンプトには追加しない）
-      const continuePrompt = `前のメッセージの続きを書いてください。前のメッセージ内容:\n「${lastAiMessage.content}」\n\nこの続きとして自然に繋がる内容を生成してください。`;
+      // 🚨 重要: キャラクターの発言のみを続けるように明確に指示
+      const continuePrompt = `
+🎯 **重要指示: 続き生成モード**
+
+前回のあなた（{{char}}）の発言:
+「${lastAiMessage.content}」
+
+**あなた（{{char}}）の発言の続きを書いてください。**
+
+⚠️ **厳守事項**:
+1. あなた（{{char}}）の発言・行動・心理のみを書く
+2. {{user}}の発言・行動・反応を絶対に書かない
+3. {{user}}の代わりに応答しない
+4. 会話を進めすぎず、あなたの発言の自然な続きだけを書く
+5. 前回の発言の雰囲気・トーンを維持する
+
+**良い例**: 「...それでね、昨日のことなんだけど。（少し考えて）実は私もちょっと驚いたんだ」
+**悪い例**: 「...それでね、昨日のことなんだけど。」と彼女は言った。{{user}}は「そうなんだ」と答えた。
+
+あなた（{{char}}）の発言の続き:`;
 
       const systemPrompt = await promptBuilderService.buildPrompt(
         session,

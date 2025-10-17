@@ -12,7 +12,13 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     getSelectedCharacter,
     selectedCharacterId,
   } = useAppStore();
-  const currentCharacter = getSelectedCharacter();
+
+  // 🔧 FIX: useMemoでメモ化して無限ループを防ぐ
+  // ⚠️ getSelectedCharacterを依存配列から削除（Zustand関数は毎回新しい参照になるため）
+  const currentCharacter = React.useMemo(
+    () => getSelectedCharacter(),
+    [selectedCharacterId]
+  );
 
   useEffect(() => {
     // favicon / apple-touch-icon を実行時に head に挿入（public/ に置くだけでも動くが、即時反映のためここで確実に設定）
@@ -255,11 +261,17 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       style.textContent = appearanceSettings.customCSS;
       document.head.appendChild(style);
     }
+
+    // 背景タイプをhtml要素に適用（メインのuseEffect内で統合）
+    document.documentElement.setAttribute(
+      "data-background-type",
+      appearanceSettings.backgroundType
+    );
   }, [
     appearanceSettings,
     effectSettings,
     selectedCharacterId,
-    currentCharacter,
+    // 🔧 FIX: currentCharacterを依存配列から削除（selectedCharacterIdで十分）
   ]);
 
   // グローバルスタイルも追加
@@ -316,6 +328,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
           background-size: cover !important;
           background-position: center !important;
           background-repeat: no-repeat !important;
+          opacity: calc(var(--background-opacity) / 100);
           z-index: -1;
           pointer-events: none;
         }
@@ -361,14 +374,6 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       document.head.appendChild(style);
     }
   }, []);
-
-  // 背景タイプをhtml要素に適用
-  useEffect(() => {
-    document.documentElement.setAttribute(
-      "data-background-type",
-      appearanceSettings.backgroundType
-    );
-  }, [appearanceSettings.backgroundType]);
 
   return <>{children}</>;
 };

@@ -27,10 +27,13 @@ export const PersonaGalleryModal: React.FC = () => {
   const personasArray = useMemo(() => Array.from(personas.values()), [personas]);
 
   const filteredPersonas = useMemo(() => {
+    // Filter out personas with empty or invalid IDs
+    const validPersonas = personasArray.filter((persona) => persona.id && persona.id.trim() !== '');
+
     if (!searchTerm) {
-      return personasArray;
+      return validPersonas;
     }
-    return personasArray.filter((persona) =>
+    return validPersonas.filter((persona) =>
       persona.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [personasArray, searchTerm]);
@@ -142,6 +145,7 @@ export const PersonaGalleryModal: React.FC = () => {
   return (
     <AnimatePresence>
       <motion.div
+        key="persona-gallery-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -149,6 +153,7 @@ export const PersonaGalleryModal: React.FC = () => {
         onClick={() => setShowPersonaGallery(false)}
       >
         <motion.div
+          key="persona-gallery-modal"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -209,12 +214,15 @@ export const PersonaGalleryModal: React.FC = () => {
       </motion.div>
 
       {/* Persona Detail Modal */}
-      <PersonaDetailModal
-        persona={selectedPersonaForEdit}
-        isOpen={showDetailModal}
-        onClose={handleCloseDetailModal}
-        onSave={handleSavePersona}
-      />
+      {showDetailModal && (
+        <PersonaDetailModal
+          key="persona-detail-modal"
+          persona={selectedPersonaForEdit}
+          isOpen={showDetailModal}
+          onClose={handleCloseDetailModal}
+          onSave={handleSavePersona}
+        />
+      )}
     </AnimatePresence>
   );
 };

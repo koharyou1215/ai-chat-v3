@@ -38,12 +38,10 @@ export const createProgressiveHandler: StateCreator<
     // グループモードの場合は通常送信にフォールバック
     const state = get();
 
-    // Add debugging for progressive mode state
-    console.log("🚀 [sendProgressiveMessage] State check:", {
+    console.log("🚀 [sendProgressiveMessage] Starting progressive message generation", {
       is_group_mode: state.is_group_mode,
       active_group_session_id: !!state.active_group_session_id,
       progressiveMode: state.chat?.progressiveMode,
-      progressiveEnabled: state.chat?.progressiveMode?.enabled,
     });
 
     if (state.is_group_mode && state.active_group_session_id) {
@@ -51,13 +49,9 @@ export const createProgressiveHandler: StateCreator<
       return await state.sendGroupMessage(content, imageUrl);
     }
 
-    // Check if progressive mode is actually enabled - if not, fallback to normal message
-    if (!state.chat?.progressiveMode?.enabled) {
-      console.log(
-        "🚀 [sendProgressiveMessage] Progressive mode disabled, falling back to normal message"
-      );
-      return await state.sendMessage(content, imageUrl);
-    }
+    // ✅ FIX: 2重チェックを削除
+    // MessageInput.tsxで既にチェック済みのため、ここでは実行のみ
+    console.log("✅ [sendProgressiveMessage] Progressive mode enabled, proceeding with 3-stage generation");
 
     const activeSessionId = state.active_session_id;
     if (!activeSessionId) return;
@@ -175,6 +169,7 @@ export const createProgressiveHandler: StateCreator<
         regeneration_count: 0,
         // 🔧 FIX: ProgressiveMessage専用のmetadata
         metadata: {
+          progressive: true, // ✅ FIX: MessageBubbleがプログレッシブメッセージと判定するために必須
           totalTokens: 0,
           totalTime: 0,
           stageTimings: {},
@@ -327,6 +322,7 @@ export const createProgressiveHandler: StateCreator<
           // metadata.progressiveDataも更新（MessageBubbleが使用）
           progressiveMessage.metadata = {
             ...progressiveMessage.metadata,
+            progressive: true, // ✅ FIX: MessageBubbleがプログレッシブメッセージと判定するために必須
             progressiveData: {
               ...progressiveMessage.metadata.progressiveData,
               stages: progressiveMessage.stages,
@@ -436,10 +432,27 @@ export const createProgressiveHandler: StateCreator<
         console.log("📝 Stage 2 Prompt built, calling API...");
 
         // 💭 心の声プロンプト強化: Stage 2では内面的な思考のみを表現
+        // 🔥 Stage 1の応答を取得して重複回避
+        const currentState2 = get();
+        const currentSession2 = getSessionSafely(currentState2.sessions, activeSessionId);
+        const currentMsg2 = currentSession2?.messages.find(m => m.id === messageId) as ProgressiveMessage | undefined;
+        const reflexResponse = currentMsg2?.stages.reflex?.content || "";
+
         const heartVoicePrompt =
           contextPrompt.prompt +
-          `\n\n【特別指示 - Stage 2: 心の声モード】
+          `\n\n【Stage 1の即座の反応】
+以下はStage 1で生成された即座の反応です。Stage 2ではこれと異なる内容にしてください：
+"""
+${reflexResponse}
+"""
+
+【特別指示 - Stage 2: 心の声モード】
 このレスポンスはキャラクターの内面的な声だけで構成してください。
+
+## 🚨 重複回避の必須ルール
+- Stage 1で使った単語や表現を避け、**新しい視点や異なる感情の側面**を掘り下げる
+- Stage 1と同じ結論や感情を繰り返さない
+- 少なくとも3つ以上の新しい要素（新しい感情、記憶、気づき、葛藤）を追加する
 
 ## 必須ルール
 - 一人称のモノローグで、ユーザーに直接話しかけない
@@ -457,7 +470,8 @@ export const createProgressiveHandler: StateCreator<
 - ユーザーへの直接的な返答
 - 行動や表情の描写
 - 会話体（「」）の使用
-- 表面的な返事`;
+- 表面的な返事
+- Stage 1と同じ内容の繰り返し`;
 
         const contextResult = await simpleAPIManagerV2.generateMessage(
           heartVoicePrompt,
@@ -466,7 +480,10 @@ export const createProgressiveHandler: StateCreator<
           {
             ...get().apiConfig,
             max_tokens: contextPrompt.tokenLimit,
-            temperature: contextPrompt.temperature,
+            temperature: 0.85, // 🔥 高めに設定して創発性向上
+            top_p: 0.92, // 🔥 より多様な表現を生成
+            frequency_penalty: 0.8, // 🔥 同じ単語の繰り返しを強く抑制
+            presence_penalty: 0.8, // 🔥 同じトピックの繰り返しを強く抑制
             openRouterApiKey: get().openRouterApiKey,
             geminiApiKey: get().geminiApiKey,
             useDirectGeminiAPI: get().useDirectGeminiAPI,
@@ -647,11 +664,30 @@ export const createProgressiveHandler: StateCreator<
 
         console.log("📝 Stage 3 Prompt built, calling API...");
 
+        // 🔥 Stage 2の内心の声を取得
+        const currentMsg3 = currentActiveSession?.messages.find(
+          (m) => m.id === messageId
+        ) as ProgressiveMessage | undefined;
+        const contextResponse = currentMsg3?.stages.context?.content || "";
+
         // 🎭 Stage 3: ロールプレイモードのプロンプト強化
         const intelligenceEnhancedPrompt =
           intelligencePrompt.prompt +
-          `\n\n【特別指示 - Stage 3: ロールプレイモード】
+          `\n\n【Stage 2の内心の声】
+以下はStage 2で生成されたキャラクターの内面的な思考です。Stage 3ではこれを踏まえつつ、表に出す言動として表現してください：
+"""
+${contextResponse}
+"""
+
+【特別指示 - Stage 3: ロールプレイモード】
 このレスポンスではキャラクターとして完全になりきってください。
+
+## 🚨 差別化の必須ルール
+- Stage 2の内心を**実際の言動や行動**として自然に表現する
+- Stage 2で述べられた「未解決の感情」や「葛藤」に応答する
+- 新しいアクション提案や具体的な行動を最低2つ追加する
+- Stage 2と同じ言い回しや表現を避け、より具体的・行動的な表現にする
+- 内心の声を「実際にユーザーに伝わる形」に変換する
 
 ## 必須要素
 - 出力はユーザーに向けた会話や行動描写を中心にする
@@ -667,10 +703,11 @@ export const createProgressiveHandler: StateCreator<
 - ユーザーとの関係性を意識した応答
 
 ## 禁止事項
-- 内面の独白や心の声
+- 内面の独白や心の声（Stage 2と同じ形式）
 - システム的な説明や分析
 - キャラクターを離れた客観的な視点
-- メタ的な発言`;
+- メタ的な発言
+- Stage 2の内容をそのまま繰り返す`;
 
         const intelligenceResult = await simpleAPIManagerV2.generateMessage(
           intelligenceEnhancedPrompt,
@@ -679,7 +716,10 @@ export const createProgressiveHandler: StateCreator<
           {
             ...get().apiConfig,
             max_tokens: intelligencePrompt.tokenLimit,
-            temperature: intelligencePrompt.temperature,
+            temperature: 0.9, // 🔥 最も高く設定して多様性最大化
+            top_p: 0.95, // 🔥 最大限の表現多様性
+            frequency_penalty: 1.0, // 🔥 同じ単語の繰り返しを最大限抑制
+            presence_penalty: 1.0, // 🔥 同じトピックの繰り返しを最大限抑制
             openRouterApiKey: get().openRouterApiKey,
             geminiApiKey: get().geminiApiKey,
             useDirectGeminiAPI: get().useDirectGeminiAPI,
@@ -740,6 +780,7 @@ export const createProgressiveHandler: StateCreator<
         // metadata.progressiveDataも更新（MessageBubbleが使用）
         progressiveMessage.metadata = {
           ...progressiveMessage.metadata,
+          progressive: true, // ✅ FIX: MessageBubbleがプログレッシブメッセージと判定するために必須
           progressiveData: {
             ...progressiveMessage.metadata.progressiveData,
             stages: { ...progressiveMessage.stages },

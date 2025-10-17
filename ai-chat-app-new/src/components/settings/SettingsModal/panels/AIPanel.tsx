@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,6 +90,15 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
 
+  // 🔧 FIX: propsの変更を監視してローカル状態を同期
+  useEffect(() => {
+    setLocalOpenRouterApiKey(openRouterApiKey || "");
+  }, [openRouterApiKey]);
+
+  useEffect(() => {
+    setLocalGeminiApiKey(geminiApiKey || "");
+  }, [geminiApiKey]);
+
   // apiConfig がなければ何も表示しない
   if (!apiConfig) {
     return null;
@@ -97,11 +106,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
   const handleModelChange = (modelId: string) => {
     setAPIModel(modelId);
-    if (modelId.includes("gemini")) {
-      setAPIProvider("gemini");
-    } else {
-      setAPIProvider("openrouter");
-    }
+    // 🔧 FIX: Geminiモデル選択時にproviderを自動変更しない
+    // useDirectGeminiAPIトグルで判断する
+    // OpenRouter経由でもGeminiモデルを使用可能にする
   };
 
   const handleApiKeyChange = (key: string) => {
@@ -114,7 +121,8 @@ export const AIPanel: React.FC<AIPanelProps> = ({
     setGeminiApiKey(key);
   };
 
-  const isGemini = apiConfig.provider === "gemini";
+  // 🔧 FIX: Geminiモデルかどうかをモデル名で判定（プロバイダーではなく）
+  const isGeminiModel = apiConfig.model?.includes("gemini");
 
   const handlePromptChange = (key: keyof SystemPrompts, value: string) => {
     onUpdateSystemPrompts({ ...systemPrompts, [key]: value });
@@ -149,11 +157,12 @@ export const AIPanel: React.FC<AIPanelProps> = ({
               <optgroup label="Anthropic (OpenRouter)">
                 <option value="anthropic/claude-opus-4">Claude Opus 4</option>
                 <option value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                <option value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</option>
               </optgroup>
 
               <optgroup label="xAI (OpenRouter)">
                 <option value="x-ai/grok-4">Grok-4</option>
-                <option value="x-ai/grok-4-fast:free">grok-4-fast:free</option>
+                <option value="x-ai/grok-4-fast">grok-4-fast</option>
               </optgroup>
 
               <optgroup label="OpenAI (OpenRouter)">
@@ -169,22 +178,29 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
               <optgroup label="Specialized (OpenRouter)">
                 <option value="qwen/qwen3-max">qwen3-max</option>
-                <option value="qwen/qwen-plus-2025-07-28:thinking">Qwen Plus 2025 07 28 Thinking</option>
-                <option value="qwen/qwen-plus-2025-07-28">Qwen Plus 2025 07 28</option>
-                <option value="qwen/qwen3-next-80b-a3b-thinking">Qwen3 Next 80B A3B Thinking</option>
-                <option value="qwen/qwen3-next-80b-a3b-instruct">Qwen3 Next 80B A3B Instruct</option>
+                <option value="qwen/qwen3-vl-8b-instruct">Qwen 3 VL 8B</option>
+                <option value="qwen/qwen3-vl-30b-a3b-instruct">Qwen 30b</option>
+                <option value="qwen/qwen3-vl-235b-a22b-instruct">Qwen 235b</option>
+                <option value="opengvlab/internvl3-78b">opengvlab/internvl</option>
                 <option value="nousresearch/hermes-4-405b">Hermes 4 405B</option>
-                <option value="z-ai/glm-4.5">GLM-4.5</option>
+                <option value="z-ai/glm-4.6">GLM-4.6</option>
                 <option value="moonshotai/kimi-k2-0905">Kimi K2</option>
+                <option value="baidu/ernie-4.5-21b-a3b-thinking">ERNIE 4.5 21B Thinking</option>
+                <option value="inclusionai/ling-1t">Ling-1T</option>
+                <option value="nvidia/llama-3.3-nemotron-super-49b-v1.5">Llama 3.3 Nemotron Super 49B v1.5</option>
               </optgroup>
             </select>
-            {isGemini ? (
+            {isGeminiModel ? (
               <p className="text-xs text-blue-400 mt-1">
-                Gemini APIを使用します。APIキーは{" "}
-                <code className="bg-gray-700 px-1 rounded">
-                  gemini-api-key.txt
-                </code>{" "}
-                から読み込まれます。
+                {useDirectGeminiAPI ? (
+                  <>
+                    🔥 Gemini API直接使用 - 高速・低レイテンシ
+                  </>
+                ) : (
+                  <>
+                    🌐 OpenRouter経由でGeminiを使用 - 複数モデル統合管理
+                  </>
+                )}
               </p>
             ) : (
               <p className="text-xs text-purple-400 mt-1">
@@ -212,8 +228,8 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           })()}
         </div>
 
-        {/* Gemini API直接使用トグル */}
-        {isGemini && (
+        {/* Gemini API直接使用トグル - Geminiモデル選択時のみ表示 */}
+        {isGeminiModel && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-gray-300">
@@ -233,15 +249,15 @@ export const AIPanel: React.FC<AIPanelProps> = ({
             </div>
             <p className="text-xs text-gray-400">
               {useDirectGeminiAPI
-                ? "🔥 ON: Gemini APIを直接使用します（高速）"
-                : "🌐 OFF: OpenRouter経由でGeminiを使用します"}
+                ? "🔥 ON: Gemini APIを直接使用（高速・低レイテンシ）"
+                : "🌐 OFF: OpenRouter経由でGemini使用（統合管理）"}
             </p>
           </div>
         )}
 
-        {/* Gemini APIキー入力 */}
+        {/* Gemini APIキー入力 - Geminiモデル && 直接API使用ON時のみ表示 */}
         <AnimatePresence>
-          {isGemini && useDirectGeminiAPI && (
+          {isGeminiModel && useDirectGeminiAPI && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -275,9 +291,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           )}
         </AnimatePresence>
 
-        {/* OpenRouter APIキー入力 */}
+        {/* OpenRouter APIキー入力 - 非Geminiモデル or Geminiモデル&&直接API使用OFF時に表示 */}
         <AnimatePresence>
-          {!isGemini && (
+          {(!isGeminiModel || (isGeminiModel && !useDirectGeminiAPI)) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -305,7 +321,11 @@ export const AIPanel: React.FC<AIPanelProps> = ({
                 </button>
               </div>
               <p className="text-xs text-gray-400">
-                OpenRouterのAPIキーを入力してください。キーは暗号化されてローカルに保存されます。
+                OpenRouterのAPIキーを入力してください。
+                {isGeminiModel && (
+                  <span className="text-blue-400"> (Gemini含む全モデル対応)</span>
+                )}
+                キーは暗号化されてローカルに保存されます。
               </p>
             </motion.div>
           )}

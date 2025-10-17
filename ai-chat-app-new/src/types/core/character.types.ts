@@ -4,6 +4,14 @@ import { BaseEntity, Timestamp } from './base.types';
 import { TrackerDefinition } from './tracker.types';
 
 /**
+ * キャラクターの好み・嫌いを表す型（感情分析用）
+ */
+export interface CharacterPreferences {
+  likes: string[];
+  dislikes: string[];
+}
+
+/**
  * 統合キャラクター型（JSONファイルと一致するフラット構造）
  */
 export interface Character extends BaseEntity {
@@ -28,7 +36,7 @@ export interface Character extends BaseEntity {
   hobbies: string[];
   likes: string[];
   dislikes: string[];
-  preferences?: Record<string, any>; // 感情分析用
+  preferences?: CharacterPreferences; // 感情分析用
   
   // 外見・スタイル
   appearance: string;

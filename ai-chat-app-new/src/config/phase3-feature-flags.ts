@@ -71,12 +71,14 @@ export const updateFeatureFlag = <K extends keyof Phase3FeatureFlags>(
 
 /**
  * ブラウザコンソールからアクセス可能にする（開発環境のみ）
+ * ⚠️ HYDRATION FIX: モジュールレベルでのwindow代入を削除
+ * → AppInitializer.tsxのuseEffect内で実行するように移動（必要に応じて）
  */
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).PHASE3_FLAGS = {
-    get: () => PHASE3_FEATURE_FLAGS,
-    set: updateFeatureFlag,
-    log: logFeatureFlagStatus,
-  };
-  console.log('💡 Feature Flags available: window.PHASE3_FLAGS.get()');
-}
+// if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+//   (window as any).PHASE3_FLAGS = {
+//     get: () => PHASE3_FEATURE_FLAGS,
+//     set: updateFeatureFlag,
+//     log: logFeatureFlagStatus,
+//   };
+//   console.log('💡 Feature Flags available: window.PHASE3_FLAGS.get()');
+// }

@@ -7,6 +7,7 @@ import { StorageAnalyzer } from "@/utils/storage-analyzer";
 import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
 import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
 import { clearCharacterCache } from "@/utils/clear-character-cache";
+import { settingsManager } from "@/services/settings-manager";
 
 interface AppInitializerProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ interface AppInitializerProps {
 const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isMounted, setIsMounted] = useState(false);
 
   const {
     sessions,
@@ -33,10 +35,29 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     loadStoreFromStorage,
   } = useAppStore();
 
+  // 🔧 Hydration fix: Set mounted state on client-side only
+  useEffect(() => {
+    setIsMounted(true);
+
+    // 🧪 E2Eテスト用: ブラウザコンソール/Playwrightからアクセス可能にする
+    // ⚠️ HYDRATION FIX: useEffect内で実行してSSR/CSRの一貫性を保つ
+    if (typeof window !== 'undefined') {
+      const { useAppStore } = require('@/store');
+      (window as any).useAppStore = useAppStore;
+    }
+  }, []);
+
+  // ✅ FIX: settingsManager初期化を分離（無限ループ防止）
+  useEffect(() => {
+    // 初回のみ実行：設定の永続化を確保
+    settingsManager.ensurePersistence();
+  }, []); // 依存配列を空にして初回のみ実行
+
   useEffect(() => {
     const loadData = async () => {
       try {
         const loadStartTime = performance.now();
+
         const storageInfo = StorageManager.getStorageInfo();
 
         if (process.env.NODE_ENV === "development") {
@@ -89,7 +110,6 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   }, [
     loadCharactersFromPublic,
     loadPersonasFromPublic,
-    loadStoreFromStorage,
     effectSettings,
   ]);
 
@@ -97,7 +117,15 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     const createInitialSession = async () => {
       if (!isCharactersLoaded || !isPersonasLoaded) return;
 
-            const hasActiveSession =
+      // 🆕 セッションデータの読み込み状況をログ出力（本番環境デバッグ用）
+      console.log("📊 Session data check:", {
+        active_session_id,
+        sessionsType: sessions?.constructor?.name,
+        sessionsSize: sessions instanceof Map ? sessions.size : Object.keys(sessions || {}).length,
+        hasSessions: sessions && (sessions instanceof Map ? sessions.size > 0 : Object.keys(sessions).length > 0),
+      });
+
+      const hasActiveSession =
         active_session_id &&
         (sessions instanceof Map
           ? sessions.has(active_session_id)
@@ -108,6 +136,12 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
       if (active_session_id && hasActiveSession) {
         console.log("?? 既存のアクティブセッションを使用:", active_session_id);
         return;
+      }
+
+      // 🆕 セッションが存在するのにアクティブセッションがない場合の警告
+      if (!active_session_id && sessions instanceof Map && sessions.size > 0) {
+        console.warn("⚠️ セッションは存在するが、アクティブセッションIDがありません");
+        console.warn("⚠️ LocalStorageからの読み込みに問題がある可能性があります");
       }
 
       try {
@@ -156,12 +190,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     isCharactersLoaded,
     isPersonasLoaded,
     active_session_id,
-    sessions,
     selectedCharacterId,
-    characters,
-    getSelectedPersona,
-    createSession,
-    setSelectedCharacterId,
   ]);
 
   // エラー状態の表示
@@ -188,7 +217,9 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     );
   }
 
-  // ローディング状態の表示
+  // 🔧 HYDRATION FIX: Only check data loading states, not isMounted
+  // isMounted check removed to ensure SSR/CSR consistency
+  // Data loading states (isCharactersLoaded, isPersonasLoaded) are consistent on both server and client
   if (!isCharactersLoaded || !isPersonasLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>

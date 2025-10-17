@@ -10,7 +10,6 @@ export interface SystemPrompts {
 }
 
 export interface ChatSettings {
-  bubbleBlur: boolean;
   responseFormat: ChatResponseFormat;
   memoryCapacity: number;
   generationCandidates: number;
@@ -121,6 +120,10 @@ export interface APIConfig {
   useDirectGeminiAPI?: boolean;
   // 🔧 FIX: OpenRouter API追加設定
   openRouterApiKey?: string;
+  // 🔥 Prompt Caching: キャッシュ関連設定
+  characterId?: string; // キャッシュキー生成用
+  personaId?: string; // キャッシュキー生成用
+  enableCache?: boolean; // キャッシュ有効化フラグ（デフォルトtrue）
 }
 
 export interface AISettings {
@@ -224,6 +227,71 @@ export interface EffectSettings {
   backgroundImage?: string | null;
   backgroundImageOpacity?: number;
   backgroundImageBlur?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
+
+  // 🔧 Emotion system settings (used in EmotionPanel)
+  // Note: These are simplified for backward compatibility
+  // Full EmotionSettings type is in settings-manager/types/domains/effects.types.ts
+  emotion: {
+    displayMode: 'none' | 'minimal' | 'standard' | 'rich';
+    display: {
+      showIcon: boolean;
+      showText: boolean;
+      applyColors: boolean;
+    };
+    realtimeDetection: boolean;
+    autoReactions: boolean;
+    intensity: number;
+  };
+
+  // 🔧 Performance settings (used in PerformancePanel)
+  effectQuality: 'low' | 'medium' | 'high';
+  animationSpeed: number;
+
+  // 🔧 Tracker settings (used in TrackerPanel)
+  autoTrackerUpdate: boolean;
+  showTrackers: boolean;
+}
+
+// 🔧 Type-safe dynamic effect properties
+export type EffectSettingKey = keyof EffectSettings;
+export type EffectSettingValue = EffectSettings[EffectSettingKey];
+
+// 🔧 Appearance Settings Interface
+export interface AppearanceSettings {
+  theme: "dark" | "light" | string;
+  // Colors
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textColor: string;
+  secondaryTextColor: string;
+  borderColor: string;
+  shadowColor: string;
+  // Typography
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  lineHeight: number;
+  // Layout
+  messageSpacing: number;
+  messageBorderRadius: number;
+  chatMaxWidth: number;
+  sidebarWidth: number;
+  // Background
+  backgroundType: "gradient" | "image" | "color";
+  backgroundGradient: string;
+  backgroundImage: string;
+  backgroundBlur: number;
+  backgroundBlurEnabled: boolean;
+  backgroundOpacity: number;
+  // Favicon
+  faviconPath: string;
+  faviconSvg: string;
+  appleTouchIcon: string;
+  // Effects
+  enableAnimations: boolean;
+  transitionDuration: "fast" | "normal" | "slow" | string;
+  // Custom CSS
+  customCSS: string;
 }

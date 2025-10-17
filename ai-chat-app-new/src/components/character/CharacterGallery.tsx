@@ -46,7 +46,7 @@ interface CharacterGalleryProps {
   onClose?: () => void;
 }
 
-type SortField = 'name' | 'tags';
+type SortField = 'name' | 'tags' | 'created_at';
 type SortOption = `${SortField}_${'asc' | 'desc'}`;
 
 export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
@@ -81,6 +81,7 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
     sortKeys: {
       name: (c: Character) => c.name || '',
       tags: (c: Character) => c.tags.join(', '),
+      created_at: (c: Character) => c.created_at || '',
     },
   });
   
@@ -89,6 +90,8 @@ export const CharacterGallery: React.FC<CharacterGalleryProps> = ({
     { value: 'name_desc', label: '名前 (降順)' },
     { value: 'tags_asc', label: 'タグ (昇順)' },
     { value: 'tags_desc', label: 'タグ (降順)' },
+    { value: 'created_at_desc', label: '追加日 (新しい順)' },
+    { value: 'created_at_asc', label: '追加日 (古い順)' },
   ];
 
   const handleJsonUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

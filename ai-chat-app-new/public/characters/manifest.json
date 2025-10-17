@@ -1,4 +1,5 @@
 [
+  "bittv.json",
   "character-7n2.json",
   "character-wf.json",
   "emma-noble.json",
@@ -46,7 +47,9 @@
   "万引き.json",
   "佐藤-恵美（さとう-えみ）.json",
   "催眠術.json",
+  "催眠術pan.json",
   "元女魔王.json",
+  "囮捜査.json",
   "天使.json",
   "天音海月.json",
   "家族ドライブ.json",
@@ -65,6 +68,7 @@
   "温泉.json",
   "無限の年代記-(インフィニット・クロニクル).json",
   "白石-ゆう-(しらいし-ゆう).json",
+  "空港.json",
   "羅雪姫-ミヅキ（vtuber名：ぽみみ）.json",
   "胡蝶.json",
   "配信者.json",

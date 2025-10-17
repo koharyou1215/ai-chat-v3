@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // ✅ HYDRATION FIX COMPLETE: React Strict Mode enabled
+  // All hydration issues resolved - safe to enable strict mode
+  reactStrictMode: true,
+
   // TypeScript設定 - 一時的にエラーを無視
   typescript: {
     ignoreBuildErrors: true,
@@ -168,6 +172,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "example.com",
       },
+      {
+        protocol: "https",
+        hostname: "chichi-pui.akamaized.net",
+      },
+      {
+        protocol: "https",
+        hostname: "image.cdn2.seaart.me",
+      },
       // Add more remote patterns as needed
     ],
     // モバイル対応の画像最適化
@@ -249,10 +261,12 @@ const nextConfig: NextConfig = {
     PORT: process.env.PORT || "3000",
     ANALYZE: process.env.ANALYZE,
     // ✅ ビルドIDを環境変数として公開（キャッシュバスティング用）
+    // ⚠️ HYDRATION FIX: Date.now()は動的なのでSSR/CSRで不一致の可能性
+    // → 固定値を使用してビルド時に確定させる
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ||
                           process.env.RAILWAY_GIT_COMMIT_SHA ||
-                          Date.now().toString(),
-    NEXT_PUBLIC_BUILD_TIME: Date.now().toString(),
+                          "dev-build",
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
 
   // 出力設定

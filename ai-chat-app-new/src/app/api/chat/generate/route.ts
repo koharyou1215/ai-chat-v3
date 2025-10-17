@@ -4,6 +4,9 @@ import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
 // Removed unused import: import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
+  // 🔥 Performance Measurement: リクエスト開始時刻を記録
+  const requestStartTime = Date.now();
+
   debugLog("#### API Route: /api/chat/generate called (to file) ####"); // ファイルにログ出力
   console.log("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
 
@@ -18,6 +21,8 @@ export async function POST(request: Request) {
       conversationHistory,
       apiConfig: requestApiConfig,
       textFormatting = "readable",
+      characterId, // 🔥 Prompt Caching: キャッシュキー生成用
+      personaId, // 🔥 Prompt Caching: キャッシュキー生成用
     } = body;
 
     // apiConfigを代入
@@ -76,7 +81,13 @@ export async function POST(request: Request) {
     // プロバイダー判定（非表示）
 
     // 環境変数から API キーを取得
-    const effectiveApiConfig = { ...apiConfig, provider: effectiveProvider };
+    const effectiveApiConfig = {
+      ...apiConfig,
+      provider: effectiveProvider,
+      // 🔥 Prompt Caching: キャッシュキー生成用のIDを追加
+      characterId,
+      personaId,
+    };
 
     if (effectiveProvider === "gemini") {
       // フロントエンドから送られてくる API キーを最優先で使用
@@ -238,142 +249,21 @@ export async function POST(request: Request) {
     let aiResponseContent: string;
 
     try {
-      // プロンプト全体をログ出力
-      console.log("\n==== APIリクエスト ====");
+      // 🔥 Performance Measurement: API呼び出し前の計測
+      const apiCallStartTime = Date.now();
+      const systemPromptLength = systemPrompt.length;
+
+      // シンプル化されたログ: APIに送信される完全なプロンプトのみ表示
+      console.log("\n" + "=".repeat(80));
+      console.log("📤 APIリクエスト - 送信プロンプト全文");
+      console.log("=".repeat(80));
       console.log("🚀 モデル:", effectiveApiConfig.model);
-
-      console.log("\n📝 ユーザーメッセージ:");
-      console.log(userMessage);
-
-      // 会話履歴を表示
-      console.log("\n📚 会話履歴 (" + conversationHistory.length + "件):");
-      conversationHistory
-        .slice(-10)
-        .forEach(
-          (
-            msg: { role: "user" | "assistant"; content: string },
-            index: number
-          ) => {
-            console.log(
-              `  ${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${
-                msg.content.length > 100 ? "..." : ""
-              }`
-            );
-          }
-        );
-
-      // システムプロンプトから情報を抽出して表示（PROMPT_VERIFICATION_GUIDE.mdの順序に従う）
-      console.log("\n📦 システムプロンプト構成（正しい順序）:");
-
-      // 1. System Instructions (必須)
-      const systemInstructionsMatch = systemPrompt.match(
-        /<system_instructions>([\s\S]*?)<\/system_instructions>/
-      );
-      console.log(
-        "  1️⃣ System Instructions: " +
-          (systemInstructionsMatch ? "✅ あり" : "❌ なし")
-      );
-
-      // 2. Jailbreak (オプション)
-      const jailbreakMatch = systemPrompt.match(
-        /<jailbreak>([\s\S]*?)<\/jailbreak>/
-      );
-      console.log(
-        "  2️⃣ Jailbreak: " +
-          (jailbreakMatch ? "✅ あり" : "➖ なし（オプション）")
-      );
-
-      // 3. Character Information（必須）
-      const charMatch = systemPrompt.match(
-        /<character_information>([\s\S]*?)<\/character_information>/
-      );
-      if (charMatch) {
-        const charInfo = charMatch[1];
-        const nameMatch = charInfo.match(/Name: (.+)/);
-        console.log(
-          "  3️⃣ Character Information: ✅ " +
-            (nameMatch ? nameMatch[1] : "キャラクター名不明")
-        );
-      } else {
-        console.log("  3️⃣ Character Information: ❌ なし");
-      }
-
-      // 4. Persona Information（必須）
-      const personaMatch = systemPrompt.match(
-        /<persona_information>([\s\S]*?)<\/persona_information>/
-      );
-      if (personaMatch) {
-        console.log("  4️⃣ Persona Information: ✅ あり");
-        const personaInfo = personaMatch[1].substring(0, 100);
-        console.log(
-          "    " + personaInfo.replace(/\n/g, " ").substring(0, 80) + "..."
-        );
-      } else {
-        console.log("  4️⃣ Persona Information: ❌ なし");
-      }
-
-      // 5. Relationship State（トラッカー情報）
-      const trackerMatch = systemPrompt.match(
-        /<relationship_state>([\s\S]*?)<\/relationship_state>/
-      );
-      if (trackerMatch) {
-        const trackerInfo = trackerMatch[1];
-        // トラッカー名を抽出（## で始まる行を探す）
-        const trackerNames = trackerInfo.match(/## [^\n]+/g) || [];
-        console.log(
-          "  5️⃣ Relationship State: ✅ トラッカー" + trackerNames.length + "個"
-        );
-        trackerNames.slice(0, 5).forEach((tracker: string) => {
-          console.log("    - " + tracker.replace("## ", ""));
-        });
-        if (trackerNames.length > 5) {
-          console.log("    ... 他" + (trackerNames.length - 5) + "個");
-        }
-      } else {
-        console.log("  5️⃣ Relationship State: ➖ トラッカーなし");
-      }
-
-      // 6. Memory Context（メモリーカード）
-      const memoryContextMatch = systemPrompt.match(
-        /<memory_context>([\s\S]*?)<\/memory_context>/
-      );
-
-      let totalMemoryCards = 0;
-      if (memoryContextMatch) {
-        // 正確にカードをカウント: [category] title: のパターンを探す
-        const cardPattern = /^\s*\[([^\]]+)\]\s+[^:]+:/gm;
-        const cards = memoryContextMatch[1].match(cardPattern);
-        totalMemoryCards = cards ? cards.length : 0;
-        console.log(
-          "  6️⃣ Memory Context: " +
-            (totalMemoryCards > 0 ? "✅ " + totalMemoryCards + "件" : "➖ なし")
-        );
-      } else {
-        console.log("  6️⃣ Memory Context: ➖ なし");
-      }
-
-      // 7. Current Input（必須 - プロンプトの最後にあるはず）
-      const currentInputMatch = systemPrompt.match(/## Current Input[\s\S]*$/);
-      console.log(
-        "  7️⃣ Current Input: " + (currentInputMatch ? "✅ あり" : "❌ なし")
-      );
-
-      console.log("\n📊 プロンプト順序の検証:");
-      console.log(
-        "  " +
-          (systemInstructionsMatch && charMatch && personaMatch
-            ? "✅ 正しい順序"
-            : "❌ 順序に問題あり")
-      );
-
-      // システムプロンプトの実際の内容を表示
-      console.log("\n📦 システムプロンプト (先頭1000文字):");
-      console.log(systemPrompt.substring(0, 1000));
-      console.log("... [" + systemPrompt.length + "文字]\n");
+      console.log("📏 文字数:", systemPromptLength, "文字");
+      console.log("-".repeat(80));
+      console.log(systemPrompt);
+      console.log("=".repeat(80) + "\n");
 
       // APIリクエスト送信
-      console.log("\n🚀 APIリクエスト送信中...");
-
       aiResponseContent = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
@@ -381,19 +271,36 @@ export async function POST(request: Request) {
         { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
       );
 
+      // 🔥 Performance Measurement: API呼び出し後の計測
+      const apiCallEndTime = Date.now();
+      const apiCallDuration = apiCallEndTime - apiCallStartTime;
+
       console.log("✅ API生成成功");
+      console.log(`⏱️ [Performance] API呼び出し時間: ${apiCallDuration}ms`);
     } catch (error) {
       console.error("❌ API生成エラー:", error);
       throw error;
     }
 
-    // レスポンスログ
-    console.log("\n🤖 AI応答 (先頭200文字):");
-    console.log(
-      aiResponseContent.substring(0, 200) +
-        (aiResponseContent.length > 200 ? "..." : "")
-    );
-    console.log("==== リクエスト完了 ====\n");
+    // レスポンスログ（シンプル化）
+    console.log("=".repeat(80));
+    console.log("📥 AI応答");
+    console.log("=".repeat(80));
+    console.log("📏 文字数:", aiResponseContent.length, "文字");
+    console.log("-".repeat(80));
+    console.log(aiResponseContent);
+    console.log("=".repeat(80) + "\n");
+
+    // 🔥 Performance Measurement: 全体の処理時間を記録
+    const requestEndTime = Date.now();
+    const totalDuration = requestEndTime - requestStartTime;
+
+    console.log("📊 [Performance Summary]");
+    console.log(`  - Total Request Time: ${totalDuration}ms`);
+    console.log(`  - Model: ${effectiveApiConfig.model}`);
+    console.log(`  - Provider: ${effectiveApiConfig.provider}`);
+    if (characterId) console.log(`  - Character ID: ${characterId}`);
+    if (personaId) console.log(`  - Persona ID: ${personaId}`);
 
     return NextResponse.json({ response: aiResponseContent });
   } catch (error) {

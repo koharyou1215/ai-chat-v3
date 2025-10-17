@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types';
+import { SafariTTSManager } from '@/services/tts/safari-tts-manager';
 
 type UseAudioPlaybackProps = {
   message: UnifiedMessage;
@@ -10,7 +11,7 @@ type UseAudioPlaybackProps = {
 
 // グローバルに再生中のオーディオインスタンスを管理
 let globalAudio: HTMLAudioElement | null = null;
-let globalSpeechUtterance: SpeechSynthesisUtterance | null = null;
+let safariTTSManager: SafariTTSManager | null = null;
 
 const stopGlobalPlayback = () => {
   if (globalAudio) {
@@ -18,9 +19,11 @@ const stopGlobalPlayback = () => {
     globalAudio.src = ''; // メモリ解放
     globalAudio = null;
   }
-  if (globalSpeechUtterance) {
+
+  if (safariTTSManager) {
+    safariTTSManager.stop();
+  } else {
     window.speechSynthesis.cancel();
-    globalSpeechUtterance = null;
   }
 };
 
@@ -162,23 +165,26 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
             setIsSpeaking(false);
         }
       } else if ('speechSynthesis' in window) {
-        const utter = new SpeechSynthesisUtterance(message.content);
-        globalSpeechUtterance = utter;
-        if (voiceSettings?.voicevox) {
-            utter.rate = voiceSettings.voicevox.speed || 1.0;
-            utter.pitch = Math.max(0, Math.min(2, (voiceSettings.voicevox.pitch || 0) / 100 + 1));
-            utter.volume = voiceSettings.voicevox.volume || 1.0;
+        // Safari最適化マネージャーを使用
+        if (!safariTTSManager) {
+          safariTTSManager = new SafariTTSManager();
         }
-        utter.onend = () => {
+
+        try {
+          await safariTTSManager.speak(message.content, {
+            rate: voiceSettings?.system?.rate || 1.0,
+            pitch: voiceSettings?.system?.pitch || 1.0,
+            volume: voiceSettings?.system?.volume || 1.0,
+            voiceName: voiceSettings?.system?.voice || undefined,
+            lang: 'ja-JP',
+            maxChunkLength: 200 // Safari対策: 長文自動分割
+          });
+
           setIsSpeaking(false);
-          globalSpeechUtterance = null;
-        };
-        utter.onerror = () => {
-          console.error('Speech synthesis error');
+        } catch (error) {
+          console.error('Safari TTS error:', error);
           setIsSpeaking(false);
-          globalSpeechUtterance = null;
-        };
-        window.speechSynthesis.speak(utter);
+        }
       } else {
         alert('音声再生はこのブラウザでサポートされていません');
         setIsSpeaking(false);

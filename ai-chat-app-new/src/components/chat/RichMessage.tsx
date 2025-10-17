@@ -105,8 +105,9 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         isLong,
         hasGeneratedImage,
         hasDataUrlImage,
-        shouldUseMarkdown:
-          hasMarkdown || hasCode || hasUrls || hasGeneratedImage,
+        // 🔧 FIX: 感情エフェクトのHTML表示を優先するため、MarkdownRendererの使用を最小限に
+        // コードブロックと画像のみMarkdownRendererを使用、それ以外はdangerouslySetInnerHTMLで表示
+        shouldUseMarkdown: hasCode || hasGeneratedImage,
       };
     }, [content]);
 

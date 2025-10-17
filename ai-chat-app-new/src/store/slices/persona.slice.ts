@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { Persona, UUID } from '@/types';
 import { UnifiedMessage } from '@/types/memory';
 import { AppStore } from '..';
+import { geminiCacheManager } from '@/services/api/gemini-cache-manager';
 
 export interface PersonaSlice {
     personas: Map<UUID, Persona>;
@@ -34,6 +35,11 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
                 ...persona,
                 updated_at: new Date().toISOString(),
             });
+
+            // 🔥 Cache Invalidation: ペルソナ更新時にキャッシュ無効化
+            geminiCacheManager.invalidatePersona(persona.id);
+            console.log(`💾 [Cache] Invalidated cache for persona: ${persona.id}`);
+
             return { personas: newPersonas };
         });
     },
@@ -163,10 +169,16 @@ export const createPersonaSlice: StateCreator<AppStore, [], [], PersonaSlice> = 
             console.log('persona.slice: Already loaded, skipping.');
             return;
         }
-        
+
         try {
+            // キャッシュバスティング：ビルドIDまたはタイムスタンプを追加
+            const buildId = process.env.NEXT_PUBLIC_BUILD_ID || Date.now().toString();
+            const cacheBuster = `v=${buildId}`;
+
             console.log('persona.slice: Fetching /api/personas...');
-            const response = await fetch('/api/personas');
+            const response = await fetch(`/api/personas?${cacheBuster}`, {
+                cache: 'no-store', // キャッシュを使用しない
+            });
             if (!response.ok) {
                 console.error('persona.slice: Failed to fetch persona list:', response.status, response.statusText);
                 return;

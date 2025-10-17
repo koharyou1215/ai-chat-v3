@@ -64,6 +64,7 @@ export interface ProgressiveMessage extends Omit<UnifiedMessage, "stages"> {
   };
 
   metadata: {
+    progressive?: boolean; // ✅ FIX: MessageBubbleがプログレッシブメッセージと判定するために必須
     totalTokens: number;
     totalTime: number;
     userSatisfactionPoint?: ProgressiveStage;

@@ -93,9 +93,12 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     return undefined;
   };
 
+  // 🔧 修正: セッションIDでTrackerManagerを取得
+  const activeSessionId = useAppStore((state) => state.active_session_id);
+
   // Get tracker data from store with initialization check (safe for serialized store shape)
   const trackerManager = useAppStore((state) =>
-    getTrackerManagerSafe(state.trackerManagers, character_id)
+    getTrackerManagerSafe(state.trackerManagers, activeSessionId || undefined)
   );
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);

@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // ═══════════════════════════════════════
   api: {
     provider: 'openrouter',
+    model: 'openai/gpt-5-mini',
     temperature: 0.7,
     maxTokens: 2048,
     topP: 1.0,
@@ -86,7 +87,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     backgroundImage: '',
     backgroundBlur: 10,
-    backgroundBlurEnabled: true,
+    backgroundBlurEnabled: false,
     backgroundOpacity: 100,
     backgroundPattern: '',
     backgroundPatternOpacity: 0,
@@ -141,15 +142,15 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
         intensity: 40,
       },
       particleText: {
-        enabled: false,
+        enabled: true,
         intensity: 35,
       },
       ripple: {
-        enabled: false,
+        enabled: true,
         intensity: 60,
       },
       backgroundParticles: {
-        enabled: false,
+        enabled: true,
         intensity: 25,
       },
       depth: {
@@ -172,14 +173,14 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // 🎯 Phase 2.2: Emotion Display Structure
     emotion: {
-      displayMode: 'none' as const,
+      displayMode: 'standard' as const,
       display: {
         showText: false,
-        applyColors: false,
-        showIcon: false,
+        applyColors: true,
+        showIcon: true,
       },
       realtimeDetection: true,
-      autoReactions: false,
+      autoReactions: true,
       intensity: 50,
     },
 
@@ -336,11 +337,11 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // Emotional Intelligence Configuration
   // ═══════════════════════════════════════
   emotionalIntelligence: {
-    enabled: false,
+    enabled: true,
 
     // Analysis Capabilities
     analysis: {
-      basic: false,
+      basic: true,
       contextual: true,
       predictive: true,
       multiLayer: true,

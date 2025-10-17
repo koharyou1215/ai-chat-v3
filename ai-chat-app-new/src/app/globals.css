@@ -118,8 +118,11 @@ button,
 }
 
 .default-emotion {
-  color: #e8e8e8 !important;
-  text-shadow: 0 0 5px rgba(232, 232, 232, 0.4) !important;
+  /* より明るく、目立つ白色に変更 */
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 15px rgba(139, 92, 246, 0.4) !important;
+  /* 微妙な紫の光で強調 */
+  font-weight: 500 !important;
 }
 
 @import "tw-animate-css";

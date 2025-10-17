@@ -342,12 +342,14 @@ export const createMessageSendHandler = (
         }
 
         // 3. AI応答生成
+        // 🔧 修正: sessionIdでTrackerManagerを取得
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId
-          ? getTrackerManagerSafely(get().trackerManagers, characterId)
+        const trackerManager = activeSessionId
+          ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
           : null;
 
         console.log("🔍 [NEW sendMessage] TrackerManager check:", {
+          sessionId: activeSessionId,
           characterId,
           hasTrackerManager: !!trackerManager,
         });
@@ -657,7 +659,7 @@ export const createMessageSendHandler = (
         if (opts.enableBackgroundProcessing) {
           setTimeout(() => {
             Promise.allSettled([
-              get().emotionalIntelligenceFlags.emotional_memory_enabled
+              get().emotionalIntelligenceFlags?.emotional_memory_enabled
                 ? autoMemoryManager.processNewMessage(
                     aiResponse,
                     activeSessionId,

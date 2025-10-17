@@ -376,7 +376,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   const animationRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!canvasRef.current || !settings.particleEffects) return;
+    if (!canvasRef.current || !settings.threeDEffects?.particleText.enabled) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
@@ -498,7 +498,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     };
   }, [
     text,
-    settings.particleEffects,
+    settings.threeDEffects?.particleText.enabled,
     settings.animationSpeed,
     settings.threeDEffects?.enabled,
     settings.webglEnabled,
@@ -509,12 +509,12 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   ]);
 
   useEffect(() => {
-    if (trigger && settings.particleEffects) {
+    if (trigger && settings.threeDEffects?.particleText.enabled) {
       particlesRef.current.forEach((particle) =>
         particle.explode(settings.animationSpeed)
       );
     }
-  }, [trigger, settings.particleEffects, settings.animationSpeed]);
+  }, [trigger, settings.threeDEffects?.particleText.enabled, settings.animationSpeed]);
 
   // Performance monitoring and 3D capability check
   const performanceLevel = detectPerformanceLevel();
@@ -528,7 +528,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
 
   if (
-    !settings.particleEffects ||
+    !settings.threeDEffects?.particleText.enabled ||
     (!settings.threeDEffects?.enabled && settings.adaptivePerformance)
   )
     return null;
@@ -543,7 +543,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
         />
 
         {/* 3D depth indicators for high quality mode */}
-        {shouldRenderHighQuality && settings.particleEffects && (
+        {shouldRenderHighQuality && settings.threeDEffects?.particleText.enabled && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{

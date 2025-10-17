@@ -248,8 +248,8 @@ export const createGroupChatSlice: StateCreator<
       groupSession.messages.push(userMessage);
 
       // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
-      const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
-      if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+      const emotionalIntelligence = get().unifiedSettings.emotionalIntelligence;
+      if (emotionalIntelligence?.enabled && emotionalIntelligence?.analysis.basic) {
         setTimeout(async () => {
           try {
             const groupAnalyzer = new GroupEmotionAnalyzer();
@@ -450,7 +450,7 @@ export const createGroupChatSlice: StateCreator<
 
       // 🎭 感情分析: AI応答群 (バックグラウンド処理)
       if (
-        emotionalIntelligenceFlags?.emotion_analysis_enabled &&
+        emotionalIntelligence?.enabled && emotionalIntelligence?.analysis.basic &&
         responses.length > 0
       ) {
         setTimeout(async () => {
@@ -547,7 +547,7 @@ export const createGroupChatSlice: StateCreator<
         Promise.allSettled([
           // 🧠 各キャラクターのメモリー処理（emotional_memory_enabled設定チェック追加）
           (async () => {
-            if (!get().emotionalIntelligenceFlags.emotional_memory_enabled) {
+            if (!get().unifiedSettings.emotionalIntelligence.memoryEnabled) {
               return Promise.resolve([]);
             }
             try {

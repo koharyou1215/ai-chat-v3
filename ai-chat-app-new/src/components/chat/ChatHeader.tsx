@@ -40,6 +40,7 @@ const getModelDisplayName = (modelId: string): string => {
     const modelName = modelId.replace("anthropic/", "");
     if (modelName.includes("claude-opus")) return "Claude Opus";
     if (modelName.includes("claude-sonnet")) return "Claude Sonnet";
+    if (modelName.includes("claude-haiku")) return "Claude Haiku";
     return "Claude";
   }
 
@@ -58,6 +59,9 @@ const getModelDisplayName = (modelId: string): string => {
   if (modelId.startsWith("meta-llama/")) return "Llama";
   if (modelId.startsWith("qwen/")) {
     if (modelId.includes("qwen3-30b-a3b-thinking")) return "Qwen3 Think";
+    if (modelId.includes("qwen3-vl-8b")) return "Qwen3 VL 8B";
+    if (modelId.includes("qwen3-vl-30b")) return "Qwen3 VL 30B";
+    if (modelId.includes("qwen3-vl-235b")) return "Qwen3 VL 235B";
     return "Qwen";
   }
   if (modelId.startsWith("nousresearch/")) {

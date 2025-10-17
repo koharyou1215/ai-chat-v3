@@ -218,14 +218,34 @@ export async function POST(request: NextRequest) {
       fs.mkdirSync(charactersDir, { recursive: true });
     }
 
-    // トラッカー定義から実行時の値を完全に削除
-    // トラッカー定義にはtypeとinitial_valueだけを保存し、current_valueは保存しない
-    if (character.trackers && Array.isArray(character.trackers)) {
+    // 🔒 トラッカー保護: 元ファイルからトラッカー定義を読み取り、保持する
+    const existingFilePath = path.join(charactersDir, `${character.id}.json`);
+    let existingTrackers: any[] = [];
+
+    if (fs.existsSync(existingFilePath)) {
+      try {
+        const existingData = JSON.parse(fs.readFileSync(existingFilePath, 'utf8'));
+        if (existingData.trackers && Array.isArray(existingData.trackers) && existingData.trackers.length > 0) {
+          existingTrackers = existingData.trackers;
+          console.log(`🔒 Preserving ${existingTrackers.length} existing trackers from file`);
+        }
+      } catch (readError) {
+        console.warn(`⚠️ Could not read existing trackers from ${character.id}.json:`, readError);
+      }
+    }
+
+    // トラッカー定義から実行時の値を削除（定義は保持）
+    if (character.trackers && Array.isArray(character.trackers) && character.trackers.length > 0) {
       character.trackers = character.trackers.map((tracker: any) => {
         // current_valueやその他の実行時データを削除
         const { current_value, value, ...trackerDefinition } = tracker;
         return trackerDefinition;
       });
+      console.log(`✅ Cleaned ${character.trackers.length} trackers (removed runtime values)`);
+    } else if (existingTrackers.length > 0) {
+      // トラッカーが空または未定義の場合、元のファイルから復元
+      character.trackers = existingTrackers;
+      console.log(`🔄 Restored ${existingTrackers.length} trackers from existing file`);
     }
 
     // メモリーカードは完全に削除（セッション固有のデータのため）

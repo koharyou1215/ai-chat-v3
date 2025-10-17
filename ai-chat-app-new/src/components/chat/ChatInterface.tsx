@@ -9,7 +9,6 @@ import React, {
   Suspense,
 } from "react";
 import { MotionLoaders } from "@/components/optimized/FramerMotionOptimized";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -263,9 +262,8 @@ const ChatInterfaceContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     "memory" | "tracker" | "history" | "layers"
   >("memory");
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 0
-  );
+  // 🔧 Hydration fix: Initialize to 0 for consistent SSR/client rendering
+  const [windowWidth, setWindowWidth] = useState(0);
   // Motion components lazy loading
   const [motionComponents, setMotionComponents] = useState<{
     motion?: any;
@@ -273,11 +271,28 @@ const ChatInterfaceContent: React.FC = () => {
   }>({});
   const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
     []
-  ); // 追加
+  );
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+
+  // AnimatePresenceコンポーネントを取得
+  const AnimatePresence = motionComponents.AnimatePresence || (({ children }: any) => children);
+
+  // 🔧 FIX: 背景設定をコンポーネントのトップレベルでメモ化（無限ループ防止）
+  const backgroundSettings = React.useMemo(() => {
+    return {
+      backgroundType: appearanceSettings.backgroundType,
+      backgroundImage: appearanceSettings.backgroundImage,
+      backgroundGradient: appearanceSettings.backgroundGradient,
+      backgroundOpacity: appearanceSettings.backgroundOpacity,
+      backgroundBlur: appearanceSettings.backgroundBlur,
+      backgroundColor: appearanceSettings.backgroundColor,
+    };
+  }, [appearanceSettings]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // 🔧 Hydration fix: Set initial width after mount
+    setWindowWidth(window.innerWidth);
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -660,6 +675,7 @@ const ChatInterfaceContent: React.FC = () => {
         }
 
         // キャラクター背景がない場合は設定の背景を表示
+        // 🔧 FIX: メモ化された背景設定を使用（無限ループ防止）
         const {
           backgroundType,
           backgroundImage,
@@ -667,7 +683,7 @@ const ChatInterfaceContent: React.FC = () => {
           backgroundOpacity,
           backgroundBlur,
           backgroundColor,
-        } = useAppStore.getState().appearanceSettings;
+        } = backgroundSettings;
 
         // 🎯 外観設定のURL背景をデフォルトとして適用
         // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
@@ -806,7 +822,7 @@ const ChatInterfaceContent: React.FC = () => {
               backgroundColor: "transparent",
             }}>
             {currentMessages.length > 0 ? (
-              <AnimatePresence mode="popLayout" initial={false}>
+              <AnimatePresence mode="wait" initial={false}>
                 {currentMessages.map((message: any, index: number) => (
                   <MessageBubble
                     key={message.id}
@@ -844,8 +860,8 @@ const ChatInterfaceContent: React.FC = () => {
             {isRightPanelOpen && (
               <>
                 {/* モバイル用の背景オーバーレイ */}
-                {windowWidth < 768 && (
-                  <motion.div
+                {windowWidth < 768 && motionComponents.motion && (
+                  <motionComponents.motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -853,26 +869,27 @@ const ChatInterfaceContent: React.FC = () => {
                     onClick={() => setRightPanelOpen(false)}
                   />
                 )}
-                
+
                 {/* 右パネル本体 */}
-                <motion.div
-                  initial={{ x: "100%", opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: "100%", opacity: 0 }}
-                  transition={{ duration: 0.3, type: "spring", damping: 25 }}
-                  className={cn(
-                    "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
-                    "bg-slate-800/80 backdrop-blur-md",
-                    windowWidth < 768
-                      ? "fixed right-0 top-0 w-[85vw] h-full z-[60]" // モバイルでは画面の85%幅
-                      : "fixed right-0 top-0 h-full w-[380px] z-[60]"
-                  )}
-                  style={{
-                    backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
-                    backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
-                    WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
-                  }}
-                  onClick={(e) => e.stopPropagation()}>
+                {motionComponents.motion ? (
+                  <motionComponents.motion.div
+                    initial={{ x: "100%", opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: "100%", opacity: 0 }}
+                    transition={{ duration: 0.3, type: "spring", damping: 25 }}
+                    className={cn(
+                      "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
+                      "bg-slate-800/80 backdrop-blur-md",
+                      windowWidth < 768
+                        ? "fixed right-0 top-0 w-[85vw] h-full z-[60]"
+                        : "fixed right-0 top-0 h-full w-[380px] z-[60]"
+                    )}
+                    style={{
+                      backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
+                      backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                      WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                    }}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">記憶情報</h3>
                   <button
@@ -905,20 +922,74 @@ const ChatInterfaceContent: React.FC = () => {
                     {sidePanelTabs.map(
                       (tab) =>
                         activeTab === tab.key &&
-                        displaySession && (
-                          <motion.div
+                        displaySession && motionComponents.motion && (
+                          <motionComponents.motion.div
                             key={tab.key}
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
                             transition={{ duration: 0.2 }}>
                             {tab.component}
-                          </motion.div>
+                          </motionComponents.motion.div>
                         )
                     )}
                   </AnimatePresence>
                 </div>
-              </motion.div>
+              </motionComponents.motion.div>
+                ) : (
+                  <div
+                    className={cn(
+                      "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
+                      "bg-slate-800/80 backdrop-blur-md",
+                      windowWidth < 768
+                        ? "fixed right-0 top-0 w-[85vw] h-full z-[60]"
+                        : "fixed right-0 top-0 h-full w-[380px] z-[60]"
+                    )}
+                    style={{
+                      backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
+                      backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                      WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                    }}>
+                    <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white">記憶情報</h3>
+                      <button
+                        onClick={() => setRightPanelOpen(false)}
+                        className="p-2 hover:bg-white/10 rounded-full">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
+                      {sidePanelTabs.map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab(tab.key);
+                          }}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                            activeTab === tab.key
+                              ? "bg-purple-500/20 text-purple-300"
+                              : "text-white/60 hover:bg-white/10"
+                          )}>
+                          <tab.icon className="w-4 h-4" />
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      {sidePanelTabs.map(
+                        (tab) =>
+                          activeTab === tab.key &&
+                          displaySession && (
+                            <div key={tab.key}>
+                              {tab.component}
+                            </div>
+                          )
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </AnimatePresence>

@@ -34,12 +34,6 @@ export class PersonaInfoSection {
       prompt += `Name: ${persona.name}\n`;
       prompt += `Role: ${persona.role}\n`;
       prompt += `Other Settings: ${persona.other_settings}\n`;
-
-      // Additional persona settings (if available)
-      if (persona.other_settings && persona.other_settings.trim()) {
-        prompt += `Additional Settings: ${persona.other_settings}\n`;
-      }
-
       prompt += "</persona_information>\n\n";
     } else {
       console.warn(
