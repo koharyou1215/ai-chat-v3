@@ -13,8 +13,11 @@ import {
   ingestMessageToMem0Safely,
   ingestConversationPairToMem0,
 } from "@/utils/chat/mem0-integration-helper";
-import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 import { debugLog } from "@/utils/debug-logger";
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
+import { createUserMessage, createAIMessage } from "@/utils/chat/message-factory";
+import { buildConversationHistory } from "@/utils/chat/context-management";
 
 /**
  * Phase 3.4: Send Handler
@@ -53,113 +56,8 @@ const getEmotionEmoji = (emotion: string): string => {
   return emotionEmojiMap[emotion] || "😐";
 };
 
-/**
- * TrackerManager を安全に取得
- * Exported for use by other handlers (e.g., chat-progressive-handler)
- */
-export const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): TrackerManager | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
-
-/**
- * ユーザーメッセージを作成
- */
-const createUserMessage = (
-  content: string,
-  activeSessionId: string,
-  imageUrl?: string
-): UnifiedMessage => {
-  return {
-    id: generateUserMessageId(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    version: 1,
-    session_id: activeSessionId,
-    is_deleted: false,
-    role: "user",
-    content,
-    image_url: imageUrl,
-    memory: {
-      importance: {
-        score: 0.7,
-        factors: {
-          emotional_weight: 0.5,
-          repetition_count: 0,
-          user_emphasis: 0.8,
-          ai_judgment: 0.6,
-        },
-      },
-      is_pinned: false,
-      is_bookmarked: false,
-      keywords: [],
-      summary: undefined,
-    },
-    expression: {
-      emotion: { primary: "neutral", intensity: 0.5, emoji: "😐" },
-      style: { font_weight: "normal", text_color: "#ffffff" },
-      effects: [],
-    },
-    edit_history: [],
-    regeneration_count: 0,
-    metadata: {},
-  };
-};
-
-/**
- * AIメッセージを作成
- */
-const createAIMessage = (
-  content: string,
-  activeSessionId: string,
-  characterId?: string,
-  characterName?: string,
-  emotionExpression?: any
-): UnifiedMessage => {
-  return {
-    id: generateAIMessageId(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    version: 1,
-    session_id: activeSessionId,
-    is_deleted: false,
-    role: "assistant",
-    content,
-    character_id: characterId,
-    character_name: characterName,
-    memory: {
-      importance: {
-        score: 0.6,
-        factors: {
-          emotional_weight: 0.4,
-          repetition_count: 0,
-          user_emphasis: 0.3,
-          ai_judgment: 0.7,
-        },
-      },
-      is_pinned: false,
-      is_bookmarked: false,
-      keywords: ["response"],
-      summary: "ユーザーの質問への回答",
-    },
-    expression: emotionExpression || {
-      emotion: { primary: "neutral", intensity: 0.6, emoji: "🤔" },
-      style: { font_weight: "normal", text_color: "#ffffff" },
-      effects: [],
-    },
-    edit_history: [],
-    regeneration_count: 0,
-    metadata: {},
-  };
-};
+// Re-export for backward compatibility (chat-progressive-handler imports from here)
+export { getTrackerManagerSafely };
 
 // =============================================================================
 // メインハンドラー
@@ -238,7 +136,7 @@ export const createMessageSendHandler = (
         return { success: false, error: "Already generating" };
       }
 
-      console.log("✅ [NEW sendMessage] Starting message generation");
+      console.log("✅ [NEW sendMessage] Starting message generation [v2]");
       set({ is_generating: true });
 
       try {
@@ -398,54 +296,17 @@ export const createMessageSendHandler = (
             console.log("📝 [NEW sendMessage] Prompt length:", finalPrompt.length);
             debugLog("📝 [NEW sendMessage] Final Prompt:", finalPrompt);
 
-            // APIリクエスト
-            const initialResponse = await fetch("/api/chat/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            // APIリクエストボディを準備
+            const requestBody = {
                 systemPrompt: finalPrompt,
                 userMessage: content,
-                conversationHistory: (() => {
-                  try {
-                    const { Mem0 } = require("@/services/mem0/core");
-                    const history = Mem0.getCandidateHistory(
-                      activeSession.messages,
-                      {
-                        sessionId: activeSession.id,
-                        maxContextMessages,
-                        minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
-                      }
-                    );
-                    return history;
-                  } catch (e) {
-                    // Fallback
-                    const recentMessages = activeSession.messages.slice(
-                      -maxContextMessages
-                    );
-                    const deduplicatedHistory: Array<{
-                      role: "user" | "assistant";
-                      content: string;
-                    }> = [];
-                    for (const msg of recentMessages) {
-                      if (msg.role === "user" || msg.role === "assistant") {
-                        const historyEntry = {
-                          role: msg.role as "user" | "assistant",
-                          content: msg.content,
-                        };
-                        const isDuplicate = deduplicatedHistory.some(
-                          (existing) =>
-                            existing.role === historyEntry.role &&
-                            existing.content === historyEntry.content
-                        );
-                        if (!isDuplicate && historyEntry.content.trim())
-                          deduplicatedHistory.push(historyEntry);
-                      }
-                    }
-                    return deduplicatedHistory.slice(
-                      -Math.floor(maxContextMessages / 2)
-                    );
+                conversationHistory: buildConversationHistory(
+                  activeSession.messages,
+                  {
+                    sessionId: activeSession.id,
+                    maxContextMessages,
                   }
-                })(),
+                ),
                 textFormatting: state.effectSettings.textFormatting,
                 apiConfig: {
                   ...apiConfig,
@@ -454,13 +315,64 @@ export const createMessageSendHandler = (
                   useDirectGeminiAPI: get().useDirectGeminiAPI,
                 },
                 useEnhancedPrompt: false,
-              }),
+              };
+
+            console.log("🌐 [NEW sendMessage] Request Body Summary:", {
+              hasSystemPrompt: !!requestBody.systemPrompt,
+              systemPromptLength: requestBody.systemPrompt?.length || 0,
+              hasUserMessage: !!requestBody.userMessage,
+              conversationHistoryLength: requestBody.conversationHistory?.length || 0,
+              model: requestBody.apiConfig?.model,
+              provider: requestBody.apiConfig?.provider,
+              hasGeminiKey: !!requestBody.apiConfig?.geminiApiKey,
+              hasOpenRouterKey: !!requestBody.apiConfig?.openRouterApiKey,
             });
 
+            // APIリクエスト実行
+            console.log("🚀 [NEW sendMessage] Sending fetch request to /api/chat/generate");
+            const initialResponse = await fetch("/api/chat/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+            console.log("📡 [NEW sendMessage] Fetch completed, status:", initialResponse.status, initialResponse.statusText);
+
             if (!initialResponse.ok) {
-              const errorData = await initialResponse.json();
-              console.error("❌ [NEW sendMessage] API request failed:", errorData);
-              throw new Error(errorData.error || "API request failed");
+              console.error("❌ [NEW sendMessage] HTTP Error - Status:", initialResponse.status);
+              console.error("❌ [NEW sendMessage] HTTP Error - StatusText:", initialResponse.statusText);
+
+              // Try to parse error response with detailed diagnostics
+              let errorData: any = {};
+              let errorText = "";
+
+              try {
+                // First, get the raw text
+                errorText = await initialResponse.text();
+                console.error("❌ [NEW sendMessage] Raw Response Text:", errorText);
+
+                // Try to parse as JSON
+                if (errorText.trim()) {
+                  errorData = JSON.parse(errorText);
+                  console.error("❌ [NEW sendMessage] Parsed Error Data:", errorData);
+                } else {
+                  console.error("❌ [NEW sendMessage] Response body is empty!");
+                }
+              } catch (parseError) {
+                console.error("❌ [NEW sendMessage] Failed to parse error response:", parseError);
+                console.error("❌ [NEW sendMessage] Raw text was:", errorText);
+                errorData = {
+                  error: "Failed to parse error response",
+                  rawError: errorText,
+                  parseError: (parseError as Error).message
+                };
+              }
+
+              const errorMessage = errorData.error ||
+                                  errorData.details ||
+                                  `HTTP ${initialResponse.status}: ${initialResponse.statusText}`;
+
+              console.error("❌ [NEW sendMessage] Final Error Message:", errorMessage);
+              throw new Error(errorMessage);
             }
 
             console.log("✅ [NEW sendMessage] API request successful");
@@ -517,7 +429,7 @@ export const createMessageSendHandler = (
               };
 
               const tempAiMessage: UnifiedMessage = {
-                id: generateAIMessageId(),
+                id: generateStableId('ai'),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 version: 1,

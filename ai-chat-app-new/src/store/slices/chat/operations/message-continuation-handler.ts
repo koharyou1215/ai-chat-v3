@@ -7,21 +7,10 @@ import { MessageContinuationSlice } from "./types";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { promptBuilderService } from "@/services/prompt-builder.service";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
-import { generateAIMessageId } from "@/utils/uuid";
-
-// Helper function to safely get tracker manager from Map or Object
-const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): any | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
+import { generateStableId } from "@/utils/uuid";
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
+import { createAIMessage } from "@/utils/chat/message-factory";
+import { buildConversationHistory } from "@/utils/chat/context-management";
 
 export const createMessageContinuationHandler: StateCreator<
   AppStore,
@@ -87,28 +76,15 @@ export const createMessageContinuationHandler: StateCreator<
       // 🔧 修正: 設定から会話履歴の上限を取得
       const maxContextMessages =
         (get() as any).chat?.memory_limits?.max_context_messages || 40;
-      // 続き生成でもMem0を使用
-      let conversationHistory;
-      try {
-        const { Mem0 } = require("@/services/mem0/core");
-        conversationHistory = Mem0.getCandidateHistory(
-          session.messages.filter((m) => !m.is_deleted),
-          {
-            sessionId: session.id,
-            maxContextMessages,
-            minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
-          }
-        );
-      } catch (e) {
-        // フォールバック
-        conversationHistory = session.messages
-          .filter((m) => !m.is_deleted)
-          .slice(-maxContextMessages)
-          .map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          }));
-      }
+
+      // 続き生成でもMem0を使用（context-management統合）
+      const conversationHistory = buildConversationHistory(
+        session.messages,
+        {
+          sessionId: session.id,
+          maxContextMessages,
+        }
+      );
 
       const apiConfig = get().apiConfig || {};
       const aiResponse = await simpleAPIManagerV2.generateMessage(
@@ -119,46 +95,25 @@ export const createMessageContinuationHandler: StateCreator<
       );
 
       // 新しい続きメッセージを作成
-      const newContinuationMessage: UnifiedMessage = {
-        id: generateAIMessageId(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        version: 1,
-        session_id: activeSessionId,
-        role: "assistant",
-        content: aiResponse,
-        character_id: session.participants.characters[0]?.id,
-        memory: {
-          importance: {
-            score: 0.6,
-            factors: {
-              emotional_weight: 0.5,
-              repetition_count: 0,
-              user_emphasis: 0.5,
-              ai_judgment: 0.7,
-            },
-          },
-          is_pinned: false,
-          is_bookmarked: false,
-          keywords: [],
-        },
-        expression: {
+      const newContinuationMessage: UnifiedMessage = createAIMessage(
+        aiResponse,
+        activeSessionId,
+        session.participants.characters[0]?.id,
+        session.participants.characters[0]?.name,
+        {
           emotion: { primary: "neutral", intensity: 0.6, emoji: "💬" },
           style: { font_weight: "normal", text_color: "#ffffff" },
           effects: [],
-        },
-        edit_history: [],
-        regeneration_count: 0,
-        is_deleted: false,
-        metadata: {
-          is_continuation: true,
-          continuation_of: lastAiMessage.id,
-          continuation_count:
-            (typeof (lastAiMessage.metadata as any)?.continuation_count ===
-            "number"
-              ? (lastAiMessage.metadata as any).continuation_count
-              : 0) + 1,
-        },
+        }
+      );
+      // 継続メッセージのメタデータを追加
+      newContinuationMessage.metadata = {
+        is_continuation: true,
+        continuation_of: lastAiMessage.id,
+        continuation_count:
+          (typeof (lastAiMessage.metadata as any)?.continuation_count === "number"
+            ? (lastAiMessage.metadata as any).continuation_count
+            : 0) + 1,
       };
 
       // セッションにメッセージを追加
