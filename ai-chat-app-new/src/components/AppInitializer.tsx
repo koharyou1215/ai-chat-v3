@@ -44,6 +44,14 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     if (typeof window !== 'undefined') {
       const { useAppStore } = require('@/store');
       (window as any).useAppStore = useAppStore;
+
+      // 🔍 API診断ツールを初期化
+      import('@/utils/api-diagnostics').then(({ printAPIDiagnostics }) => {
+        console.log('\n🔍 Running API Configuration Diagnostics...');
+        printAPIDiagnostics();
+      }).catch(err => {
+        console.error('Failed to load API diagnostics:', err);
+      });
     }
   }, []);
 
@@ -191,6 +199,11 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     isPersonasLoaded,
     active_session_id,
     selectedCharacterId,
+    characters,
+    sessions,
+    getSelectedPersona,
+    createSession,
+    setSelectedCharacterId,
   ]);
 
   // エラー状態の表示

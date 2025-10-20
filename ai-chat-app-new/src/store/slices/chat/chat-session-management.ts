@@ -10,7 +10,7 @@ import {
 import { AppStore } from "@/store";
 // Import will be done dynamically to avoid circular dependencies
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
-import { generateSessionId, generateWelcomeMessageId } from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 
 export interface SessionManagement {
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
@@ -41,7 +41,7 @@ export const createSessionManagement: StateCreator<
   SessionManagement
 > = (set, get) => ({
   createSession: async (character, persona) => {
-    const sessionId = generateSessionId();
+    const sessionId = generateStableId('session');
 
     // 🔧 修正: セッションIDでトラッカーマネージャーを管理
     // 同じキャラクターでも新しいセッションなら必ず新規作成
@@ -78,7 +78,7 @@ export const createSessionManagement: StateCreator<
       },
       messages: [
         {
-          id: generateWelcomeMessageId(),
+          id: generateStableId('welcome'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,

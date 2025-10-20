@@ -8,20 +8,7 @@ import { updateSessionSafely } from "@/utils/chat/session-update-helper";
 import { ingestMessageToMem0Safely } from "@/utils/chat/mem0-integration-helper";
 import { getSessionSafely } from "@/utils/chat/map-helpers";
 import { promptBuilderService } from "@/services/prompt-builder.service";
-
-// Helper function to safely get tracker manager from Map or Object
-const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): any | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
 
 export const createMessageLifecycleOperations: StateCreator<
   AppStore,

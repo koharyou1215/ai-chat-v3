@@ -13,7 +13,7 @@ import type {
   BooleanTrackerConfig,
   TextTrackerConfig
 } from '@/types/core/tracker.types';
-import { generateTrackerId, generateInstanceId, generateHistoryId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface TrackerSlice {
@@ -50,7 +50,7 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
   
   createTrackerDefinition: (definition) => {
     const newDefinition: TrackerDefinition = {
-      id: generateTrackerId(),
+      id: generateStableId('tracker'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -132,7 +132,7 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
     }
     
     const newInstance: TrackerInstance = {
-      id: generateInstanceId(),
+      id: generateStableId('instance'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -173,7 +173,7 @@ export const createTrackerSlice: StateCreator<TrackerSlice, [], [], TrackerSlice
 
     // 履歴エントリを作成
     const historyEntry: TrackerHistoryEntry = {
-      id: generateHistoryId(),
+      id: generateStableId('history'),
       created_at: timestamp,
       updated_at: timestamp,
       version: 1,

@@ -135,6 +135,9 @@ export interface EffectSettings {
   /** タイプライターエフェクト有効化 */
   typewriterEffect: boolean;
 
+  /** タイプライター効果音有効化 */
+  typewriterSound: boolean;
+
   // ═══════════════════════════════════
   // エフェクト強度
   // ═══════════════════════════════════
@@ -150,6 +153,9 @@ export interface EffectSettings {
 
   /** タイプライター強度 (0-100) */
   typewriterIntensity: number;
+
+  /** タイプライター効果音音量 (0-100) */
+  typewriterSoundVolume: number;
 
   // ═══════════════════════════════════
   // バブル外観

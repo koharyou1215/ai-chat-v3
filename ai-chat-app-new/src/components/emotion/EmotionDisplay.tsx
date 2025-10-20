@@ -333,7 +333,7 @@ export const EmotionReactions: React.FC<{
     // Clear existing timeouts
     reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
     reactionTimeoutsRef.current = [];
-    
+
     // 自動リアクションを実行
     emotion.suggestedReactions.forEach((reaction, index) => {
       const timeoutId = setTimeout(() => {
@@ -343,12 +343,12 @@ export const EmotionReactions: React.FC<{
       }, index * 200);
       reactionTimeoutsRef.current.push(timeoutId);
     });
-    
+
     return () => {
       reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
       reactionTimeoutsRef.current = [];
     };
-  }, [emotion, settings.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled, onReactionTriggered]);
+  }, [emotion, settings, emotionalIntelligenceFlags.visual_effects_enabled, onReactionTriggered]);
   
   // Cleanup all timeouts on unmount
   useEffect(() => {

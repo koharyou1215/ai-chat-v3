@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import { Textarea } from "@/components/ui/textarea";
 import { Character } from "@/types/core/character.types";
 import { Persona } from "@/types/core/persona.types";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 // 親コンポーネントから受け取るpropsの型を定義
 interface AppearancePanelProps {
@@ -16,10 +17,9 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({
   formData,
   setFormData,
 }) => {
-  const [isUploading, setIsUploading] = useState(false);
+  const { uploadFile, isUploading } = useFileUpload();
 
   const handleFileUpload = async (file: File, field: "background_url") => {
-    setIsUploading(true);
     console.log("Starting file upload:", {
       field,
       fileName: file.name,
@@ -27,69 +27,14 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({
     });
 
     try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", file);
-
-      console.log("Sending request to /api/upload/image");
-      const response = await fetch("/api/upload/image", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      // Safe JSON parsing with comprehensive error handling
-      let result;
-      try {
-        if (!response.ok) {
-          // Try to get error text even if not JSON
-          const errorText = await response.text();
-          console.error("File upload failed:", {
-            status: response.status,
-            statusText: response.statusText,
-            errorBody: errorText,
-          });
-          throw new Error(
-            `ファイルアップロードに失敗しました (${response.status}): ${
-              errorText || response.statusText
-            }`
-          );
-        }
-
-        // Check content type before parsing JSON
-        const contentType = response.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          const errorText = await response.text();
-          console.error("Non-JSON response received:", errorText);
-          throw new Error(
-            `サーバーがJSON以外のレスポンスを返しました: ${errorText}`
-          );
-        }
-
-        result = await response.json();
-      } catch (parseError) {
-        console.error("JSON parse error during file upload:", parseError);
-        if (parseError instanceof SyntaxError) {
-          throw new Error(
-            "サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。"
-          );
-        }
-        throw parseError;
-      }
-
-      if (!result || !result.url) {
-        console.error("Invalid response structure:", result);
-        throw new Error(
-          "アップロードは完了しましたが、ファイルURLの取得に失敗しました。"
-        );
-      }
-
-      console.log("File upload successful, URL:", result.url);
+      const url = await uploadFile(file);
+      console.log("File upload successful, URL:", url);
       setFormData((prev) =>
-        prev ? { ...(prev as Character), [field]: result.url } : prev
+        prev ? { ...(prev as Character), [field]: url } : prev
       );
     } catch (error) {
       console.error("An error occurred during file upload:", error);
-    } finally {
-      setIsUploading(false);
+      alert(`ファイルアップロードエラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
     }
   };
 

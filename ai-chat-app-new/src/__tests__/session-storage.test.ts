@@ -5,11 +5,11 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { sessionStorageService } from '@/services/session-storage.service';
-import { generateSessionId, generateMemoryId, generateInstanceId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import type { TrackerInstance, MemoryCard } from '@/types';
 
 describe('Session Storage Protection Tests', () => {
-  const testSessionId = generateSessionId();
+  const testSessionId = generateStableId('session');
   const testCharacterId = 'char-123';
 
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('Session Storage Protection Tests', () => {
     it('should store tracker values in session storage, not in character definitions', () => {
       // テスト用のトラッカーインスタンス
       const testTracker: TrackerInstance = {
-        id: generateInstanceId(),
+        id: generateStableId('instance'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -67,7 +67,7 @@ describe('Session Storage Protection Tests', () => {
     });
 
     it('should update tracker values only in session storage', () => {
-      const instanceId = generateInstanceId();
+      const instanceId = generateStableId('instance');
       const testTracker: TrackerInstance = {
         id: instanceId,
         created_at: new Date().toISOString(),
@@ -100,7 +100,7 @@ describe('Session Storage Protection Tests', () => {
     it('should store memory cards in session storage, not in character definitions', () => {
       // テスト用のメモリーカード
       const testMemoryCard: MemoryCard = {
-        id: generateMemoryId(),
+        id: generateStableId('memory'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -145,7 +145,7 @@ describe('Session Storage Protection Tests', () => {
     it('should export and import session data correctly', () => {
       // テストデータを作成
       const testTracker: TrackerInstance = {
-        id: generateInstanceId(),
+        id: generateStableId('instance'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -159,7 +159,7 @@ describe('Session Storage Protection Tests', () => {
       };
 
       const testMemoryCard: MemoryCard = {
-        id: generateMemoryId(),
+        id: generateStableId('memory'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -202,7 +202,7 @@ describe('Session Storage Protection Tests', () => {
       expect(exportedData.memoryCards[0].title).toBe('Export Test');
 
       // 別のセッションにインポート
-      const newSessionId = generateSessionId();
+      const newSessionId = generateStableId('session');
       sessionStorageService.mergeSessionData(newSessionId, exportedData);
 
       // インポートされたデータを確認
@@ -217,7 +217,7 @@ describe('Session Storage Protection Tests', () => {
     it('should clean up old session data', () => {
       // 古いセッションデータを作成
       const oldTracker: TrackerInstance = {
-        id: generateInstanceId(),
+        id: generateStableId('instance'),
         created_at: '2020-01-01T00:00:00Z',
         updated_at: '2020-01-01T00:00:00Z',
         version: 1,
@@ -234,7 +234,7 @@ describe('Session Storage Protection Tests', () => {
 
       // 新しいセッションデータも作成
       const newTracker: TrackerInstance = {
-        id: generateInstanceId(),
+        id: generateStableId('instance'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -265,7 +265,7 @@ describe('Session Storage Protection Tests', () => {
       // テストデータを追加
       for (let i = 0; i < 3; i++) {
         const tracker: TrackerInstance = {
-          id: generateInstanceId(),
+          id: generateStableId('instance'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -282,7 +282,7 @@ describe('Session Storage Protection Tests', () => {
 
       for (let i = 0; i < 2; i++) {
         const memoryCard: MemoryCard = {
-          id: generateMemoryId(),
+          id: generateStableId('memory'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,

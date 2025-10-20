@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffectSettings } from "@/hooks/useEffectSettings";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { ClientOnly } from "@/components/utils/ClientOnly";
 
 // WebGL Support Detection
@@ -593,10 +594,10 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
 
   // コンポーネントアンマウント時にタイマーをクリーンアップ
   useEffect(() => {
+    const currentTimeouts = timeoutsRef.current; // エフェクト実行時の参照を保存
     return () => {
-      const timeouts = timeoutsRef.current;
-      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
-      timeouts.clear();
+      currentTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      currentTimeouts.clear();
     };
   }, []);
 
@@ -684,31 +685,13 @@ export const BackgroundParticles: React.FC = () => {
  */
 const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
   const { settings } = useEffectSettings();
-  const [displayedText, setDisplayedText] = useState("");
-  const [isActive, setIsActive] = useState(false);
   const elementRef = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
-    if (!settings.typewriterEffect || !text) return;
-
-    const speed = Math.max(10, 100 - settings.typewriterIntensity);
-    setIsActive(true);
-    setDisplayedText("");
-
-    const typeText = async () => {
-      const characters = text.split("");
-      let currentText = "";
-
-      for (let i = 0; i < characters.length; i++) {
-        currentText += characters[i];
-        setDisplayedText(currentText);
-        await new Promise((resolve) => setTimeout(resolve, speed));
-      }
-      setIsActive(false);
-    };
-
-    typeText();
-  }, [text, settings.typewriterEffect, settings.typewriterIntensity]);
+  // useTypewriter フックを使用してタイプライター効果を実装
+  const { displayedContent, isTyping } = useTypewriter(text, {
+    enabled: settings.typewriterEffect,
+    speed: Math.max(10, 100 - settings.typewriterIntensity),
+  });
 
   if (!settings.typewriterEffect) {
     return <span>{text}</span>;
@@ -716,8 +699,8 @@ const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
 
   return (
     <span ref={elementRef}>
-      {displayedText}
-      {isActive && (
+      {displayedContent}
+      {isTyping && (
         <span className="animate-pulse ml-1 text-purple-400">|</span>
       )}
     </span>

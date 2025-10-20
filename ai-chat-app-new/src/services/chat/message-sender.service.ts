@@ -1,6 +1,6 @@
 import { UUID } from '@/types';
 import { UnifiedMessage, UnifiedChatSession, Character, Persona } from '@/types';
-import { generateUserMessageId, generateAIMessageId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 
@@ -115,7 +115,7 @@ export class MessageSenderService {
     imageUrl?: string
   ): UnifiedMessage {
     return {
-      id: generateUserMessageId(),
+      id: generateStableId('user'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -197,7 +197,7 @@ export class MessageSenderService {
     character: Character
   ): UnifiedMessage {
     return {
-      id: generateAIMessageId(),
+      id: generateStableId('ai'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,

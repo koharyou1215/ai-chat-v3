@@ -54,7 +54,7 @@ export class GeminiClient {
   private openRouterApiKey: string;
   private baseURL: string;
   private model: string;
-  private cacheEnabled: boolean = true; // Enable prompt caching by default
+  private cacheEnabled: boolean = false; // 🔧 FIX: 無料版ではキャッシュ制限(limit=0)のため無効化
 
   constructor() {
     this.apiKey = '';
@@ -71,7 +71,7 @@ export class GeminiClient {
       this.apiKey = apiKey;
       console.log('✅ Gemini API Key loaded from environment variable (sync)');
     } else {
-      console.warn('❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found, API calls will fail');
+      console.warn('❌ GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY not found, will try LocalStorage later');
     }
 
     // OpenRouter API キーも初期化
@@ -79,6 +79,36 @@ export class GeminiClient {
     if (openRouterKey) {
       this.openRouterApiKey = openRouterKey;
       console.log('✅ OpenRouter API Key loaded');
+    }
+  }
+
+  /**
+   * LocalStorageからAPIキーを読み込む（ブラウザ環境でのみ呼び出し）
+   */
+  loadFromLocalStorage(): void {
+    if (typeof window === 'undefined') {
+      return; // サーバーサイドでは何もしない
+    }
+
+    try {
+      const savedData = localStorage.getItem('ai-chat-v3-storage');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        const geminiKey = parsed?.state?.geminiApiKey;
+        const openRouterKey = parsed?.state?.openRouterApiKey;
+
+        if (geminiKey && !this.apiKey) {
+          this.apiKey = geminiKey;
+          console.log('✅ Gemini API Key loaded from LocalStorage');
+        }
+
+        if (openRouterKey && !this.openRouterApiKey) {
+          this.openRouterApiKey = openRouterKey;
+          console.log('✅ OpenRouter API Key loaded from LocalStorage');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ LocalStorageからのAPIキー読み込みに失敗:', error);
     }
   }
 
@@ -163,12 +193,13 @@ export class GeminiClient {
         model: this.model,
         messageCount: messages.length,
         hasApiKey: !!this.apiKey,
-        cacheEnabled: options?.enableCache !== false && this.cacheEnabled
+        cacheEnabled: options?.enableCache === true && this.cacheEnabled // 🔧 FIX: 明示的にtrueの場合のみ
       });
 
       // 🔥 Prompt Caching: Try to get cached content ID
       let cachedContentId: string | null = null;
-      const useCaching = (options?.enableCache !== false && this.cacheEnabled && options?.systemPrompt);
+      // 🔧 FIX: 明示的にtrueの場合のみキャッシュを使用（無料版対策）
+      const useCaching = (options?.enableCache === true && this.cacheEnabled && options?.systemPrompt);
 
       if (useCaching) {
         try {

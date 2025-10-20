@@ -50,6 +50,8 @@ export const MessageInput: React.FC = React.memo(() => {
     showEnhancementModal,
     is_group_mode,
     active_group_session_id,
+    active_session_id, // 🔧 追加: 現在のアクティブセッションIDを直接取得
+    sessions, // 🔧 追加: セッションMapを直接取得
     groupSessions,
     systemPrompts,
     sendMessage,
@@ -89,6 +91,12 @@ export const MessageInput: React.FC = React.memo(() => {
       const groupSession = groupSessions.get(active_group_session_id);
       if (!groupSession) return;
 
+      console.log("🔍 [Inspiration] Group mode session:", {
+        sessionId: active_group_session_id,
+        messageCount: groupSession.messages.length,
+        characters: groupSession.characters.map(c => c.name),
+      });
+
       const recentMessages = groupSession.messages.slice(-10); // より多くの会話履歴を参照
 
       // グループチャット用: 最初のアクティブキャラを使用
@@ -107,8 +115,32 @@ export const MessageInput: React.FC = React.memo(() => {
       ); // グループモード
     } else {
       // ソロモード
-      const session = getActiveSession();
-      if (!session) return;
+      // 🔧 修正: active_session_id を直接参照して、最新のセッションを確実に取得
+      if (!active_session_id) {
+        console.error("❌ [Inspiration] No active session ID!");
+        return;
+      }
+
+      const session = sessions.get(active_session_id);
+      if (!session) {
+        console.error("❌ [Inspiration] Session not found for ID:", active_session_id);
+        return;
+      }
+
+      // 🔍 セッション情報をデバッグログに出力
+      console.log("🔍 [Inspiration] Solo mode session details:", {
+        activeSessionId: active_session_id,
+        sessionId: session.id,
+        sessionTitle: session.session_info.title,
+        characterName: session.participants.characters[0]?.name,
+        userName: session.participants.user?.name,
+        messageCount: session.messages.length,
+        recentMessages: session.messages.slice(-3).map(m => ({
+          role: m.role,
+          content: m.content.substring(0, 50) + "...",
+          character: m.character_name,
+        })),
+      });
 
       const recentMessages = session.messages.slice(-10); // より多くの会話履歴を参照
       const character = session.participants.characters[0];

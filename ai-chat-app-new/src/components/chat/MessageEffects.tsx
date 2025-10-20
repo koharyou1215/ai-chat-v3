@@ -38,7 +38,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     if (effectFn) {
       effectFn();
     }
-  }, [emotion, settings?.emotion.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled]);
+  }, [emotion, settings, emotionalIntelligenceFlags.visual_effects_enabled]);
 
   // キーワードベースのエフェクトトリガー（既存機能）
   useEffect(() => {
@@ -64,7 +64,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
         break; // 一つだけトリガー
       }
     }
-  }, [trigger, settings?.particleEffects]);
+  }, [trigger, settings]);
 
   // コンポーネントアンマウント時のクリーンアップ
   React.useEffect(() => {

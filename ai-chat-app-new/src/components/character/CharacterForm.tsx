@@ -19,6 +19,7 @@ import { AppearancePanel } from './AppearancePanel'; // ★ 専門医をイン�
 import { BasicInfoPanel } from './BasicInfoPanel';
 import { PersonalityPanel } from './PersonalityPanel';
 import { TrackersPanel } from './TrackersPanel';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 // 文字列の制御文字を正規化する関数
 const sanitizeString = (value: string): string => {
@@ -59,7 +60,7 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
         mode === 'character' ? (character || null) : (persona || null)
     );
     const [activeTab, setActiveTab] = useState("basic");
-    const [isUploading, setIsUploading] = useState(false); // Add uploading state
+    const { uploadFile, isUploading } = useFileUpload();
 
     const handleSave = () => {
         if (formData) {
@@ -67,81 +68,26 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
             onClose();
         }
     };
-    
+
     const handleFileUpload = async (file: File, field: 'background_url' | 'avatar_url') => {
         if (!file) {
             console.log('No file provided to handleFileUpload');
             return;
         }
 
-        console.log('Starting file upload:', { 
-            fileName: file.name, 
-            fileType: file.type, 
+        console.log('Starting file upload:', {
+            fileName: file.name,
+            fileType: file.type,
             fileSize: file.size,
-            field 
+            field
         });
 
-        setIsUploading(true);
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', file);
-
         try {
-            console.log('Sending request to /api/upload/image');
-            const response = await fetch('/api/upload/image', {
-                method: 'POST',
-                body: uploadFormData,
-                // ✅ Safari対応: キャッシュ無効化ヘッダー追加
-                cache: 'no-store' as RequestCache,
-                headers: {
-                    'Pragma': 'no-cache',
-                },
-            });
-
-            console.log('Response received:', { 
-                status: response.status, 
-                statusText: response.statusText,
-                ok: response.ok 
-            });
-
-            // Safe JSON parsing with comprehensive error handling
-            let result;
-            try {
-                if (!response.ok) {
-                    // Try to get error text even if not JSON
-                    const errorText = await response.text();
-                    console.error('Server response error:', errorText);
-                    throw new Error(`ファイルアップロードに失敗しました (${response.status}): ${errorText || response.statusText}`);
-                }
-
-                // Check content type before parsing JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType?.includes('application/json')) {
-                    const errorText = await response.text();
-                    console.error('Non-JSON response received:', errorText);
-                    throw new Error(`サーバーがJSON以外のレスポンスを返しました: ${errorText}`);
-                }
-
-                result = await response.json();
-            } catch (parseError) {
-                console.error('JSON parse error during file upload:', parseError);
-                if (parseError instanceof SyntaxError) {
-                    throw new Error('サーバーレスポンスの解析に失敗しました。サーバーエラーの可能性があります。');
-                }
-                throw parseError;
-            }
-            
-            console.log('Upload result:', result);
-
-            if (result && result.success && result.url) {
-                setFormData(prevFormData => prevFormData ? { ...prevFormData, [field]: result.url } : null);
-                console.log('File upload successful, URL:', result.url);
-            } else {
-                const errorMessage = result?.error || 'ファイルURLの取得に失敗しました';
-                throw new Error(errorMessage);
-            }
+            const url = await uploadFile(file);
+            setFormData(prevFormData => prevFormData ? { ...prevFormData, [field]: url } : null);
+            console.log('File upload successful, URL:', url);
         } catch (error) {
             console.error('Upload error:', error);
-            // Show error message to user
             let errorMessage = 'ファイルのアップロードに失敗しました。';
             if (error instanceof Error) {
                 if (error.message.includes('Failed to fetch')) {
@@ -151,8 +97,6 @@ export const CharacterForm: React.FC<CharacterFormProps> = ({
                 }
             }
             alert(errorMessage);
-        } finally {
-            setIsUploading(false);
         }
     };
 

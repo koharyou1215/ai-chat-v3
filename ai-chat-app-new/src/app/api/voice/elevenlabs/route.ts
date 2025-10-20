@@ -7,7 +7,15 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
-      throw new Error("ELEVENLABS_API_KEY is not set in the environment variables.");
+      throw new Error(
+        'ElevenLabs API キーが設定されていません。\n\n' +
+        '設定方法：\n' +
+        '1. 環境変数 ELEVENLABS_API_KEY を設定してください\n' +
+        '2. ElevenLabsアカウントでAPIキーを取得: https://elevenlabs.io/\n' +
+        '3. 本番環境の場合、Vercelの環境変数設定画面で追加してください\n\n' +
+        '代替方法：\n' +
+        '- ブラウザ組み込みのSystem TTSを使用（設定画面で切り替え）'
+      );
     }
 
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;

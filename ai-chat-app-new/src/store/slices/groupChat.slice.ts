@@ -10,13 +10,7 @@ import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { generateCompactGroupPrompt } from "@/utils/character-summarizer";
 import { GroupEmotionAnalyzer } from "@/services/emotion/GroupEmotionAnalyzer";
 import { AppStore } from "..";
-import {
-  generateGroupSessionId,
-  generateWelcomeMessageId,
-  generateUserMessageId,
-  generateAIMessageId,
-  generateSystemMessageId,
-} from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 
 // 🎭 グループ感情から絵文字への変換ヘルパー
 const getGroupEmotionEmoji = (emotion: string): string => {
@@ -98,7 +92,7 @@ export const createGroupChatSlice: StateCreator<
     groupName,
     scenario
   ) => {
-    const groupSessionId = generateGroupSessionId();
+    const groupSessionId = generateStableId('group');
 
     // シナリオ有りの場合の初期メッセージ
     const initialContent = scenario
@@ -126,7 +120,7 @@ export const createGroupChatSlice: StateCreator<
       scenario, // シナリオ情報を追加
       messages: [
         {
-          id: generateWelcomeMessageId(),
+          id: generateStableId('welcome'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -212,7 +206,7 @@ export const createGroupChatSlice: StateCreator<
     try {
       // ユーザーメッセージを追加
       const userMessage: UnifiedMessage = {
-        id: generateUserMessageId(),
+        id: generateStableId('user'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -846,7 +840,7 @@ ${
       );
 
       return {
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -887,7 +881,7 @@ ${
       );
 
       return {
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -1085,7 +1079,7 @@ ${
 
         // Add system message
         const systemMessage: UnifiedMessage = {
-          id: generateSystemMessageId(),
+          id: generateStableId('system'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -1148,7 +1142,7 @@ ${
       if (!session) return state;
 
       const systemMessage: UnifiedMessage = {
-        id: generateSystemMessageId(),
+        id: generateStableId('system'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -1354,7 +1348,7 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
 
       const regeneratedMessage: UnifiedMessage = {
         ...lastAiMessage,
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         content: aiResponseContent,
@@ -1437,7 +1431,7 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       // 🎯 続きメッセージを新しいメッセージとして追加（元のメッセージは変更しない）
       const newContinuationMessage = {
         ...continuationMessage,
-        id: generateAIMessageId(), // 新しいIDを生成
+        id: generateStableId('ai'), // 新しいIDを生成
         metadata: {
           ...continuationMessage.metadata,
           is_continuation: true,

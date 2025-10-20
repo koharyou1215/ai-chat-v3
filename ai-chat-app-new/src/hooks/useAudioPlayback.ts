@@ -190,8 +190,38 @@ export const useAudioPlayback = ({ message, isLatest }: UseAudioPlaybackProps) =
         setIsSpeaking(false);
       }
     } catch (error) {
-        console.error('音声合成通信エラー:', error);
-        alert('音声合成通信エラー');
+        console.error('🚨 音声合成エラー詳細:', {
+          error,
+          provider: voiceSettings?.provider,
+          contentLength: message.content?.length,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+
+        // システム音声にフォールバック
+        if ('speechSynthesis' in window && voiceSettings?.provider !== 'system') {
+          console.log('🔄 システム音声でフォールバックします');
+          try {
+            if (!safariTTSManager) {
+              safariTTSManager = new SafariTTSManager();
+            }
+            await safariTTSManager.speak(message.content, {
+              rate: voiceSettings?.system?.rate || 1.0,
+              pitch: voiceSettings?.system?.pitch || 1.0,
+              volume: voiceSettings?.system?.volume || 1.0,
+              lang: 'ja-JP',
+              maxChunkLength: 200
+            });
+            setIsSpeaking(false);
+            return; // フォールバック成功
+          } catch (fallbackError) {
+            console.error('システム音声フォールバックも失敗:', fallbackError);
+          }
+        }
+
+        // フォールバックも失敗した場合はエラー表示
+        const errorMsg = error instanceof Error ? error.message : '不明なエラー';
+        alert(`音声合成通信エラー\n\nプロバイダー: ${voiceSettings?.provider || '不明'}\n詳細: ${errorMsg}\n\nシステム音声に切り替えてお試しください。`);
         setIsSpeaking(false);
     }
   }, [isSpeaking, message.content, voiceSettings]);

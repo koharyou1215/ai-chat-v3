@@ -187,7 +187,8 @@ export const createSettingsSliceV2: StateCreator<
     },
     openRouterApiKey: initialSettings.api.openrouterApiKey,
     geminiApiKey: initialSettings.api.geminiApiKey,
-    useDirectGeminiAPI: false,
+    // 🔧 FIX: 初期化時に統一設定から読み込む
+    useDirectGeminiAPI: initialSettings.api.useDirectGeminiAPI ?? false,
 
     // 🔧 FIX: systemPrompts設定を統一設定から読み込む
     systemPrompts: {
@@ -558,6 +559,8 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     setUseDirectGeminiAPI: (enabled) => {
+      // 🔧 FIX: 統一設定に保存を追加（画面切り替え時の設定保持）
+      settingsManager.updateCategory("api", { useDirectGeminiAPI: enabled });
       set({ useDirectGeminiAPI: enabled });
       simpleAPIManagerV2.setUseDirectGeminiAPI(enabled);
       console.log(`Gemini API Direct Mode: ${enabled ? "ON" : "OFF"}`);
@@ -700,6 +703,8 @@ export const createSettingsSliceV2: StateCreator<
         },
         openRouterApiKey: unified.api.openrouterApiKey,
         geminiApiKey: unified.api.geminiApiKey,
+        // 🔧 FIX: useDirectGeminiAPIの同期を追加
+        useDirectGeminiAPI: unified.api.useDirectGeminiAPI ?? false,
         // 🔧 FIX: voice設定の同期を追加
         voice: unified.voice || get().voice,
         // 🔧 FIX: imageGeneration設定の同期を追加

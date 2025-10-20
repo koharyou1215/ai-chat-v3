@@ -199,9 +199,22 @@ export class SimpleAPIManagerV2 {
       console.log("🔄 useDirectGeminiAPI set to:", options.useDirectGeminiAPI);
     }
 
-    // AIタブのuseDirectGeminiAPIトグルのみで判断
-    if (this.useDirectGeminiAPI && this.geminiApiKey) {
-      console.log("🔥 Gemini API直接使用 (AIタブトグルON)");
+    // モデルタイプを判定してプロバイダーを選択
+    const model = options?.model || this.currentConfig.model || "gpt-4o-mini";
+    const isGeminiModel = model.includes("gemini");
+
+    // 🔧 デバッグ: モデル選択状況を詳細にログ
+    console.log("🔍 [API Manager] モデル選択状況:");
+    console.log("  - options?.model:", options?.model);
+    console.log("  - this.currentConfig.model:", this.currentConfig.model);
+    console.log("  - 最終選択モデル:", model);
+    console.log("  - isGeminiModel:", isGeminiModel);
+    console.log("  - useDirectGeminiAPI:", this.useDirectGeminiAPI);
+    console.log("  - geminiApiKey present:", !!this.geminiApiKey);
+
+    // AIタブがONで、かつGemini系モデルの場合のみGemini APIを使用
+    if (this.useDirectGeminiAPI && this.geminiApiKey && isGeminiModel) {
+      console.log("🔥 Gemini API直接使用 (AIタブトグルON & Geminiモデル)");
       const result = await this.generateWithGemini(
         systemPrompt,
         userMessage,
@@ -211,14 +224,16 @@ export class SimpleAPIManagerV2 {
       return result;
     } else {
       console.log(
-        "🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)"
+        "🌐 OpenRouter使用 (AIタブトグルOFF / 非Geminiモデル / Geminiキー未設定)"
       );
       console.log("🔑 OpenRouter API key available:", !!this.openRouterApiKey);
+      console.log("📍 Selected model:", model);
+
       // 🚨 修正: GeminiモデルをOpenRouterに送信しない
-      let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
+      let finalModel = model;
 
       // Geminiモデルの場合のみ検証とフォーマット
-      if (model.includes("gemini")) {
+      if (isGeminiModel) {
         // 有効性チェック（自動変換なし）
         if (!validateGeminiModel(model)) {
           throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
@@ -228,19 +243,19 @@ export class SimpleAPIManagerV2 {
         if (!formattedModel) {
           throw new Error(`❌ モデルフォーマットエラー: ${model}`);
         }
-        model = formattedModel;
-        console.log("📍 OpenRouter用Geminiモデル:", model);
+        finalModel = formattedModel;
+        console.log("📍 OpenRouter用Geminiモデル:", finalModel);
       }
       // Gemini以外のモデル（deepseek等）はそのまま使用
       else {
-        console.log("✅ OpenRouter用モデル（そのまま使用）:", model);
+        console.log("✅ OpenRouter用モデル（そのまま使用）:", finalModel);
       }
 
       const result = await this.generateWithOpenRouter(
         systemPrompt,
         userMessage,
         conversationHistory,
-        model,
+        finalModel,
         options
       );
       return result.content;
@@ -264,11 +279,15 @@ export class SimpleAPIManagerV2 {
           if (newGeminiKey && newGeminiKey !== this.geminiApiKey) {
             this.geminiApiKey = newGeminiKey;
             console.log("🔄 Gemini APIキーを更新しました");
+            // GeminiClientにも反映
+            geminiClient.setApiKey(newGeminiKey);
           }
 
           if (newOpenRouterKey && newOpenRouterKey !== this.openRouterApiKey) {
             this.openRouterApiKey = newOpenRouterKey;
             console.log("🔄 OpenRouter APIキーを更新しました");
+            // GeminiClientにも反映
+            geminiClient.setOpenRouterApiKey(newOpenRouterKey);
           }
 
           // useDirectGeminiAPIフラグも更新
@@ -343,6 +362,7 @@ export class SimpleAPIManagerV2 {
     );
 
     // 🔥 Prompt Caching: Pass cache-related options to gemini-client
+    // 🚨 CRITICAL FIX: Disable cache for free tier (limit=0)
     const response = await geminiClient.generateMessage(messages, {
       temperature: options?.temperature || 0.7,
       maxTokens: options?.max_tokens || 2048,
@@ -350,7 +370,7 @@ export class SimpleAPIManagerV2 {
       characterId: options?.characterId,
       personaId: options?.personaId,
       systemPrompt: systemPrompt, // For cache key generation
-      enableCache: options?.enableCache !== false, // Default to true
+      enableCache: false, // 🔧 FIX: 無料版ではキャッシュ制限(limit=0)のため無効化
     });
 
     // 🔥 Performance Measurement: 終了時刻と処理時間を記録

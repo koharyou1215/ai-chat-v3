@@ -11,7 +11,7 @@ import { progressivePromptBuilder } from "@/services/progressive-prompt-builder.
 import { messageTransitionService } from "@/services/message-transition.service";
 import { autoMemoryManager } from "@/services/memory/auto-memory-manager";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
-import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 import { getTrackerManagerSafely } from "./operations/message-send-handler";
 
 export interface ProgressiveHandler {
@@ -79,7 +79,7 @@ export const createProgressiveHandler: StateCreator<
 
       // 1. ユーザーメッセージを作成
       const userMessage: UnifiedMessage = {
-        id: generateUserMessageId(),
+        id: generateStableId('user'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -129,7 +129,7 @@ export const createProgressiveHandler: StateCreator<
       }));
 
       // 3. プログレッシブメッセージの初期化
-      messageId = generateAIMessageId();
+      messageId = generateStableId('ai');
       startTime = Date.now();
       characterId = activeSession.participants.characters[0]?.id;
 

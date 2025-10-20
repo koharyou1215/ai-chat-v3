@@ -123,12 +123,14 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     fontEffects: true,
     particleEffects: false,
     typewriterEffect: true,
+    typewriterSound: true,
 
     // Effect Intensities
     colorfulBubblesIntensity: 50,
     fontEffectsIntensity: 50,
     particleEffectsIntensity: 30,
     typewriterIntensity: 70,
+    typewriterSoundVolume: 30,
 
     // Bubble Settings
     bubbleOpacity: 85,

@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType, EmotionTag } from '@/types';
 import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
-import { generateMemoryId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface MemorySlice {
@@ -201,7 +201,7 @@ export const createMemorySlice: StateCreator<
         );
 
         const newMemoryCard: MemoryCard = {
-          id: generateMemoryId(),
+          id: generateStableId('memory'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
