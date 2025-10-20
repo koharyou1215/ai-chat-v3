@@ -270,7 +270,7 @@ const nextConfig: NextConfig = {
   },
 
   // 出力設定
-  output: "standalone",
+  // output: "standalone",  // Vercel deploy fix: disabled
 };
 
 export default nextConfig;
