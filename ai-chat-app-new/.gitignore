@@ -42,3 +42,6 @@ next-env.d.ts
 
 .vercel
 nul
+
+# user uploads (should use Vercel Blob or CDN in production)
+/public/uploads/

@@ -1,0 +1,62 @@
+# Vercel Deployment Exclusions
+
+# ===== USER UPLOADS =====
+# Exclude all user-uploaded files from deployment
+# These should be stored in Vercel Blob or external CDN
+public/uploads/**
+
+# ===== DEVELOPMENT FILES =====
+# Testing and debugging files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+tests/
+__tests__/
+coverage/
+
+# Debug HTML files
+public/*.html
+!public/index.html
+
+# ===== BUILD ARTIFACTS =====
+# These are rebuilt during deployment
+.next/
+out/
+bundle-analysis/
+node_modules/
+
+# ===== DOCUMENTATION =====
+# Development documentation not needed in production
+claudedocs/
+docs/
+*.md
+!README.md
+
+# ===== CONFIGURATION =====
+# Local environment files
+.env.local
+.env.development
+.env.test
+
+# Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== PERFORMANCE ANALYSIS =====
+# Bundle analysis reports
+bundle-analysis/
+lighthouse-reports/
+*.stats.json
+
+# ===== VERSION CONTROL =====
+.git/
+.gitignore
+.gitattributes
+
+# ===== MISC =====
+# OS files
+.DS_Store
+Thumbs.db
