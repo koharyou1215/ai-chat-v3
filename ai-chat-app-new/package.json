@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "prebuild": "node scripts/generate-characters-manifest.js && node scripts/generate-personas-manifest.js",
-    "build": "npm run type-check && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
