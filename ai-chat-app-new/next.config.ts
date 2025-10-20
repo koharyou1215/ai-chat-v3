@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
         cacheGroups: {
           // Vendor chunk for stable dependencies
           vendor: {
-            test: /[\\/]node_modules[\\/]/,
+            test: /[\/]node_modules[\/]/,
             name: "vendors",
             chunks: "all",
             priority: 10,
@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
           },
           // Framer Motion chunk (heavy animation library)
           framerMotion: {
-            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            test: /[\/]node_modules[\/]framer-motion[\/]/,
             name: "framer-motion",
             chunks: "all",
             priority: 15,
@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
           },
           // Lucide icons chunk
           icons: {
-            test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+            test: /[\/]node_modules[\/]lucide-react[\/]/,
             name: "icons",
             chunks: "all",
             priority: 12,
@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
           },
           // Radix UI components
           radix: {
-            test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            test: /[\/]node_modules[\/]@radix-ui[\/]/,
             name: "radix-ui",
             chunks: "all",
             priority: 11,
@@ -75,7 +75,7 @@ const nextConfig: NextConfig = {
           },
           // UI components chunk
           ui: {
-            test: /[\\/]src[\\/]components[\\/]ui[\\/]/,
+            test: /[\/]src[\/]components[\/]ui[\/]/,
             name: "ui-components",
             chunks: "all",
             priority: 8,
@@ -83,7 +83,7 @@ const nextConfig: NextConfig = {
           },
           // Effects and animations chunk
           effects: {
-            test: /[\\/]src[\\/]components[\\/](chat[\\/](AdvancedEffects|MessageEffects)|emotion|lazy[\\/]LazyEffects)[\\/]/,
+            test: /[\/]src[\/]components[\/](chat[\/](AdvancedEffects|MessageEffects)|emotion|lazy[\/]LazyEffects)[\/]/,
             name: "effects",
             chunks: "async",
             priority: 6,
@@ -92,7 +92,7 @@ const nextConfig: NextConfig = {
           },
           // Gallery components chunk
           galleries: {
-            test: /[\\/]src[\\/]components[\\/](character[\\/].*Gallery|persona[\\/].*Gallery|memory[\\/].*Gallery)[\\/]/,
+            test: /[\/]src[\/]components[\/](character[\/].*Gallery|persona[\/].*Gallery|memory[\/].*Gallery)[\/]/,
             name: "galleries",
             chunks: "async",
             priority: 5,
@@ -101,7 +101,7 @@ const nextConfig: NextConfig = {
           },
           // Modal components chunk
           modals: {
-            test: /[\\/]src[\\/]components[\\/](settings[\\/].*Modal|voice[\\/].*Modal|character[\\/].*Form|history[\\/].*Modal)[\\/]/,
+            test: /[\/]src[\/]components[\/](settings[\/].*Modal|voice[\/].*Modal|character[\/].*Form|history[\/].*Modal)[\/]/,
             name: "modals",
             chunks: "async",
             priority: 4,
@@ -256,18 +256,10 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Railway デプロイ用設定
-  env: {
-    PORT: process.env.PORT || "3000",
-    ANALYZE: process.env.ANALYZE,
-    // ✅ ビルドIDを環境変数として公開（キャッシュバスティング用）
-    // ⚠️ HYDRATION FIX: Date.now()は動的なのでSSR/CSRで不一致の可能性
-    // → 固定値を使用してビルド時に確定させる
-    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ||
-                          process.env.RAILWAY_GIT_COMMIT_SHA ||
-                          "dev-build",
-    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
-  },
+  // ❌ VERCEL DEPLOY FIX: env ブロックを削除
+  // Next.js 15では env ブロックは非推奨
+  // 環境変数は .env ファイルと process.env で管理
+  // new Date() などの動的値がVercelデプロイの展開フェーズでエラーを引き起こす
 
   // 出力設定
   // output: "standalone",  // Vercel deploy fix: disabled
