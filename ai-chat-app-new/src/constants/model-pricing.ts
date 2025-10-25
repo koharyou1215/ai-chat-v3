@@ -377,6 +377,18 @@ export const MODEL_PRICING_DATA: ModelInfo[] = [
     contextWindow: 131072,
     description: "NVIDIAの49Bパラメータ推論特化モデル - エージェントワークフロー対応（RAG、ツール呼び出し）",
   },
+  {
+    id: "minimax/minimax-m2:free",
+    name: "MiniMax M2（無料版）",
+    provider: "openrouter",
+    pricing: {
+      input: 0, // 無料
+      output: 0, // 無料
+      currency: "USD",
+    },
+    contextWindow: 128000,
+    description: "⚠️ 無料版: MiniMaxの高性能マルチモーダルモデル - テキスト生成と理解に優れる",
+  },
 ];
 
 // モデルIDから価格情報を取得するヘルパー関数

@@ -121,7 +121,10 @@ export const AIPanel: React.FC<AIPanelProps> = ({
     setGeminiApiKey(key);
   };
 
-  // 🔧 FIX: Geminiモデルかどうかをモデル名で判定（プロバイダーではなく）
+  // 🔧 FIX: Gemini直接APIモデルかどうかを判定（"google/"プレフィックスなし）
+  const isGeminiDirectModel = apiConfig.model?.startsWith("gemini-");
+
+  // 🔧 FIX: Geminiモデル全般（直接API + OpenRouter経由）
   const isGeminiModel = apiConfig.model?.includes("gemini");
 
   const handlePromptChange = (key: keyof SystemPrompts, value: string) => {
@@ -148,10 +151,16 @@ export const AIPanel: React.FC<AIPanelProps> = ({
               value={apiConfig.model}
               onChange={(e) => handleModelChange(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
-              <optgroup label="Google">
-                <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash</option>
-                <option value="google/gemini-2.5-flash-lite-preview-09-2025">Gemini 2.5 Flash Light</option>
+              <optgroup label="Google Gemini（直接API）">
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-flash-light">Gemini 2.5 Flash Light</option>
+              </optgroup>
+
+              <optgroup label="Google（OpenRouter経由）">
+                <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (OpenRouter)</option>
+                <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (OpenRouter)</option>
+                <option value="google/gemini-2.5-flash-lite-preview-09-2025">Gemini 2.5 Flash Light (OpenRouter)</option>
               </optgroup>
 
               <optgroup label="Anthropic (OpenRouter)">
@@ -188,6 +197,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
                 <option value="baidu/ernie-4.5-21b-a3b-thinking">ERNIE 4.5 21B Thinking</option>
                 <option value="inclusionai/ling-1t">Ling-1T</option>
                 <option value="nvidia/llama-3.3-nemotron-super-49b-v1.5">Llama 3.3 Nemotron Super 49B v1.5</option>
+                <option value="minimax/minimax-m2:free">MiniMax M2（無料版）</option>
               </optgroup>
             </select>
             {isGeminiModel ? (
@@ -228,8 +238,8 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           })()}
         </div>
 
-        {/* Gemini API直接使用トグル - Geminiモデル選択時のみ表示 */}
-        {isGeminiModel && (
+        {/* Gemini API直接使用トグル - Gemini直接APIモデル選択時のみ表示 */}
+        {isGeminiDirectModel && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-gray-300">
@@ -255,9 +265,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           </div>
         )}
 
-        {/* Gemini APIキー入力 - Geminiモデル && 直接API使用ON時のみ表示 */}
+        {/* Gemini APIキー入力 - Gemini直接APIモデル && 直接API使用ON時のみ表示 */}
         <AnimatePresence>
-          {isGeminiModel && useDirectGeminiAPI && (
+          {isGeminiDirectModel && useDirectGeminiAPI && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -291,9 +301,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
           )}
         </AnimatePresence>
 
-        {/* OpenRouter APIキー入力 - 非Geminiモデル or Geminiモデル&&直接API使用OFF時に表示 */}
+        {/* OpenRouter APIキー入力 - 非Gemini直接APIモデル or Gemini直接APIモデル&&直接API使用OFF時に表示 */}
         <AnimatePresence>
-          {(!isGeminiModel || (isGeminiModel && !useDirectGeminiAPI)) && (
+          {(!isGeminiDirectModel || (isGeminiDirectModel && !useDirectGeminiAPI)) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -322,8 +332,8 @@ export const AIPanel: React.FC<AIPanelProps> = ({
               </div>
               <p className="text-xs text-gray-400">
                 OpenRouterのAPIキーを入力してください。
-                {isGeminiModel && (
-                  <span className="text-blue-400"> (Gemini含む全モデル対応)</span>
+                {!isGeminiDirectModel && (
+                  <span className="text-blue-400"> (Claude, GPT, Grok, Gemini等全モデル対応)</span>
                 )}
                 キーは暗号化されてローカルに保存されます。
               </p>
