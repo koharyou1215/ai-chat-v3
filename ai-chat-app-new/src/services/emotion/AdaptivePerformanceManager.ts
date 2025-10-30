@@ -50,16 +50,27 @@ export class AdaptivePerformanceManager {
   private detectDeviceCapabilities(): 'low' | 'medium' | 'high' {
     try {
       // Navigator API による基本判定
-      const navigator = window.navigator as any;
-      
+      const navigatorExtended = window.navigator as Navigator & {
+        deviceMemory?: number;
+        connection?: {
+          effectiveType?: string;
+        };
+        mozConnection?: {
+          effectiveType?: string;
+        };
+        webkitConnection?: {
+          effectiveType?: string;
+        };
+      };
+
       // メモリ情報
-      const deviceMemory = navigator.deviceMemory || 4; // GB単位
-      
+      const deviceMemory = navigatorExtended.deviceMemory || 4; // GB単位
+
       // CPU コア数
-      const hardwareConcurrency = navigator.hardwareConcurrency || 4;
-      
+      const hardwareConcurrency = navigatorExtended.hardwareConcurrency || 4;
+
       // 接続速度（利用可能な場合）
-      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      const connection = navigatorExtended.connection || navigatorExtended.mozConnection || navigatorExtended.webkitConnection;
       const effectiveType = connection?.effectiveType || 'unknown';
 
       // 総合判定
@@ -214,9 +225,16 @@ export class AdaptivePerformanceManager {
   private getCurrentSystemLoad(): number {
     try {
       // メモリ使用量チェック
-      const memoryInfo = (performance as any).memory;
+      const performanceExtended = performance as Performance & {
+        memory?: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        };
+      };
+      const memoryInfo = performanceExtended.memory;
       let memoryLoad = 0;
-      
+
       if (memoryInfo) {
         const usedMemory = memoryInfo.usedJSHeapSize;
         const totalMemory = memoryInfo.totalJSHeapSize;
@@ -246,12 +264,19 @@ export class AdaptivePerformanceManager {
    */
   private updateMetrics(): void {
     try {
-      const memoryInfo = (performance as any).memory;
-      
+      const performanceExtended = performance as Performance & {
+        memory?: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        };
+      };
+      const memoryInfo = performanceExtended.memory;
+
       this.currentMetrics = {
         ...this.currentMetrics,
-        memoryUsage: memoryInfo?.usedJSHeapSize ? 
-          Math.round(memoryInfo.usedJSHeapSize / 1024 / 1024) : 
+        memoryUsage: memoryInfo?.usedJSHeapSize ?
+          Math.round(memoryInfo.usedJSHeapSize / 1024 / 1024) :
           this.currentMetrics.memoryUsage,
         cpuUsage: this.estimateCPUUsage(),
         cacheHitRate: this.calculateCacheHitRate()

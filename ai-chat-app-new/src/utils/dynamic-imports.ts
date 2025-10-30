@@ -8,13 +8,13 @@ import { ComponentType } from 'react';
 // ===== CONDITIONAL IMPORT SYSTEM =====
 
 export interface DynamicImportOptions {
-  fallback?: ComponentType<any>;
+  fallback?: ComponentType<Record<string, unknown>>;
   preload?: boolean;
   timeout?: number;
 }
 
 export class DynamicImportManager {
-  private static cache = new Map<string, Promise<any>>();
+  private static cache = new Map<string, Promise<unknown>>();
   private static loadedModules = new Set<string>();
 
   /**
@@ -32,7 +32,7 @@ export class DynamicImportManager {
 
     // Return from cache if already loaded
     if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
+      return this.cache.get(cacheKey) as Promise<T>;
     }
 
     // Create new import promise
@@ -54,7 +54,7 @@ export class DynamicImportManager {
   /**
    * Preload components that are likely to be used
    */
-  static preloadComponent(importFn: () => Promise<any>, cacheKey: string): void {
+  static preloadComponent(importFn: () => Promise<unknown>, cacheKey: string): void {
     if (!this.cache.has(cacheKey)) {
       // Use requestIdleCallback if available, otherwise setTimeout
       const schedulePreload = () => {
@@ -202,7 +202,7 @@ export const PreloadStrategies = {
   /**
    * Preload effects based on user settings
    */
-  preloadEffects(effectSettings: any): void {
+  preloadEffects(effectSettings: Record<string, unknown>): void {
     if (typeof window === 'undefined') return;
 
     if (effectSettings.hologramMessages) {
@@ -223,9 +223,9 @@ export const PreloadStrategies = {
   /**
    * Preload on user interaction hints
    */
-  preloadOnHover(componentKey: string, importFn: () => Promise<any>): void {
+  preloadOnHover(componentKey: string, importFn: () => Promise<unknown>): void {
     if (typeof window === 'undefined') return;
-    
+
     DynamicImportManager.preloadComponent(importFn, componentKey);
   },
 };

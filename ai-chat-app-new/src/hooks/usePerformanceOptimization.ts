@@ -154,7 +154,7 @@ export function usePerformanceOptimization(componentName: string) {
   // NOTE: Avoid calling hooks inside returned functions; provide a simple
   // (non-hook) memoization behavior to keep usage safe.
   const createOptimizedCallback = useCallback(
-    <T extends (...args: any[]) => any>(callback: T): T => {
+    <T extends (...args: unknown[]) => unknown>(callback: T): T => {
       // When optimizations are disabled, return original callback.
       // When enabled, we still return the original callback to avoid
       // calling hooks from nested functions. Consumers may wrap with
@@ -208,12 +208,12 @@ export function usePerformanceOptimization(componentName: string) {
 
   // Throttled function creator (uses ref maps to avoid calling hooks inside
   // nested functions). The maps allow per-callback state tracking.
-  type AnyFn = (...args: any[]) => any;
+  type AnyFn = (...args: unknown[]) => unknown;
 
   const throttledLastCallRef = useRef<WeakMap<AnyFn, number>>(new WeakMap());
 
   const createThrottledCallback = useCallback(
-    <T extends (...args: any[]) => any>(
+    <T extends (...args: unknown[]) => unknown>(
       callback: T,
       delay: number = 100
     ): T => {
@@ -237,7 +237,7 @@ export function usePerformanceOptimization(componentName: string) {
   );
 
   const createDebouncedCallback = useCallback(
-    <T extends (...args: any[]) => any>(
+    <T extends (...args: unknown[]) => unknown>(
       callback: T,
       delay: number = 300
     ): T => {
@@ -401,7 +401,14 @@ export class PerformanceAnalytics {
 
 if (process.env.NODE_ENV === "development") {
   // Expose performance tools to window for debugging
-  (globalThis as any).performanceTools = {
+  (globalThis as typeof globalThis & {
+    performanceTools?: {
+      monitor: ComponentPerformanceMonitor;
+      analytics: typeof PerformanceAnalytics;
+      logMetrics: typeof PerformanceAnalytics.logComponentMetrics;
+      clearMetrics: typeof PerformanceAnalytics.clearAllMetrics;
+    };
+  }).performanceTools = {
     monitor: globalMonitor,
     analytics: PerformanceAnalytics,
     logMetrics: PerformanceAnalytics.logComponentMetrics,

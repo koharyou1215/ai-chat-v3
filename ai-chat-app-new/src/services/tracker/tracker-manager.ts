@@ -118,18 +118,19 @@ export class TrackerManager {
       
       // 初期値を設定 - JSONのcurrent_valueを優先
       let currentValue: string | number | boolean;
-      
+
       // JSONファイルにcurrent_valueが存在する場合はそれを使用
-      if ('current_value' in normalizedDefinition && (normalizedDefinition as any).current_value !== undefined) {
-        currentValue = (normalizedDefinition as any).current_value as string | number | boolean;
+      const defRecord = normalizedDefinition as unknown as Record<string, unknown>;
+      if ('current_value' in normalizedDefinition && defRecord.current_value !== undefined) {
+        currentValue = defRecord.current_value as string | number | boolean;
         console.log(`Using JSON current_value for ${normalizedDefinition.name}:`, currentValue);
       } else {
         // current_valueが無い場合のみデフォルト値を設定
         switch (normalizedDefinition.config.type) {
         case 'numeric':
           // 数値型の場合、初期値をチェック（古いフォーマットも考慮）
-          const numericConfig = normalizedDefinition.config as any;
-          const oldFormatValue = (normalizedDefinition as any).initial_value;
+          const numericConfig = normalizedDefinition.config as unknown as Record<string, unknown>;
+          const oldFormatValue = defRecord.initial_value;
           
           if (typeof numericConfig.initial_value === 'number') {
             currentValue = numericConfig.initial_value;
@@ -163,11 +164,11 @@ export class TrackerManager {
           break;
         case 'state':
           // 状態型の場合、initial_stateまたは最初の可能な状態を使用
-          const stateConfig = normalizedDefinition.config as any;
-          currentValue = stateConfig.initial_state || 
-                       stateConfig.initial_value ||
-                       (stateConfig.possible_states && stateConfig.possible_states.length > 0 
-                         ? stateConfig.possible_states[0].id || stateConfig.possible_states[0]
+          const stateConfig = normalizedDefinition.config as unknown as Record<string, unknown>;
+          currentValue = (stateConfig.initial_state as string) ||
+                       (stateConfig.initial_value as string) ||
+                       (stateConfig.possible_states && Array.isArray(stateConfig.possible_states) && stateConfig.possible_states.length > 0
+                         ? (stateConfig.possible_states[0] as Record<string, unknown>).id as string || stateConfig.possible_states[0] as string
                          : '');
           
           // possible_statesが空の場合、トラッカー名と説明から推測して設定
@@ -240,18 +241,18 @@ export class TrackerManager {
           break;
         case 'boolean':
           // ブール型の場合、initial_valueまたは変換時のinitial_booleanまたはfalseをデフォルトとして設定
-          const booleanConfig = normalizedDefinition.config as any;
-          currentValue = typeof booleanConfig.initial_value === 'boolean' 
-            ? booleanConfig.initial_value 
+          const booleanConfig = normalizedDefinition.config as unknown as Record<string, unknown>;
+          currentValue = typeof booleanConfig.initial_value === 'boolean'
+            ? booleanConfig.initial_value
             : typeof booleanConfig.initial_boolean === 'boolean'
             ? booleanConfig.initial_boolean
             : false;
           break;
         case 'text':
           // テキスト型の場合、initial_valueまたは変換時のinitial_textまたは空文字をデフォルトとして設定
-          const textConfig = normalizedDefinition.config as any;
-          currentValue = typeof textConfig.initial_value === 'string' 
-            ? textConfig.initial_value 
+          const textConfig = normalizedDefinition.config as unknown as Record<string, unknown>;
+          currentValue = typeof textConfig.initial_value === 'string'
+            ? textConfig.initial_value
             : typeof textConfig.initial_text === 'string'
             ? textConfig.initial_text
             : '未設定';
@@ -266,10 +267,11 @@ export class TrackerManager {
         current_value: currentValue 
       };
       
+      const configRecord = normalizedDefinition.config as unknown as Record<string, unknown>;
       console.log(`Initialized tracker ${normalizedDefinition.name}:`, {
         type: normalizedDefinition.config.type,
-        initial_value: (normalizedDefinition.config as any).initial_value,
-        initial_state: (normalizedDefinition.config as any).initial_state,
+        initial_value: configRecord.initial_value,
+        initial_state: configRecord.initial_state,
         current_value: currentValue
       });
       trackerMap.set(normalizedDefinition.name, initializedTracker);
@@ -298,12 +300,12 @@ export class TrackerManager {
     let promptText = '<トラッカー情報>\n';
     for (const tracker of trackerSet.trackers.values()) {
       // current_value が undefined や null の場合は初期値を表示
-      const trackerAsAny = tracker as any;
+      const trackerConfigRecord = tracker.config as unknown as Record<string, unknown>;
       const value = tracker.current_value ??
         (tracker.config.type === 'numeric' ? (tracker.config as NumericTrackerConfig).initial_value :
          tracker.config.type === 'state' ? (tracker.config as StateTrackerConfig).initial_state :
-         tracker.config.type === 'boolean' ? (trackerAsAny.config.initial_value ?? false) :
-         tracker.config.type === 'text' ? (trackerAsAny.config.initial_value ?? '') :
+         tracker.config.type === 'boolean' ? (trackerConfigRecord.initial_value ?? false) :
+         tracker.config.type === 'text' ? (trackerConfigRecord.initial_value ?? '') :
          'N/A');
       promptText += `【${tracker.display_name}】: ${value}\n`;
     }
