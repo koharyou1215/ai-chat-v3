@@ -83,7 +83,7 @@ export interface MemoryLayer {
     facts: string[];
     emotions: { type: string; intensity: number }[];
     relationships: { entity: string; relation: string; strength: number }[];
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   };
   metadata: {
     message_count: number;
@@ -161,22 +161,26 @@ export const createMemorySlice: StateCreator<
       const state = get();
 
       // ソロチャットとグループチャットの両方をチェック
-      const soloSessions = (state as any).sessions || new Map();
-      const groupSessions = (state as any).group_sessions || new Map();
+      const stateRecord = state as unknown as Record<string, unknown>;
+      const soloSessions = (stateRecord.sessions as Map<string, unknown>) || new Map();
+      const groupSessions = (stateRecord.group_sessions as Map<string, unknown>) || new Map();
 
       const session =
         soloSessions.get(session_id) || groupSessions.get(session_id);
 
       if (!session) {
-        console.warn(
-          `🔍 [MemorySlice] Session ${session_id} not found in solo (${soloSessions.size}) or group (${groupSessions.size}) sessions`
+        console.error(
+          `❌ [MemorySlice] セッション ${session_id} が見つかりません`
         );
-        console.warn(
-          "🔍 Available solo sessions:",
+        console.error(
+          `🔍 [MemorySlice] ソロセッション数: ${soloSessions.size}, グループセッション数: ${groupSessions.size}`
+        );
+        console.error(
+          "🔍 [MemorySlice] 利用可能なソロセッション:",
           Array.from(soloSessions.keys()).slice(0, 3)
         );
-        console.warn(
-          "🔍 Available group sessions:",
+        console.error(
+          "🔍 [MemorySlice] 利用可能なグループセッション:",
           Array.from(groupSessions.keys()).slice(0, 3)
         );
         return null; // 型に合わせてnull返却を許可
@@ -188,9 +192,12 @@ export const createMemorySlice: StateCreator<
       );
 
       if (messages.length === 0) {
-        console.warn("No messages found for the specified IDs");
+        console.error("❌ [MemorySlice] 指定されたIDのメッセージが見つかりません");
+        console.error("🔍 [MemorySlice] 要求されたメッセージID:", message_ids);
+        console.error("🔍 [MemorySlice] セッション内のメッセージ数:", session.messages.length);
         return null; // エラーの代わりにnull返却
       }
+      console.log("✅ [MemorySlice] メッセージ取得成功:", messages.length, "件");
 
       try {
         // AI自動生成でメモリーカード内容を作成
@@ -264,11 +271,14 @@ export const createMemorySlice: StateCreator<
           };
         });
 
-        console.log(`✅ Created memory card: ${newMemoryCard.title} for session: ${session_id}`);
+        console.log(`✅ [MemorySlice] メモリーカード作成成功: "${newMemoryCard.title}" (セッション: ${session_id.substring(0, 8)}...)`);
         return newMemoryCard;
 
       } catch (error) {
-        console.error("Failed to create memory card:", error);
+        console.error("❌ [MemorySlice] メモリーカード作成でエラーが発生しました:", error);
+        if (error instanceof Error) {
+          console.error("❌ [MemorySlice] エラー詳細:", error.message);
+        }
         return null; // エラー時もnull返却
       }
     },

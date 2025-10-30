@@ -677,11 +677,11 @@ export const createGroupChatSlice: StateCreator<
         }
       );
       // Mem0の結果をUnifiedMessage形式に変換
-      recentMessages = history.map((h: any) => ({
-        role: h.role,
-        content: h.content,
-        character_id: h.character_id,
-        character_name: h.character_name,
+      recentMessages = history.map((h: Record<string, unknown>) => ({
+        role: h.role as string,
+        content: h.content as string,
+        character_id: h.character_id as string,
+        character_name: h.character_name as string,
       }));
     } catch (e) {
       // フォールバック: 元のロジック
@@ -829,6 +829,7 @@ ${
       const effectSettings = get().effectSettings || {};
       const textFormatting = effectSettings.textFormatting || "readable";
 
+      // 🔧 FIX: API設定にuseDirectGeminiAPIとAPIキーを含める（モバイルSafari対策）
       const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
@@ -836,6 +837,9 @@ ${
         {
           ...apiConfig,
           max_tokens: finalMaxTokens,
+          openRouterApiKey: openRouterApiKey,
+          geminiApiKey: geminiApiKey,
+          useDirectGeminiAPI: get().useDirectGeminiAPI,
         }
       );
 
@@ -1437,9 +1441,9 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
           is_continuation: true,
           continuation_of: lastAiMessage.id,
           continuation_count:
-            (typeof (lastAiMessage.metadata as any)?.continuation_count ===
+            (typeof (lastAiMessage.metadata as Record<string, unknown>)?.continuation_count ===
             "number"
-              ? (lastAiMessage.metadata as any).continuation_count
+              ? (lastAiMessage.metadata as Record<string, unknown>).continuation_count as number
               : 0) + 1,
         },
       };

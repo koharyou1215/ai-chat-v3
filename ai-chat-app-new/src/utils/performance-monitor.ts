@@ -4,6 +4,18 @@
 
 import React from 'react';
 
+// Performance API型拡張
+interface LayoutShiftEntry extends PerformanceEntry {
+  hadRecentInput?: boolean;
+  value: number;
+}
+
+interface PerformanceMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
 // ===== BUNDLE SIZE MONITORING =====
 
 export class BundlePerformanceMonitor {
@@ -190,8 +202,9 @@ export class CoreWebVitalsMonitor {
 
       new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          if ((entry as any).hadRecentInput) continue;
-          clsValue += (entry as any).value;
+          const layoutShiftEntry = entry as LayoutShiftEntry;
+          if (layoutShiftEntry.hadRecentInput) continue;
+          clsValue += layoutShiftEntry.value;
         }
         resolve(clsValue);
       }).observe({ entryTypes: ['layout-shift'] });
@@ -243,7 +256,8 @@ export class MemoryMonitor {
       return {};
     }
 
-    const memory = (performance as any).memory;
+    const perfWithMemory = performance as Performance & { memory?: PerformanceMemory };
+    const memory = perfWithMemory.memory;
     if (!memory) return {};
 
     const usagePercentage = memory.totalJSHeapSize > 0 

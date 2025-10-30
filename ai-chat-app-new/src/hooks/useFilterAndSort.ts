@@ -55,8 +55,10 @@ export function useFilterAndSort<T, K extends keyof T>({
         valB = sortKeys[field as keyof typeof sortKeys]!(b);
       } else if (field && field in (a as Record<string, unknown>)) {
         // デフォルトの動作：オブジェクトのプロパティを直接参照
-        valA = (a as any)[field];
-        valB = (b as any)[field];
+        const recordA = a as Record<string, unknown>;
+        const recordB = b as Record<string, unknown>;
+        valA = recordA[field];
+        valB = recordB[field];
       } else {
         valA = 0;
         valB = 0;

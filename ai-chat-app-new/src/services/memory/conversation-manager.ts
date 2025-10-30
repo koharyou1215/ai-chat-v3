@@ -67,7 +67,15 @@ export class ConversationManager {
     this.trackerManager = trackerManager; // Assign from constructor
     this.allMessages = initialMessages;
     this.messageCount = initialMessages.length;
-    this.importMessages(initialMessages);
+
+    // 🔧 FIX: constructorから非同期importMessagesを削除
+    // 理由：constructorは同期的であるべき + 毎回全メッセージを処理するのは非効率
+    // embeddings処理は必要時のみ、呼び出し側で明示的に実行する
+
+    // メモリレイヤーのみ同期的に初期化（embeddings処理なし）
+    for (const message of initialMessages) {
+      this.memoryLayers.addUnifiedMessage(message);
+    }
   }
 
   /**
@@ -104,14 +112,9 @@ export class ConversationManager {
       this.memoryLayers.addUnifiedMessage(message);
     }
 
-    // 🧠 Mem0にメッセージをバッチ取り込み
-    try {
-      const { Mem0 } = await import("@/services/mem0/core");
-      await Promise.all(messages.map(msg => Mem0.ingestMessage(msg)));
-      console.log(`✅ [ConversationManager] ${messages.length} messages ingested to Mem0`);
-    } catch (error) {
-      console.warn("⚠️ [ConversationManager] Failed to batch ingest messages to Mem0:", error);
-    }
+    // 🔧 FIX: Mem0呼び出しを削除（重複API呼び出し防止）
+    // vectorStore.addMessagesBatchで一括処理されるため、Mem0.ingestMessageは不要
+    // 理由：Mem0.ingestMessage内部でもvectorStore.addMessageを呼び出すため二重処理になる
 
     // インデックス対象メッセージを抽出してバッチ処理
     const messagesToIndex = messages.filter((msg) =>
@@ -249,21 +252,29 @@ export class ConversationManager {
 
       // Mem0検索結果をSearchResult形式に変換
       if (mem0Results && mem0Results.length > 0) {
-        relevantMemories = mem0Results.map((result: any) => ({
-          message: result.message || {
+        relevantMemories = mem0Results.map((result: Record<string, unknown>) => ({
+          message: (result.message as UnifiedMessage) || ({
             id: `mem0_${Date.now()}`,
-            content: result.content || "",
+            content: (result.content as string) || "",
             role: "assistant" as const,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             session_id: "",
             is_deleted: false,
             memory: {
-              importance: { score: result.relevance || 0.5, factors: {} as any },
+              importance: {
+                score: (result.relevance as number) || 0.5,
+                factors: {
+                  emotional_weight: 0.5,
+                  repetition_count: 0,
+                  user_emphasis: 0.5,
+                  ai_judgment: (result.relevance as number) || 0.5
+                }
+              },
               is_pinned: false,
               is_bookmarked: false,
               keywords: [],
-              summary: result.summary,
+              summary: (result.summary as string),
             },
             expression: {
               emotion: { primary: "neutral", intensity: 0.5, emoji: "😐" },
@@ -274,10 +285,10 @@ export class ConversationManager {
             regeneration_count: 0,
             metadata: {},
             version: 1,
-          } as UnifiedMessage,
-          similarity: result.similarity || 0.5,
-          relevance: result.relevance || 0.5,
-        }));
+          } as UnifiedMessage),
+          similarity: (result.similarity as number) || 0.5,
+          relevance: (result.relevance as string) || 'medium',
+        } as SearchResult));
         console.log(`✅ [ConversationManager] Mem0 search returned ${relevantMemories.length} results`);
       }
     } catch (error) {
@@ -796,10 +807,11 @@ export class ConversationManager {
     const now = Date.now();
     return results
       .map((result) => {
-        // 型安全なtimestamp取得（Legacy Message か UnifiedMessage かを判定）
+        // 型安全なtimestamp取得（UnifiedMessageのcreated_atを使用）
+        const messageRecord = result.message as unknown as Record<string, unknown>;
         const timestamp =
-          (result.message as any).timestamp ||
-          (result.message as any).created_at;
+          (messageRecord.timestamp as string) ||
+          (messageRecord.created_at as string);
         return {
           ...result,
           similarity: this.applyTimeDecay(result.similarity, timestamp, now),
@@ -942,7 +954,7 @@ export class ConversationManager {
           },
           character_id: characterId,
           memory_type: "episodic",
-        } as any);
+        } as Partial<MemoryCard>);
 
         console.log(`✅ [ConversationManager] Auto-created memory card with importance ${importance}`);
       }
