@@ -1,7 +1,12 @@
 import { StateCreator } from "zustand";
-import { UUID, Character } from "@/types";
+import { UUID, Character, UnifiedMessage, TrackerDefinition } from "@/types";
 import { AppStore } from "@/store";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
+
+// Internal Tracker type matching TrackerManager's internal type
+type Tracker = TrackerDefinition & {
+  current_value: string | number | boolean;
+};
 
 export interface TrackerIntegration {
   // 🔧 修正: キャラクター単位からセッション単位に変更
@@ -121,15 +126,15 @@ export const createTrackerIntegration: StateCreator<
     Object.entries(updates).forEach(([trackerName, value]) => {
       try {
         const trackerSet = trackerManager.getTrackerSet(characterId);
-        let tracker: Record<string, unknown> | null = null;
+        let tracker: Tracker | null = null;
         let currentValue: unknown = undefined;
 
         // Mapをイテレートして特定のトラッカーを探す
         if (trackerSet?.trackers instanceof Map) {
-          trackerSet.trackers.forEach((t: Record<string, unknown>, key: string) => {
+          trackerSet.trackers.forEach((t: Tracker, key: string) => {
             if (key === trackerName || t.name === trackerName) {
               tracker = t;
-              currentValue = t.value;
+              currentValue = t.current_value;
             }
           });
         }

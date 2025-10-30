@@ -17,7 +17,7 @@ export const createMessageLifecycleOperations: StateCreator<
   MessageLifecycleSlice
 > = (set, get) => ({
   addMessage: async (message) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -46,7 +46,7 @@ export const createMessageLifecycleOperations: StateCreator<
   },
 
   deleteMessage: (message_id) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -63,7 +63,7 @@ export const createMessageLifecycleOperations: StateCreator<
   },
 
   rollbackSession: (message_id) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -75,7 +75,7 @@ export const createMessageLifecycleOperations: StateCreator<
     if (!session) return;
 
     const messageIndex = session.messages.findIndex(
-      (m: any) => m.id === message_id
+      (m) => m.id === message_id
     );
 
     if (messageIndex === -1) {

@@ -52,9 +52,10 @@ export const createMessageRegenerationHandler: StateCreator<
 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
-      // 🔧 修正: sessionIdでTrackerManagerを取得
-      const trackerManager = activeSessionId
-        ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
+      // 🔧 修正: characterIdでTrackerManagerを取得（TrackerManagerはcharacterIdでインデックス化）
+      const characterId = session.participants.characters[0]?.id;
+      const trackerManager = characterId
+        ? getTrackerManagerSafely(get().trackerManagers, characterId)
         : null;
 
       // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
@@ -82,8 +83,15 @@ export const createMessageRegenerationHandler: StateCreator<
       systemPrompt += regenerateInstruction;
 
       // 🔧 修正: 設定から会話履歴の上限を取得
+      const stateWithChat = get() as ReturnType<typeof get> & {
+        chat?: {
+          memory_limits?: {
+            max_context_messages?: number;
+          };
+        };
+      };
       const maxContextMessages =
-        (get() as any).chat?.memory_limits?.max_context_messages || 40;
+        stateWithChat.chat?.memory_limits?.max_context_messages || 40;
 
       // 再生成でもMem0を使用（context-management統合）
       const conversationHistory = buildConversationHistory(
@@ -173,11 +181,14 @@ export const createMessageRegenerationHandler: StateCreator<
           timestamp: new Date().toISOString(),
           details: error instanceof Error ? error.message : String(error),
         },
-      } as any);
+      } as Partial<ReturnType<typeof get>>);
 
       // エラートースト表示（実装されている場合）
-      if (typeof window !== "undefined" && (window as any).showToast) {
-        (window as any).showToast(errorMessage, "error");
+      const windowWithToast = typeof window !== "undefined"
+        ? (window as Window & { showToast?: (message: string, type: string) => void })
+        : undefined;
+      if (windowWithToast?.showToast) {
+        windowWithToast.showToast(errorMessage, "error");
       }
     } finally {
       set({ is_generating: false });

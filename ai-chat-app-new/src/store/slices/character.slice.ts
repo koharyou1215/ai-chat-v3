@@ -255,8 +255,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
 
               // Support both old format (direct fields) and new format (config object)
               const hasConfig = t.config && typeof t.config === 'object';
+              const configRecord = t.config as Record<string, unknown> | undefined;
               const trackerType = hasConfig
-                ? (t.config as any).type
+                ? (configRecord?.type as string)
                 : t.type;
 
               if (!trackerType || typeof trackerType !== 'string') {
@@ -279,16 +280,16 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 name: t.name,
                 display_name: String(t.display_name || ''),
                 description: String(t.description || ''),
-                category: (hasConfig ? (t.config as any).category : t.category) as TrackerCategory || 'status',
+                category: (hasConfig ? (configRecord?.category as TrackerCategory) : t.category) as TrackerCategory || 'status',
                 type: trackerType as TrackerType,
               };
 
               let isValid = true;
 
               // Extract values from either old format or new format (config object)
-              if (hasConfig) {
+              if (hasConfig && configRecord) {
                 // New format with config object
-                const config = t.config as any;
+                const config = configRecord;
                 switch (trackerType) {
                   case 'numeric':
                     definition.config = {
@@ -304,8 +305,8 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                       type: 'state',
                       initial_state: config.initial_state as string,
                       possible_states: Array.isArray(config.possible_states)
-                        ? config.possible_states.map((s: any) =>
-                            typeof s === 'object' ? s : { id: String(s), label: String(s) }
+                        ? config.possible_states.map((s: unknown) =>
+                            typeof s === 'object' && s !== null ? s as StateDefinition : { id: String(s), label: String(s) }
                           )
                         : [],
                     };

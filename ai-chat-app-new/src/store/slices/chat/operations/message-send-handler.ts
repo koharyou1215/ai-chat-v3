@@ -72,9 +72,9 @@ export interface MessageSendHandlerState {
 }
 
 export const createMessageSendHandler = (
-  set: any,
-  get: any,
-  api: any
+  set: Parameters<StateCreator<AppStore>>[0],
+  get: Parameters<StateCreator<AppStore>>[1],
+  api: Parameters<StateCreator<AppStore>>[2]
 ): MessageSendHandlerState => {
   return {
     sendMessage: async (
@@ -98,21 +98,26 @@ export const createMessageSendHandler = (
       };
 
       // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
-      const state = get() as any;
+      const state = get();
+      const stateWithGroup = state as typeof state & {
+        is_group_mode?: boolean;
+        active_group_session_id?: string;
+        sendGroupMessage?: (content: string, imageUrl?: string) => Promise<void>;
+      };
       console.log(
         "📊 [NEW sendMessage] State check - is_group_mode:",
-        state.is_group_mode,
+        stateWithGroup.is_group_mode,
         "active_session_id:",
-        state.active_session_id
+        stateWithGroup.active_session_id
       );
 
       if (
-        state.is_group_mode &&
-        state.active_group_session_id &&
-        state.sendGroupMessage
+        stateWithGroup.is_group_mode &&
+        stateWithGroup.active_group_session_id &&
+        stateWithGroup.sendGroupMessage
       ) {
         console.log("🔄 [NEW sendMessage] Redirecting to group chat");
-        await state.sendGroupMessage(content, imageUrl);
+        await stateWithGroup.sendGroupMessage(content, imageUrl);
         return { success: true };
       }
 
@@ -150,7 +155,7 @@ export const createMessageSendHandler = (
           message_count: activeSession.message_count + 1,
           updated_at: new Date().toISOString(),
         };
-        set((state: any) => ({
+        set((state: AppStore) => ({
           sessions: createMapSafely(state.sessions).set(
             activeSessionId,
             sessionWithUserMessage
@@ -163,7 +168,7 @@ export const createMessageSendHandler = (
         }
 
         // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
-        const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
+        const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags as { emotion_analysis_enabled?: boolean; emotional_memory_enabled?: boolean } | undefined;
         if (opts.enableEmotionAnalysis && emotionalIntelligenceFlags?.emotion_analysis_enabled) {
           setTimeout(async () => {
             try {
@@ -207,7 +212,7 @@ export const createMessageSendHandler = (
               };
 
               // セッションを更新（非同期）
-              set((state: any) => {
+              set((state: AppStore) => {
                 const currentSession = getSessionSafely(
                   state.sessions,
                   activeSessionId
@@ -240,10 +245,10 @@ export const createMessageSendHandler = (
         }
 
         // 3. AI応答生成
-        // 🔧 修正: sessionIdでTrackerManagerを取得
+        // 🔧 修正: characterIdでTrackerManagerを取得（TrackerManagerはcharacterIdでインデックス化）
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = activeSessionId
-          ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
+        const trackerManager = characterId
+          ? getTrackerManagerSafely(get().trackerManagers, characterId)
           : null;
 
         console.log("🔍 [NEW sendMessage] TrackerManager check:", {
@@ -324,8 +329,18 @@ export const createMessageSendHandler = (
               conversationHistoryLength: requestBody.conversationHistory?.length || 0,
               model: requestBody.apiConfig?.model,
               provider: requestBody.apiConfig?.provider,
+              useDirectGeminiAPI: requestBody.apiConfig?.useDirectGeminiAPI,  // ← 🔧 CRITICAL: 本番環境デバッグ用
               hasGeminiKey: !!requestBody.apiConfig?.geminiApiKey,
               hasOpenRouterKey: !!requestBody.apiConfig?.openRouterApiKey,
+            });
+
+            // 🔧 CRITICAL DEBUG: Zustandストアの状態を直接確認
+            console.log("📊 [NEW sendMessage] Zustand Store State:", {
+              "get().useDirectGeminiAPI": get().useDirectGeminiAPI,
+              "get().apiConfig.provider": get().apiConfig?.provider,
+              "get().apiConfig.model": get().apiConfig?.model,
+              "get().geminiApiKey exists": !!get().geminiApiKey,
+              "get().openRouterApiKey exists": !!get().openRouterApiKey,
             });
 
             // APIリクエスト実行
@@ -342,7 +357,7 @@ export const createMessageSendHandler = (
               console.error("❌ [NEW sendMessage] HTTP Error - StatusText:", initialResponse.statusText);
 
               // Try to parse error response with detailed diagnostics
-              let errorData: any = {};
+              let errorData: { error?: string; details?: string; rawError?: string; parseError?: string } = {};
               let errorText = "";
 
               try {
@@ -352,7 +367,10 @@ export const createMessageSendHandler = (
 
                 // Try to parse as JSON
                 if (errorText.trim()) {
-                  errorData = JSON.parse(errorText);
+                  const parsed: unknown = JSON.parse(errorText);
+                  if (typeof parsed === 'object' && parsed !== null) {
+                    errorData = parsed as typeof errorData;
+                  }
                   console.error("❌ [NEW sendMessage] Parsed Error Data:", errorData);
                 } else {
                   console.error("❌ [NEW sendMessage] Response body is empty!");
@@ -509,7 +527,7 @@ export const createMessageSendHandler = (
           message_count: finalSession.message_count + 1,
           updated_at: new Date().toISOString(),
         };
-        set((state: any) => ({
+        set((state: AppStore) => ({
           sessions: createMapSafely(state.sessions).set(
             activeSessionId,
             sessionWithAiResponse
@@ -543,7 +561,7 @@ export const createMessageSendHandler = (
               console.log(
                 `✅ [NEW sendMessage] Updated ${updatedTrackers.length} tracker(s)`
               );
-              set((state: any) => ({
+              set((state: AppStore) => ({
                 trackerManagers: new Map(state.trackerManagers),
               }));
 
@@ -571,7 +589,7 @@ export const createMessageSendHandler = (
         if (opts.enableBackgroundProcessing) {
           setTimeout(() => {
             Promise.allSettled([
-              get().emotionalIntelligenceFlags?.emotional_memory_enabled
+              (get().emotionalIntelligenceFlags as { emotional_memory_enabled?: boolean } | undefined)?.emotional_memory_enabled
                 ? autoMemoryManager.processNewMessage(
                     aiResponse,
                     activeSessionId,
@@ -625,7 +643,7 @@ export const createMessageSendHandler = (
                       `✅ [NEW sendMessage] Background tracker analysis updated ${allUpdates.length} tracker(s)`
                     );
 
-                    set((state: any) => ({
+                    set((state: AppStore) => ({
                       trackerManagers: new Map(state.trackerManagers),
                     }));
 

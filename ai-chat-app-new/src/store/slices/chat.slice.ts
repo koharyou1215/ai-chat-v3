@@ -59,7 +59,8 @@ export interface ChatSlice extends
  */
 export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
   set,
-  get
+  get,
+  api
 ) => ({
   // Core state initialization
   sessions: new Map(),
@@ -79,8 +80,8 @@ export const createChatSlice: StateCreator<AppStore, [], [], ChatSlice> = (
   },
 
   // Spread methods from extracted modules
-  ...createMessageOperations(set, get, {} as any),
-  ...createSessionManagement(set, get, {} as any),
-  ...createTrackerIntegration(set, get, {} as any),
-  ...createProgressiveHandler(set, get, {} as any),
+  ...createMessageOperations(set, get, api),
+  ...createSessionManagement(set, get, api),
+  ...createTrackerIntegration(set, get, api),
+  ...createProgressiveHandler(set, get, api),
 });
