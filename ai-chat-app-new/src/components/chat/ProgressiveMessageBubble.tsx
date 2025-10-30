@@ -29,6 +29,17 @@ import { StageSelector } from "@/components/chat/StageSelector";
 import { MessageMenu } from "@/components/chat/MessageMenu";
 import { playTypewriterStartSound } from "@/utils/sound-effects";
 
+// メッセージメタデータの型定義
+interface MessageMetadata {
+  character_id?: string;
+  progressiveData?: {
+    stages?: unknown;
+    currentStage?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 interface ProgressiveMessageBubbleProps {
   message: ProgressiveMessage;
   isLatest?: boolean;
@@ -72,11 +83,12 @@ export const ProgressiveMessageBubble: React.FC<
   } = useAppStore();
 
   // 共通エフェクトフック
-  const { isEffectEnabled, settings: effectSettings } = useMessageEffects();
+  const { isEffectEnabled, settings: effectSettings, calculateFontEffects } = useMessageEffects();
 
   // キャラクター情報（グループモード対応）
   const characters = useAppStore((state) => state.characters);
-  const messageCharacterId = (message as any).metadata?.character_id;
+  const messageMetadata = message.metadata as MessageMetadata | undefined;
+  const messageCharacterId = messageMetadata?.character_id;
   const character = useMemo(() => {
     if (
       is_group_mode &&
@@ -89,9 +101,10 @@ export const ProgressiveMessageBubble: React.FC<
   }, [characters, messageCharacterId, is_group_mode, getSelectedCharacter]);
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   // プログレッシブデータへの安全なアクセス
-  const progressiveData = (message as any).metadata?.progressiveData || message;
+  const progressiveData = messageMetadata?.progressiveData || message;
   const stages = useMemo(
     () => progressiveData.stages || {},
     [progressiveData.stages]
@@ -179,6 +192,22 @@ export const ProgressiveMessageBubble: React.FC<
     }
   );
 
+  // タイプライター中の自動スクロール追尾（最新メッセージのみ）
+  useEffect(() => {
+    if (!isTypewriterActive || !bubbleRef.current || !isLatest) return;
+
+    const scrollInterval = setInterval(() => {
+      if (bubbleRef.current && isLatest) {
+        bubbleRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        });
+      }
+    }, 1000); // 1秒ごとにスクロール位置を調整
+
+    return () => clearInterval(scrollInterval);
+  }, [isTypewriterActive, isLatest]);
+
   // メッセージアクション（統合フック使用）
   const {
     isRegenerating,
@@ -198,36 +227,18 @@ export const ProgressiveMessageBubble: React.FC<
   });
 
   // 括弧内テキストの処理（感情検出とエフェクト適用）
+  // 🎨 Phase 1: 設定から感情色を取得
   const processedContent = useMemo(() => {
-    return processEmotionalText(displayedContent || "");
-  }, [displayedContent]);
+    return processEmotionalText(
+      displayedContent || "",
+      effectSettings.emotionColors
+    );
+  }, [displayedContent, effectSettings.emotionColors]);
 
-  // フォントエフェクトのスタイル
+  // 🎨 Phase 2: 統一されたフォントエフェクト計算を使用
   const fontEffectStyles = useMemo(() => {
-    if (!isEffectEnabled('font')) return {};
-
-    const intensity = effectSettings.fontEffectsIntensity;
-    return {
-      background:
-        intensity > 30
-          ? `linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)`
-          : "none",
-      backgroundClip: intensity > 30 ? "text" : "initial",
-      WebkitBackgroundClip: intensity > 30 ? "text" : "initial",
-      color: intensity > 30 ? "transparent" : "inherit",
-      animation:
-        intensity > 50 ? "rainbow-text 3s ease-in-out infinite" : "none",
-      textShadow:
-        intensity > 40
-          ? `0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3), 0 0 15px rgba(255,255,255,0.1)`
-          : "none",
-      transform: intensity > 60 ? "perspective(100px) rotateX(5deg)" : "none",
-      filter:
-        intensity > 70
-          ? "drop-shadow(0 0 8px rgba(255,255,255,0.6)) brightness(1.2) contrast(1.1)"
-          : "none",
-    };
-  }, [isEffectEnabled, effectSettings.fontEffectsIntensity]);
+    return calculateFontEffects();
+  }, [calculateFontEffects]);
 
   // グループモード対応の生成状態チェック
   const generateIsActive = is_group_mode ? group_generating : is_generating;
@@ -235,21 +246,21 @@ export const ProgressiveMessageBubble: React.FC<
   const canContinue = isLatest && !generateIsActive;
 
   return (
-    <div className="progressive-message-bubble w-full max-w-4xl mx-auto">
+    <div ref={bubbleRef} className="progressive-message-bubble w-full max-w-4xl mx-auto">
       <div className="relative group">
         {/* プロフィール画像（アシスタントのみ、条件付き表示） */}
         {!isUser && (
           <div className="flex-shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-purple-400/30 absolute left-3 top-3">
-            {character && (character as any).avatar_url ? (
+            {character && character.avatar_url ? (
               <NextImage
-                src={(character as any).avatar_url}
-                alt={(character as any).name || "character avatar"}
+                src={character.avatar_url}
+                alt={character.name || "character avatar"}
                 fill
                 className="object-cover"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
-                {(character as any)?.name?.[0] || "AI"}
+                {character?.name?.[0] || "AI"}
               </div>
             )}
           </div>
@@ -270,7 +281,7 @@ export const ProgressiveMessageBubble: React.FC<
             <div
               ref={contentRef}
               className={cn(
-                "message-content px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200 relative overflow-hidden",
+                "message-content px-4 py-3 rounded-2xl shadow-lg transition-all duration-200 relative overflow-hidden",
                 ui.highlightChanges && "highlight-changes",
                 isEffectEnabled('colorfulBubbles')
                   ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 border-purple-400/40 shadow-purple-500/20"
@@ -296,6 +307,13 @@ export const ProgressiveMessageBubble: React.FC<
                 opacity: effectSettings.bubbleOpacity
                   ? effectSettings.bubbleOpacity / 100
                   : 0.85,
+                // 🆕 Phase 2: Variable blur intensity (0-20px)
+                backdropFilter: effectSettings.bubbleBlur
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
+                  : "none",
+                WebkitBackdropFilter: effectSettings.bubbleBlur
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
+                  : "none",
               }}>
               {/* メッセージ内容 */}
               <div

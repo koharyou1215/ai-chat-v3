@@ -27,7 +27,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
     )}
   </div>
 );
-import { motion, AnimatePresence, TargetAndTransition } from "framer-motion";
+import { motion, AnimatePresence, TargetAndTransition, Variants } from "framer-motion";
 import {
   RefreshCw,
   Copy,
@@ -76,6 +76,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// メッセージメタデータの型定義
+interface MessageMetadata {
+  progressiveData?: {
+    chunks?: string[];
+    isComplete?: boolean;
+    currentStage?: string;
+    stages?: unknown[];
+    transitions?: unknown;
+    ui?: unknown;
+    metadata?: unknown;
+  };
+  character_id?: string;
+  user_name?: string;
+  [key: string]: unknown;
+}
+
+// AppStore拡張（addMessageメソッド用）
+interface AppStoreWithAddMessage {
+  addMessage?: (message: UnifiedMessage) => Promise<void>;
+}
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -137,7 +158,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const getSelectedCharacter = useAppStore(
     (state) => state.getSelectedCharacter
   );
-  const addMessage = useAppStore((state) => (state as any).addMessage);
+  const addMessage = useAppStore((state) => (state as AppStoreWithAddMessage).addMessage);
   const sessions = useAppStore((state) => state.sessions);
   const copyToClipboard = async (text: string) => {
     try {
@@ -245,8 +266,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // 感情分析結果の解析
   const emotionResult = useMemo((): EmotionResult | null => {
-    const messageWithEmotion = message as any;
-    if (!emotionAnalysisEnabled || !messageWithEmotion.emotion_analysis)
+    // emotion_analysisは古い形式で、現在はexpressionを使用
+    if (!emotionAnalysisEnabled || !message.expression)
       return null;
 
     try {
@@ -437,12 +458,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     try {
       console.log("🔄 Rollback initiated", {
         messageId: message.id,
-        sessionId: (message as any).session_id,
+        sessionId: message.session_id,
         isGroupChat,
         active_group_session_id,
       });
 
-      if (isGroupChat && (message as any).session_id) {
+      if (isGroupChat && message.session_id) {
         console.log("📥 Using group rollback for message:", message.id);
         rollbackGroupSession(message.id);
       } else if (!isGroupChat && typeof activeSessionId === "string") {
@@ -451,8 +472,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       } else {
         console.warn("⚠️ Ambiguous session context, attempting detection...");
         if (
-          (message as any).session_id &&
-          groupSessions.has((message as any).session_id)
+          message.session_id &&
+          groupSessions.has(message.session_id)
         ) {
           console.log("🔍 Detected group session, using group rollback");
           rollbackGroupSession(message.id);
@@ -571,11 +592,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const canContinue = isAssistant && isLatest && !generateIsActive;
 
   // アニメーション設定の最適化
-  const bubbleAnimation: TargetAndTransition = useMemo(
+  const bubbleAnimation = useMemo(
     () => ({
-      scale: [0.95, 1],
-      opacity: [0, 1],
-      y: [20, 0],
+      scale: 0.95,
+      opacity: 0,
+      y: 20,
     }),
     []
   );
@@ -713,8 +734,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   if (isProgressiveMessage && hasProgressiveMetadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
+    const messageMetadata = message.metadata as MessageMetadata;
     const progressiveData =
-      (message.metadata as any).progressiveData || message.metadata;
+      messageMetadata.progressiveData || message.metadata;
 
     // デバッグログ
     console.log("🔄 MessageBubble: Rendering progressive message", {
@@ -759,7 +781,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     <AnimatePresence>
       <motion.div
         ref={bubbleRef}
-        initial={bubbleAnimation as any}
+        initial={bubbleAnimation}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={bubbleTransition}
@@ -843,12 +865,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     ? (effectSettings.bubbleOpacity || 85) / 100
                     : (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
-                // 🔧 FIX: Fixed blur value (8px) - no longer dependent on backgroundBlur
+                // 🆕 Phase 2: Variable blur intensity (0-20px)
                 "--user-bubble-blur": effectSettings.bubbleBlur
-                  ? "blur(8px)"
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
                   : "none",
                 "--character-bubble-blur": effectSettings.bubbleBlur
-                  ? "blur(8px)"
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
                   : "none",
                 // Additional background for colorful bubbles effect
                 ...(effectSettings.colorfulBubbles &&
