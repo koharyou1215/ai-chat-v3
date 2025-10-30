@@ -17,6 +17,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   // ⚠️ getSelectedCharacterを依存配列から削除（Zustand関数は毎回新しい参照になるため）
   const currentCharacter = React.useMemo(
     () => getSelectedCharacter(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedCharacterId]
   );
 
@@ -62,24 +63,32 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       currentCharacter && currentCharacter.background_url
     );
 
+    // 🆕 Phase 3: 階層構造から読み取り（フォールバック付き）
+    const backgroundType = appearanceSettings.background?.type || appearanceSettings.backgroundType || 'gradient';
+    const backgroundImage = appearanceSettings.background?.image?.url || appearanceSettings.backgroundImage || '';
+    const backgroundBlur = appearanceSettings.background?.image?.blur ?? appearanceSettings.backgroundBlur ?? 10;
+    const backgroundBlurEnabled = appearanceSettings.background?.image?.blurEnabled ?? appearanceSettings.backgroundBlurEnabled ?? false;
+    const backgroundOpacity = appearanceSettings.background?.image?.opacity ?? appearanceSettings.backgroundOpacity ?? 100;
+    const backgroundGradient = appearanceSettings.background?.gradient?.value || appearanceSettings.backgroundGradient || '';
+
     // カラー設定を適用
-    root.style.setProperty("--primary-color", appearanceSettings.primaryColor);
-    root.style.setProperty("--accent-color", appearanceSettings.accentColor);
+    root.style.setProperty("--primary-color", appearanceSettings.primaryColor || '');
+    root.style.setProperty("--accent-color", appearanceSettings.accentColor || '');
     root.style.setProperty(
       "--background-color",
-      appearanceSettings.backgroundColor
+      appearanceSettings.backgroundColor || ''
     );
-    root.style.setProperty("--surface-color", appearanceSettings.surfaceColor);
-    root.style.setProperty("--text-color", appearanceSettings.textColor);
+    root.style.setProperty("--surface-color", appearanceSettings.surfaceColor || '');
+    root.style.setProperty("--text-color", appearanceSettings.textColor || '');
     root.style.setProperty(
       "--secondary-text-color",
-      appearanceSettings.secondaryTextColor
+      appearanceSettings.secondaryTextColor || ''
     );
-    root.style.setProperty("--border-color", appearanceSettings.borderColor);
-    root.style.setProperty("--shadow-color", appearanceSettings.shadowColor);
+    root.style.setProperty("--border-color", appearanceSettings.borderColor || '');
+    root.style.setProperty("--shadow-color", appearanceSettings.shadowColor || '');
 
     // フォント設定を適用
-    root.style.setProperty("--font-family", appearanceSettings.fontFamily);
+    root.style.setProperty("--font-family", appearanceSettings.fontFamily || '');
 
     const fontSizeMap = {
       small: "14px",
@@ -91,7 +100,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       "--font-size",
       fontSizeMap[appearanceSettings.fontSize as keyof typeof fontSizeMap]
     );
-    root.style.setProperty("--font-weight", appearanceSettings.fontWeight);
+    root.style.setProperty("--font-weight", appearanceSettings.fontWeight?.toString() || '');
 
     const lineHeightMap = {
       compact: "1.2",
@@ -165,64 +174,64 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       root.style.setProperty(
         "--background-blur",
-        `${appearanceSettings.backgroundBlur}px`
+        `${backgroundBlur}px`
       );
       root.style.setProperty(
         "--background-opacity",
-        `${appearanceSettings.backgroundOpacity}`
+        `${backgroundOpacity}`
       );
       root.setAttribute("data-background-type", "character-image");
-      // 背景ぼかしの有効/無効をHTML属性に反映
-      if (appearanceSettings.backgroundBlurEnabled === false) {
-        root.setAttribute("data-background-blur", "disabled");
+      // 🖼️ 画像背景のぼかし有効/無効をHTML属性に反映（独立制御）
+      if (backgroundBlurEnabled === false) {
+        root.setAttribute("data-image-background-blur", "disabled");
       } else {
-        root.setAttribute("data-background-blur", "enabled");
+        root.setAttribute("data-image-background-blur", "enabled");
       }
       // body要素の背景をクリア
       body.style.setProperty("background", "transparent", "important");
-    } else if (appearanceSettings.backgroundImage && appearanceSettings.backgroundImage.trim() !== "") {
+    } else if (backgroundImage && backgroundImage.trim() !== "") {
       // キャラクター背景がない場合、外観設定のURL背景をデフォルトとして適用
       // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
       root.style.setProperty(
         "--background",
-        `url(${appearanceSettings.backgroundImage})`
+        `url(${backgroundImage})`
       );
       root.style.setProperty(
         "--background-blur",
-        `${appearanceSettings.backgroundBlur}px`
+        `${backgroundBlur}px`
       );
       root.style.setProperty(
         "--background-opacity",
-        `${appearanceSettings.backgroundOpacity}`
+        `${backgroundOpacity}`
       );
       root.setAttribute("data-background-type", "image");
-      // 背景ぼかしの有効/無効をHTML属性に反映
-      if (appearanceSettings.backgroundBlurEnabled === false) {
-        root.setAttribute("data-background-blur", "disabled");
+      // 🖼️ 画像背景のぼかし有効/無効をHTML属性に反映（独立制御）
+      if (backgroundBlurEnabled === false) {
+        root.setAttribute("data-image-background-blur", "disabled");
       } else {
-        root.setAttribute("data-background-blur", "enabled");
+        root.setAttribute("data-image-background-blur", "enabled");
       }
       // body要素の背景をクリア
       body.style.setProperty("background", "transparent", "important");
-    } else if (appearanceSettings.backgroundType === "solid") {
+    } else if (backgroundType === "color") {
       root.style.setProperty(
         "--background",
-        appearanceSettings.backgroundColor
+        appearanceSettings.backgroundColor || ''
       );
       root.setAttribute("data-background-type", "solid");
-      if (appearanceSettings.backgroundBlurEnabled === false) {
+      if (backgroundBlurEnabled === false) {
         root.setAttribute("data-background-blur", "disabled");
       } else {
         root.setAttribute("data-background-blur", "enabled");
       }
       body.style.setProperty("background", "transparent", "important");
-    } else if (appearanceSettings.backgroundType === "gradient") {
+    } else if (backgroundType === "gradient") {
       root.style.setProperty(
         "--background",
-        appearanceSettings.backgroundGradient
+        backgroundGradient
       );
       root.setAttribute("data-background-type", "gradient");
-      if (appearanceSettings.backgroundBlurEnabled === false) {
+      if (backgroundBlurEnabled === false) {
         root.setAttribute("data-background-blur", "disabled");
       } else {
         root.setAttribute("data-background-blur", "enabled");
@@ -265,13 +274,14 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     // 背景タイプをhtml要素に適用（メインのuseEffect内で統合）
     document.documentElement.setAttribute(
       "data-background-type",
-      appearanceSettings.backgroundType
+      backgroundType
     );
+    // 🔧 FIX: currentCharacterを依存配列から削除（selectedCharacterIdで十分）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     appearanceSettings,
     effectSettings,
     selectedCharacterId,
-    // 🔧 FIX: currentCharacterを依存配列から削除（selectedCharacterIdで十分）
   ]);
 
   // グローバルスタイルも追加
@@ -325,12 +335,29 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
           width: 100vw;
           height: 100vh;
           background: var(--background) !important;
-          background-size: cover !important;
           background-position: center !important;
           background-repeat: no-repeat !important;
           opacity: calc(var(--background-opacity) / 100);
           z-index: -1;
           pointer-events: none;
+        }
+
+        /* 画像全体を表示（余白OK、見切れない） */
+        html[data-background-type="image"]::before,
+        html[data-background-type="character-image"]::before {
+          background-size: contain !important;
+        }
+
+        /* 🖼️ 画像背景のぼかし効果の適用（独立制御） */
+        html[data-image-background-blur="enabled"][data-background-type="image"]::before,
+        html[data-image-background-blur="enabled"][data-background-type="character-image"]::before {
+          filter: blur(var(--background-blur));
+        }
+
+        /* 🖼️ 画像背景のぼかし効果の無効化（独立制御） */
+        html[data-image-background-blur="disabled"][data-background-type="image"]::before,
+        html[data-image-background-blur="disabled"][data-background-type="character-image"]::before {
+          filter: none;
         }
 
         /* 単色・グラデーション背景の場合はhtml要素に直接適用 */
@@ -374,6 +401,20 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       document.head.appendChild(style);
     }
   }, []);
+
+  // 💬 吹き出しぼかし効果のHTML属性制御（独立制御）
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+
+      // effectSettings.bubbleBlurの値に基づいて属性を設定
+      if (effectSettings.bubbleBlur) {
+        root.setAttribute("data-bubble-blur", "enabled");
+      } else {
+        root.setAttribute("data-bubble-blur", "disabled");
+      }
+    }
+  }, [effectSettings.bubbleBlur]);
 
   return <>{children}</>;
 };

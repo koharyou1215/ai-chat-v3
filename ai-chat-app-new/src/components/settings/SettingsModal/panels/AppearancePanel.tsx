@@ -69,6 +69,14 @@ const AppearancePanel: React.FC = () => {
   const { appearanceSettings, updateAppearanceSettings } = useAppStore();
   const [previewMode, setPreviewMode] = useState(false);
 
+  // 🆕 Phase 3: 階層構造対応（フォールバック付き）
+  const backgroundImage = appearanceSettings.background?.image?.url || appearanceSettings.backgroundImage || '';
+  const backgroundBlur = appearanceSettings.background?.image?.blur ?? appearanceSettings.backgroundBlur ?? 10;
+  const backgroundBlurEnabled = appearanceSettings.background?.image?.blurEnabled ?? appearanceSettings.backgroundBlurEnabled ?? false;
+  const backgroundOpacity = appearanceSettings.background?.image?.opacity ?? appearanceSettings.backgroundOpacity ?? 100;
+  const backgroundGradient = appearanceSettings.background?.gradient?.value || appearanceSettings.backgroundGradient || '';
+  const backgroundType = appearanceSettings.background?.type || appearanceSettings.backgroundType || 'gradient';
+
   // テーマプリセット
   const themePresets = [
     {
@@ -215,24 +223,24 @@ const AppearancePanel: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <ColorSetting
             label="プライマリカラー"
-            value={appearanceSettings.primaryColor}
+            value={appearanceSettings.primaryColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("primaryColor", color)}
           />
           <ColorSetting
             label="アクセントカラー"
-            value={appearanceSettings.accentColor}
+            value={appearanceSettings.accentColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("accentColor", color)}
           />
           <ColorSetting
             label="背景色"
-            value={appearanceSettings.backgroundColor}
+            value={appearanceSettings.backgroundColor || '#000000'}
             onChange={(color) =>
               updateAppearanceSetting("backgroundColor", color)
             }
           />
           <ColorSetting
             label="サーフェスカラー"
-            value={appearanceSettings.surfaceColor}
+            value={appearanceSettings.surfaceColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("surfaceColor", color)}
           />
         </div>
@@ -378,7 +386,7 @@ const AppearancePanel: React.FC = () => {
             背景タイプ
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {(["solid", "gradient", "image", "animated"] as const).map(
+            {(["color", "gradient", "image", "animated"] as const).map(
               (type) => (
                 <button
                   key={type}
@@ -387,11 +395,11 @@ const AppearancePanel: React.FC = () => {
                   }
                   className={cn(
                     "py-2 px-3 rounded-lg text-sm transition-colors",
-                    appearanceSettings.backgroundType === type
+                    backgroundType === type
                       ? "bg-purple-500 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   )}>
-                  {type === "solid"
+                  {type === "color"
                     ? "単色"
                     : type === "gradient"
                     ? "グラデーション"
@@ -405,7 +413,7 @@ const AppearancePanel: React.FC = () => {
         </div>
 
         {/* グラデーション設定 */}
-        {appearanceSettings.backgroundType === "gradient" && (
+        {backgroundType === "gradient" && (
           <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg">
             <label className="block text-sm font-medium text-gray-300">
               グラデーションプリセット
@@ -454,7 +462,7 @@ const AppearancePanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={appearanceSettings.backgroundGradient}
+                value={backgroundGradient}
                 onChange={(e) =>
                   updateAppearanceSetting("backgroundGradient", e.target.value)
                 }
@@ -466,7 +474,7 @@ const AppearancePanel: React.FC = () => {
         )}
 
         {/* 画像背景設定 */}
-        {appearanceSettings.backgroundType === "image" && (
+        {backgroundType === "image" && (
           <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -474,12 +482,76 @@ const AppearancePanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={appearanceSettings.backgroundImage}
+                value={backgroundImage}
                 onChange={(e) =>
                   updateAppearanceSetting("backgroundImage", e.target.value)
                 }
                 className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
                 placeholder="https://example.com/image.jpg"
+              />
+            </div>
+
+            {/* 🖼️ 画像背景ぼかし設定 */}
+            <SettingItem
+              title="画像背景ぼかし効果"
+              description="背景画像にぼかし効果を適用します（吹き出しのぼかしとは独立して制御されます）"
+              checked={backgroundBlurEnabled}
+              onChange={(checked) =>
+                updateAppearanceSetting("backgroundBlurEnabled", checked)
+              }
+            />
+
+            {/* ぼかし強度スライダー */}
+            {backgroundBlurEnabled && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    ぼかし強度
+                  </label>
+                  <span className="text-sm text-purple-400">
+                    {backgroundBlur}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="50"
+                  step="1"
+                  value={backgroundBlur}
+                  onChange={(e) =>
+                    updateAppearanceSetting(
+                      "backgroundBlur",
+                      parseInt(e.target.value)
+                    )
+                  }
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            )}
+
+            {/* 透明度スライダー */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300">
+                  背景透明度
+                </label>
+                <span className="text-sm text-purple-400">
+                  {backgroundOpacity}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={backgroundOpacity}
+                onChange={(e) =>
+                  updateAppearanceSetting(
+                    "backgroundOpacity",
+                    parseInt(e.target.value)
+                  )
+                }
+                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
               />
             </div>
           </div>
@@ -493,7 +565,7 @@ const AppearancePanel: React.FC = () => {
         <SettingItem
           title="アニメーションを有効にする"
           description="UIのアニメーション効果を有効にします"
-          checked={appearanceSettings.enableAnimations}
+          checked={appearanceSettings.enableAnimations ?? true}
           onChange={(checked) =>
             updateAppearanceSetting("enableAnimations", checked)
           }

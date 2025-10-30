@@ -39,8 +39,10 @@ import ChatSidebar from "./ChatSidebar";
 import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
+import { UnifiedMessage } from "@/types/core/message.types";
 import useVH from "@/hooks/useVH";
 import { SDTestButton } from "../debug/SDTestButton";
+import type { AnimatePresence as AnimatePresenceType } from 'framer-motion';
 
 // メッセージ入力欄ラッパーコンポーネント
 const MessageInputWrapper: React.FC = () => {
@@ -200,6 +202,62 @@ const ThinkingIndicator = () => {
   );
 };
 
+// 🚀 Static tab definitions (outside component for performance)
+const TAB_DEFINITIONS = [
+  { key: "memory" as const, icon: Brain, label: "メモリー" },
+  { key: "tracker" as const, icon: BarChart3, label: "トラッカー" },
+  { key: "history" as const, icon: History, label: "履歴検索" },
+  { key: "layers" as const, icon: Layers, label: "記憶層" },
+] as const;
+
+type TabKey = typeof TAB_DEFINITIONS[number]["key"];
+
+// 🚀 Optimized tab content component (React.memo to prevent unnecessary re-renders)
+interface TabContentProps {
+  activeTab: TabKey;
+  displaySessionId: string;
+  currentCharacterId: string | undefined;
+}
+
+const TabContent = React.memo<TabContentProps>(({ activeTab, displaySessionId, currentCharacterId }) => {
+  switch (activeTab) {
+    case "memory":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <MemoryGallery
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
+        </Suspense>
+      );
+    case "tracker":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <TrackerDisplay
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
+        </Suspense>
+      );
+    case "history":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <HistorySearch session_id={displaySessionId} />
+        </Suspense>
+      );
+    case "layers":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <MemoryLayerDisplay session_id={displaySessionId} />
+        </Suspense>
+      );
+    default:
+      return null;
+  }
+});
+
+TabContent.displayName = "TabContent";
+
 // SSR安全なチャットインターフェースコンテンツ
 const ChatInterfaceContent: React.FC = () => {
   // keyboard hook removed for simplicity
@@ -259,15 +317,18 @@ const ChatInterfaceContent: React.FC = () => {
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<
-    "memory" | "tracker" | "history" | "layers"
-  >("memory");
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("memory");
   // 🔧 Hydration fix: Initialize to 0 for consistent SSR/client rendering
   const [windowWidth, setWindowWidth] = useState(0);
+  const [userScrolled, setUserScrolled] = useState(false);
+  const lastMessageCountRef = useRef(0);
+  const savedScrollPositionRef = useRef<number>(0);
+  const isRegeneratingRef = useRef(false);
   // Motion components lazy loading
   const [motionComponents, setMotionComponents] = useState<{
-    motion?: any;
-    AnimatePresence?: any;
+    motion?: typeof import('framer-motion').motion;
+    AnimatePresence?: typeof AnimatePresenceType;
   }>({});
   const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
     []
@@ -275,7 +336,7 @@ const ChatInterfaceContent: React.FC = () => {
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   // AnimatePresenceコンポーネントを取得
-  const AnimatePresence = motionComponents.AnimatePresence || (({ children }: any) => children);
+  const AnimatePresence = motionComponents.AnimatePresence || (({ children }: React.PropsWithChildren) => children);
 
   // 🔧 FIX: 背景設定をコンポーネントのトップレベルでメモ化（無限ループ防止）
   const backgroundSettings = React.useMemo(() => {
@@ -343,75 +404,74 @@ const ChatInterfaceContent: React.FC = () => {
   const displaySessionId =
     displaySession && displaySession.id ? displaySession.id : "";
 
-  // Lazy-loaded panel components with proper fallbacks
-  const sidePanelTabs = useMemo(
-    () => [
-      {
-        key: "memory" as const,
-        icon: Brain,
-        label: "メモリー",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <MemoryGallery
-              session_id={displaySessionId}
-              character_id={currentCharacterId!}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        key: "tracker" as const,
-        icon: BarChart3,
-        label: "トラッカー",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <TrackerDisplay
-              session_id={displaySessionId}
-              character_id={currentCharacterId!}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        key: "history" as const,
-        icon: History,
-        label: "履歴検索",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <HistorySearch session_id={displaySessionId} />
-          </Suspense>
-        ),
-      },
-      {
-        key: "layers" as const,
-        icon: Layers,
-        label: "記憶層",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <MemoryLayerDisplay session_id={displaySessionId} />
-          </Suspense>
-        ),
-      },
-    ],
-    [displaySessionId, currentCharacterId]
-  );
+  // 🚀 Performance optimization: Static tab definitions (no components)
+  // Components are rendered only for the active tab to prevent unnecessary re-renders
 
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
+  const scrollToBottom = useCallback((force = false) => {
+    if (messagesEndRef.current && (!userScrolled || force)) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      setUserScrolled(false);
     }
-  };
+  }, [userScrolled]);
 
-  // Extract complex expressions for dependency array
-  const sessionMessages = session && session.messages ? session.messages : null;
-  const groupSessionMessages =
-    activeGroupSession && activeGroupSession.messages
-      ? activeGroupSession.messages
-      : null;
-
+  // スクロールイベント監視
   useEffect(() => {
-    scrollToBottom();
-  }, [sessionMessages, groupSessionMessages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setUserScrolled(!isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // メッセージ追加時のみ自動スクロール（再生成時は除外）
+  useEffect(() => {
+    const currentMessageCount = currentMessages.length;
+    const container = messagesContainerRef.current;
+
+    // 新しいメッセージが追加された場合のみスクロール
+    if (currentMessageCount > lastMessageCountRef.current) {
+      console.log('📜 新しいメッセージ追加: スクロールダウン実行');
+      isRegeneratingRef.current = false;
+      scrollToBottom(true);
+    } else if (currentMessageCount === lastMessageCountRef.current && currentMessageCount > 0) {
+      // メッセージ数が同じ = 再生成の可能性
+      // スクロール位置を保存
+      if (container && !isRegeneratingRef.current) {
+        savedScrollPositionRef.current = container.scrollTop;
+        isRegeneratingRef.current = true;
+        console.log('🔄 メッセージ再生成検出: スクロール位置保存', savedScrollPositionRef.current);
+      }
+    }
+
+    lastMessageCountRef.current = currentMessageCount;
+  }, [currentMessages.length, scrollToBottom]);
+
+  // 再生成時のスクロール位置復元
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    if (isRegeneratingRef.current && container && savedScrollPositionRef.current > 0) {
+      // 次のフレームでスクロール位置を復元
+      requestAnimationFrame(() => {
+        if (container && savedScrollPositionRef.current > 0) {
+          container.scrollTop = savedScrollPositionRef.current;
+          console.log('✅ スクロール位置復元:', savedScrollPositionRef.current);
+
+          // 復元後、フラグをリセット
+          setTimeout(() => {
+            isRegeneratingRef.current = false;
+            savedScrollPositionRef.current = 0;
+          }, 100);
+        }
+      });
+    }
+  }, [currentMessages]);
 
   // グループモードかつアクティブなグループセッションがない場合
   if (is_group_mode && !activeGroupSession) {
@@ -689,7 +749,7 @@ const ChatInterfaceContent: React.FC = () => {
         // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
         if (backgroundImage && backgroundImage.trim() !== "") {
           // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
-          const imageOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
+          const imageOpacity = (backgroundOpacity ?? 100) > 0 ? (backgroundOpacity ?? 100) / 100 : 1;
 
           return (
             <div
@@ -700,7 +760,7 @@ const ChatInterfaceContent: React.FC = () => {
                 top: 0,
                 bottom: 0,
                 opacity: imageOpacity,
-                filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+                filter: (backgroundBlur ?? 0) > 0 ? `blur(${backgroundBlur}px)` : "none",
               }}>
               {backgroundImage.endsWith(".mp4") ||
               backgroundImage.includes("video") ? (
@@ -730,7 +790,7 @@ const ChatInterfaceContent: React.FC = () => {
 
         // URL背景がない場合、backgroundTypeに応じた背景を適用
         // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
-        const finalOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
+        const finalOpacity = (backgroundOpacity ?? 100) > 0 ? (backgroundOpacity ?? 100) / 100 : 1;
 
         return (
           <div
@@ -741,7 +801,7 @@ const ChatInterfaceContent: React.FC = () => {
               top: 0,
               bottom: 0,
               opacity: finalOpacity,
-              filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+              filter: (backgroundBlur ?? 0) > 0 ? `blur(${backgroundBlur}px)` : "none",
             }}>
             {backgroundType === "gradient" ? (
               <div
@@ -750,7 +810,7 @@ const ChatInterfaceContent: React.FC = () => {
                   background: backgroundGradient,
                 }}
               />
-            ) : backgroundType === "solid" ? (
+            ) : backgroundType === "color" ? (
               <div
                 className="w-full h-full"
                 style={{
@@ -810,6 +870,7 @@ const ChatInterfaceContent: React.FC = () => {
 
           {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
           <div
+            ref={messagesContainerRef}
             className="flex-1 overflow-y-auto overflow-x-visible px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300"
             style={{
               position: "fixed",
@@ -823,7 +884,7 @@ const ChatInterfaceContent: React.FC = () => {
             }}>
             {currentMessages.length > 0 ? (
               <AnimatePresence mode="wait" initial={false}>
-                {currentMessages.map((message: any, index: number) => (
+                {currentMessages.map((message: UnifiedMessage, index: number) => (
                   <MessageBubble
                     key={message.id}
                     message={message}
@@ -899,39 +960,42 @@ const ChatInterfaceContent: React.FC = () => {
                   </button>
                 </div>
                 <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
-                  {sidePanelTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTab(tab.key);
-                      }}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
-                        activeTab === tab.key
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "text-white/60 hover:bg-white/10"
-                      )}>
-                      <tab.icon className="w-4 h-4" />
-                      {tab.label}
-                    </button>
-                  ))}
+                  {TAB_DEFINITIONS.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab(tab.key);
+                        }}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                          activeTab === tab.key
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "text-white/60 hover:bg-white/10"
+                        )}>
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
                   <AnimatePresence mode="wait">
-                    {sidePanelTabs.map(
-                      (tab) =>
-                        activeTab === tab.key &&
-                        displaySession && motionComponents.motion && (
-                          <motionComponents.motion.div
-                            key={tab.key}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}>
-                            {tab.component}
-                          </motionComponents.motion.div>
-                        )
+                    {displaySession && motionComponents.motion && (
+                      <motionComponents.motion.div
+                        key={activeTab}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}>
+                        <TabContent
+                          activeTab={activeTab}
+                          displaySessionId={displaySessionId}
+                          currentCharacterId={currentCharacterId}
+                        />
+                      </motionComponents.motion.div>
                     )}
                   </AnimatePresence>
                 </div>
@@ -959,33 +1023,34 @@ const ChatInterfaceContent: React.FC = () => {
                       </button>
                     </div>
                     <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
-                      {sidePanelTabs.map((tab) => (
-                        <button
-                          key={tab.key}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTab(tab.key);
-                          }}
-                          className={cn(
-                            "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
-                            activeTab === tab.key
-                              ? "bg-purple-500/20 text-purple-300"
-                              : "text-white/60 hover:bg-white/10"
-                          )}>
-                          <tab.icon className="w-4 h-4" />
-                          {tab.label}
-                        </button>
-                      ))}
+                      {TAB_DEFINITIONS.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                          <button
+                            key={tab.key}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTab(tab.key);
+                            }}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                              activeTab === tab.key
+                                ? "bg-purple-500/20 text-purple-300"
+                                : "text-white/60 hover:bg-white/10"
+                            )}>
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                          </button>
+                        );
+                      })}
                     </div>
                     <div className="flex-1 overflow-y-auto p-4">
-                      {sidePanelTabs.map(
-                        (tab) =>
-                          activeTab === tab.key &&
-                          displaySession && (
-                            <div key={tab.key}>
-                              {tab.component}
-                            </div>
-                          )
+                      {displaySession && (
+                        <TabContent
+                          activeTab={activeTab}
+                          displaySessionId={displaySessionId}
+                          currentCharacterId={currentCharacterId}
+                        />
                       )}
                     </div>
                   </div>
