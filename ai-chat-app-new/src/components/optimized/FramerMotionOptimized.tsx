@@ -22,6 +22,16 @@ const PERFORMANCE_CONFIG = {
   PRELOAD_CORE: true,
 };
 
+// ===== NAVIGATOR API EXTENSIONS =====
+
+interface NavigatorExtended extends Navigator {
+  deviceMemory?: number;
+  connection?: {
+    effectiveType?: string;
+    saveData?: boolean;
+  };
+}
+
 // ===== DEVICE PERFORMANCE DETECTION =====
 
 class DevicePerformanceDetector {
@@ -54,7 +64,8 @@ class DevicePerformanceDetector {
     if (cores >= 8) score *= 1.3;
 
     // Check memory (if available)
-    const memory = (navigator as any).deviceMemory;
+    const nav = navigator as NavigatorExtended;
+    const memory = nav.deviceMemory;
     if (memory) {
       if (memory <= 2) score *= 0.6;
       if (memory >= 8) score *= 1.2;
@@ -65,7 +76,7 @@ class DevicePerformanceDetector {
     if (prefersReducedMotion) score *= 0.5;
 
     // Check connection speed
-    const connection = (navigator as any).connection;
+    const connection = nav.connection;
     if (connection) {
       if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
         score *= 0.5;

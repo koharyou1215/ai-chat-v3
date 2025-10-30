@@ -20,12 +20,18 @@ const detectWebGLSupport = (): boolean => {
   }
 };
 
+// Navigator API拡張（deviceMemory）
+interface NavigatorWithMemory extends Navigator {
+  deviceMemory?: number;
+}
+
 // Performance Level Detection
 const detectPerformanceLevel = (): "low" | "medium" | "high" => {
   if (typeof navigator === "undefined") return "medium";
 
   const hardwareConcurrency = navigator.hardwareConcurrency || 4;
-  const memory = (navigator as any).deviceMemory || 4;
+  const nav = navigator as NavigatorWithMemory;
+  const memory = nav.deviceMemory || 4;
 
   if (hardwareConcurrency >= 8 && memory >= 8) return "high";
   if (hardwareConcurrency >= 4 && memory >= 4) return "medium";

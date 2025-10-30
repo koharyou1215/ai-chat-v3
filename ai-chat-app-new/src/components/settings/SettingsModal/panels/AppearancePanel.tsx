@@ -150,7 +150,7 @@ const AppearancePanel: React.FC = () => {
 
   const applyThemePreset = (preset: (typeof themePresets)[0]) => {
     updateAppearanceSettings({
-      theme: preset.key as any,
+      theme: preset.key as typeof appearanceSettings.theme,
       ...preset.colors,
     });
   };
@@ -288,7 +288,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.fontWeight}
               onChange={(e) =>
-                updateAppearanceSetting("fontWeight", e.target.value as any)
+                updateAppearanceSetting("fontWeight", e.target.value as unknown as typeof appearanceSettings.fontWeight)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="light">軽い (Light)</option>
@@ -312,7 +312,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.messageSpacing}
               onChange={(e) =>
-                updateAppearanceSetting("messageSpacing", e.target.value as any)
+                updateAppearanceSetting("messageSpacing", e.target.value as unknown as typeof appearanceSettings.messageSpacing)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="compact">コンパクト</option>
@@ -330,7 +330,7 @@ const AppearancePanel: React.FC = () => {
               onChange={(e) =>
                 updateAppearanceSetting(
                   "messageBorderRadius",
-                  e.target.value as any
+                  e.target.value as unknown as typeof appearanceSettings.messageBorderRadius
                 )
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
@@ -349,7 +349,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.chatMaxWidth}
               onChange={(e) =>
-                updateAppearanceSetting("chatMaxWidth", e.target.value as any)
+                updateAppearanceSetting("chatMaxWidth", e.target.value as unknown as typeof appearanceSettings.chatMaxWidth)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="narrow">狭い</option>
@@ -366,7 +366,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.sidebarWidth}
               onChange={(e) =>
-                updateAppearanceSetting("sidebarWidth", e.target.value as any)
+                updateAppearanceSetting("sidebarWidth", e.target.value as unknown as typeof appearanceSettings.sidebarWidth)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="narrow">狭い</option>
@@ -580,7 +580,7 @@ const AppearancePanel: React.FC = () => {
             onChange={(e) =>
               updateAppearanceSetting(
                 "transitionDuration",
-                e.target.value as any
+                e.target.value as unknown as typeof appearanceSettings.transitionDuration
               )
             }
             className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">

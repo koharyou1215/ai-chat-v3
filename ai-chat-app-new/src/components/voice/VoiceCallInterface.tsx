@@ -241,7 +241,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     } catch (error) {
       console.error("Audio playback error:", error);
       // Don't retry immediately on NotAllowedError
-      if ((error as any).name !== "NotAllowedError") {
+      const errorWithName = error as { name?: string };
+      if (errorWithName.name !== "NotAllowedError") {
         playNextAudio();
       } else {
         console.log("🔊 Audio blocked by browser - user interaction required");

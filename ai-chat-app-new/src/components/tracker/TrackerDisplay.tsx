@@ -70,6 +70,16 @@ const categoryGradients = {
   other: "from-purple-500/30 via-violet-500/20 to-purple-500/30",
 };
 
+// カテゴリーの日本語名マッピング
+const categoryLabels: Record<string, string> = {
+  relationship: "関係性",
+  status: "状態",
+  condition: "状況",
+  emotion: "感情",
+  progress: "進捗",
+  other: "その他",
+};
+
 export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   session_id,
   character_id,
@@ -86,19 +96,20 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   // Safe access helper for trackerManagers which may be a Map or plain object
-  const getTrackerManagerSafe = (trackerManagers: any, id: string | undefined): TrackerManager | undefined => {
+  const getTrackerManagerSafe = (trackerManagers: unknown, id: string | undefined): TrackerManager | undefined => {
     if (!trackerManagers || !id) return undefined;
     if (trackerManagers instanceof Map) return trackerManagers.get(id) as TrackerManager | undefined;
-    if (typeof trackerManagers === "object") return (trackerManagers as any)[id] as TrackerManager | undefined;
+    if (typeof trackerManagers === "object") {
+      const managersRecord = trackerManagers as Record<string, TrackerManager>;
+      return managersRecord[id] as TrackerManager | undefined;
+    }
     return undefined;
   };
 
-  // 🔧 修正: セッションIDでTrackerManagerを取得
-  const activeSessionId = useAppStore((state) => state.active_session_id);
-
+  // 🔧 修正: キャラクターIDでTrackerManagerを取得（保存時と同じキーを使用）
   // Get tracker data from store with initialization check (safe for serialized store shape)
   const trackerManager = useAppStore((state) =>
-    getTrackerManagerSafe(state.trackerManagers, activeSessionId || undefined)
+    getTrackerManagerSafe(state.trackerManagers, character_id)
   );
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);
@@ -130,9 +141,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
 
   // Initialize tracker manager if not exists and we have character data
   useEffect(() => {
-    const currentManager = useAppStore
-      .getState()
-      .trackerManagers.get(character_id);
+    const rawManagers = useAppStore.getState().trackerManagers;
+    const currentManager = getTrackerManagerSafe(rawManagers, character_id);
     if (
       !currentManager &&
       character &&
@@ -144,11 +154,15 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       );
       console.log(
         `[TrackerDisplay] Character trackers:`,
-        character.trackers.map((t) => ({
-          name: t.name,
-          current_value: (t as any).current_value,
-          config: t.config,
-        }))
+        character.trackers.map((t) => {
+          // Tracker may have current_value property for runtime state
+          const trackerWithValue = t as typeof t & { current_value?: unknown };
+          return {
+            name: t.name,
+            current_value: trackerWithValue.current_value,
+            config: t.config,
+          };
+        })
       );
 
       // Create a new tracker manager and initialize it
@@ -276,7 +290,11 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     trackerName: string,
     change: number | string | boolean
   ) => {
-    if (!trackerManager) return;
+    // 🔍 デバッグ: ボタンクリックを確認（コンソールが動かない場合用）
+    if (!trackerManager) {
+      alert(`❌ TrackerManagerが存在しません\ncharacter_id: ${character_id}\ntracker: ${trackerName}`);
+      return;
+    }
 
     const trackerSet = trackerManager.getTrackerSet(character_id);
     if (!trackerSet) return;
@@ -503,8 +521,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <Icon className={cn("w-4 h-4", colorClass)} />
-                  <span className="font-medium text-white/90 capitalize">
-                    {category === "other" ? "その他" : category}
+                  <span className="font-medium text-white/90">
+                    {categoryLabels[category] || category}
                   </span>
                   <span className="text-xs text-white/50 bg-white/10 px-2 py-1 rounded">
                     {trackers.length}

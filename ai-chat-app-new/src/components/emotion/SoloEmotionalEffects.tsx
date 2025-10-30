@@ -30,7 +30,10 @@ const SoloEmotionalEffects = memo(function SoloEmotionalEffects({
 
   useEffect(() => {
     // 機能フラグチェック
-    const { settings } = useAppStore.getState() as any;
+    const state = useAppStore.getState();
+    const settings = state.settings as typeof state.settings & {
+      emotionalIntelligenceFlags?: { basic_effects_enabled?: boolean }
+    };
     if (!settings?.emotionalIntelligenceFlags?.basic_effects_enabled || !emotionResult) {
       setIsVisible(false);
       return;

@@ -40,6 +40,7 @@ import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
 import { UnifiedMessage } from "@/types/core/message.types";
+import { GroupChatSession } from "@/types/core/group-chat.types";
 import useVH from "@/hooks/useVH";
 import { SDTestButton } from "../debug/SDTestButton";
 import type { AnimatePresence as AnimatePresenceType } from 'framer-motion';
@@ -375,8 +376,8 @@ const ChatInterfaceContent: React.FC = () => {
   }, []);
 
   // グループチャットセッションの取得
-  const activeGroupSession = active_group_session_id
-    ? (groupSessions.get(active_group_session_id) as any)
+  const activeGroupSession: GroupChatSession | null | undefined = active_group_session_id
+    ? groupSessions.get(active_group_session_id)
     : null;
 
   // キャラクターIDを安全に取得（修正版：グループセッションでも一貫性のある取得方法）
@@ -607,7 +608,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as GroupChatSession)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);
@@ -1172,7 +1173,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as GroupChatSession)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);

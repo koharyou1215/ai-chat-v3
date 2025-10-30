@@ -30,13 +30,27 @@ interface LayerStats {
   categories: Record<string, number>;
 }
 
-export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({ 
+// ===== MEMORY STORE EXTENSION =====
+interface AppStoreWithMemory {
+  immediate_memory?: unknown;
+  working_memory?: unknown;
+  episodic_memory?: unknown;
+  semantic_memory?: unknown;
+  permanent_memory?: unknown;
+  getLayerStatistics?: () => LayerStats | null;
+  clearLayer?: (type: MemoryLayerType) => Promise<void>;
+}
+
+export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
   session_id: _session_id,
-  className 
+  className
 }) => {
   const [expandedLayer, setExpandedLayer] = useState<MemoryLayerType | null>(null);
-  
-  const { 
+
+  const store = useAppStore();
+  const memoryStore = store as typeof store & AppStoreWithMemory;
+
+  const {
     immediate_memory,
     working_memory,
     episodic_memory,
@@ -45,7 +59,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
     // getLayeredContext,
     getLayerStatistics,
     clearLayer
-  } = useAppStore() as any;
+  } = memoryStore;
   
   // セッション固有のレイヤーデータ（現在はグローバル）
   const sessionLayers = {
@@ -122,7 +136,8 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
       case 'semantic_memory':
         return sessionLayers.semantic_memory as MemoryLayer<number>;
       case 'permanent_memory':
-        return sessionLayers.permanent_memory as any as MemoryLayer<number>; // PermanentMemory is different structure
+        // PermanentMemory has different structure, cast through unknown for type safety
+        return sessionLayers.permanent_memory as unknown as MemoryLayer<number>;
       default:
         return null;
     }
@@ -130,7 +145,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
   
   const getLayerStats = (_type: MemoryLayerType): LayerStats | null => {
     if (!sessionLayers) return null;
-    return getLayerStatistics();
+    return getLayerStatistics?.() ?? null;
   };
   
   const handleLayerToggle = (type: MemoryLayerType) => {
@@ -139,7 +154,7 @@ export const MemoryLayerDisplay: React.FC<MemoryLayerDisplayProps> = ({
   
   const handleClearLayer = async (type: MemoryLayerType) => {
     if (confirm(`${layerConfigs.find(l => l.type === type)?.name}をクリアしますか？`)) {
-      await clearLayer(type);
+      await clearLayer?.(type);
     }
   };
   

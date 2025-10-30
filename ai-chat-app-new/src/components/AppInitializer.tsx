@@ -9,6 +9,11 @@ import { PreloadStrategies, BundleAnalysis } from "@/utils/dynamic-imports";
 import { clearCharacterCache } from "@/utils/clear-character-cache";
 import { settingsManager } from "@/services/settings-manager";
 
+// ===== WINDOW API EXTENSION =====
+interface WindowExtended extends Window {
+  useAppStore?: typeof useAppStore;
+}
+
 interface AppInitializerProps {
   children: ReactNode;
 }
@@ -43,7 +48,7 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     // ⚠️ HYDRATION FIX: useEffect内で実行してSSR/CSRの一貫性を保つ
     if (typeof window !== 'undefined') {
       const { useAppStore } = require('@/store');
-      (window as any).useAppStore = useAppStore;
+      (window as WindowExtended).useAppStore = useAppStore;
 
       // 🔍 API診断ツールを初期化
       import('@/utils/api-diagnostics').then(({ printAPIDiagnostics }) => {
