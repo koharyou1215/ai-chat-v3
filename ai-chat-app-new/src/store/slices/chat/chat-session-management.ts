@@ -204,8 +204,11 @@ export const createSessionManagement: StateCreator<
       );
 
       // 記憶システムのセッションIDも設定
-      if ((state as any).setCurrentSessionId) {
-        (state as any).setCurrentSessionId(newSession.id);
+      const stateWithMemory = state as typeof state & {
+        setCurrentSessionId?: (sessionId: UUID) => void;
+      };
+      if (stateWithMemory.setCurrentSessionId) {
+        stateWithMemory.setCurrentSessionId(newSession.id);
       }
 
       return {
@@ -221,8 +224,11 @@ export const createSessionManagement: StateCreator<
   setActiveSessionId: (sessionId) => {
     // 記憶システムのセッションIDも同時に設定
     const state = get();
-    if ((state as any).setCurrentSessionId) {
-      (state as any).setCurrentSessionId(sessionId);
+    const stateWithMemory = state as typeof state & {
+      setCurrentSessionId?: (sessionId: UUID | null) => void;
+    };
+    if (stateWithMemory.setCurrentSessionId) {
+      stateWithMemory.setCurrentSessionId(sessionId);
     }
 
     if (sessionId) {
@@ -481,12 +487,20 @@ export const createSessionManagement: StateCreator<
       localStorage.setItem(historyKey, JSON.stringify(historyData));
 
       // Update session list in history index
+      interface HistoryIndexItem {
+        session_id: UUID;
+        title: string;
+        savedAt: string;
+        character_name: string;
+        message_count: number;
+      }
+
       const historyIndexKey = 'ai-chat-history-index';
       const existingIndex = localStorage.getItem(historyIndexKey);
-      const historyIndex = existingIndex ? JSON.parse(existingIndex) : [];
+      const historyIndex: HistoryIndexItem[] = existingIndex ? JSON.parse(existingIndex) : [];
 
       // Add session to index if not already present
-      if (!historyIndex.find((item: any) => item.session_id === session_id)) {
+      if (!historyIndex.find((item) => item.session_id === session_id)) {
         historyIndex.push({
           session_id,
           title: session.session_info.title,
@@ -497,7 +511,7 @@ export const createSessionManagement: StateCreator<
 
         // Keep only the latest 100 history entries
         if (historyIndex.length > 100) {
-          historyIndex.sort((a: any, b: any) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+          historyIndex.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
           historyIndex.splice(100);
         }
 

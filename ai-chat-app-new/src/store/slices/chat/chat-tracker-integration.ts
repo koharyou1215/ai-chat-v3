@@ -90,7 +90,7 @@ export const createTrackerIntegration: StateCreator<
       return trackerManagers.get(sessionId);
     } else if (typeof trackerManagers === "object") {
       // 後方互換性のため、オブジェクト形式もサポート
-      return (trackerManagers as any)[sessionId];
+      return (trackerManagers as Record<UUID, TrackerManager>)[sessionId];
     }
 
     return undefined;
@@ -121,12 +121,12 @@ export const createTrackerIntegration: StateCreator<
     Object.entries(updates).forEach(([trackerName, value]) => {
       try {
         const trackerSet = trackerManager.getTrackerSet(characterId);
-        let tracker: any = null;
-        let currentValue: any = undefined;
+        let tracker: Record<string, unknown> | null = null;
+        let currentValue: unknown = undefined;
 
         // Mapをイテレートして特定のトラッカーを探す
         if (trackerSet?.trackers instanceof Map) {
-          trackerSet.trackers.forEach((t: any, key: string) => {
+          trackerSet.trackers.forEach((t: Record<string, unknown>, key: string) => {
             if (key === trackerName || t.name === trackerName) {
               tracker = t;
               currentValue = t.value;
@@ -291,7 +291,7 @@ export class TrackerIntegrationHelper {
    */
   static async analyzeMessageForTrackerUpdate(
     trackerManager: TrackerManager,
-    message: any,
+    message: UnifiedMessage,
     characterId: UUID
   ): Promise<Array<{ name: string; change: number }>> {
     if (!trackerManager) return [];

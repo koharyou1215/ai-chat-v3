@@ -40,9 +40,10 @@ export const createMessageContinuationHandler: StateCreator<
       }
 
       const lastAiMessage = session.messages[lastAiMessageIndex];
-      // 🔧 修正: sessionIdでTrackerManagerを取得
-      const trackerManager = activeSessionId
-        ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
+      // 🔧 修正: characterIdでTrackerManagerを取得（TrackerManagerはcharacterIdでインデックス化）
+      const characterId = session.participants.characters[0]?.id;
+      const trackerManager = characterId
+        ? getTrackerManagerSafely(get().trackerManagers, characterId)
         : null;
 
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築
@@ -74,8 +75,15 @@ export const createMessageContinuationHandler: StateCreator<
       );
 
       // 🔧 修正: 設定から会話履歴の上限を取得
+      const stateWithChat = get() as ReturnType<typeof get> & {
+        chat?: {
+          memory_limits?: {
+            max_context_messages?: number;
+          };
+        };
+      };
       const maxContextMessages =
-        (get() as any).chat?.memory_limits?.max_context_messages || 40;
+        stateWithChat.chat?.memory_limits?.max_context_messages || 40;
 
       // 続き生成でもMem0を使用（context-management統合）
       const conversationHistory = buildConversationHistory(
@@ -86,7 +94,13 @@ export const createMessageContinuationHandler: StateCreator<
         }
       );
 
-      const apiConfig = get().apiConfig || {};
+      // 🔧 FIX: API設定にuseDirectGeminiAPIとAPIキーを含める（モバイルSafari対策）
+      const apiConfig = {
+        ...(get().apiConfig || {}),
+        openRouterApiKey: get().openRouterApiKey,
+        geminiApiKey: get().geminiApiKey,
+        useDirectGeminiAPI: get().useDirectGeminiAPI,
+      };
       const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         continuePrompt,
@@ -107,12 +121,13 @@ export const createMessageContinuationHandler: StateCreator<
         }
       );
       // 継続メッセージのメタデータを追加
+      const messageMetadata = lastAiMessage.metadata as Record<string, unknown> | undefined;
       newContinuationMessage.metadata = {
         is_continuation: true,
         continuation_of: lastAiMessage.id,
         continuation_count:
-          (typeof (lastAiMessage.metadata as any)?.continuation_count === "number"
-            ? (lastAiMessage.metadata as any).continuation_count
+          (typeof messageMetadata?.continuation_count === "number"
+            ? messageMetadata.continuation_count
             : 0) + 1,
       };
 
@@ -186,11 +201,14 @@ export const createMessageContinuationHandler: StateCreator<
           timestamp: new Date().toISOString(),
           details: error instanceof Error ? error.message : String(error),
         },
-      } as any);
+      } as Partial<ReturnType<typeof get>>);
 
       // エラートースト表示（実装されている場合）
-      if (typeof window !== "undefined" && (window as any).showToast) {
-        (window as any).showToast(errorMessage, "error");
+      const windowWithToast = typeof window !== "undefined"
+        ? (window as Window & { showToast?: (message: string, type: string) => void })
+        : undefined;
+      if (windowWithToast?.showToast) {
+        windowWithToast.showToast(errorMessage, "error");
       }
     } finally {
       set({ is_generating: false });
