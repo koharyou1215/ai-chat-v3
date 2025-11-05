@@ -39,6 +39,7 @@ export function SDTestButton() {
           // 画像を表示
           const img = document.createElement("img");
           img.src = `data:image/png;base64,${data.images[0]}`;
+          img.alt = "SD API生成画像";
           img.style.maxWidth = "200px";
           img.style.marginTop = "10px";
           const container = document.getElementById("sd-test-result");
@@ -70,8 +71,10 @@ export function SDTestButton() {
       <button
         onClick={testSD}
         disabled={testing}
-        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-md transition-colors">
-        <Image size={16} />
+        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-md transition-colors"
+        aria-label="SD APIテスト実行">
+        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+        <Image size={16} aria-hidden="true" />
         {testing ? "テスト中..." : "テスト実行"}
       </button>
       <div className="mt-2 text-sm text-white">{result}</div>

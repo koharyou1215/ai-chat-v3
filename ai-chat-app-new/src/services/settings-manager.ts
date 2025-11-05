@@ -55,6 +55,26 @@ class SettingsManager {
     }
   }
 
+  /**
+   * クライアントサイドでの明示的な初期化
+   * 本番環境のSSR後のハイドレーション対策
+   */
+  public ensurePersistence(): void {
+    if (typeof window === 'undefined') return;
+
+    // 設定が存在しない場合は現在の設定を保存
+    if (!this.storage.hasStoredSettings()) {
+      this.storage.saveSettings(this.settings);
+      console.log('🔧 [SettingsManager] Ensured persistence on client side');
+    } else {
+      // 設定が存在する場合は読み込み直す
+      const storedSettings = this.storage.loadSettings(DEFAULT_SETTINGS);
+      this.settings = storedSettings;
+      this.notifyListeners();
+      console.log('🔄 [SettingsManager] Reloaded settings from storage');
+    }
+  }
+
   static getInstance(): SettingsManager {
     if (!SettingsManager.instance) {
       SettingsManager.instance = new SettingsManager();
@@ -109,8 +129,50 @@ class SettingsManager {
     category: K,
     updates: Partial<UnifiedSettings[K]>
   ): void {
+    console.log(`🔧 [SettingsManager.updateCategory] category="${category}"`, updates);
+    console.log(`🔧 [SettingsManager.updateCategory] Current listeners count: ${this.listeners.size}`);
+
+    // 🔧 FIX: ui.background のディープマージ対応
+    let mergedCategory = { ...this.settings[category], ...updates };
+
+    if (category === 'ui' && updates && typeof updates === 'object') {
+      const uiUpdates = updates as Partial<UnifiedSettings['ui']>;
+      const currentUI = this.settings.ui;
+
+      // background のディープマージ
+      if (uiUpdates.background) {
+        const currentBackground = currentUI.background;
+        const updatesBackground = uiUpdates.background;
+
+        // 🔧 FIX: image と gradient を除外してスプレッド
+        const { image: _image, gradient: _gradient, ...restUpdates } = updatesBackground;
+
+        mergedCategory = {
+          ...mergedCategory,
+          background: {
+            ...(currentBackground || {}),
+            ...restUpdates,
+            // image のディープマージ
+            ...(updatesBackground.image && {
+              image: {
+                ...(currentBackground?.image || {}),
+                ...updatesBackground.image,
+              }
+            }),
+            // gradient のディープマージ
+            ...(updatesBackground.gradient && {
+              gradient: {
+                ...(currentBackground?.gradient || {}),
+                ...updatesBackground.gradient,
+              }
+            }),
+          }
+        } as UnifiedSettings[K];
+      }
+    }
+
     this.updateSettings({
-      [category]: { ...this.settings[category], ...updates },
+      [category]: mergedCategory,
     } as Partial<UnifiedSettings>);
 
     // サイドエフェクト: API設定が更新された場合は関連サービスに通知
@@ -155,7 +217,11 @@ class SettingsManager {
    * リスナーに通知
    */
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener({ ...this.settings }));
+    console.log(`📢 [SettingsManager.notifyListeners] Notifying ${this.listeners.size} listeners`);
+    this.listeners.forEach(listener => {
+      console.log(`📢 [SettingsManager.notifyListeners] Calling listener with settings`);
+      listener({ ...this.settings });
+    });
   }
 
   /**

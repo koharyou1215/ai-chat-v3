@@ -8,20 +8,7 @@ import { updateSessionSafely } from "@/utils/chat/session-update-helper";
 import { ingestMessageToMem0Safely } from "@/utils/chat/mem0-integration-helper";
 import { getSessionSafely } from "@/utils/chat/map-helpers";
 import { promptBuilderService } from "@/services/prompt-builder.service";
-
-// Helper function to safely get tracker manager from Map or Object
-const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): any | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
 
 export const createMessageLifecycleOperations: StateCreator<
   AppStore,
@@ -30,7 +17,7 @@ export const createMessageLifecycleOperations: StateCreator<
   MessageLifecycleSlice
 > = (set, get) => ({
   addMessage: async (message) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -59,7 +46,7 @@ export const createMessageLifecycleOperations: StateCreator<
   },
 
   deleteMessage: (message_id) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -76,7 +63,7 @@ export const createMessageLifecycleOperations: StateCreator<
   },
 
   rollbackSession: (message_id) => {
-    const state = get() as any;
+    const state = get();
     const activeSessionId = state.active_session_id;
 
     if (!activeSessionId) {
@@ -88,7 +75,7 @@ export const createMessageLifecycleOperations: StateCreator<
     if (!session) return;
 
     const messageIndex = session.messages.findIndex(
-      (m: any) => m.id === message_id
+      (m) => m.id === message_id
     );
 
     if (messageIndex === -1) {
@@ -112,13 +99,15 @@ export const createMessageLifecycleOperations: StateCreator<
     // 2. ConversationManagerのキャッシュをクリア
     promptBuilderService.clearManagerCache(activeSessionId);
 
-    // 3. トラッカーをリセット
+    // 🔧 修正: sessionIdでTrackerManagerを取得してリセット（セッションスコープ設計に統一）
     const characterId = session.participants.characters[0]?.id;
-    if (characterId) {
-      const trackerManager = getTrackerManagerSafely(
-        state.trackerManagers,
-        characterId
-      );
+    if (characterId && state.resetTrackerForSession) {
+      state.resetTrackerForSession(activeSessionId);
+    } else if (characterId) {
+      // フォールバック: getTrackerManagerがある場合
+      const trackerManager = state.getTrackerManager
+        ? state.getTrackerManager(activeSessionId)
+        : null;
       if (trackerManager) {
         // 全てのトラッカーを初期値にリセット
         trackerManager.initializeTrackerSet(

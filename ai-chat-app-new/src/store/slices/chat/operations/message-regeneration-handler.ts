@@ -7,21 +7,10 @@ import { MessageRegenerationSlice } from "./types";
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
 import { promptBuilderService } from "@/services/prompt-builder.service";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
-import { generateAIMessageId } from "@/utils/uuid";
-
-// Helper function to safely get tracker manager from Map or Object
-const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): any | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
+import { generateStableId } from "@/utils/uuid";
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
+import { createAIMessage, EmotionExpression } from "@/utils/chat/message-factory";
+import { buildConversationHistory } from "@/utils/chat/context-management";
 
 export const createMessageRegenerationHandler: StateCreator<
   AppStore,
@@ -63,9 +52,10 @@ export const createMessageRegenerationHandler: StateCreator<
 
       const messagesForPrompt = session.messages.slice(0, lastAiMessageIndex);
 
+      // 🔧 修正: sessionIdでTrackerManagerを取得（セッションスコープ設計に統一）
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId
-        ? getTrackerManagerSafely(get().trackerManagers, characterId)
+      const trackerManager = get().getTrackerManager
+        ? get().getTrackerManager(session_id)
         : null;
 
       // 再生成時は新鮮なプロンプトを作成（繰り返しを避ける）
@@ -93,30 +83,24 @@ export const createMessageRegenerationHandler: StateCreator<
       systemPrompt += regenerateInstruction;
 
       // 🔧 修正: 設定から会話履歴の上限を取得
+      const stateWithChat = get() as ReturnType<typeof get> & {
+        chat?: {
+          memory_limits?: {
+            max_context_messages?: number;
+          };
+        };
+      };
       const maxContextMessages =
-        (get() as any).chat?.memory_limits?.max_context_messages || 40;
-      // 再生成でもMem0を使用
-      let conversationHistory;
-      try {
-        const { Mem0 } = require("@/services/mem0/core");
-        conversationHistory = Mem0.getCandidateHistory(
-          messagesForPrompt,
-          {
-            sessionId: session.id,
-            maxContextMessages,
-            minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
-          }
-        );
-      } catch (e) {
-        // フォールバック
-        conversationHistory = messagesForPrompt
-          .filter((msg) => msg.role === "user" || msg.role === "assistant")
-          .slice(-maxContextMessages)
-          .map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          }));
-      }
+        stateWithChat.chat?.memory_limits?.max_context_messages || 40;
+
+      // 再生成でもMem0を使用（context-management統合）
+      const conversationHistory = buildConversationHistory(
+        messagesForPrompt,
+        {
+          sessionId: session.id,
+          maxContextMessages,
+        }
+      );
 
       const apiConfig = get().apiConfig;
       // C案：temperatureをより大きく上げ、seedを追加して多様性を確保
@@ -136,15 +120,20 @@ export const createMessageRegenerationHandler: StateCreator<
         regenerationApiConfig
       );
 
-      const newAiMessage: UnifiedMessage = {
-        ...session.messages[lastAiMessageIndex],
-        id: generateAIMessageId(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        content: aiResponseContent,
-        regeneration_count:
-          (session.messages[lastAiMessageIndex].regeneration_count || 0) + 1,
-      };
+      // 元のメッセージを取得
+      const oldMessage = session.messages[lastAiMessageIndex];
+
+      // 新しいメッセージを作成（ファクトリーパターン使用）
+      const newAiMessage: UnifiedMessage = createAIMessage(
+        aiResponseContent,
+        activeSessionId,
+        oldMessage.character_id,
+        oldMessage.character_name,
+        oldMessage.expression as EmotionExpression
+      );
+
+      // 再生成カウントを更新
+      newAiMessage.regeneration_count = (oldMessage.regeneration_count || 0) + 1;
 
       const newMessages = [...session.messages];
       newMessages[lastAiMessageIndex] = newAiMessage;
@@ -192,11 +181,14 @@ export const createMessageRegenerationHandler: StateCreator<
           timestamp: new Date().toISOString(),
           details: error instanceof Error ? error.message : String(error),
         },
-      } as any);
+      } as Partial<ReturnType<typeof get>>);
 
       // エラートースト表示（実装されている場合）
-      if (typeof window !== "undefined" && (window as any).showToast) {
-        (window as any).showToast(errorMessage, "error");
+      const windowWithToast = typeof window !== "undefined"
+        ? (window as Window & { showToast?: (message: string, type: string) => void })
+        : undefined;
+      if (windowWithToast?.showToast) {
+        windowWithToast.showToast(errorMessage, "error");
       }
     } finally {
       set({ is_generating: false });

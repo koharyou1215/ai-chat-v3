@@ -13,6 +13,19 @@ export interface HierarchicalMemory {
   permanent: PermanentMemory;    // 永続記憶（無制限）
 }
 
+/**
+ * レガシーMemoryLayer（memory-layer-manager.ts で使用）
+ * 下位互換性のため保持
+ */
+export interface LegacyMemoryLayer {
+  id: string;
+  name: string;
+  capacity: number;
+  retentionDays: number;
+  compressionRatio: number;
+  messages: UnifiedMessage[];
+}
+
 export interface MemoryLayer<MaxSize extends number = number> {
   messages: UnifiedMessage[];
   max_size: MaxSize;
@@ -81,7 +94,7 @@ export interface MemoryCard extends BaseEntity, WithMetadata {
   memory_type?: 'episodic' | 'semantic' | 'procedural';
   accessed_count?: number;
   last_accessed?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export type MemoryCategory = 
@@ -131,4 +144,44 @@ export interface VectorSearchResult {
   similarity_score: number;
   relevance: 'high' | 'medium' | 'low';
   match_type: 'exact' | 'semantic' | 'contextual';
+}
+
+/**
+ * 検索結果（レガシーサポート）
+ * vector-store.ts と conversation-manager.ts で使用
+ */
+export interface SearchResult {
+  message: {
+    id: string;
+    content: string;
+    timestamp: Date;
+    sender: 'user' | 'assistant';
+    importance?: number;
+    embedding?: number[];
+    emotion?: {
+      primary: string;
+      secondary?: string[];
+      intensity: number;
+    };
+    metadata?: {
+      tokens?: number;
+      model?: string;
+      temperature?: number;
+    };
+  };
+  similarity: number;
+  relevance: number;
+}
+
+/**
+ * プロンプトテンプレート
+ * prompt-templates.ts で使用
+ */
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  variables: string[];
+  category: 'system' | 'conversation' | 'memory' | 'inspiration';
 }

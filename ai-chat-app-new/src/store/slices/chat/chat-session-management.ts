@@ -10,7 +10,7 @@ import {
 import { AppStore } from "@/store";
 // Import will be done dynamically to avoid circular dependencies
 import { getSessionSafely, createMapSafely } from "@/utils/chat/map-helpers";
-import { generateSessionId, generateWelcomeMessageId } from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 
 export interface SessionManagement {
   createSession: (character: Character, persona: Persona) => Promise<UUID>;
@@ -41,23 +41,22 @@ export const createSessionManagement: StateCreator<
   SessionManagement
 > = (set, get) => ({
   createSession: async (character, persona) => {
-    const sessionId = generateSessionId();
+    const sessionId = generateStableId('session');
 
-    // 🔧 修正: トラッカーマネージャーをキャラクターIDで管理
+    // 🔧 修正: セッションIDでトラッカーマネージャーを管理
+    // 同じキャラクターでも新しいセッションなら必ず新規作成
+    const { TrackerManager } = await import(
+      "@/services/tracker/tracker-manager"
+    );
+    const trackerManager = new TrackerManager();
+    trackerManager.initializeTrackerSet(character.id, character.trackers);
+
     const trackerManagers = get().trackerManagers;
-    let trackerManager: any;
+    trackerManagers.set(sessionId, trackerManager);  // ← sessionIdで保存
 
-    // キャラクターごとにトラッカーマネージャーを管理
-    if (!trackerManagers.has(character.id)) {
-      const { TrackerManager } = await import(
-        "@/services/tracker/tracker-manager"
-      );
-      trackerManager = new TrackerManager();
-      trackerManager.initializeTrackerSet(character.id, character.trackers);
-      trackerManagers.set(character.id, trackerManager);
-    } else {
-      trackerManager = trackerManagers.get(character.id)!;
-    }
+    console.log(
+      `🎯 Created new TrackerManager for session: ${sessionId} (character: ${character.name})`
+    );
 
     const newSession: UnifiedChatSession = {
       id: sessionId,
@@ -79,7 +78,7 @@ export const createSessionManagement: StateCreator<
       },
       messages: [
         {
-          id: generateWelcomeMessageId(),
+          id: generateStableId('welcome'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -198,14 +197,18 @@ export const createSessionManagement: StateCreator<
         newSession.id,
         newSession
       );
+      // 🔧 修正: sessionIdでTrackerManagerを保存
       const newTrackerManagers = createMapSafely(state.trackerManagers).set(
-        character.id,
+        sessionId,  // ← character.id から sessionId に変更
         trackerManager
       );
 
       // 記憶システムのセッションIDも設定
-      if ((state as any).setCurrentSessionId) {
-        (state as any).setCurrentSessionId(newSession.id);
+      const stateWithMemory = state as typeof state & {
+        setCurrentSessionId?: (sessionId: UUID) => void;
+      };
+      if (stateWithMemory.setCurrentSessionId) {
+        stateWithMemory.setCurrentSessionId(newSession.id);
       }
 
       return {
@@ -221,8 +224,11 @@ export const createSessionManagement: StateCreator<
   setActiveSessionId: (sessionId) => {
     // 記憶システムのセッションIDも同時に設定
     const state = get();
-    if ((state as any).setCurrentSessionId) {
-      (state as any).setCurrentSessionId(sessionId);
+    const stateWithMemory = state as typeof state & {
+      setCurrentSessionId?: (sessionId: UUID | null) => void;
+    };
+    if (stateWithMemory.setCurrentSessionId) {
+      stateWithMemory.setCurrentSessionId(sessionId);
     }
 
     if (sessionId) {
@@ -481,12 +487,20 @@ export const createSessionManagement: StateCreator<
       localStorage.setItem(historyKey, JSON.stringify(historyData));
 
       // Update session list in history index
+      interface HistoryIndexItem {
+        session_id: UUID;
+        title: string;
+        savedAt: string;
+        character_name: string;
+        message_count: number;
+      }
+
       const historyIndexKey = 'ai-chat-history-index';
       const existingIndex = localStorage.getItem(historyIndexKey);
-      const historyIndex = existingIndex ? JSON.parse(existingIndex) : [];
+      const historyIndex: HistoryIndexItem[] = existingIndex ? JSON.parse(existingIndex) : [];
 
       // Add session to index if not already present
-      if (!historyIndex.find((item: any) => item.session_id === session_id)) {
+      if (!historyIndex.find((item) => item.session_id === session_id)) {
         historyIndex.push({
           session_id,
           title: session.session_info.title,
@@ -497,7 +511,7 @@ export const createSessionManagement: StateCreator<
 
         // Keep only the latest 100 history entries
         if (historyIndex.length > 100) {
-          historyIndex.sort((a: any, b: any) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+          historyIndex.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
           historyIndex.splice(100);
         }
 

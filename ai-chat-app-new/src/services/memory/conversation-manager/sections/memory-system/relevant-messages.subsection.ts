@@ -8,6 +8,14 @@
 
 import type { ConversationManager } from '@/services/memory/conversation-manager';
 
+// Internal type extension for accessing private properties
+type ConversationManagerInternal = {
+  config: {
+    maxRelevantMemories: number;
+  };
+  sessionSummary?: string;
+};
+
 export interface SearchResult {
   message: {
     sender: string;
@@ -28,6 +36,7 @@ export class RelevantMessagesSubsection {
    */
   build(context: RelevantMessagesContext): string {
     const { conversationManager, relevantMemories } = context;
+    const internal = conversationManager as unknown as ConversationManagerInternal;
     let prompt = "";
 
     // 🔒 lines 109-125 - exact copy
@@ -35,7 +44,7 @@ export class RelevantMessagesSubsection {
     if (relevantMemories.length > 0) {
       prompt += "<relevant_messages>\n";
       relevantMemories
-        .slice(0, (conversationManager as any).config.maxRelevantMemories)
+        .slice(0, internal.config.maxRelevantMemories)
         .forEach((result: SearchResult) => {
           const role = result.message.sender === "user" ? "User" : "AI";
           prompt += `${role}: ${result.message.content}\n`;
@@ -43,8 +52,8 @@ export class RelevantMessagesSubsection {
       prompt += "</relevant_messages>\n\n";
     }
 
-    if ((conversationManager as any).sessionSummary) {
-      prompt += `<session_summary>\n${(conversationManager as any).sessionSummary}\n</session_summary>\n\n`;
+    if (internal.sessionSummary) {
+      prompt += `<session_summary>\n${internal.sessionSummary}\n</session_summary>\n\n`;
     }
 
     return prompt;

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Stable Diffusion APIを呼び出し（リトライとタイムアウト設定）
     const timeout = parseInt(process.env.SD_API_TIMEOUT || '120000'); // デフォルト120秒
-    let lastError: any = null;
+    let lastError: Error | null = null;
     const maxRetries = 3;
 
     // リトライ処理
@@ -80,14 +80,16 @@ export async function POST(request: NextRequest) {
 
         lastError = new Error(errorMessage);
 
-      } catch (fetchError: any) {
+      } catch (fetchError: unknown) {
         clearTimeout(timeoutId);
 
-        if (fetchError.name === 'AbortError') {
+        const error = fetchError as { name?: string; code?: string; message?: string };
+
+        if (error.name === 'AbortError') {
           console.error(`❌ SD API Timeout after ${timeout/1000} seconds (attempt ${attempt}/${maxRetries})`);
           lastError = new Error(`SD API timeout after ${timeout/1000} seconds`);
-        } else if (fetchError.code === 'ECONNRESET' || fetchError.code === 'ECONNREFUSED') {
-          console.error(`❌ Connection error (attempt ${attempt}/${maxRetries}):`, fetchError.code);
+        } else if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+          console.error(`❌ Connection error (attempt ${attempt}/${maxRetries}):`, error.code);
           lastError = new Error('Cannot connect to SD API. Please check if Stable Diffusion is running.');
 
           // 接続エラーの場合、少し待ってからリトライ
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
           }
         } else {
           console.error(`❌ SD API Error (attempt ${attempt}/${maxRetries}):`, fetchError);
-          lastError = fetchError;
+          lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
         }
       }
 

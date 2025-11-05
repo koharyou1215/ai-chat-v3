@@ -27,7 +27,7 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
     )}
   </div>
 );
-import { motion, AnimatePresence, TargetAndTransition } from "framer-motion";
+import { motion, AnimatePresence, TargetAndTransition, Variants } from "framer-motion";
 import {
   RefreshCw,
   Copy,
@@ -52,8 +52,10 @@ import {
   replaceVariablesInMessage,
   getVariableContext,
 } from "@/utils/variable-replacer";
+import { createUnifiedMessage } from "@/utils/message-builder";
 import { RichMessage } from "./RichMessage";
 import { ProgressiveMessageBubble } from "./ProgressiveMessageBubble";
+import { ProgressiveMessage } from "@/types/progressive-message.types";
 import { AdvancedEffects } from "./AdvancedEffects";
 
 // Lazy imports for heavy effect components
@@ -76,6 +78,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// メッセージメタデータの型定義
+interface MessageMetadata {
+  progressiveData?: {
+    chunks?: string[];
+    isComplete?: boolean;
+    currentStage?: string;
+    stages?: unknown[];
+    transitions?: unknown;
+    ui?: unknown;
+    metadata?: unknown;
+  };
+  character_id?: string;
+  user_name?: string;
+  [key: string]: unknown;
+}
+
+// AppStore拡張（addMessageメソッド用）
+interface AppStoreWithAddMessage {
+  addMessage?: (message: UnifiedMessage) => Promise<void>;
+}
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
@@ -137,7 +160,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const getSelectedCharacter = useAppStore(
     (state) => state.getSelectedCharacter
   );
-  const addMessage = useAppStore((state) => (state as any).addMessage);
+  const addMessage = useAppStore((state) => (state as AppStoreWithAddMessage).addMessage);
   const sessions = useAppStore((state) => state.sessions);
   const copyToClipboard = async (text: string) => {
     try {
@@ -245,8 +268,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   // 感情分析結果の解析
   const emotionResult = useMemo((): EmotionResult | null => {
-    const messageWithEmotion = message as any;
-    if (!emotionAnalysisEnabled || !messageWithEmotion.emotion_analysis)
+    // emotion_analysisは古い形式で、現在はexpressionを使用
+    if (!emotionAnalysisEnabled || !message.expression)
       return null;
 
     try {
@@ -369,23 +392,24 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       // 生成された画像をメッセージとして追加
       if (imageUrl) {
         // addMessageが存在するか確認
-        if (addMessage) {
+        if (addMessage && activeSessionId) {
           console.log("📨 Adding image message to chat");
-          const newMessage = {
+          const newMessage = createUnifiedMessage({
             id: Date.now().toString(),
             content: `![Generated Image](${imageUrl})`,
-            role: "assistant" as const,
+            role: "assistant",
+            session_id: activeSessionId,
             timestamp: Date.now(),
             character_id: character.id,
             metadata: {
               type: "image",
               generated: true,
             },
-          };
+          });
           console.log("📝 New message:", newMessage);
           addMessage(newMessage);
         } else {
-          console.error("❌ addMessage function not found");
+          console.error("❌ addMessage function not found or no active session");
           // 代替案：アラートで画像を表示
           alert("画像生成に成功しましたが、チャットに追加できませんでした。");
         }
@@ -437,12 +461,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     try {
       console.log("🔄 Rollback initiated", {
         messageId: message.id,
-        sessionId: (message as any).session_id,
+        sessionId: message.session_id,
         isGroupChat,
         active_group_session_id,
       });
 
-      if (isGroupChat && (message as any).session_id) {
+      if (isGroupChat && message.session_id) {
         console.log("📥 Using group rollback for message:", message.id);
         rollbackGroupSession(message.id);
       } else if (!isGroupChat && typeof activeSessionId === "string") {
@@ -451,8 +475,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       } else {
         console.warn("⚠️ Ambiguous session context, attempting detection...");
         if (
-          (message as any).session_id &&
-          groupSessions.has((message as any).session_id)
+          message.session_id &&
+          groupSessions.has(message.session_id)
         ) {
           console.log("🔍 Detected group session, using group rollback");
           rollbackGroupSession(message.id);
@@ -571,11 +595,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const canContinue = isAssistant && isLatest && !generateIsActive;
 
   // アニメーション設定の最適化
-  const bubbleAnimation: TargetAndTransition = useMemo(
+  const bubbleAnimation = useMemo(
     () => ({
-      scale: [0.95, 1],
-      opacity: [0, 1],
-      y: [20, 0],
+      scale: 0.95,
+      opacity: 0,
+      y: 20,
     }),
     []
   );
@@ -598,14 +622,50 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
   }, [selectedText, processedContent]);
 
+  // 編集状態の管理
+  const editingMessageId = useAppStore((state) => state.editingMessageId);
+  const editingContent = useAppStore((state) => state.editingContent);
+  const startEditingMessage = useAppStore((state) => state.startEditingMessage);
+  const cancelEditingMessage = useAppStore((state) => state.cancelEditingMessage);
+  const updateEditingContent = useAppStore((state) => state.updateEditingContent);
+  const sendMessage = useAppStore((state) => state.sendMessage);
+
+  const isEditing = editingMessageId === message.id;
+
   // メッセージの編集開始
   const handleEdit = useCallback(() => {
-    if (selectedText) {
-      console.log("テキスト選択編集:", selectedText);
-    } else {
-      console.log("メッセージ全体編集:", processedContent);
+    startEditingMessage(message.id, processedContent);
+  }, [message.id, processedContent, startEditingMessage]);
+
+  // 編集の保存（ロールバック→再生成）
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingContent.trim()) return;
+
+    try {
+      // 1. このメッセージまでロールバック
+      rollbackSession(message.id);
+
+      // 2. 編集した内容で新しいメッセージを送信（再生成）
+      await sendMessage(editingContent);
+
+      // 3. 編集モードを終了
+      cancelEditingMessage();
+    } catch (error) {
+      console.error("メッセージの編集に失敗しました:", error);
+      alert("編集に失敗しました。もう一度お試しください。");
     }
-  }, [selectedText, processedContent]);
+  }, [
+    editingContent,
+    message.id,
+    rollbackSession,
+    sendMessage,
+    cancelEditingMessage,
+  ]);
+
+  // 編集のキャンセル
+  const handleCancelEdit = useCallback(() => {
+    cancelEditingMessage();
+  }, [cancelEditingMessage]);
 
   // 選択範囲へのアクション適用
   const handleApplyToSelection = useCallback(
@@ -649,14 +709,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
         if (response.ok) {
           const result = await response.text();
-          if (addMessage)
-            addMessage({
+          if (addMessage && activeSessionId)
+            addMessage(createUnifiedMessage({
               id: Date.now().toString(),
               content: result,
               role: "assistant",
+              session_id: activeSessionId,
               timestamp: Date.now(),
               character_id: character?.id,
-            });
+            }));
         }
       } catch (error) {
         console.error(`Failed to apply ${action}:`, error);
@@ -677,8 +738,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   if (isProgressiveMessage && hasProgressiveMetadata) {
     // ProgressiveMessageBubbleに渡すために完全なProgressiveMessage構造を作成
+    const messageMetadata = message.metadata as MessageMetadata;
     const progressiveData =
-      (message.metadata as any).progressiveData || message.metadata;
+      messageMetadata.progressiveData || message.metadata;
 
     // デバッグログ
     console.log("🔄 MessageBubble: Rendering progressive message", {
@@ -694,22 +756,27 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       messageContent: message.content?.substring(0, 50),
     });
 
-    const progressiveMessage = {
+    const progressiveMessage: ProgressiveMessage = {
       ...message,
-      stages: progressiveData?.stages || {}, // 空のオブジェクトに変更
-      currentStage: progressiveData?.currentStage || "reflex",
-      transitions: progressiveData?.transitions || [],
+      stages: progressiveData?.stages || { reflex: undefined, context: undefined, intelligence: undefined },
+      currentStage: (progressiveData?.currentStage || "reflex") as "reflex" | "context" | "intelligence",
+      transitions: progressiveData?.transitions || {},
       ui: progressiveData?.ui || {
         isUpdating: false,
-        glowIntensity: "none",
+        glowIntensity: "none" as const,
         highlightChanges: false,
         showIndicator: true,
       },
-      metadata: progressiveData?.metadata || message.metadata,
+      metadata: {
+        totalTokens: 0,
+        totalTime: 0,
+        stageTimings: {},
+        ...(progressiveData?.metadata || message.metadata),
+      },
       content: message.content, // message.contentを確実に渡す
       // キャラクター情報を正しく設定
       character_name: character?.name,
-    };
+    } as ProgressiveMessage;
 
     return (
       <ProgressiveMessageBubble
@@ -779,19 +846,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             ref={menuRef}
             className={cn(
               "relative px-4 pt-3 pb-1.5 rounded-2xl shadow-lg transition-all duration-200",
-              // User messages: Dynamic transparency with backdrop blur
+              // User messages: Always use CSS variable for opacity control
               isUser
-                ? effectSettings.bubbleBlur
-                  ? "message-bubble-user-transparent"
-                  : "bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/40 shadow-blue-500/20"
-                : // Character messages: Purple theme with effects consideration
-                effects.colorfulBubbles
-                ? effectSettings.bubbleBlur
-                  ? "message-bubble-character-transparent"
-                  : "bg-gradient-to-br from-purple-500/25 via-blue-500/20 to-teal-500/20 text-white border border-purple-400/40 shadow-purple-500/20"
-                : effectSettings.bubbleBlur
-                ? "message-bubble-character-transparent"
-                : "bg-gradient-to-br from-purple-600/90 to-purple-700/90 text-white border border-purple-400/40 shadow-purple-500/20",
+                ? "message-bubble-user-transparent text-white border border-blue-400/40 shadow-blue-500/20"
+                : // Character messages: Always use CSS variable for opacity control
+                effectSettings.colorfulBubbles
+                ? "message-bubble-character-transparent text-white border border-purple-400/40 shadow-purple-500/20"
+                : "message-bubble-character-transparent text-white border border-purple-400/40 shadow-purple-500/20",
               "hover:shadow-xl group-hover:scale-[1.02]",
               selectedText ? "ring-2 ring-yellow-400/50" : "",
               "overflow-visible" // メニューがはみ出すことを許可
@@ -803,41 +864,55 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   ? (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
                 "--character-bubble-opacity": !isUser
-                  ? effects.colorfulBubbles
-                    ? (effectSettings.bubbleOpacity || 85) / 100
-                    : (effectSettings.bubbleOpacity || 85) / 100
+                  ? (effectSettings.bubbleOpacity || 85) / 100
                   : 0.9,
+                // 🆕 Phase 2: Variable blur intensity (0-20px)
                 "--user-bubble-blur": effectSettings.bubbleBlur
-                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
                   : "none",
                 "--character-bubble-blur": effectSettings.bubbleBlur
-                  ? `blur(${appearanceSettings.backgroundBlur || 8}px)`
+                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
                   : "none",
-                // Additional background for colorful bubbles effect
-                ...(effects.colorfulBubbles &&
-                  !effectSettings.bubbleBlur && {
-                    backgroundColor: `rgba(147, 51, 234, ${
-                      effectSettings.bubbleOpacity
-                        ? effectSettings.bubbleOpacity / 100
-                        : 0.25
-                    })`,
-                  }),
               } as React.CSSProperties
             }>
-            {/* リッチメッセージ表示 */}
-            <div style={fontEffectStyles}>
-              <RichMessage
-                content={processedContent}
-                role={
-                  message.role === "user" || message.role === "assistant"
-                    ? message.role
-                    : "assistant"
-                }
-                isExpanded={isExpanded}
-                onToggleExpanded={() => setIsExpanded(!isExpanded)}
-                isLatest={isLatest}
-              />
-            </div>
+            {/* リッチメッセージ表示 or 編集モード */}
+            {isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editingContent}
+                  onChange={(e) => updateEditingContent(e.target.value)}
+                  className="w-full min-h-[100px] p-3 bg-white/10 text-white rounded-lg border border-white/20 focus:outline-none focus:border-purple-400 resize-y"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 rounded-lg bg-gray-600/50 hover:bg-gray-600/70 text-white transition-colors">
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors">
+                    保存して再生成
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* ✅ 常にRichMessageを使用（個別文字色付けとグラデーションを維持） */}
+                <RichMessage
+                  content={processedContent}
+                  role={
+                    message.role === "user" || message.role === "assistant"
+                      ? message.role
+                      : "assistant"
+                  }
+                  isExpanded={isExpanded}
+                  onToggleExpanded={() => setIsExpanded(!isExpanded)}
+                  isLatest={isLatest}
+                />
+              </div>
+            )}
 
             {/* 感情表示（lazily loaded） */}
             {emotionResult && isEffectEnabled("realtimeEmotion") && (

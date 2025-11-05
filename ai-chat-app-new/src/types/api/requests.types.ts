@@ -101,7 +101,7 @@ export interface VectorSearchRequest {
   query: string;
   limit?: number;
   threshold?: number;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 // メモリインデックスリクエスト型
@@ -109,7 +109,7 @@ export interface MemoryIndexRequest {
   memories: Array<{
     id: string;
     content: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }>;
   method?: 'add' | 'update' | 'remove';
 }

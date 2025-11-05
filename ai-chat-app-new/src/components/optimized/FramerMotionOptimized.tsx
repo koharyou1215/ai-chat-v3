@@ -6,6 +6,8 @@
  */
 
 import { lazy } from 'react';
+import type { HTMLMotionProps, MotionProps, Variant } from 'framer-motion';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 // ===== PERFORMANCE CONTROL FLAGS =====
 
@@ -19,6 +21,16 @@ const PERFORMANCE_CONFIG = {
   // Preload core components
   PRELOAD_CORE: true,
 };
+
+// ===== NAVIGATOR API EXTENSIONS =====
+
+interface NavigatorExtended extends Navigator {
+  deviceMemory?: number;
+  connection?: {
+    effectiveType?: string;
+    saveData?: boolean;
+  };
+}
 
 // ===== DEVICE PERFORMANCE DETECTION =====
 
@@ -52,7 +64,8 @@ class DevicePerformanceDetector {
     if (cores >= 8) score *= 1.3;
 
     // Check memory (if available)
-    const memory = (navigator as any).deviceMemory;
+    const nav = navigator as NavigatorExtended;
+    const memory = nav.deviceMemory;
     if (memory) {
       if (memory <= 2) score *= 0.6;
       if (memory >= 8) score *= 1.2;
@@ -63,7 +76,7 @@ class DevicePerformanceDetector {
     if (prefersReducedMotion) score *= 0.5;
 
     // Check connection speed
-    const connection = (navigator as any).connection;
+    const connection = nav.connection;
     if (connection) {
       if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
         score *= 0.5;
@@ -219,11 +232,11 @@ export class MotionLoaders {
 
       // Create performance-aware wrapper
       const OptimizedMotion = {
-        div: (props: any) => {
+        div: (props: HTMLMotionProps<"div">) => {
           const optimizedProps = this.optimizeAnimationProps(props, performanceScore);
           return motion.div(optimizedProps);
         },
-        span: (props: any) => {
+        span: (props: HTMLMotionProps<"span">) => {
           const optimizedProps = this.optimizeAnimationProps(props, performanceScore);
           return motion.span(optimizedProps);
         },
@@ -238,25 +251,28 @@ export class MotionLoaders {
   private static getNoOpComponents() {
     return {
       motion: {
-        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-        span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+        div: ({ children, ...props }: PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>) => <div {...props}>{children}</div>,
+        span: ({ children, ...props }: PropsWithChildren<React.HTMLAttributes<HTMLSpanElement>>) => <span {...props}>{children}</span>,
         // Add more no-op elements as needed
       },
-      AnimatePresence: ({ children }: any) => children,
-      LayoutGroup: ({ children }: any) => children,
-      Reorder: { Group: ({ children }: any) => children, Item: ({ children }: any) => children },
+      AnimatePresence: ({ children }: PropsWithChildren) => children,
+      LayoutGroup: ({ children }: PropsWithChildren) => children,
+      Reorder: { Group: ({ children }: PropsWithChildren) => children, Item: ({ children }: PropsWithChildren) => children },
     };
   }
 
   // Optimize animation properties based on performance
-  private static optimizeAnimationProps(props: any, performanceScore: number) {
+  private static optimizeAnimationProps<T extends MotionProps>(props: T, performanceScore: number): T {
     if (!props) return props;
 
     const optimized = { ...props };
 
     // Adjust animation duration
-    if (optimized.transition?.duration) {
-      optimized.transition.duration = this.detector.getOptimalAnimationDuration(optimized.transition.duration);
+    if (optimized.transition && typeof optimized.transition === 'object' && 'duration' in optimized.transition) {
+      const transition = optimized.transition as Record<string, unknown>;
+      if (typeof transition.duration === 'number') {
+        transition.duration = this.detector.getOptimalAnimationDuration(transition.duration);
+      }
     }
 
     // Reduce complexity for low-end devices
@@ -264,32 +280,36 @@ export class MotionLoaders {
       // Simplify animations
       if (optimized.animate) {
         const simplified = this.simplifyAnimation(optimized.animate);
-        optimized.animate = simplified;
+        optimized.animate = simplified as typeof optimized.animate;
       }
 
       // Reduce spring physics complexity
-      if (optimized.transition?.type === 'spring') {
-        optimized.transition = {
-          ...optimized.transition,
-          type: 'tween',
-          ease: 'easeOut',
-        };
+      if (optimized.transition && typeof optimized.transition === 'object' && 'type' in optimized.transition) {
+        const transition = optimized.transition as Record<string, unknown>;
+        if (transition.type === 'spring') {
+          optimized.transition = {
+            ...transition,
+            type: 'tween',
+            ease: 'easeOut',
+          } as typeof optimized.transition;
+        }
       }
     }
 
     return optimized;
   }
 
-  private static simplifyAnimation(animate: any) {
-    if (typeof animate !== 'object') return animate;
+  private static simplifyAnimation(animate: Variant | Variant[] | unknown): Variant | unknown {
+    if (typeof animate !== 'object' || animate === null) return animate;
 
     // Keep only essential properties for low-end devices
     const essentialProps = ['x', 'y', 'opacity', 'scale'];
-    const simplified: any = {};
+    const simplified: Record<string, unknown> = {};
+    const animateObj = animate as Record<string, unknown>;
 
     for (const prop of essentialProps) {
-      if (animate[prop] !== undefined) {
-        simplified[prop] = animate[prop];
+      if (animateObj[prop] !== undefined) {
+        simplified[prop] = animateObj[prop];
       }
     }
 

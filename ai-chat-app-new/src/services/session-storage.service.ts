@@ -1,4 +1,4 @@
-import { UUID, TrackerInstance, MemoryCard, UnifiedChatSession } from '@/types';
+import { UUID, TrackerInstance, MemoryCard, UnifiedChatSession, Character, TrackerHistoryEntry, TrackerDefinition } from '@/types';
 
 /**
  * セッションストレージサービス
@@ -81,7 +81,7 @@ export class SessionStorageService {
 
     // 履歴に追加（必要に応じて）
     if (instance.history) {
-      const historyEntry: any = {
+      const historyEntry: TrackerHistoryEntry = {
         id: `history-${Date.now()}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -152,14 +152,14 @@ export class SessionStorageService {
    * キャラクター定義からトラッカー定義のみを抽出
    * （実行時の値は含まない）
    */
-  extractTrackerDefinitions(character: any): any[] {
+  extractTrackerDefinitions(character: Character): Record<string, unknown>[] {
     if (!character.trackers || !Array.isArray(character.trackers)) {
       return [];
     }
 
-    return character.trackers.map((tracker: any) => {
+    return character.trackers.map((tracker: TrackerDefinition) => {
       // current_value、value、履歴などの実行時データを除外
-      const { current_value, value, history, last_updated, ...definition } = tracker;
+      const { current_value, value, history, last_updated, ...definition } = tracker as TrackerDefinition & { current_value?: unknown; value?: unknown; history?: unknown; last_updated?: unknown };
       return definition;
     });
   }
@@ -180,7 +180,7 @@ export class SessionStorageService {
           this.sessionTrackers = new Map(
             Object.entries(data.trackers).map(([sessionId, trackers]) => [
               sessionId,
-              new Map(Object.entries(trackers as any))
+              new Map(Object.entries(trackers as Record<string, TrackerInstance>))
             ])
           );
         }
@@ -190,7 +190,7 @@ export class SessionStorageService {
           this.sessionMemoryCards = new Map(
             Object.entries(data.memoryCards).map(([sessionId, cards]) => [
               sessionId,
-              new Map(Object.entries(cards as any))
+              new Map(Object.entries(cards as Record<string, MemoryCard>))
             ])
           );
         }

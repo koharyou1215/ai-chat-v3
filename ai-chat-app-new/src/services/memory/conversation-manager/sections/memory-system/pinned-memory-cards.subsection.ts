@@ -6,7 +6,13 @@
  * Purpose: Build pinned memory cards section
  */
 
+import type { MemoryCard } from '@/types';
 import type { ConversationManager } from '@/services/memory/conversation-manager';
+
+// Internal type extension for accessing private methods
+type ConversationManagerInternal = {
+  getPinnedMemoryCards: () => Promise<MemoryCard[]>;
+};
 
 export interface PinnedMemoryCardsContext {
   conversationManager: ConversationManager;
@@ -20,11 +26,12 @@ export class PinnedMemoryCardsSubsection {
    */
   async build(context: PinnedMemoryCardsContext): Promise<string> {
     const { conversationManager } = context;
+    const internal = conversationManager as unknown as ConversationManagerInternal;
     let prompt = "";
 
     // 🔒 lines 46-67 - exact copy
     // 6a. ピン留めメモリーカード（最優先）
-    const pinnedMemoryCards = await (conversationManager as any).getPinnedMemoryCards();
+    const pinnedMemoryCards = await internal.getPinnedMemoryCards();
     console.log(
       "📌 [ConversationManager] Pinned memory cards found:",
       pinnedMemoryCards.length
@@ -32,10 +39,10 @@ export class PinnedMemoryCardsSubsection {
     if (pinnedMemoryCards.length > 0) {
       console.log(
         "📌 [ConversationManager] Adding pinned memory cards to prompt:",
-        pinnedMemoryCards.map((c: any) => c.title)
+        pinnedMemoryCards.map((c) => c.title)
       );
       prompt += "<pinned_memory_cards>\n";
-      pinnedMemoryCards.forEach((card: any) => {
+      pinnedMemoryCards.forEach((card) => {
         prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
         if (card.keywords.length > 0) {
           prompt += `Keywords: ${card.keywords.join(", ")}\n`;

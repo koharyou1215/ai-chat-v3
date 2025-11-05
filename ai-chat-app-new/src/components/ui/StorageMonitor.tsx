@@ -5,12 +5,22 @@ import { motion } from 'framer-motion';
 import { HardDrive, Trash2, AlertTriangle, Info } from 'lucide-react';
 import { StorageManager } from '@/utils/storage';
 
+interface StorageDetails {
+  sessions: number;
+  characters: number;
+  memoryCards: number;
+  messages: number;
+  activeSessionId: string | null;
+  hasSessionsData: boolean;
+  sessionStorageType: string;
+}
+
 export const StorageMonitor: React.FC = () => {
   const [storageInfo, setStorageInfo] = useState<{
     totalMB: number;
     percentage: number;
     items: { key: string; sizeMB: number }[];
-    details?: any;
+    details?: StorageDetails;
   } | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -44,7 +54,7 @@ export const StorageMonitor: React.FC = () => {
     items.sort((a, b) => b.sizeMB - a.sizeMB);
     
     // ai-chat-v3-storageの詳細
-    let details: any = null;
+    let details: StorageDetails | null = null;
     try {
       const mainStorage = localStorage.getItem('ai-chat-v3-storage');
       if (mainStorage) {
@@ -54,20 +64,28 @@ export const StorageMonitor: React.FC = () => {
             sessions: 0,
             characters: 0,
             memoryCards: 0,
-            messages: 0
+            messages: 0,
+            activeSessionId: data.state.active_session_id || null,
+            hasSessionsData: !!data.state.sessions,
+            sessionStorageType: data.state.sessions ?
+              (data.state.sessions._type || typeof data.state.sessions) : 'none'
           };
-          
+
           // セッション数とメッセージ数
           if (data.state.sessions) {
             if (data.state.sessions._type === 'map' && data.state.sessions.value) {
               details.sessions = data.state.sessions.value.length;
-              data.state.sessions.value.forEach(([, session]: [any, any]) => {
-                details!.messages += session.messages?.length || 0;
+              data.state.sessions.value.forEach(([, session]: [string, unknown]) => {
+                const sess = session as Record<string, unknown>;
+                const messages = sess.messages;
+                details!.messages += Array.isArray(messages) ? messages.length : 0;
               });
             } else if (typeof data.state.sessions === 'object') {
               details.sessions = Object.keys(data.state.sessions).length;
-              Object.values(data.state.sessions).forEach((session: any) => {
-                details!.messages += session.messages?.length || 0;
+              Object.values(data.state.sessions).forEach((session: unknown) => {
+                const sess = session as Record<string, unknown>;
+                const messages = sess.messages;
+                details!.messages += Array.isArray(messages) ? messages.length : 0;
               });
             }
           }
@@ -181,15 +199,29 @@ export const StorageMonitor: React.FC = () => {
             {storageInfo.details && (
               <div className="mb-4 p-3 bg-gray-800 rounded-lg">
                 <h3 className="text-sm font-semibold text-gray-300 mb-2">データ内訳</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="text-gray-400">セッション数:</div>
-                  <div className="text-white">{storageInfo.details.sessions}</div>
-                  <div className="text-gray-400">メッセージ総数:</div>
-                  <div className="text-white">{storageInfo.details.messages}</div>
-                  <div className="text-gray-400">キャラクター数:</div>
-                  <div className="text-white">{storageInfo.details.characters}</div>
-                  <div className="text-gray-400">メモリーカード数:</div>
-                  <div className="text-white">{storageInfo.details.memoryCards}</div>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-gray-400">セッション数:</div>
+                    <div className={`${storageInfo.details.sessions > 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
+                      {storageInfo.details.sessions}
+                    </div>
+                    <div className="text-gray-400">メッセージ総数:</div>
+                    <div className="text-white">{storageInfo.details.messages}</div>
+                    <div className="text-gray-400">キャラクター数:</div>
+                    <div className="text-white">{storageInfo.details.characters}</div>
+                    <div className="text-gray-400">メモリーカード数:</div>
+                    <div className="text-white">{storageInfo.details.memoryCards}</div>
+                  </div>
+                  <div className="pt-2 border-t border-gray-700">
+                    <div className="text-xs text-gray-400 mb-1">セッション詳細:</div>
+                    <div className="text-xs text-gray-300 space-y-1">
+                      <div>アクティブID: {storageInfo.details.activeSessionId || '(なし)'}</div>
+                      <div>データ形式: {storageInfo.details.sessionStorageType}</div>
+                      <div className={storageInfo.details.hasSessionsData ? 'text-green-400' : 'text-red-400'}>
+                        {storageInfo.details.hasSessionsData ? '✓ セッションデータ存在' : '✗ セッションデータなし'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

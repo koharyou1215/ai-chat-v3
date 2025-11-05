@@ -1,7 +1,9 @@
 // Integrated Conversation Management System for AI Chat V3
 // Combines hierarchical memory, vector search, and dynamic summarization
 
-import { VectorStore } from "./vector-store";
+import { logger } from "@/utils/logger";
+import { memoryDebugLog } from "@/utils/memory-debug";
+
 import { MemoryLayerManager } from "./memory-layer-manager";
 import { DynamicSummarizer } from "./dynamic-summarizer";
 import { TrackerManager } from "../tracker/tracker-manager"; // Import TrackerManager
@@ -12,7 +14,7 @@ import {
   MemoryCard,
   Persona,
 } from "@/types";
-import { SearchResult } from "@/types/memory";
+import { SearchResult } from "@/types/core/memory.types";
 import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_JAILBREAK_PROMPT,
@@ -28,7 +30,6 @@ import { generatePromptRefactored } from "./conversation-manager/integration";
  * 階層的メモリ、ベクトル検索、動的要約を統合
  */
 export class ConversationManager {
-  private vectorStore: VectorStore;
   private memoryLayers: MemoryLayerManager;
   private summarizer: DynamicSummarizer;
   private trackerManager?: TrackerManager; // Make it optional
@@ -61,13 +62,20 @@ export class ConversationManager {
     initialMessages: UnifiedMessage[] = [],
     trackerManager?: TrackerManager
   ) {
-    this.vectorStore = new VectorStore();
     this.memoryLayers = new MemoryLayerManager();
     this.summarizer = new DynamicSummarizer();
     this.trackerManager = trackerManager; // Assign from constructor
     this.allMessages = initialMessages;
     this.messageCount = initialMessages.length;
-    this.importMessages(initialMessages);
+
+    // 🔧 FIX: constructorから非同期importMessagesを削除
+    // 理由：constructorは同期的であるべき + 毎回全メッセージを処理するのは非効率
+    // embeddings処理は必要時のみ、呼び出し側で明示的に実行する
+
+    // メモリレイヤーのみ同期的に初期化（embeddings処理なし）
+    for (const message of initialMessages) {
+      this.memoryLayers.addUnifiedMessage(message);
+    }
   }
 
   /**
@@ -102,25 +110,13 @@ export class ConversationManager {
     // バッチ処理でメモリレイヤーを更新
     for (const message of messages) {
       this.memoryLayers.addUnifiedMessage(message);
-    }
-
-    // 🧠 Mem0にメッセージをバッチ取り込み
-    try {
-      const { Mem0 } = await import("@/services/mem0/core");
-      await Promise.all(messages.map(msg => Mem0.ingestMessage(msg)));
-      console.log(`✅ [ConversationManager] ${messages.length} messages ingested to Mem0`);
-    } catch (error) {
-      console.warn("⚠️ [ConversationManager] Failed to batch ingest messages to Mem0:", error);
-    }
-
-    // インデックス対象メッセージを抽出してバッチ処理
-    const messagesToIndex = messages.filter((msg) =>
-      this.shouldIndexMessage(msg)
-    );
-
-    if (messagesToIndex.length > 0) {
-      // バッチでベクトルストアに追加（大幅なパフォーマンス向上）
-      await this.vectorStore.addMessagesBatch(messagesToIndex);
+      // Mem0にメッセージを取り込む
+      try {
+        const { Mem0 } = await import("@/services/mem0/core");
+        await Mem0.ingestMessage(message);
+      } catch (error) {
+        logger.warn("⚠️ [ConversationManager] Failed to ingest message to Mem0 during import:", error);
+      }
     }
   }
 
@@ -186,7 +182,7 @@ export class ConversationManager {
 
     // 重い処理は非同期で実行（UIをブロックしない）
     this.processMessageAsync(message).catch((error) => {
-      console.error("Async message processing failed:", error);
+      logger.error("Async message processing failed:", error);
     });
 
     return message;
@@ -207,14 +203,11 @@ export class ConversationManager {
     processingTasks.push(
       import("@/services/mem0/core")
         .then(({ Mem0 }) => Mem0.ingestMessage(message))
-        .then(() => console.log(`✅ [ConversationManager] Message ingested to Mem0: ${message.id}`))
-        .catch(error => console.warn("⚠️ [ConversationManager] Failed to ingest message to Mem0:", error))
+        .then(() => logger.debug(`✅ [ConversationManager] Message ingested to Mem0: ${message.id}`))
+        .catch(error => logger.warn("⚠️ [ConversationManager] Failed to ingest message to Mem0:", error))
     );
 
-    // ベクトルストアに追加（コスト最適化考慮）
-    if (this.shouldIndexMessage(message)) {
-      processingTasks.push(this.vectorStore.addMessage(message));
-    }
+
 
     // 自動要約のトリガー
     if (this.messageCount % this.config.summarizeInterval === 0) {
@@ -226,7 +219,7 @@ export class ConversationManager {
 
     // 重要な情報の自動抽出とピン留め（最後に実行）
     if (await this.shouldAutoPinMessage(message)) {
-      this.pinMessage(message.id);
+      await this.pinMessage(message.id);
     }
   }
 
@@ -249,21 +242,30 @@ export class ConversationManager {
 
       // Mem0検索結果をSearchResult形式に変換
       if (mem0Results && mem0Results.length > 0) {
-        relevantMemories = mem0Results.map((result: any) => ({
-          message: result.message || {
+        relevantMemories = mem0Results.map((result: Record<string, unknown>) => {
+          // UnifiedMessageを作成または取得
+          const unifiedMessage: UnifiedMessage = (result.message as UnifiedMessage) || {
             id: `mem0_${Date.now()}`,
-            content: result.content || "",
+            content: (result.content as string) || "",
             role: "assistant" as const,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             session_id: "",
             is_deleted: false,
             memory: {
-              importance: { score: result.relevance || 0.5, factors: {} as any },
+              importance: {
+                score: (result.relevance as number) || 0.5,
+                factors: {
+                  emotional_weight: 0.5,
+                  repetition_count: 0,
+                  user_emphasis: 0.5,
+                  ai_judgment: (result.relevance as number) || 0.5
+                }
+              },
               is_pinned: false,
               is_bookmarked: false,
               keywords: [],
-              summary: result.summary,
+              summary: (result.summary as string),
             },
             expression: {
               emotion: { primary: "neutral", intensity: 0.5, emoji: "😐" },
@@ -274,14 +276,36 @@ export class ConversationManager {
             regeneration_count: 0,
             metadata: {},
             version: 1,
-          } as UnifiedMessage,
-          similarity: result.similarity || 0.5,
-          relevance: result.relevance || 0.5,
-        }));
-        console.log(`✅ [ConversationManager] Mem0 search returned ${relevantMemories.length} results`);
+          };
+
+          // SearchResult.message形式に変換（vector-store.tsと同じパターン）
+          return {
+            message: {
+              id: unifiedMessage.id,
+              content: unifiedMessage.content,
+              timestamp: new Date(unifiedMessage.timestamp || unifiedMessage.created_at || Date.now()),
+              sender: unifiedMessage.role === 'user' ? 'user' : 'assistant',
+              importance: unifiedMessage.memory?.importance?.score,
+              embedding: unifiedMessage.memory?.embedding,
+              emotion: unifiedMessage.expression?.emotion ? {
+                primary: unifiedMessage.expression.emotion.primary,
+                secondary: unifiedMessage.expression.emotion.secondary ? [unifiedMessage.expression.emotion.secondary] : undefined,
+                intensity: unifiedMessage.expression.emotion.intensity
+              } : undefined,
+              metadata: {
+                tokens: unifiedMessage.metadata?.token_count,
+                model: unifiedMessage.metadata?.model_used,
+                temperature: unifiedMessage.metadata?.confidence_score
+              }
+            },
+            similarity: (result.similarity as number) || 0.5,
+            relevance: (result.relevance as number) || 0.5,
+          };
+        });
+        logger.debug(`✅ [ConversationManager] Mem0 search returned ${relevantMemories.length} results`);
       }
     } catch (error) {
-      console.warn("⚠️ [ConversationManager] Mem0 search failed, using fallback:", error);
+      logger.warn("⚠️ [ConversationManager] Mem0 search failed, using fallback:", error);
       // フォールバック: 既存のベクトル検索を使用
       relevantMemories = await this.searchRelevantMemories(currentInput);
     }
@@ -549,7 +573,7 @@ export class ConversationManager {
 
     // 5. Persona Information (if available)
     if (persona) {
-      console.log(
+      logger.debug(
         "🎭 [ConversationManager] Persona found:",
         persona.name,
         persona.other_settings
@@ -566,7 +590,7 @@ export class ConversationManager {
 
       prompt += "</persona_information>\n\n";
     } else {
-      console.warn(
+      logger.warn(
         "⚠️ [ConversationManager] No persona provided to generatePrompt"
       );
     }
@@ -574,7 +598,7 @@ export class ConversationManager {
     // 6. Tracker Information (関係性トラッカー)
     if (this.trackerManager && character) {
       try {
-        console.log(
+        logger.debug(
           "🔍 [ConversationManager] Getting tracker info for character:",
           character.id
         );
@@ -582,23 +606,23 @@ export class ConversationManager {
           character.id
         );
         if (trackerInfo) {
-          console.log(
+          logger.debug(
             "✅ [ConversationManager] Tracker info found:",
             trackerInfo.length,
             "characters"
           );
           prompt += `<relationship_state>\n${trackerInfo}\n</relationship_state>\n\n`;
         } else {
-          console.log("❌ [ConversationManager] No tracker info available");
+          logger.debug("❌ [ConversationManager] No tracker info available");
         }
       } catch (error) {
-        console.warn(
+        logger.warn(
           "Failed to get tracker info in ConversationManager:",
           error
         );
       }
     } else {
-      console.log(
+      logger.debug(
         "❌ [ConversationManager] No tracker manager or character available"
       );
     }
@@ -607,12 +631,12 @@ export class ConversationManager {
 
     // 6a. ピン留めメモリーカード（最優先）
     const pinnedMemoryCards = await this.getPinnedMemoryCards();
-    console.log(
+    logger.debug(
       "📌 [ConversationManager] Pinned memory cards found:",
       pinnedMemoryCards.length
     );
     if (pinnedMemoryCards.length > 0) {
-      console.log(
+      logger.debug(
         "📌 [ConversationManager] Adding pinned memory cards to prompt:",
         pinnedMemoryCards.map((c) => c.title)
       );
@@ -625,7 +649,7 @@ export class ConversationManager {
       });
       prompt += "</pinned_memory_cards>\n\n";
     } else {
-      console.log("📌 [ConversationManager] No pinned memory cards found");
+      logger.debug("📌 [ConversationManager] No pinned memory cards found");
     }
 
     // 6b. 関連メモリーカード（スマート選択版）
@@ -633,14 +657,14 @@ export class ConversationManager {
       userInput,
       processedCharacter
     );
-    console.log(
+    logger.debug(
       "🔍 [ConversationManager] Relevant memory cards found:",
       relevantMemoryCards.length,
       "for input:",
       userInput.substring(0, 30) + "..."
     );
     if (relevantMemoryCards.length > 0) {
-      console.log(
+      logger.debug(
         "🔍 [ConversationManager] Adding relevant memory cards to prompt:",
         relevantMemoryCards.map((c) => c.title)
       );
@@ -654,7 +678,7 @@ export class ConversationManager {
       });
       prompt += "</relevant_memory_cards>\n\n";
     } else {
-      console.log(
+      logger.debug(
         "🔍 [ConversationManager] No relevant memory cards found for input"
       );
     }
@@ -684,23 +708,7 @@ export class ConversationManager {
       prompt += `<session_summary>\n${this.sessionSummary}\n</session_summary>\n\n`;
     }
 
-    // 7. Tracker Information (Enhanced)
-    if (processedCharacter && this.trackerManager) {
-      // 詳細トラッカー情報を使用してキャラクター設定反映を強化
-      const detailedTrackerInfo =
-        this.trackerManager.getDetailedTrackersForPrompt(processedCharacter.id);
-      if (detailedTrackerInfo) {
-        prompt += `${detailedTrackerInfo}\n\n`;
-      } else {
-        // フォールバック：基本版を使用
-        const basicTrackerInfo = this.trackerManager.getTrackersForPrompt(
-          processedCharacter.id
-        );
-        if (basicTrackerInfo) {
-          prompt += `${basicTrackerInfo}\n\n`;
-        }
-      }
-    }
+
 
     // 8. Chat History (Working Memory)
     prompt += "<recent_conversation>\n";
@@ -734,7 +742,7 @@ export class ConversationManager {
     // 最後にプロンプト全体に変数置換を適用
     prompt = replaceVariables(prompt, variableContext);
 
-    console.log(
+    logger.debug(
       "====================\n[AI Prompt Context]\n====================",
       prompt
     );
@@ -782,30 +790,16 @@ export class ConversationManager {
    * ハイブリッド検索（ベクトル + キーワード）を使用
    */
   private async searchRelevantMemories(query: string): Promise<SearchResult[]> {
-    // キーワード抽出
-    const keywords = this.extractKeywords(query);
+    // Mem0経由で検索（Unified Vector Store）
+    const { Mem0 } = await import("@/services/mem0/core");
+    const results = await Mem0.search(query, this.config.maxRelevantMemories);
 
-    // ハイブリッド検索
-    const results = await this.vectorStore.hybridSearch(
-      query,
-      keywords,
-      this.config.maxRelevantMemories
-    );
-
-    // 時間減衰を適用
-    const now = Date.now();
-    return results
-      .map((result) => {
-        // 型安全なtimestamp取得（Legacy Message か UnifiedMessage かを判定）
-        const timestamp =
-          (result.message as any).timestamp ||
-          (result.message as any).created_at;
-        return {
-          ...result,
-          similarity: this.applyTimeDecay(result.similarity, timestamp, now),
-        };
-      })
-      .sort((a, b) => b.similarity - a.similarity);
+    // SearchResult形式に変換
+    return results.map(r => ({
+      message: r.message,
+      similarity: r.similarity,
+      relevance: r.relevance
+    }));
   }
 
   /**
@@ -846,13 +840,18 @@ export class ConversationManager {
    * メッセージのピン留め
    * ユーザーが明示的に重要とマークした情報
    */
-  pinMessage(messageId: string): void {
+  async pinMessage(messageId: string): Promise<void> {
     const message = this.allMessages.find((m) => m.id === messageId);
     if (message) {
       this.pinnedMessages.add(messageId);
 
-      // ベクトルストアにも追加（重要なので必ず索引化）
-      this.vectorStore.addMessage(message);
+      // Mem0にメッセージを取り込む
+      try {
+        const { Mem0 } = await import("@/services/mem0/core");
+        await Mem0.ingestMessage(message);
+      } catch (error) {
+        logger.warn("⚠️ [ConversationManager] Failed to ingest pinned message to Mem0:", error);
+      }
     }
   }
 
@@ -942,12 +941,12 @@ export class ConversationManager {
           },
           character_id: characterId,
           memory_type: "episodic",
-        } as any);
+        } as Partial<MemoryCard>);
 
-        console.log(`✅ [ConversationManager] Auto-created memory card with importance ${importance}`);
+        logger.debug(`✅ [ConversationManager] Auto-created memory card with importance ${importance}`);
       }
     } catch (error) {
-      console.warn("⚠️ [ConversationManager] Failed to auto-create memory card:", error);
+      logger.warn("⚠️ [ConversationManager] Failed to auto-create memory card:", error);
     }
   }
 
@@ -1099,28 +1098,7 @@ export class ConversationManager {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * インデックスすべきメッセージか判定
-   * コスト最適化
-   */
-  private shouldIndexMessage(message: UnifiedMessage): boolean {
-    // ピン留めされたメッセージは必ずインデックス
-    if (this.pinnedMessages.has(message.id)) return true;
 
-    // 重要度が閾値以上
-    if (
-      message.memory?.importance?.score &&
-      message.memory.importance.score >=
-        this.config.costOptimization.lowImportanceThreshold
-    ) {
-      return true;
-    }
-
-    // ユーザーメッセージは基本的にインデックス
-    if (message.role === "user") return true;
-
-    return false;
-  }
 
   /**
    * 感情状態の推定
@@ -1204,9 +1182,10 @@ export class ConversationManager {
       this.memoryLayers.addUnifiedMessage(message);
 
       // ベクトルストアへの追加（バッチ処理）
-      if (this.shouldIndexMessage(message)) {
-        await this.vectorStore.addMessage(message);
-      }
+      // NOTE: vectorStore と shouldIndexMessage は削除されたため、この処理は無効化
+      // if (this.shouldIndexMessage(message)) {
+      //   await this.vectorStore.addMessage(message);
+      // }
     }
   }
 
@@ -1234,17 +1213,17 @@ export class ConversationManager {
       }
 
       if (!store.memory_cards) {
-        console.log("📌 [ConversationManager] memory_cards not found in store");
+        logger.debug("📌 [ConversationManager] memory_cards not found in store");
         return [];
       }
 
       const allCards = Array.from(store.memory_cards.values());
-      console.log(
+      logger.debug(
         `📌 [ConversationManager] Total memory cards in store: ${allCards.length}`
       );
 
       const pinnedCards = allCards.filter((card) => card.is_pinned);
-      console.log(
+      logger.debug(
         `📌 [ConversationManager] Pinned cards found: ${pinnedCards.length}`
       );
 
@@ -1252,7 +1231,7 @@ export class ConversationManager {
         .sort((a, b) => b.importance.score - a.importance.score)
         .slice(0, 5); // 最大5件
     } catch (error) {
-      console.error("Failed to get pinned memory cards:", error);
+      logger.error("Failed to get pinned memory cards:", error);
       return [];
     }
   }
@@ -1275,18 +1254,18 @@ export class ConversationManager {
       }
 
       if (!store.memory_cards) {
-        console.log("🔍 [ConversationManager] memory_cards not found in store");
+        logger.debug("🔍 [ConversationManager] memory_cards not found in store");
         return [];
       }
 
       const allCards = Array.from(store.memory_cards.values());
-      console.log(
+      logger.debug(
         `🔍 [ConversationManager] Total memory cards for relevance check: ${allCards.length}`
       );
 
       const cards = allCards.filter((card) => !card.is_hidden); // 非表示カードは除外
 
-      console.log(`🔍 [ConversationManager] Non-hidden cards: ${cards.length}`);
+      logger.debug(`🔍 [ConversationManager] Non-hidden cards: ${cards.length}`);
 
       // スマートな関連度計算
       const relevantCards = cards
@@ -1317,7 +1296,7 @@ export class ConversationManager {
         .slice(0, 8) // 最大8件に増やして重要な情報の見落としを防止
         .map((item) => item.card);
 
-      console.log(
+      logger.debug(
         `📋 Found ${
           relevantCards.length
         } relevant memory cards for: "${userInput.substring(0, 30)}..."`
@@ -1325,7 +1304,7 @@ export class ConversationManager {
 
       return relevantCards;
     } catch (error) {
-      console.error("Failed to get relevant memory cards:", error);
+      logger.error("Failed to get relevant memory cards:", error);
       return [];
     }
   }

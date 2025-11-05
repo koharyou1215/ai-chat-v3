@@ -55,12 +55,30 @@ export const settingsSchema = z.object({
     secondaryTextColor: z.string(),
     borderColor: z.string(),
     shadowColor: z.string(),
-    backgroundType: z.enum(['color', 'gradient', 'image', 'animated']),
+    // 🆕 Phase 3: 階層構造
+    background: z.object({
+      type: z.enum(['color', 'gradient', 'image', 'animated']),
+      image: z.object({
+        url: z.string(),
+        desktop: z.string(),  // 🆕 デスクトップ用URL
+        mobile: z.string(),   // 🆕 モバイル用URL
+        blur: z.number().min(0).max(50),
+        blurEnabled: z.boolean(),
+        opacity: z.number().min(0).max(100),
+      }).optional(),
+      gradient: z.object({
+        value: z.string(),
+      }).optional(),
+      pattern: z.string().optional(),
+      patternOpacity: z.number().min(0).max(100).optional(),
+    }).optional(),
+    // 🔄 Phase 3: 後方互換性（optional）
+    backgroundType: z.enum(['color', 'gradient', 'image', 'animated']).optional(),
     backgroundGradient: z.string().optional(),
     backgroundImage: z.string().optional(),
-    backgroundBlur: z.number().min(0).max(100),
-    backgroundBlurEnabled: z.boolean(),
-    backgroundOpacity: z.number().min(0).max(100),
+    backgroundBlur: z.number().min(0).max(50).optional(),
+    backgroundBlurEnabled: z.boolean().optional(),
+    backgroundOpacity: z.number().min(0).max(100).optional(),
     backgroundPattern: z.string().optional(),
     backgroundPatternOpacity: z.number().min(0).max(100).optional(),
     enableAnimations: z.boolean(),
@@ -88,6 +106,16 @@ export const settingsSchema = z.object({
     typewriterIntensity: z.number().min(0).max(100),
     bubbleOpacity: z.number().min(0).max(100),
     bubbleBlur: z.boolean(),
+    bubbleBlurIntensity: z.number().min(0).max(20),  // 🆕 Phase 2: 0-20px
+    // 🎨 Phase 1: Emotion color settings validation
+    emotionColors: z.object({
+      positive: z.string(),
+      negative: z.string(),
+      surprise: z.string(),
+      question: z.string(),
+      general: z.string(),
+      default: z.string(),
+    }),
     // 🎯 Phase 2.1: 3D設定の統合構造
     threeDEffects: z.object({
       enabled: z.boolean(),

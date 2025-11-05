@@ -234,8 +234,10 @@ Background: [character.background]
 Current Scenario: [character.scenario]
 
 ## Special Context (NSFW Profile)
-Context Profile: [character.nsfw_profile.persona_profile]
+Persona: [character.nsfw_profile.persona]
 Libido Level: [character.nsfw_profile.libido_level]
+Situation: [character.nsfw_profile.situation]
+Mental State: [character.nsfw_profile.mental_state]
 Preferences: [character.nsfw_profile.kinks]
 </character_information>
 ```
@@ -247,9 +249,8 @@ Preferences: [character.nsfw_profile.kinks]
 ```xml
 <persona_information>
 Name: [persona.name]
-Role: [persona.role] 
-Description: [persona.description]
-Additional Settings: [persona.other_settings]
+Role: [persona.role]
+Other Settings: [persona.other_settings]
 </persona_information>
 ```
 **✅ Must Have**: Always present (even if default persona)

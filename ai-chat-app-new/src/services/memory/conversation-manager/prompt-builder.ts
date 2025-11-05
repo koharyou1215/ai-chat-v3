@@ -46,23 +46,22 @@ export interface PromptBuilderOptions {
 }
 
 export class PromptBuilder {
-  private systemDefinitions = new SystemDefinitionsSection();
-  private systemPrompt = new SystemPromptSection();
-  private characterInfo = new CharacterInfoSection();
-  private personaInfo = new PersonaInfoSection();
-  private trackerInfo = new TrackerInfoSection();
-  private memorySystem = new MemorySystemSection();
-  private recentConversation = new RecentConversationSection();
-  private characterSystemPrompt = new CharacterSystemPromptSection();
-  private jailbreakPrompt = new JailbreakPromptSection();
-  private currentInput = new CurrentInputSection();
+  private readonly maxTokens = 32000;
 
-  /**
-   * Build complete prompt by orchestrating all sections
-   *
-   * 🔒 Section order exactly matches conversation-manager.ts line 357-734
-   */
   async build(options: PromptBuilderOptions): Promise<string> {
+    return this.#optimizeAndBuild(options);
+  }
+
+  #estimateTokens(text: string): number {
+    // Simple estimation: 1 char ~ 1.5 tokens for Japanese, 4 chars ~ 1 token for English
+    // This is a rough approximation.
+    return Math.ceil(text.length / 2);
+  }
+
+  async #optimizeAndBuild(
+    options: PromptBuilderOptions,
+    isOptimizing = false
+  ): Promise<string> {
     const {
       systemSettings,
       processedCharacter,
@@ -76,56 +75,72 @@ export class PromptBuilder {
       userInput,
     } = options;
 
-    let prompt = "";
+    // Adjust content based on optimization flag
+    const recentMessagesCount = isOptimizing ? 10 : 20; // 5 or 10 turns
+    const relevantMemoriesCount = isOptimizing ? 5 : 8;
 
-    // 1. System Definitions (line 357-358)
-    prompt += this.systemDefinitions.build({});
+    // 1. System Instructions (Integrated)
+    const systemDefinitions = new SystemDefinitionsSection().build({});
+    const systemPrompt = new SystemPromptSection().build({ systemSettings });
+    const jailbreakPrompt = new JailbreakPromptSection().build({ systemSettings });
+    const systemInstructions = `<system_instructions>\n${systemDefinitions}${systemPrompt}${jailbreakPrompt}\n</system_instructions>\n\n`;
 
-    // 2. System Prompt (line 360-373)
-    prompt += this.systemPrompt.build({ systemSettings });
+    // 2. Character Core (Integrated/Simplified)
+    const characterInfo = new CharacterInfoSection().build({ processedCharacter });
+    const characterSystemPrompt = new CharacterSystemPromptSection().build({ processedCharacter });
+    const characterCore = `<character_core>\n${characterInfo}${characterSystemPrompt}\n</character_core>\n\n`;
 
-    // 3. Character Information (line 375-547)
-    prompt += this.characterInfo.build({ processedCharacter });
+    // 3. Persona Information (Unchanged)
+    const personaInfo = new PersonaInfoSection().build({ persona });
 
-    // 4. Persona Information (line 549-571)
-    prompt += this.personaInfo.build({ persona });
-
-    // 5. Tracker Information (line 573-603)
-    prompt += this.trackerInfo.build({
+    // 4. Relationship State (Tracker)
+    const trackerInfo = new TrackerInfoSection().build({
       trackerManager,
       character: processedCharacter,
     });
 
-    // 6. Memory System (line 605-684)
-    prompt += await this.memorySystem.build({
+    // 5. Memory System (Integrated)
+    const memorySystem = await new MemorySystemSection().build({
       conversationManager,
       userInput,
       processedCharacter,
-      relevantMemories,
+      relevantMemories: relevantMemories.slice(0, relevantMemoriesCount),
       pinnedMessages,
     });
 
-    // 7. Recent Conversation (line 704-710)
-    prompt += this.recentConversation.build({
-      recent_messages: context.recent_messages,
+    // 6. Recent Conversation
+    const recentConversation = new RecentConversationSection().build({
+      recent_messages: context.recent_messages.slice(-recentMessagesCount),
       variableContext,
     });
 
-    // 8. Character System Prompt (line 712-715)
-    prompt += this.characterSystemPrompt.build({ processedCharacter });
+    // 7. Current Input
+    const currentInput = new CurrentInputSection().build({ userInput, variableContext });
 
-    // 9. Jailbreak Prompt (line 717-727)
-    prompt += this.jailbreakPrompt.build({ systemSettings });
+    const prompt = [
+      systemInstructions,
+      characterCore,
+      personaInfo,
+      trackerInfo,
+      memorySystem,
+      recentConversation,
+      currentInput,
+    ].join('\n');
 
-    // 10. Current Input (line 729-734)
-    prompt += this.currentInput.build({ userInput, variableContext });
+    const estimatedTokens = this.#estimateTokens(prompt);
 
-    // 🔒 line 736-739 - exact copy
+    if (estimatedTokens > this.maxTokens && !isOptimizing) {
+      console.warn('Token limit exceeded, optimizing and rebuilding...');
+      return this.#optimizeAndBuild(options, true);
+    }
+
     console.log(
-      "====================\n[AI Prompt Context]\n====================",
+      `====================\n[AI Prompt Context (Tokens: ~${estimatedTokens})]\n====================`,
       prompt
     );
 
     return prompt;
   }
 }
+
+

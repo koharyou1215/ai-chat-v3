@@ -4,6 +4,14 @@ import { BaseEntity, Timestamp } from './base.types';
 import { TrackerDefinition } from './tracker.types';
 
 /**
+ * キャラクターの好み・嫌いを表す型（感情分析用）
+ */
+export interface CharacterPreferences {
+  likes: string[];
+  dislikes: string[];
+}
+
+/**
  * 統合キャラクター型（JSONファイルと一致するフラット構造）
  */
 export interface Character extends BaseEntity {
@@ -28,12 +36,18 @@ export interface Character extends BaseEntity {
   hobbies: string[];
   likes: string[];
   dislikes: string[];
-  preferences?: Record<string, any>; // 感情分析用
+  preferences?: CharacterPreferences; // 感情分析用
   
   // 外見・スタイル
   appearance: string;
-  avatar_url?: string;      // キャラクターアイコン画像
-  background_url?: string;   // チャット背景画像
+  avatar_url?: string;           // キャラクターアイコン画像
+  background_url?: string;        // チャット背景画像（後方互換性・フォールバック用）
+  background_url_desktop?: string; // 🆕 デスクトップ用背景画像（横長推奨）
+  background_url_mobile?: string;  // 🆕 モバイル用背景画像（縦長推奨）
+  // 🎬 動画背景URL（MP4/WEBM対応）
+  background_video_url?: string;        // 動画背景（共通・フォールバック用）
+  background_video_url_desktop?: string; // デスクトップ用動画背景
+  background_video_url_mobile?: string;  // モバイル用動画背景
   image_prompt?: string;
   negative_prompt?: string;
   

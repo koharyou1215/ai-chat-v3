@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // ✅ HYDRATION FIX COMPLETE: React Strict Mode enabled
+  // All hydration issues resolved - safe to enable strict mode
+  reactStrictMode: true,
+
   // TypeScript設定 - 一時的にエラーを無視
   typescript: {
     ignoreBuildErrors: true,
@@ -39,7 +43,7 @@ const nextConfig: NextConfig = {
         cacheGroups: {
           // Vendor chunk for stable dependencies
           vendor: {
-            test: /[\\/]node_modules[\\/]/,
+            test: /[\/]node_modules[\/]/,
             name: "vendors",
             chunks: "all",
             priority: 10,
@@ -47,7 +51,7 @@ const nextConfig: NextConfig = {
           },
           // Framer Motion chunk (heavy animation library)
           framerMotion: {
-            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            test: /[\/]node_modules[\/]framer-motion[\/]/,
             name: "framer-motion",
             chunks: "all",
             priority: 15,
@@ -55,7 +59,7 @@ const nextConfig: NextConfig = {
           },
           // Lucide icons chunk
           icons: {
-            test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+            test: /[\/]node_modules[\/]lucide-react[\/]/,
             name: "icons",
             chunks: "all",
             priority: 12,
@@ -63,7 +67,7 @@ const nextConfig: NextConfig = {
           },
           // Radix UI components
           radix: {
-            test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            test: /[\/]node_modules[\/]@radix-ui[\/]/,
             name: "radix-ui",
             chunks: "all",
             priority: 11,
@@ -71,7 +75,7 @@ const nextConfig: NextConfig = {
           },
           // UI components chunk
           ui: {
-            test: /[\\/]src[\\/]components[\\/]ui[\\/]/,
+            test: /[\/]src[\/]components[\/]ui[\/]/,
             name: "ui-components",
             chunks: "all",
             priority: 8,
@@ -79,7 +83,7 @@ const nextConfig: NextConfig = {
           },
           // Effects and animations chunk
           effects: {
-            test: /[\\/]src[\\/]components[\\/](chat[\\/](AdvancedEffects|MessageEffects)|emotion|lazy[\\/]LazyEffects)[\\/]/,
+            test: /[\/]src[\/]components[\/](chat[\/](AdvancedEffects|MessageEffects)|emotion|lazy[\/]LazyEffects)[\/]/,
             name: "effects",
             chunks: "async",
             priority: 6,
@@ -88,7 +92,7 @@ const nextConfig: NextConfig = {
           },
           // Gallery components chunk
           galleries: {
-            test: /[\\/]src[\\/]components[\\/](character[\\/].*Gallery|persona[\\/].*Gallery|memory[\\/].*Gallery)[\\/]/,
+            test: /[\/]src[\/]components[\/](character[\/].*Gallery|persona[\/].*Gallery|memory[\/].*Gallery)[\/]/,
             name: "galleries",
             chunks: "async",
             priority: 5,
@@ -97,7 +101,7 @@ const nextConfig: NextConfig = {
           },
           // Modal components chunk
           modals: {
-            test: /[\\/]src[\\/]components[\\/](settings[\\/].*Modal|voice[\\/].*Modal|character[\\/].*Form|history[\\/].*Modal)[\\/]/,
+            test: /[\/]src[\/]components[\/](settings[\/].*Modal|voice[\/].*Modal|character[\/].*Form|history[\/].*Modal)[\/]/,
             name: "modals",
             chunks: "async",
             priority: 4,
@@ -165,8 +169,20 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       {
+        protocol: "http",
+        hostname: "localhost",
+      },
+      {
         protocol: "https",
         hostname: "example.com",
+      },
+      {
+        protocol: "https",
+        hostname: "chichi-pui.akamaized.net",
+      },
+      {
+        protocol: "https",
+        hostname: "image.cdn2.seaart.me",
       },
       // Add more remote patterns as needed
     ],
@@ -244,19 +260,13 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Railway デプロイ用設定
-  env: {
-    PORT: process.env.PORT || "3000",
-    ANALYZE: process.env.ANALYZE,
-    // ✅ ビルドIDを環境変数として公開（キャッシュバスティング用）
-    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ||
-                          process.env.RAILWAY_GIT_COMMIT_SHA ||
-                          Date.now().toString(),
-    NEXT_PUBLIC_BUILD_TIME: Date.now().toString(),
-  },
+  // ❌ VERCEL DEPLOY FIX: env ブロックを削除
+  // Next.js 15では env ブロックは非推奨
+  // 環境変数は .env ファイルと process.env で管理
+  // new Date() などの動的値がVercelデプロイの展開フェーズでエラーを引き起こす
 
   // 出力設定
-  output: "standalone",
+  // output: "standalone",  // Vercel deploy fix: disabled
 };
 
 export default nextConfig;

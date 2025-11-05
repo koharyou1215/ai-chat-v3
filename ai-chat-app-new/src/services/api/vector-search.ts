@@ -88,7 +88,7 @@ export class VectorSearchService {
       );
 
       return response.results.map(result => ({
-        memory_item: { id: result.id, content: result.content } as any,
+        memory_item: { id: result.id, content: result.content } as unknown as VectorSearchResult['memory_item'],
         similarity_score: result.score,
         relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as const,
         match_type: 'semantic' as const
@@ -120,7 +120,7 @@ export class VectorSearchService {
       );
 
       return response.results.map(result => ({
-        memory_item: { id: result.id, content: result.content } as any,
+        memory_item: { id: result.id, content: result.content } as unknown as VectorSearchResult['memory_item'],
         similarity_score: result.score,
         relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as const,
         match_type: 'semantic' as const
@@ -150,7 +150,7 @@ export class VectorSearchService {
       );
 
       return response.results.map(result => ({
-        memory_item: { id: result.id, content: result.content } as any,
+        memory_item: { id: result.id, content: result.content } as unknown as VectorSearchResult['memory_item'],
         similarity_score: result.score,
         relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as const,
         match_type: 'semantic' as const
@@ -182,7 +182,7 @@ export class VectorSearchService {
       );
 
       return response.results.map(result => ({
-        memory_item: { id: result.id, content: result.content } as any,
+        memory_item: { id: result.id, content: result.content } as unknown as VectorSearchResult['memory_item'],
         similarity_score: result.score,
         relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as const,
         match_type: 'semantic' as const
@@ -218,7 +218,7 @@ export class VectorSearchService {
       );
 
       return response.results.map(result => ({
-        memory_item: { id: result.id, content: result.content } as any,
+        memory_item: { id: result.id, content: result.content } as unknown as VectorSearchResult['memory_item'],
         similarity_score: result.score,
         relevance: result.score > 0.8 ? 'high' : result.score > 0.5 ? 'medium' : 'low' as const,
         match_type: 'semantic' as const
@@ -326,9 +326,9 @@ export class VectorSearchService {
       const response = await apiClient.post('/evaluate/search-quality', {
         query,
         results: results.map(r => ({
-          id: (r.memory_item as any)?.id || 'unknown',
+          id: 'id' in r.memory_item ? r.memory_item.id : 'unknown',
           similarity_score: r.similarity_score,
-          content: (r.memory_item as any)?.content || ''
+          content: 'content' in r.memory_item ? r.memory_item.content : ''
         })),
         user_feedback: userFeedback
       });

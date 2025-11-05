@@ -5,6 +5,7 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { UnifiedMessage } from "@/types/core/message.types";
+import { formatDuration } from "@/utils/time-formatters";
 import {
   VoiceCallMessage,
   isTranscriptionMessage,
@@ -240,7 +241,8 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
     } catch (error) {
       console.error("Audio playback error:", error);
       // Don't retry immediately on NotAllowedError
-      if ((error as any).name !== "NotAllowedError") {
+      const errorWithName = error as { name?: string };
+      if (errorWithName.name !== "NotAllowedError") {
         playNextAudio();
       } else {
         console.log("🔊 Audio blocked by browser - user interaction required");
@@ -703,15 +705,6 @@ export const VoiceCallInterface: React.FC<VoiceCallInterfaceProps> = ({
 
     return () => clearInterval(interval);
   }, [isConnected]);
-
-  // Format duration
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  };
 
   // Connection status indicator
   const getConnectionStatusColor = () => {

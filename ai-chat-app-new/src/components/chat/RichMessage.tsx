@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMessageEffects } from "@/hooks/useMessageEffects";
+import { useTypewriter } from "@/hooks/useTypewriter";
+import { processEmotionalText } from "@/utils/text/emotion-text-processor";
 
 // Lazy import for heavy markdown processing
 const MarkdownRenderer = React.lazy(() =>
@@ -48,42 +50,13 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
     isLatest = false,
   }) => {
     const [showPreview, setShowPreview] = useState(false);
-    const [displayedContent, setDisplayedContent] = useState(content);
-    const [isTyping, setIsTyping] = useState(false);
-    const { isEffectEnabled, settings: effectSettings } = useMessageEffects();
+    const { isEffectEnabled, settings: effectSettings, calculateFontEffects } = useMessageEffects();
 
     // タイプライター効果（最新メッセージのみ）
-    useEffect(() => {
-      if (!isEffectEnabled("typewriter") || role === "user" || !isLatest) {
-        setDisplayedContent(content);
-        setIsTyping(false);
-        return;
-      }
-
-      const speed = Math.max(10, 100 - effectSettings.typewriterIntensity);
-      setIsTyping(true);
-      setDisplayedContent("");
-
-      const typeText = async () => {
-        const characters = content.split("");
-        let currentText = "";
-
-        for (let i = 0; i < characters.length; i++) {
-          currentText += characters[i];
-          setDisplayedContent(currentText);
-          await new Promise((resolve) => setTimeout(resolve, speed));
-        }
-        setIsTyping(false);
-      };
-
-      typeText();
-    }, [
-      content,
-      isEffectEnabled,
-      effectSettings.typewriterIntensity,
-      role,
-      isLatest,
-    ]);
+    const { displayedContent, isTyping } = useTypewriter(content, {
+      enabled: isEffectEnabled("typewriter") && role !== "user" && isLatest,
+      speed: Math.max(10, 100 - effectSettings.typewriterIntensity),
+    });
 
     // Performance optimization: Detect content types early
     const contentAnalysis = useMemo(() => {
@@ -105,8 +78,9 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         isLong,
         hasGeneratedImage,
         hasDataUrlImage,
-        shouldUseMarkdown:
-          hasMarkdown || hasCode || hasUrls || hasGeneratedImage,
+        // 🔧 FIX: 感情エフェクトのHTML表示を優先するため、MarkdownRendererの使用を最小限に
+        // コードブロックと画像のみMarkdownRendererを使用、それ以外はdangerouslySetInnerHTMLで表示
+        shouldUseMarkdown: hasCode || hasGeneratedImage,
       };
     }, [content]);
 
@@ -164,63 +138,8 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
 
       // フォントエフェクトが有効な場合のみ感情色付けを適用
       if (isEffectEnabled("font") && effectSettings.fontEffectsIntensity > 0) {
-        // 「」内のテキストを検出して特別なエフェクトを適用
-        processed = processed.replace(/「([^」]+)」/g, (match, text) => {
-          // 感情に応じたエフェクトを決定
-          let effectClass = "";
-          let effectStyle = "";
-
-          // ポジティブな感情
-          if (
-            /愛|好き|うれしい|楽しい|幸せ|最高|素晴らしい|ありがとう|嬉しい|ドキドキ|ワクワク|キラキラ/.test(
-              text
-            )
-          ) {
-            effectClass = "positive-emotion";
-            effectStyle =
-              "color: #ff6b9d; text-shadow: 0 0 10px rgba(255, 107, 157, 0.6); font-weight: bold;";
-          }
-          // ネガティブな感情
-          else if (
-            /悲しい|寂しい|つらい|苦しい|嫌い|最悪|うざい|むかつく|怒り|泣き/.test(
-              text
-            )
-          ) {
-            effectClass = "negative-emotion";
-            effectStyle =
-              "color: #4a90e2; text-shadow: 0 0 10px rgba(74, 144, 226, 0.6); font-weight: bold;";
-          }
-          // 驚き・興奮
-          else if (
-            /えっ|まさか|すごい|びっくり|驚き|興奮|ドキドキ|ハラハラ/.test(text)
-          ) {
-            effectClass = "surprise-emotion";
-            effectStyle =
-              "color: #f39c12; text-shadow: 0 0 10px rgba(243, 156, 18, 0.6); font-weight: bold; animation: pulse 1s infinite;";
-          }
-          // 疑問・困惑
-          else if (
-            /？|\?|なんで|なぜ|どうして|どう|何|どれ|いつ|どこ|誰/.test(text)
-          ) {
-            effectClass = "question-emotion";
-            effectStyle =
-              "color: #9b59b6; text-shadow: 0 0 10px rgba(155, 89, 182, 0.6); font-style: italic;";
-          }
-          // その他の感情表現
-          else if (/！|!|〜|ー|…|\.\.\./.test(text)) {
-            effectClass = "general-emotion";
-            effectStyle =
-              "color: #e74c3c; text-shadow: 0 0 8px rgba(231, 76, 60, 0.5); font-weight: bold;";
-          }
-          // デフォルト（感情が検出されない場合）
-          else {
-            effectClass = "default-emotion";
-            effectStyle =
-              "color: #e8e8e8; text-shadow: 0 0 5px rgba(232, 232, 232, 0.4);";
-          }
-
-          return `<span class="${effectClass}" style="${effectStyle}">「${text}」</span>`;
-        });
+        // 🎨 Phase 1: 統合された感情テキスト処理を使用（設定から色を取得）
+        processed = processEmotionalText(processed, effectSettings.emotionColors);
       }
 
       // フォントエフェクトが有効な場合、特定の重要な単語だけにグラデーションを適用
@@ -229,48 +148,29 @@ export const RichMessage: React.FC<RichMessageProps> = React.memo(
         const importantWords =
           /(愛してる|大好き|最高|素晴らしい|完璧|美しい|キラキラ|ドキドキ|ワクワク|！|♡|♥|★|☆)/g;
         processed = processed.replace(importantWords, (match) => {
-          const gradientStyle = `background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3); 
-            background-clip: text; 
-            -webkit-background-clip: text; 
-            color: transparent; 
-            font-weight: bold; 
+          const gradientStyle = `background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: bold;
             text-shadow: none;`;
           return `<span style="${gradientStyle}">${match}</span>`;
         });
       }
 
       return processed;
-    }, [displayContent, isEffectEnabled, effectSettings.fontEffectsIntensity]);
+    }, [displayContent, isEffectEnabled, effectSettings.fontEffectsIntensity, effectSettings.emotionColors]);
 
-    // フォントエフェクトのスタイル計算（全体の装飾効果、グラデーションは除外）
+    // 🎨 Phase 2: 統一されたフォントエフェクト計算を使用（グラデーションは除外）
+    // RichMessage.tsxでは個別の単語にグラデーションを適用するため、全体のグラデーションは不要
     const fontEffectStyles = useMemo(() => {
-      if (!isEffectEnabled("font")) return {};
+      const baseStyles = calculateFontEffects();
 
-      const intensity = effectSettings.fontEffectsIntensity;
-      return {
-        // グラデーションは個別の単語に適用するため、ここでは適用しない
+      // グラデーション関連のプロパティを除外
+      const { background, backgroundClip, WebkitBackgroundClip, color, ...restStyles } = baseStyles;
 
-        // アニメーション効果（全体に適用）
-        animation:
-          intensity > 70 ? "subtle-glow 4s ease-in-out infinite" : "none",
-
-        // 微細なテキストシャドウ（全体の読みやすさ向上）
-        textShadow:
-          intensity > 40
-            ? `0 1px 2px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.1)`
-            : "none",
-
-        // 変形効果（高強度時のみ）
-        transform:
-          intensity > 80 ? "perspective(1000px) rotateX(2deg)" : "none",
-
-        // フィルター効果（控えめに）
-        filter:
-          intensity > 60
-            ? "drop-shadow(0 0 2px rgba(255,255,255,0.2)) brightness(1.05)"
-            : "none",
-      };
-    }, [isEffectEnabled, effectSettings.fontEffectsIntensity]);
+      return restStyles;
+    }, [calculateFontEffects]);
 
     const handleImageClick = (imageUrl: string) => {
       setShowPreview(true);

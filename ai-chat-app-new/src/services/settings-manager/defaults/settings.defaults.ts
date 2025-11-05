@@ -28,14 +28,15 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // API Configuration
   // ═══════════════════════════════════════
   api: {
-    provider: 'openrouter',
+    provider: 'openrouter',  // ✅ デフォルトはOpenRouter（CLAUDE.md絶対ルール準拠）
+    model: 'google/gemini-2.5-flash-preview-09-2025',  // ✅ OpenRouter経由のGemini 2.5プレビュー版
     temperature: 0.7,
     maxTokens: 2048,
     topP: 1.0,
     frequencyPenalty: 0.6,
     presencePenalty: 0.3,
     contextWindow: 20,
-    useDirectGeminiAPI: false,
+    useDirectGeminiAPI: false,  // ✅ デフォルトはOpenRouter使用（Gemini直接APIは使用しない）
   },
 
   // ═══════════════════════════════════════
@@ -81,15 +82,21 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     borderColor: '#374151',
     shadowColor: '#000000',
 
-    // Background
-    backgroundType: 'gradient',
-    backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    backgroundImage: '',
-    backgroundBlur: 10,
-    backgroundBlurEnabled: true,
-    backgroundOpacity: 100,
-    backgroundPattern: '',
-    backgroundPatternOpacity: 0,
+    // Background (Phase 3: 階層構造)
+    background: {
+      type: 'gradient',
+      image: {
+        url: '',            // 後方互換性フィールド
+        desktop: '',        // 🆕 デスクトップ用URL（横長画像推奨）
+        mobile: '',         // 🆕 モバイル用URL（縦長画像推奨）
+        blur: 10,
+        blurEnabled: false,
+        opacity: 100,
+      },
+      gradient: {
+        value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      },
+    },
 
     // Effects
     enableAnimations: true,
@@ -122,16 +129,29 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     fontEffects: true,
     particleEffects: false,
     typewriterEffect: true,
+    typewriterSound: true,
 
     // Effect Intensities
     colorfulBubblesIntensity: 50,
     fontEffectsIntensity: 50,
     particleEffectsIntensity: 30,
     typewriterIntensity: 70,
+    typewriterSoundVolume: 30,
 
     // Bubble Settings
     bubbleOpacity: 85,
     bubbleBlur: true,
+    bubbleBlurIntensity: 8,  // 🆕 Phase 2: デフォルト8px
+
+    // 🎨 Phase 1: Emotion Color Settings
+    emotionColors: {
+      positive: '#ff99c2',   // ポジティブ: ピンク
+      negative: '#70b8ff',   // ネガティブ: ライトブルー
+      surprise: '#ffd93d',   // 驚き: イエロー
+      question: '#00d9ff',   // 質問: シアン
+      general: '#ff9999',    // 一般強調: ライトレッド
+      default: '#ffffff',    // デフォルト: 白
+    },
 
     // 🎯 Phase 2.1: 3D Effects Structure
     threeDEffects: {
@@ -141,15 +161,15 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
         intensity: 40,
       },
       particleText: {
-        enabled: false,
+        enabled: true,
         intensity: 35,
       },
       ripple: {
-        enabled: false,
+        enabled: true,
         intensity: 60,
       },
       backgroundParticles: {
-        enabled: false,
+        enabled: true,
         intensity: 25,
       },
       depth: {
@@ -172,14 +192,14 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // 🎯 Phase 2.2: Emotion Display Structure
     emotion: {
-      displayMode: 'none' as const,
+      displayMode: 'standard' as const,
       display: {
         showText: false,
-        applyColors: false,
-        showIcon: false,
+        applyColors: true,
+        showIcon: true,
       },
       realtimeDetection: true,
-      autoReactions: false,
+      autoReactions: true,
       intensity: 50,
     },
 
@@ -238,7 +258,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // Progressive Mode
     progressiveMode: {
-      enabled: true,
+      enabled: false,  // 🔧 CRITICAL FIX: デフォルト無効化（Gemini APIレート制限対策）
       showIndicators: true,
       highlightChanges: true,
       glowIntensity: 'medium',
@@ -336,11 +356,11 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // Emotional Intelligence Configuration
   // ═══════════════════════════════════════
   emotionalIntelligence: {
-    enabled: false,
+    enabled: true,
 
     // Analysis Capabilities
     analysis: {
-      basic: false,
+      basic: true,
       contextual: true,
       predictive: true,
       multiLayer: true,

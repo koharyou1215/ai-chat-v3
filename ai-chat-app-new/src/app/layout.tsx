@@ -4,6 +4,7 @@ import "./globals.css";
 import ErrorBoundary from "@/components/utils/ErrorBoundary";
 import { StorageInitializer } from "@/components/utils/StorageInitializer";
 import HydrationFix from "@/components/utils/HydrationFix";
+import { StorageMonitor } from "@/components/ui/StorageMonitor";
 
 // 日本語フォント対応
 const inter = Inter({ 
@@ -43,12 +44,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className="h-full">
+    <html lang="ja" className="h-full" suppressHydrationWarning>
       <body className={`${inter.className} h-full`} suppressHydrationWarning>
         <HydrationFix />
         <ErrorBoundary>
           <StorageInitializer />
           {children}
+          <StorageMonitor />
         </ErrorBoundary>
       </body>
     </html>

@@ -34,17 +34,27 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
   const [filterBy, setFilterBy] = useState<FilterBy>('all');
   const [showHidden, setShowHidden] = useState(false);
 
-  const { getCurrentSessionMemoryCards, createMemoryCard, getActiveSession, ensureTrackerManagerExists, initializeMemoryCards, togglePinMemory } = useAppStore();
+  const {
+    memory_cards_by_session,  // 🚀 セッションごとのメモリーカードMap（最適化）
+    createMemoryCard,
+    getActiveSession,
+    ensureTrackerManagerExists,
+    initializeMemoryCards,
+    togglePinMemory
+  } = useAppStore();
 
-  // Lazy initialize memory cards on mount
+  // Lazy initialize memory cards on mount (once only)
   useEffect(() => {
     initializeMemoryCards();
-  }, [initializeMemoryCards]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // メモリーカードのフィルタリングとソート
+  // 🚀 パフォーマンス最適化: memory_cards_by_sessionから直接取得（関数呼び出しなし）
   const filteredAndSortedMemories = useMemo(() => {
-    // 現在のセッションの記憶カードを取得
-    const currentSessionCards = getCurrentSessionMemoryCards ? getCurrentSessionMemoryCards() : new Map();
+    // propsのsession_idを使用（永続化されたデータに依存）
+    if (!session_id) return [];
+    const currentSessionCards = memory_cards_by_session.get(session_id);
     if (!currentSessionCards || currentSessionCards.size === 0) return [];
     let filtered = Array.from(currentSessionCards.values());
 
@@ -113,7 +123,16 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
     });
 
     return filtered;
-  }, [getCurrentSessionMemoryCards, searchTerm, sortBy, sortOrder, filterBy, showHidden, session_id, character_id]);
+  }, [
+    memory_cards_by_session,  // ✅ セッションごとのメモリーカードMap
+    session_id,  // ✅ プロップスのセッションID（永続化されたデータを使用）
+    searchTerm,  // ✅ 検索条件
+    sortBy,  // ✅ ソート基準
+    sortOrder,  // ✅ ソート順
+    filterBy,  // ✅ フィルター条件
+    showHidden,  // ✅ 非表示項目の表示/非表示
+    character_id  // ✅ プロップスのキャラクターID（フィルター用）
+  ]);
 
   const handleCreateMemory = async () => {
     try {
@@ -126,7 +145,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       // 最新の5つのメッセージからメモリーカードを作成
       const recentMessages = activeSession.messages.slice(-5);
       const messageIds = recentMessages.map(msg => msg.id);
-      
+
       if (messageIds.length === 0) {
         alert('メモリーカードを作成するためのメッセージがありません');
         return;
@@ -140,13 +159,37 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
 
       // トラッカーマネージャーの存在を確保
       ensureTrackerManagerExists(character);
-      
+
+      console.log('🎯 メモリーカード作成開始:', {
+        sessionId: activeSession.id,
+        characterId: character.id,
+        messageCount: messageIds.length
+      });
+
       const memoryCard = await createMemoryCard(messageIds, activeSession.id, character.id);
-      console.log('Memory card created successfully:', memoryCard);
+
+      if (!memoryCard) {
+        console.warn('⚠️ メモリーカード作成失敗: createMemoryCardがnullを返しました');
+        alert(
+          'メモリーカードの作成に失敗しました。\n' +
+          '原因の可能性:\n' +
+          '1. AI分析サービスが一時的に利用できません（Gemini APIがオーバーロード中の可能性）\n' +
+          '2. セッションまたはメッセージが見つかりませんでした\n\n' +
+          '数分待ってから再度お試しください。'
+        );
+        return;
+      }
+
+      console.log('✅ メモリーカード作成成功:', memoryCard);
       alert('メモリーカードを作成しました！');
     } catch (error) {
-      console.error('Failed to create memory card:', error);
-      alert('メモリーカードの作成に失敗しました');
+      console.error('❌ メモリーカード作成エラー:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(
+        'メモリーカードの作成中にエラーが発生しました。\n\n' +
+        `エラー詳細: ${errorMessage}\n\n` +
+        'コンソールログを確認してください。'
+      );
     }
   };
 
@@ -253,7 +296,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
           </div>
         ) : (
           <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {filteredAndSortedMemories.map((memory) => (
                 <MemoryCardComponent
                   key={memory.id}
@@ -270,7 +313,7 @@ export const MemoryGallery: React.FC<MemoryGalleryProps> = ({
       <div className="p-4 border-t border-white/10 text-xs text-white/50">
         <div className="flex justify-between">
           <span>
-            {filteredAndSortedMemories.length} / {getCurrentSessionMemoryCards ? getCurrentSessionMemoryCards().size : 0} 件の記憶を表示
+            {filteredAndSortedMemories.length} / {session_id ? (memory_cards_by_session.get(session_id)?.size || 0) : 0} 件の記憶を表示
           </span>
           <span>
             ピン留め: {filteredAndSortedMemories.filter(m => m.is_pinned).length} 件

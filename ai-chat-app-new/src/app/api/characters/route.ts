@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { enrichCharacterData, needsEnrichment, logEnrichmentDetails } from "@/utils/character-enrichment";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest) {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
           const characters = [];
 
-          // 各キャラクターファイルを読み込み
+          // 各キャラクターファイルを読み込み（重複排除付き）
+          const seenIds = new Set<string>();
           for (const filename of manifest) {
             const filePath = path.join(charactersDir, filename);
             if (fs.existsSync(filePath)) {
@@ -25,7 +27,26 @@ export async function GET(request: NextRequest) {
                 if (fileContent.charCodeAt(0) === 0xfeff) {
                   fileContent = fileContent.slice(1);
                 }
-                const characterData = JSON.parse(fileContent);
+                let characterData = JSON.parse(fileContent);
+
+                // ✨ 必須フィールドの自動補完
+                if (needsEnrichment(characterData)) {
+                  const enriched = enrichCharacterData(characterData, filename);
+                  logEnrichmentDetails(characterData, enriched);
+                  characterData = enriched;
+                }
+
+                // 🔧 重複チェック: idが既に存在する場合はスキップ
+                if (characterData.id && seenIds.has(characterData.id)) {
+                  console.warn(
+                    `Characters API: Skipping duplicate character ID "${characterData.id}" from ${filename}`
+                  );
+                  continue;
+                }
+
+                if (characterData.id) {
+                  seenIds.add(characterData.id);
+                }
                 characters.push(characterData);
               } catch (parseError) {
                 console.warn(
@@ -37,7 +58,7 @@ export async function GET(request: NextRequest) {
           }
 
           console.log(
-            `Characters API: Loaded ${characters.length} characters from manifest`
+            `Characters API: Loaded ${characters.length} unique characters from manifest (${manifest.length} files checked)`
           );
 
           // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
@@ -58,14 +79,34 @@ export async function GET(request: NextRequest) {
             const manifest = await manifestResponse.json();
             const characters = [];
 
-            // 各キャラクターファイルをURLから取得
+            // 各キャラクターファイルをURLから取得（重複排除付き）
+            const seenIds = new Set<string>();
             for (const filename of manifest) {
               try {
                 const characterResponse = await fetch(
                   `${baseUrl}/characters/${filename}`
                 );
                 if (characterResponse.ok) {
-                  const characterData = await characterResponse.json();
+                  let characterData = await characterResponse.json();
+
+                  // ✨ 必須フィールドの自動補完
+                  if (needsEnrichment(characterData)) {
+                    const enriched = enrichCharacterData(characterData, filename);
+                    logEnrichmentDetails(characterData, enriched);
+                    characterData = enriched;
+                  }
+
+                  // 🔧 重複チェック: idが既に存在する場合はスキップ
+                  if (characterData.id && seenIds.has(characterData.id)) {
+                    console.warn(
+                      `Characters API: Skipping duplicate character ID "${characterData.id}" from ${filename}`
+                    );
+                    continue;
+                  }
+
+                  if (characterData.id) {
+                    seenIds.add(characterData.id);
+                  }
                   characters.push(characterData);
                 }
               } catch (fetchError) {
@@ -77,7 +118,7 @@ export async function GET(request: NextRequest) {
             }
 
             console.log(
-              `Characters API: Loaded ${characters.length} characters from URL manifest`
+              `Characters API: Loaded ${characters.length} unique characters from URL manifest (${manifest.length} files checked)`
             );
 
             // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
@@ -138,8 +179,9 @@ export async function GET(request: NextRequest) {
     }
 
     const characters = [];
+    const seenIds = new Set<string>();
 
-    // 各キャラクターファイルを読み込み
+    // 各キャラクターファイルを読み込み（重複排除付き）
     for (const filename of jsonFiles) {
       const filePath = path.join(charactersDir, filename);
       try {
@@ -148,7 +190,26 @@ export async function GET(request: NextRequest) {
         if (fileContent.charCodeAt(0) === 0xfeff) {
           fileContent = fileContent.slice(1);
         }
-        const characterData = JSON.parse(fileContent);
+        let characterData = JSON.parse(fileContent);
+
+        // ✨ 必須フィールドの自動補完
+        if (needsEnrichment(characterData)) {
+          const enriched = enrichCharacterData(characterData, filename);
+          logEnrichmentDetails(characterData, enriched);
+          characterData = enriched;
+        }
+
+        // 🔧 重複チェック: idが既に存在する場合はスキップ
+        if (characterData.id && seenIds.has(characterData.id)) {
+          console.warn(
+            `Characters API: Skipping duplicate character ID "${characterData.id}" from ${filename}`
+          );
+          continue;
+        }
+
+        if (characterData.id) {
+          seenIds.add(characterData.id);
+        }
         characters.push(characterData);
 
         // Debug: Log specific character loading
@@ -166,7 +227,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      `Characters API: Loaded ${characters.length} characters from filesystem`
+      `Characters API: Loaded ${characters.length} unique characters from filesystem (${jsonFiles.length} files checked)`
     );
 
     // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
@@ -218,14 +279,34 @@ export async function POST(request: NextRequest) {
       fs.mkdirSync(charactersDir, { recursive: true });
     }
 
-    // トラッカー定義から実行時の値を完全に削除
-    // トラッカー定義にはtypeとinitial_valueだけを保存し、current_valueは保存しない
-    if (character.trackers && Array.isArray(character.trackers)) {
-      character.trackers = character.trackers.map((tracker: any) => {
+    // 🔒 トラッカー保護: 元ファイルからトラッカー定義を読み取り、保持する
+    const existingFilePath = path.join(charactersDir, `${character.id}.json`);
+    let existingTrackers: Array<Record<string, unknown>> = [];
+
+    if (fs.existsSync(existingFilePath)) {
+      try {
+        const existingData = JSON.parse(fs.readFileSync(existingFilePath, 'utf8'));
+        if (existingData.trackers && Array.isArray(existingData.trackers) && existingData.trackers.length > 0) {
+          existingTrackers = existingData.trackers;
+          console.log(`🔒 Preserving ${existingTrackers.length} existing trackers from file`);
+        }
+      } catch (readError) {
+        console.warn(`⚠️ Could not read existing trackers from ${character.id}.json:`, readError);
+      }
+    }
+
+    // トラッカー定義から実行時の値を削除（定義は保持）
+    if (character.trackers && Array.isArray(character.trackers) && character.trackers.length > 0) {
+      character.trackers = character.trackers.map((tracker: Record<string, unknown> & { current_value?: unknown; value?: unknown }) => {
         // current_valueやその他の実行時データを削除
-        const { current_value, value, ...trackerDefinition } = tracker;
+        const { current_value: _current_value, value: _value, ...trackerDefinition } = tracker;
         return trackerDefinition;
       });
+      console.log(`✅ Cleaned ${character.trackers.length} trackers (removed runtime values)`);
+    } else if (existingTrackers.length > 0) {
+      // トラッカーが空または未定義の場合、元のファイルから復元
+      character.trackers = existingTrackers;
+      console.log(`🔄 Restored ${existingTrackers.length} trackers from existing file`);
     }
 
     // メモリーカードは完全に削除（セッション固有のデータのため）

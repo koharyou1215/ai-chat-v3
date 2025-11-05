@@ -1,16 +1,17 @@
 import { useMemo } from 'react';
 
 // Tはジェネリック型で、ソート・フィルタリング対象のオブジェクト型（CharacterやPersonaなど）
-// KはTのキーの型
-type SortOption<K> = `${string & K}_${'asc' | 'desc'}`;
+// KはTのキーの型（検索用）
+// SKはソートキーの型（検索キーとは別に指定可能）
+type SortOption = `${string}_${'asc' | 'desc'}`;
 
 interface UseFilterAndSortProps<T, K extends keyof T> {
   data: T[];
   searchTerm: string;
   searchKeys: K[]; // 検索対象とするキーの配列
-  sortOption: SortOption<K>;
+  sortOption: SortOption;
   // ネストしたオブジェクトのキーを扱えるように、キーまたはキーへのパスを指定
-  sortKeys?: { [key in string & K]?: (item: T) => string | number | Date };
+  sortKeys?: { [key: string]: (item: T) => string | number | Date };
 }
 
 export function useFilterAndSort<T, K extends keyof T>({
@@ -41,9 +42,9 @@ export function useFilterAndSort<T, K extends keyof T>({
 
     // 2. Sorting Logic - Safe destructuring
     const parts = sortOption?.split('_') || [];
-    const [field = '', direction = 'asc'] = parts.length >= 2 
-      ? parts as [string & K, 'asc' | 'desc']
-      : ['', 'asc'] as [string & K, 'asc' | 'desc'];
+    const [field = '', direction = 'asc'] = parts.length >= 2
+      ? parts as [string, 'asc' | 'desc']
+      : ['', 'asc'] as [string, 'asc' | 'desc'];
     
     const sorted = [...filtered].sort((a, b) => {
       let valA, valB;
@@ -54,8 +55,10 @@ export function useFilterAndSort<T, K extends keyof T>({
         valB = sortKeys[field as keyof typeof sortKeys]!(b);
       } else if (field && field in (a as Record<string, unknown>)) {
         // デフォルトの動作：オブジェクトのプロパティを直接参照
-        valA = (a as any)[field];
-        valB = (b as any)[field];
+        const recordA = a as Record<string, unknown>;
+        const recordB = b as Record<string, unknown>;
+        valA = recordA[field];
+        valB = recordB[field];
       } else {
         valA = 0;
         valB = 0;

@@ -65,7 +65,7 @@ export type SidebarWidth = 'compact' | 'normal' | 'wide';
 /**
  * 背景種類
  */
-export type BackgroundType = 'color' | 'gradient' | 'image' | 'animated';
+export type BackgroundType = 'color' | 'gradient' | 'image' | 'video' | 'animated';
 
 /**
  * トランジション速度
@@ -158,31 +158,88 @@ export interface UISettings {
   shadowColor: string;
 
   // ═══════════════════════════════════
-  // 背景設定
+  // 背景設定 (Phase 3: 階層構造)
   // ═══════════════════════════════════
 
-  /** 背景の種類 */
-  backgroundType: BackgroundType;
+  /**
+   * 背景設定（階層構造）
+   * Phase 3で導入された階層構造による背景設定
+   */
+  background: {
+    /** 背景の種類 */
+    type: BackgroundType;
+    /** 画像背景設定 */
+    image: {
+      /** 背景画像URL（後方互換性）- デバイス別URLが未設定の場合のフォールバック */
+      url: string;
+      /** 🆕 デスクトップ用背景画像URL（横長画像推奨） */
+      desktop: string;
+      /** 🆕 モバイル用背景画像URL（縦長画像推奨） */
+      mobile: string;
+      /** 背景ぼかし強度 (0-50px) */
+      blur: number;
+      /** 背景ぼかし有効化フラグ */
+      blurEnabled: boolean;
+      /** 背景不透明度 (0-100) */
+      opacity: number;
+    };
+    /** グラデーション背景設定 */
+    gradient: {
+      /** グラデーション設定 (CSS gradient文法) */
+      value: string;
+    };
+    /** 🎬 動画背景設定 */
+    video?: {
+      /** 動画背景URL（後方互換性）- デバイス別URLが未設定の場合のフォールバック */
+      url: string;
+      /** デスクトップ用動画背景URL（横長動画推奨） */
+      desktop?: string;
+      /** モバイル用動画背景URL（縦長動画推奨） */
+      mobile?: string;
+      /** 動画不透明度 (0-100) */
+      opacity?: number;
+      /** ループ再生 */
+      loop?: boolean;
+      /** ミュート */
+      muted?: boolean;
+      /** 自動再生 */
+      autoplay?: boolean;
+      /** 再生速度 (0.5-2.0) */
+      playbackRate?: number;
+    };
+    /** 背景パターン (CSS pattern) - optional */
+    pattern?: string;
+    /** 背景パターン不透明度 (0-100) - optional */
+    patternOpacity?: number;
+  };
 
-  /** グラデーション設定 (CSS gradient文法) */
+  // ═══════════════════════════════════
+  // 後方互換性フィールド（非推奨）
+  // Phase 3マイグレーション用
+  // ═══════════════════════════════════
+
+  /** @deprecated Phase 3で階層構造に移行。background.typeを使用してください */
+  backgroundType?: BackgroundType;
+
+  /** @deprecated Phase 3で階層構造に移行。background.gradient.valueを使用してください */
   backgroundGradient?: string;
 
-  /** 背景画像URL */
+  /** @deprecated Phase 3で階層構造に移行。background.image.urlを使用してください */
   backgroundImage?: string;
 
-  /** 背景ぼかし強度 (0-100) */
-  backgroundBlur: number;
+  /** @deprecated Phase 3で階層構造に移行。background.image.blurを使用してください */
+  backgroundBlur?: number;
 
-  /** 背景ぼかし有効化フラグ */
-  backgroundBlurEnabled: boolean;
+  /** @deprecated Phase 3で階層構造に移行。background.image.blurEnabledを使用してください */
+  backgroundBlurEnabled?: boolean;
 
-  /** 背景不透明度 (0-100) */
-  backgroundOpacity: number;
+  /** @deprecated Phase 3で階層構造に移行。background.image.opacityを使用してください */
+  backgroundOpacity?: number;
 
-  /** 背景パターン (CSS pattern) */
+  /** @deprecated Phase 3で階層構造に移行。background.patternを使用してください */
   backgroundPattern?: string;
 
-  /** 背景パターン不透明度 (0-100) */
+  /** @deprecated Phase 3で階層構造に移行。background.patternOpacityを使用してください */
   backgroundPatternOpacity?: number;
 
   // ═══════════════════════════════════

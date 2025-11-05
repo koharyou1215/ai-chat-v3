@@ -70,6 +70,16 @@ const categoryGradients = {
   other: "from-purple-500/30 via-violet-500/20 to-purple-500/30",
 };
 
+// カテゴリーの日本語名マッピング
+const categoryLabels: Record<string, string> = {
+  relationship: "関係性",
+  status: "状態",
+  condition: "状況",
+  emotion: "感情",
+  progress: "進捗",
+  other: "その他",
+};
+
 export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   session_id,
   character_id,
@@ -85,121 +95,86 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   );
   const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Safe access helper for trackerManagers which may be a Map or plain object
-  const getTrackerManagerSafe = (trackerManagers: any, id: string | undefined): TrackerManager | undefined => {
-    if (!trackerManagers || !id) return undefined;
-    if (trackerManagers instanceof Map) return trackerManagers.get(id) as TrackerManager | undefined;
-    if (typeof trackerManagers === "object") return (trackerManagers as any)[id] as TrackerManager | undefined;
-    return undefined;
-  };
-
-  // Get tracker data from store with initialization check (safe for serialized store shape)
-  const trackerManager = useAppStore((state) =>
-    getTrackerManagerSafe(state.trackerManagers, character_id)
+  // 🔧 修正: sessionIdベースでTrackerManagerを取得（セッションスコープ設計に統一）
+  const getTrackerManager = useAppStore((state) => state.getTrackerManager);
+  const trackerManager = React.useMemo(
+    () => getTrackerManager ? getTrackerManager(session_id) : undefined,
+    [getTrackerManager, session_id]
   );
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);
 
-  // 🆕 セッション切り替え時のトラッカー同期
-  useEffect(() => {
-    if (character_id && session_id) {
-      console.log(`🔄 [TrackerDisplay] Session/Character changed:`, {
-        session_id: session_id.substring(0, 8) + '...',
-        character_id: character_id.substring(0, 8) + '...',
-        characterName: character?.name
-      });
+  // 🔧 REMOVED: セッション切り替え時のuseEffect（無限ループの原因だったため削除）
+  // trackerManagerはuseMemoで既に適切に取得されているため、追加のstate更新は不要
 
-      // セッション切り替え時にトラッカーマネージャーの状態確認
-      const rawManagers = useAppStore.getState().trackerManagers;
-      const currentManager = getTrackerManagerSafe(rawManagers, character_id);
-      if (currentManager) {
-        // 既存のマネージャーがある場合、一度状態を強制更新
-        useAppStore.setState((state) => ({
-          trackerManagers:
-            state.trackerManagers instanceof Map
-              ? new Map(state.trackerManagers)
-              : new Map(Object.entries(state.trackerManagers || {})),
-        }));
-        console.log(`✅ [TrackerDisplay] Refreshed tracker manager state for session switch`);
-      }
+  // 🎯 Helper function to initialize or reinitialize tracker manager
+  // 🔧 修正: sessionIdベースで初期化（セッションスコープ設計に統一）
+  const initializeTrackerManager = React.useCallback((sessionId: string, characterId: string, trackers: TrackerDefinition[], reason: string) => {
+    console.log(`[TrackerDisplay] ${reason} for session ID: ${sessionId}, character ID: ${characterId}`);
+
+    const initializeTrackerForSession = useAppStore.getState().initializeTrackerForSession;
+    if (initializeTrackerForSession && character) {
+      initializeTrackerForSession(sessionId, character);
+      console.log(`[TrackerDisplay] Tracker manager initialized with ${trackers.length} trackers`);
+    } else {
+      console.warn(`[TrackerDisplay] Failed to initialize tracker manager - initializeTrackerForSession not available`);
     }
-  }, [session_id, character_id, character?.name]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character]);
 
   // Initialize tracker manager if not exists and we have character data
+  // 🎯 Optimized: Only re-run when tracker count changes, not on every character object change
+  // 🔧 修正: sessionIdベースで初期化
   useEffect(() => {
-    const currentManager = useAppStore
-      .getState()
-      .trackerManagers.get(character_id);
-    if (
-      !currentManager &&
-      character &&
-      character.trackers &&
-      character.trackers.length > 0
-    ) {
-      console.log(
-        `[TrackerDisplay] Initializing tracker manager for character: ${character.name}`
-      );
-      console.log(
-        `[TrackerDisplay] Character trackers:`,
-        character.trackers.map((t) => ({
-          name: t.name,
-          current_value: (t as any).current_value,
-          config: t.config,
-        }))
-      );
+    const shouldInitialize =
+      !trackerManager &&
+      character?.trackers &&
+      character.trackers.length > 0;
 
-      // Create a new tracker manager and initialize it
-      const newManager = new TrackerManager();
-      newManager.initializeTrackerSet(character_id, character.trackers);
+    const shouldReinitialize =
+      trackerManager &&
+      character?.trackers &&
+      trackerManager.getTrackerSet(character_id)?.trackers.size !== character.trackers.length;
 
-      // Update the store - キャラクターIDをキーとして使用
-      useAppStore.setState((state) => {
-        const base =
-          state.trackerManagers instanceof Map
-            ? new Map(state.trackerManagers) as Map<string, TrackerManager>
-            : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
-        base.set(character_id, newManager);
-        return { trackerManagers: base };
-      });
-
-      console.log(
-        `[TrackerDisplay] Tracker manager initialized with ${character.trackers.length} trackers`
+    if (shouldInitialize) {
+      initializeTrackerManager(
+        session_id,
+        character_id,
+        character.trackers,
+        'Initializing tracker manager'
       );
-    } else if (
-      currentManager &&
-      character &&
-      character.trackers &&
-      currentManager.getTrackerSet(character_id)?.trackers.size !==
-        character.trackers.length
-    ) {
-      // 既存のマネージャーがあっても、トラッカー数が異なる場合は再初期化を検討
-      console.log(
-        `[TrackerDisplay] Re-initializing tracker manager due to tracker count mismatch for character: ${character.name}`
+    } else if (shouldReinitialize) {
+      initializeTrackerManager(
+        session_id,
+        character_id,
+        character.trackers,
+        'Re-initializing tracker manager due to tracker count mismatch'
       );
-      const newManager = new TrackerManager();
-      newManager.initializeTrackerSet(character_id, character.trackers);
-      useAppStore.setState((state) => {
-        const base =
-          state.trackerManagers instanceof Map
-            ? new Map(state.trackerManagers) as Map<string, TrackerManager>
-            : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
-        base.set(character_id, newManager);
-        return { trackerManagers: base };
-      });
     }
-  }, [character_id, character]);
+    // 🔧 FIX: initializeTrackerManager を削除して無限ループを防止
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session_id, character_id, character?.trackers?.length, trackerManager]);
 
   // Get current trackers with values from manager
+  // 🔧 修正: trackerManagersの変更を監視して自動的に再計算
+  const trackerManagers = useAppStore((state) => state.trackerManagers);
   const trackersWithValues: TrackerWithValue[] = useMemo(() => {
     if (!trackerManager || !character?.trackers) return [];
 
     const trackerSet = trackerManager.getTrackerSet(character_id);
     if (!trackerSet) return [];
 
+    console.log(`🔄 [TrackerDisplay] Recalculating trackers:`, {
+      trackerCount: trackerSet.trackers.size,
+      character_id: character_id.substring(0, 8) + '...'
+    });
+
     return character.trackers
       .map((trackerDef) => {
         const tracker = trackerSet.trackers.get(trackerDef.name);
         if (!tracker) return null;
+
+        console.log(`  📊 ${trackerDef.name}: ${tracker.current_value}`);
 
         return {
           ...trackerDef,
@@ -207,7 +182,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
         };
       })
       .filter((t): t is TrackerWithValue => t !== null);
-  }, [trackerManager, character?.trackers, character_id]);
+  }, [trackerManager, character?.trackers, character_id, trackerManagers]);
 
   // Group trackers by category
   const groupedTrackers = useMemo(() => {
@@ -273,7 +248,10 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     trackerName: string,
     change: number | string | boolean
   ) => {
-    if (!trackerManager) return;
+    if (!trackerManager) {
+      console.error(`❌ TrackerManager not found for session: ${session_id}`);
+      return;
+    }
 
     const trackerSet = trackerManager.getTrackerSet(character_id);
     if (!trackerSet) return;
@@ -292,7 +270,6 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       trackerManager.updateTracker(character_id, trackerName, change);
     }
 
-    // Log the tracker change for debugging
     console.log(`🎯 [TrackerDisplay] Tracker updated:`, {
       character_id,
       trackerName,
@@ -301,17 +278,25 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       session_id
     });
 
-    // Force re-render by updating the store
-    useAppStore.setState((state) => ({
-      trackerManagers: new Map(state.trackerManagers) as Map<string, TrackerManager>,
-    }));
+    // 🔧 CRITICAL FIX: TrackerManagerインスタンスを再セットしてpersistをトリガー
+    const currentManagers = useAppStore.getState().trackerManagers;
+    const newManagers = new Map(currentManagers);
+    newManagers.set(session_id, trackerManager); // ← 明示的に再セット
+    useAppStore.setState({
+      trackerManagers: newManagers,
+    });
 
-    // 🆕 トラッカー値変更時に自動的にプロンプト更新フラグを設定
-    // プロンプトビルダーサービスにて次回プロンプト生成時に最新のトラッカー値が反映される
+    console.log(`💾 [TrackerDisplay] Saved to Zustand store:`, {
+      sessionId: session_id,
+      trackerName,
+      newValue,
+      managersSize: newManagers.size
+    });
+
+    // ConversationManagerのキャッシュをクリア（次回プロンプト生成時に最新のトラッカー値を反映）
     try {
       const store = useAppStore.getState();
       if (store.clearConversationCache) {
-        // ConversationManagerのキャッシュをクリアして、次回プロンプト生成時に最新のトラッカー値を反映
         store.clearConversationCache(session_id);
         console.log(`✅ [TrackerDisplay] Cleared conversation cache for session: ${session_id}`);
       }
@@ -500,8 +485,8 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <Icon className={cn("w-4 h-4", colorClass)} />
-                  <span className="font-medium text-white/90 capitalize">
-                    {category === "other" ? "その他" : category}
+                  <span className="font-medium text-white/90">
+                    {categoryLabels[category] || category}
                   </span>
                   <span className="text-xs text-white/50 bg-white/10 px-2 py-1 rounded">
                     {trackers.length}

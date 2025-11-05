@@ -69,27 +69,34 @@ ${content}
 - other: その他
 `;
 
-      console.log("[MemoryCard] Generating memory card analysis...");
+      console.log("[MemoryCard] 📝 AI分析開始...");
+      console.log("[MemoryCard] 分析対象メッセージ数:", messages.length);
+
+      // 🔧 CRITICAL FIX: メモリーカード生成はユーザー設定のデフォルトモデルを使用
+      // meta-llama/llama-3.1-8b-instruct:freeは利用不可のため、設定モデルを使用
       const response = await simpleAPIManagerV2.generateMessage(
         analysisPrompt,
         "",
         [],
         {
+          // providerとmodelは指定しない = ユーザー設定のデフォルトモデルを使用
+          // google/gemini-2.5-flash-preview-09-2025 が使用される
           max_tokens: 1024,
           temperature: 0.3,
         }
       );
-      console.log("[MemoryCard] Raw API response:", response);
+      console.log("[MemoryCard] ✅ AI分析レスポンス受信:", response.substring(0, 100) + "...");
 
       // JSON解析
       const analysisResult = this.parseAnalysisResult(response);
 
       if (!analysisResult) {
         console.warn(
-          "[MemoryCard] Failed to parse analysis result, using fallback."
+          "[MemoryCard] ⚠️ AI分析結果のパースに失敗。フォールバック処理を使用します。"
         );
         return this.generateFallbackMemoryCard(messages, content);
       }
+      console.log("[MemoryCard] ✅ AI分析結果パース成功:", analysisResult);
 
       return {
         title: analysisResult.title || this.generateFallbackTitle(messages),
@@ -124,7 +131,12 @@ ${content}
         ],
       };
     } catch (error) {
-      console.error("Failed to generate memory card with AI:", error);
+      console.error("❌ [MemoryCard] AI分析でエラーが発生しました:", error);
+      if (error instanceof Error) {
+        console.error("❌ [MemoryCard] エラー詳細:", error.message);
+        console.error("❌ [MemoryCard] スタックトレース:", error.stack);
+      }
+      console.log("🔄 [MemoryCard] フォールバック処理を使用します");
       // フォールバック処理
       return this.generateFallbackMemoryCard(messages, content);
     }

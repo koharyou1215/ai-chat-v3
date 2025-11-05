@@ -7,11 +7,24 @@ export async function POST(request: NextRequest) {
     const { text, speaker, settings } = body;
 
     const voicevoxUrl = process.env.VOICEVOX_ENGINE_URL || 'http://localhost:50021';
-    
+
+    // 本番環境チェック（Vercel等）
+    const isProduction = process.env.NODE_ENV === 'production' && !process.env.VOICEVOX_ENGINE_URL;
+    if (isProduction) {
+      console.warn('⚠️ VOICEVOX is not available in production environment');
+      throw new Error(
+        '本番環境ではVOICEVOXは使用できません。\n' +
+        'VOICEVOXはローカルエンジンが必要なため、本番環境（Vercel等）では動作しません。\n\n' +
+        '代替方法：\n' +
+        '1. ElevenLabsを使用（環境変数にELEVENLABS_API_KEYを設定）\n' +
+        '2. ブラウザ組み込みのSystem TTSを使用（設定画面で切り替え）'
+      );
+    }
+
     // VoiceVoxエンジンが起動しているかチェック
     try {
       console.log(`🔊 VoiceVox health check to: ${voicevoxUrl}/version`);
-      const healthCheck = await fetch(`${voicevoxUrl}/version`, { 
+      const healthCheck = await fetch(`${voicevoxUrl}/version`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5秒でタイムアウト
       });

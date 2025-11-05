@@ -8,7 +8,32 @@ import { useAppStore } from '@/store';
 export function useEffectSettings() {
   const effectSettings = useAppStore((state) => state.effectSettings);
   const updateEffectSettings = useAppStore((state) => state.updateEffectSettings);
-  const emotionalIntelligenceFlags = useAppStore((state) => state.emotionalIntelligenceFlags);
+  const emotionalIntelligence = useAppStore((state) => state.unifiedSettings.emotionalIntelligence);
+
+  // 🔍 DEBUG: 設定値をログ出力
+  console.log('🎨 [useEffectSettings] Current effectSettings:', {
+    colorfulBubbles: effectSettings.colorfulBubbles,
+    particleEffects: effectSettings.particleEffects,
+    typewriterEffect: effectSettings.typewriterEffect,
+    bubbleOpacity: effectSettings.bubbleOpacity,
+  });
+
+  // 🔄 後方互換性: 古いemotionalIntelligenceFlagsインターフェースを維持
+  const emotionalIntelligenceFlags = {
+    emotion_analysis_enabled: emotionalIntelligence.enabled && emotionalIntelligence.analysis.basic,
+    emotional_memory_enabled: emotionalIntelligence.memoryEnabled,
+    basic_effects_enabled: effectSettings.emotion.displayMode !== 'none',
+    contextual_analysis_enabled: emotionalIntelligence.analysis.contextual,
+    adaptive_performance_enabled: emotionalIntelligence.adaptivePerformance,
+    visual_effects_enabled: effectSettings.emotion.displayMode === 'rich' || effectSettings.emotion.displayMode === 'standard',
+    predictive_analysis_enabled: emotionalIntelligence.analysis.predictive,
+    advanced_effects_enabled: effectSettings.emotion.displayMode === 'rich',
+    multi_layer_analysis_enabled: emotionalIntelligence.analysis.multiLayer,
+    safe_mode: emotionalIntelligence.safeMode,
+    fallback_to_legacy: emotionalIntelligence.fallbackToLegacy,
+    performance_monitoring: emotionalIntelligence.performanceMonitoring,
+    debug_mode: emotionalIntelligence.debugMode,
+  };
 
   const resetSettings = () => {
     // デフォルト設定にリセット
@@ -46,10 +71,17 @@ export function useEffectSettings() {
         },
         quality: 'medium',
       },
-      realtimeEmotion: false,
-      emotionBasedStyling: false,
-      autoReactions: false,
-      emotionStylingIntensity: 45,
+      emotion: {
+        displayMode: 'none',
+        display: {
+          showText: false,
+          applyColors: false,
+          showIcon: false,
+        },
+        realtimeDetection: false,
+        autoReactions: false,
+        intensity: 50,
+      },
       autoTrackerUpdate: true,
       showTrackers: true,
       effectQuality: 'medium',

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 // SettingItem コンポーネント
 const SettingItem: React.FC<{
@@ -68,6 +69,22 @@ const ColorSetting: React.FC<{
 const AppearancePanel: React.FC = () => {
   const { appearanceSettings, updateAppearanceSettings } = useAppStore();
   const [previewMode, setPreviewMode] = useState(false);
+
+  // 🆕 ファイルアップロード機能
+  const { uploadFile, isUploading, progress } = useFileUpload();
+  const desktopFileInputRef = useRef<HTMLInputElement>(null);
+  const mobileFileInputRef = useRef<HTMLInputElement>(null);
+  const commonFileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Phase 3: 階層構造対応（フォールバック付き）
+  const backgroundImage = appearanceSettings.background?.image?.url || appearanceSettings.backgroundImage || '';
+  const backgroundImageDesktop = appearanceSettings.background?.image?.desktop || '';  // 🆕 デスクトップURL
+  const backgroundImageMobile = appearanceSettings.background?.image?.mobile || '';    // 🆕 モバイルURL
+  const backgroundBlur = appearanceSettings.background?.image?.blur ?? appearanceSettings.backgroundBlur ?? 10;
+  const backgroundBlurEnabled = appearanceSettings.background?.image?.blurEnabled ?? appearanceSettings.backgroundBlurEnabled ?? false;
+  const backgroundOpacity = appearanceSettings.background?.image?.opacity ?? appearanceSettings.backgroundOpacity ?? 100;
+  const backgroundGradient = appearanceSettings.background?.gradient?.value || appearanceSettings.backgroundGradient || '';
+  const backgroundType = appearanceSettings.background?.type || appearanceSettings.backgroundType || 'gradient';
 
   // テーマプリセット
   const themePresets = [
@@ -140,9 +157,81 @@ const AppearancePanel: React.FC = () => {
     updateAppearanceSettings({ [key]: value });
   };
 
+  // 🆕 ファイルアップロードハンドラー
+  const handleFileUpload = async (
+    file: File,
+    target: 'desktop' | 'mobile' | 'common'
+  ) => {
+    try {
+      const url = await uploadFile(file);
+
+      // 階層構造に対応した設定更新
+      const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+      const currentImage = (currentBg?.image || {}) as NonNullable<typeof currentBg.image>;
+      const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+
+      if (target === 'desktop') {
+        updateAppearanceSettings({
+          background: {
+            ...currentBg,
+            type: 'image',
+            image: {
+              ...currentImage,
+              desktop: url,
+              url: currentImage.url || '',
+              mobile: currentImage.mobile || '',
+              blur: currentImage.blur ?? 10,
+              blurEnabled: currentImage.blurEnabled ?? false,
+              opacity: currentImage.opacity ?? 100,
+            },
+            gradient: currentGradient,
+          }
+        });
+      } else if (target === 'mobile') {
+        updateAppearanceSettings({
+          background: {
+            ...currentBg,
+            type: 'image',
+            image: {
+              ...currentImage,
+              mobile: url,
+              url: currentImage.url || '',
+              desktop: currentImage.desktop || '',
+              blur: currentImage.blur ?? 10,
+              blurEnabled: currentImage.blurEnabled ?? false,
+              opacity: currentImage.opacity ?? 100,
+            },
+            gradient: currentGradient,
+          }
+        });
+      } else {
+        // common
+        updateAppearanceSettings({
+          background: {
+            ...currentBg,
+            type: 'image',
+            image: {
+              ...currentImage,
+              url: url,
+              desktop: currentImage.desktop || '',
+              mobile: currentImage.mobile || '',
+              blur: currentImage.blur ?? 10,
+              blurEnabled: currentImage.blurEnabled ?? false,
+              opacity: currentImage.opacity ?? 100,
+            },
+            gradient: currentGradient,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('ファイルアップロードエラー:', error);
+      alert(error instanceof Error ? error.message : 'ファイルアップロードに失敗しました');
+    }
+  };
+
   const applyThemePreset = (preset: (typeof themePresets)[0]) => {
     updateAppearanceSettings({
-      theme: preset.key as any,
+      theme: preset.key as typeof appearanceSettings.theme,
       ...preset.colors,
     });
   };
@@ -215,24 +304,24 @@ const AppearancePanel: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <ColorSetting
             label="プライマリカラー"
-            value={appearanceSettings.primaryColor}
+            value={appearanceSettings.primaryColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("primaryColor", color)}
           />
           <ColorSetting
             label="アクセントカラー"
-            value={appearanceSettings.accentColor}
+            value={appearanceSettings.accentColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("accentColor", color)}
           />
           <ColorSetting
             label="背景色"
-            value={appearanceSettings.backgroundColor}
+            value={appearanceSettings.backgroundColor || '#000000'}
             onChange={(color) =>
               updateAppearanceSetting("backgroundColor", color)
             }
           />
           <ColorSetting
             label="サーフェスカラー"
-            value={appearanceSettings.surfaceColor}
+            value={appearanceSettings.surfaceColor || '#000000'}
             onChange={(color) => updateAppearanceSetting("surfaceColor", color)}
           />
         </div>
@@ -280,7 +369,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.fontWeight}
               onChange={(e) =>
-                updateAppearanceSetting("fontWeight", e.target.value as any)
+                updateAppearanceSetting("fontWeight", e.target.value as unknown as typeof appearanceSettings.fontWeight)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="light">軽い (Light)</option>
@@ -304,7 +393,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.messageSpacing}
               onChange={(e) =>
-                updateAppearanceSetting("messageSpacing", e.target.value as any)
+                updateAppearanceSetting("messageSpacing", e.target.value as unknown as typeof appearanceSettings.messageSpacing)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="compact">コンパクト</option>
@@ -322,7 +411,7 @@ const AppearancePanel: React.FC = () => {
               onChange={(e) =>
                 updateAppearanceSetting(
                   "messageBorderRadius",
-                  e.target.value as any
+                  e.target.value as unknown as typeof appearanceSettings.messageBorderRadius
                 )
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
@@ -341,7 +430,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.chatMaxWidth}
               onChange={(e) =>
-                updateAppearanceSetting("chatMaxWidth", e.target.value as any)
+                updateAppearanceSetting("chatMaxWidth", e.target.value as unknown as typeof appearanceSettings.chatMaxWidth)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="narrow">狭い</option>
@@ -358,7 +447,7 @@ const AppearancePanel: React.FC = () => {
             <select
               value={appearanceSettings.sidebarWidth}
               onChange={(e) =>
-                updateAppearanceSetting("sidebarWidth", e.target.value as any)
+                updateAppearanceSetting("sidebarWidth", e.target.value as unknown as typeof appearanceSettings.sidebarWidth)
               }
               className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
               <option value="narrow">狭い</option>
@@ -377,8 +466,8 @@ const AppearancePanel: React.FC = () => {
           <label className="block text-sm font-medium text-gray-300 mb-2">
             背景タイプ
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["solid", "gradient", "image", "animated"] as const).map(
+          <div className="grid grid-cols-3 gap-2">
+            {(["color", "gradient", "image", "video", "animated"] as const).map(
               (type) => (
                 <button
                   key={type}
@@ -387,16 +476,18 @@ const AppearancePanel: React.FC = () => {
                   }
                   className={cn(
                     "py-2 px-3 rounded-lg text-sm transition-colors",
-                    appearanceSettings.backgroundType === type
+                    backgroundType === type
                       ? "bg-purple-500 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   )}>
-                  {type === "solid"
+                  {type === "color"
                     ? "単色"
                     : type === "gradient"
                     ? "グラデーション"
                     : type === "image"
                     ? "画像"
+                    : type === "video"
+                    ? "🎬 動画"
                     : "アニメーション"}
                 </button>
               )
@@ -405,7 +496,7 @@ const AppearancePanel: React.FC = () => {
         </div>
 
         {/* グラデーション設定 */}
-        {appearanceSettings.backgroundType === "gradient" && (
+        {backgroundType === "gradient" && (
           <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg">
             <label className="block text-sm font-medium text-gray-300">
               グラデーションプリセット
@@ -454,7 +545,7 @@ const AppearancePanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={appearanceSettings.backgroundGradient}
+                value={backgroundGradient}
                 onChange={(e) =>
                   updateAppearanceSetting("backgroundGradient", e.target.value)
                 }
@@ -466,81 +557,706 @@ const AppearancePanel: React.FC = () => {
         )}
 
         {/* 画像背景設定 */}
-        {appearanceSettings.backgroundType === "image" && (
+        {backgroundType === "image" && (
           <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg">
+            {/* 🆕 デスクトップ用URL */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景画像URL
+                🖥️ デスクトップ用背景画像URL（横長画像推奨）
               </label>
               <input
                 type="text"
-                value={appearanceSettings.backgroundImage}
+                value={backgroundImageDesktop}
+                onChange={(e) => {
+                  // desktop URL を更新（階層構造に対応）
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentImage = (currentBg?.image || {}) as NonNullable<typeof currentBg.image>;
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'image',
+                      image: {
+                        ...currentImage,
+                        desktop: e.target.value,
+                        url: currentImage.url || '',
+                        mobile: currentImage.mobile || '',
+                        blur: currentImage.blur ?? 10,
+                        blurEnabled: currentImage.blurEnabled ?? false,
+                        opacity: currentImage.opacity ?? 100,
+                      },
+                      gradient: currentGradient,
+                    }
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                placeholder="https://example.com/desktop-bg.jpg"
+              />
+              {/* 🆕 ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={desktopFileInputRef}
+                  type="file"
+                  accept="image/*,video/mp4,video/webm"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      await handleFileUpload(file, 'desktop');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => desktopFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📁</span>
+                      <span>画像/動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下の画像（JPEG/PNG/GIF/WEBP）または動画（MP4）をアップロード可能
+                </p>
+              </div>
+            </div>
+
+            {/* 🆕 モバイル用URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                📱 モバイル用背景画像URL（縦長画像推奨）
+              </label>
+              <input
+                type="text"
+                value={backgroundImageMobile}
+                onChange={(e) => {
+                  // mobile URL を更新（階層構造に対応）
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentImage = (currentBg?.image || {}) as NonNullable<typeof currentBg.image>;
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'image',
+                      image: {
+                        ...currentImage,
+                        mobile: e.target.value,
+                        url: currentImage.url || '',
+                        desktop: currentImage.desktop || '',
+                        blur: currentImage.blur ?? 10,
+                        blurEnabled: currentImage.blurEnabled ?? false,
+                        opacity: currentImage.opacity ?? 100,
+                      },
+                      gradient: currentGradient,
+                    }
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                placeholder="https://example.com/mobile-bg.jpg"
+              />
+              {/* 🆕 ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={mobileFileInputRef}
+                  type="file"
+                  accept="image/*,video/mp4,video/webm"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      await handleFileUpload(file, 'mobile');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => mobileFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📁</span>
+                      <span>画像/動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下の画像（JPEG/PNG/GIF/WEBP）または動画（MP4）をアップロード可能
+                </p>
+              </div>
+            </div>
+
+            {/* 後方互換性: 共通URL（フォールバック用） */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                🔄 共通背景画像URL（フォールバック用）
+              </label>
+              <input
+                type="text"
+                value={backgroundImage}
                 onChange={(e) =>
                   updateAppearanceSetting("backgroundImage", e.target.value)
                 }
                 className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
                 placeholder="https://example.com/image.jpg"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景ぼかし: {appearanceSettings.backgroundBlur}px
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="20"
-                value={appearanceSettings.backgroundBlur}
-                onChange={(e) =>
-                  updateAppearanceSetting(
-                    "backgroundBlur",
-                    parseInt(e.target.value)
-                  )
-                }
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景ぼかしを有効にする
-              </label>
-              <div>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={appearanceSettings.backgroundBlurEnabled ?? true}
-                    onChange={(e) =>
-                      updateAppearanceSetting(
-                        "backgroundBlurEnabled",
-                        e.target.checked
-                      )
+              <p className="text-xs text-gray-500 mt-1">
+                ※ デスクトップ/モバイル用URLが未設定の場合に使用されます
+              </p>
+              {/* 🆕 ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={commonFileInputRef}
+                  type="file"
+                  accept="image/*,video/mp4,video/webm"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      await handleFileUpload(file, 'common');
                     }
-                    className="form-checkbox h-5 w-5 text-purple-600"
-                  />
-                  <span className="text-sm text-gray-300">有効</span>
-                </label>
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => commonFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📁</span>
+                      <span>画像/動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下の画像（JPEG/PNG/GIF/WEBP）または動画（MP4）をアップロード可能
+                </p>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                背景透明度: {appearanceSettings.backgroundOpacity}%
-              </label>
+            {/* 🖼️ 画像背景ぼかし設定 */}
+            <SettingItem
+              title="画像背景ぼかし効果"
+              description="背景画像にぼかし効果を適用します（吹き出しのぼかしとは独立して制御されます）"
+              checked={backgroundBlurEnabled}
+              onChange={(checked) =>
+                updateAppearanceSetting("backgroundBlurEnabled", checked)
+              }
+            />
+
+            {/* ぼかし強度スライダー */}
+            {backgroundBlurEnabled && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    ぼかし強度
+                  </label>
+                  <span className="text-sm text-purple-400">
+                    {backgroundBlur}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="50"
+                  step="1"
+                  value={backgroundBlur}
+                  onChange={(e) =>
+                    updateAppearanceSetting(
+                      "backgroundBlur",
+                      parseInt(e.target.value)
+                    )
+                  }
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            )}
+
+            {/* 透明度スライダー */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300">
+                  背景透明度
+                </label>
+                <span className="text-sm text-purple-400">
+                  {backgroundOpacity}%
+                </span>
+              </div>
               <input
                 type="range"
                 min="0"
                 max="100"
-                value={appearanceSettings.backgroundOpacity}
+                step="5"
+                value={backgroundOpacity}
                 onChange={(e) =>
                   updateAppearanceSetting(
                     "backgroundOpacity",
                     parseInt(e.target.value)
                   )
                 }
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
               />
+            </div>
+          </div>
+        )}
+
+        {/* 🎬 動画背景設定 */}
+        {backgroundType === "video" && (
+          <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg">
+            {/* デスクトップ用動画URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                🖥️ デスクトップ用動画URL（横長動画推奨）
+              </label>
+              <input
+                type="text"
+                value={appearanceSettings.background?.video?.desktop || ''}
+                onChange={(e) => {
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                  const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'video',
+                      image: currentImage,
+                      gradient: currentGradient,
+                      video: {
+                        ...currentVideo,
+                        desktop: e.target.value,
+                        url: currentVideo.url || '',
+                        mobile: currentVideo.mobile || '',
+                        opacity: currentVideo.opacity ?? 100,
+                        loop: currentVideo.loop ?? true,
+                        muted: currentVideo.muted ?? true,
+                        autoplay: currentVideo.autoplay ?? true,
+                        playbackRate: currentVideo.playbackRate ?? 1.0,
+                      }
+                    }
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                placeholder="https://example.com/desktop-bg.mp4"
+              />
+              {/* ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={desktopFileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/mov"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const url = await uploadFile(file);
+                        const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                        const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                        const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                        const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                        updateAppearanceSettings({
+                          background: {
+                            ...currentBg,
+                            type: 'video',
+                            image: currentImage,
+                            gradient: currentGradient,
+                            video: {
+                              ...currentVideo,
+                              desktop: url,
+                              url: currentVideo.url || '',
+                              mobile: currentVideo.mobile || '',
+                              opacity: currentVideo.opacity ?? 100,
+                              loop: currentVideo.loop ?? true,
+                              muted: currentVideo.muted ?? true,
+                              autoplay: currentVideo.autoplay ?? true,
+                              playbackRate: currentVideo.playbackRate ?? 1.0,
+                            }
+                          }
+                        });
+                      } catch (error) {
+                        console.error('動画アップロードエラー:', error);
+                        alert(error instanceof Error ? error.message : '動画アップロードに失敗しました');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => desktopFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🎬</span>
+                      <span>動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下のMP4/WEBM動画をアップロード可能
+                </p>
+              </div>
+            </div>
+
+            {/* モバイル用動画URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                📱 モバイル用動画URL（縦長動画推奨）
+              </label>
+              <input
+                type="text"
+                value={appearanceSettings.background?.video?.mobile || ''}
+                onChange={(e) => {
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                  const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'video',
+                      image: currentImage,
+                      gradient: currentGradient,
+                      video: {
+                        ...currentVideo,
+                        mobile: e.target.value,
+                        url: currentVideo.url || '',
+                        desktop: currentVideo.desktop || '',
+                        opacity: currentVideo.opacity ?? 100,
+                        loop: currentVideo.loop ?? true,
+                        muted: currentVideo.muted ?? true,
+                        autoplay: currentVideo.autoplay ?? true,
+                        playbackRate: currentVideo.playbackRate ?? 1.0,
+                      }
+                    }
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                placeholder="https://example.com/mobile-bg.mp4"
+              />
+              {/* ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={mobileFileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/mov"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const url = await uploadFile(file);
+                        const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                        const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                        const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                        const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                        updateAppearanceSettings({
+                          background: {
+                            ...currentBg,
+                            type: 'video',
+                            image: currentImage,
+                            gradient: currentGradient,
+                            video: {
+                              ...currentVideo,
+                              mobile: url,
+                              url: currentVideo.url || '',
+                              desktop: currentVideo.desktop || '',
+                              opacity: currentVideo.opacity ?? 100,
+                              loop: currentVideo.loop ?? true,
+                              muted: currentVideo.muted ?? true,
+                              autoplay: currentVideo.autoplay ?? true,
+                              playbackRate: currentVideo.playbackRate ?? 1.0,
+                            }
+                          }
+                        });
+                      } catch (error) {
+                        console.error('動画アップロードエラー:', error);
+                        alert(error instanceof Error ? error.message : '動画アップロードに失敗しました');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => mobileFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🎬</span>
+                      <span>動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下のMP4/WEBM動画をアップロード可能
+                </p>
+              </div>
+            </div>
+
+            {/* 共通動画URL（フォールバック用） */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                🔄 共通動画URL（フォールバック用）
+              </label>
+              <input
+                type="text"
+                value={appearanceSettings.background?.video?.url || ''}
+                onChange={(e) => {
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                  const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'video',
+                      image: currentImage,
+                      gradient: currentGradient,
+                      video: {
+                        ...currentVideo,
+                        url: e.target.value,
+                        desktop: currentVideo.desktop || '',
+                        mobile: currentVideo.mobile || '',
+                        opacity: currentVideo.opacity ?? 100,
+                        loop: currentVideo.loop ?? true,
+                        muted: currentVideo.muted ?? true,
+                        autoplay: currentVideo.autoplay ?? true,
+                        playbackRate: currentVideo.playbackRate ?? 1.0,
+                      }
+                    }
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                placeholder="https://example.com/bg-video.mp4"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                ※ デスクトップ/モバイル用URLが未設定の場合に使用されます
+              </p>
+              {/* ファイルアップロードボタン */}
+              <div className="mt-2">
+                <input
+                  ref={commonFileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/mov"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const url = await uploadFile(file);
+                        const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                        const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                        const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                        const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                        updateAppearanceSettings({
+                          background: {
+                            ...currentBg,
+                            type: 'video',
+                            image: currentImage,
+                            gradient: currentGradient,
+                            video: {
+                              ...currentVideo,
+                              url: url,
+                              desktop: currentVideo.desktop || '',
+                              mobile: currentVideo.mobile || '',
+                              opacity: currentVideo.opacity ?? 100,
+                              loop: currentVideo.loop ?? true,
+                              muted: currentVideo.muted ?? true,
+                              autoplay: currentVideo.autoplay ?? true,
+                              playbackRate: currentVideo.playbackRate ?? 1.0,
+                            }
+                          }
+                        });
+                      } catch (error) {
+                        console.error('動画アップロードエラー:', error);
+                        alert(error instanceof Error ? error.message : '動画アップロードに失敗しました');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => commonFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>アップロード中... {progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🎬</span>
+                      <span>動画を選択してアップロード</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 10MB以下のMP4/WEBM動画をアップロード可能
+                </p>
+              </div>
+            </div>
+
+            {/* 動画設定 */}
+            <div className="space-y-4 pt-4 border-t border-gray-700">
+              {/* ループ再生 */}
+              <SettingItem
+                title="ループ再生"
+                description="動画を繰り返し再生します"
+                checked={appearanceSettings.background?.video?.loop ?? true}
+                onChange={(checked) => {
+                  const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                  const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                  const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                  const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                  updateAppearanceSettings({
+                    background: {
+                      ...currentBg,
+                      type: 'video',
+                      image: currentImage,
+                      gradient: currentGradient,
+                      video: {
+                        ...currentVideo,
+                        loop: checked,
+                        url: currentVideo.url || '',
+                        desktop: currentVideo.desktop || '',
+                        mobile: currentVideo.mobile || '',
+                        opacity: currentVideo.opacity ?? 100,
+                        muted: currentVideo.muted ?? true,
+                        autoplay: currentVideo.autoplay ?? true,
+                        playbackRate: currentVideo.playbackRate ?? 1.0,
+                      }
+                    }
+                  });
+                }}
+              />
+
+              {/* 動画透明度 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    動画透明度
+                  </label>
+                  <span className="text-sm text-purple-400">
+                    {appearanceSettings.background?.video?.opacity ?? 100}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={appearanceSettings.background?.video?.opacity ?? 100}
+                  onChange={(e) => {
+                    const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                    const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                    const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                    const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                    updateAppearanceSettings({
+                      background: {
+                        ...currentBg,
+                        type: 'video',
+                        image: currentImage,
+                        gradient: currentGradient,
+                        video: {
+                          ...currentVideo,
+                          opacity: parseInt(e.target.value),
+                          url: currentVideo.url || '',
+                          desktop: currentVideo.desktop || '',
+                          mobile: currentVideo.mobile || '',
+                          loop: currentVideo.loop ?? true,
+                          muted: currentVideo.muted ?? true,
+                          autoplay: currentVideo.autoplay ?? true,
+                          playbackRate: currentVideo.playbackRate ?? 1.0,
+                        }
+                      }
+                    });
+                  }}
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* 再生速度 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    再生速度
+                  </label>
+                  <span className="text-sm text-purple-400">
+                    {appearanceSettings.background?.video?.playbackRate ?? 1.0}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  value={appearanceSettings.background?.video?.playbackRate ?? 1.0}
+                  onChange={(e) => {
+                    const currentBg = (appearanceSettings.background || {}) as NonNullable<typeof appearanceSettings.background>;
+                    const currentVideo = (currentBg?.video || {}) as NonNullable<typeof currentBg.video>;
+                    const currentImage = currentBg?.image || { url: '', desktop: '', mobile: '', blur: 10, blurEnabled: false, opacity: 100 };
+                    const currentGradient = currentBg?.gradient || { value: appearanceSettings.backgroundGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+                    updateAppearanceSettings({
+                      background: {
+                        ...currentBg,
+                        type: 'video',
+                        image: currentImage,
+                        gradient: currentGradient,
+                        video: {
+                          ...currentVideo,
+                          playbackRate: parseFloat(e.target.value),
+                          url: currentVideo.url || '',
+                          desktop: currentVideo.desktop || '',
+                          mobile: currentVideo.mobile || '',
+                          loop: currentVideo.loop ?? true,
+                          muted: currentVideo.muted ?? true,
+                          autoplay: currentVideo.autoplay ?? true,
+                          opacity: currentVideo.opacity ?? 100,
+                        }
+                      }
+                    });
+                  }}
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -553,7 +1269,7 @@ const AppearancePanel: React.FC = () => {
         <SettingItem
           title="アニメーションを有効にする"
           description="UIのアニメーション効果を有効にします"
-          checked={appearanceSettings.enableAnimations}
+          checked={appearanceSettings.enableAnimations ?? true}
           onChange={(checked) =>
             updateAppearanceSetting("enableAnimations", checked)
           }
@@ -568,7 +1284,7 @@ const AppearancePanel: React.FC = () => {
             onChange={(e) =>
               updateAppearanceSetting(
                 "transitionDuration",
-                e.target.value as any
+                e.target.value as unknown as typeof appearanceSettings.transitionDuration
               )
             }
             className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">

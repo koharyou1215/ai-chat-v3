@@ -55,10 +55,10 @@ export const RippleEffect: React.FC<RippleEffectProps> = ({
 
   // コンポーネントアンマウント時にタイマーをクリーンアップ
   useEffect(() => {
+    const currentTimeouts = timeoutsRef.current; // エフェクト実行時の参照を保存
     return () => {
-      const timeouts = timeoutsRef.current;
-      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
-      timeouts.clear();
+      currentTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      currentTimeouts.clear();
     };
   }, []);
 

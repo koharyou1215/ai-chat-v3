@@ -331,9 +331,9 @@ export class SDImageGenerator {
           body: JSON.stringify(params),
           signal: controller.signal
         });
-      } catch (fetchError: any) {
+      } catch (fetchError: unknown) {
         clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
           throw new Error('SD API request timed out after 120 seconds. Please check if Stable Diffusion is running and responsive.');
         }
         throw fetchError;

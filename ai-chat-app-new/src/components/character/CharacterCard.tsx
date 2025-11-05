@@ -12,6 +12,28 @@ import {
 } from "@/utils/variable-replacer";
 import { useAppStore } from "@/store";
 
+// 🔧 FIX: URL sanitization helper
+const sanitizeImageUrl = (url: string | undefined): string => {
+  if (!url) return '/images/default-avatar.png';
+
+  // Remove newlines, carriage returns, and other whitespace
+  const cleaned = url.replace(/[\r\n\t]/g, '').trim();
+
+  // Validate URL format
+  try {
+    // Check if it's a relative URL (starts with /)
+    if (cleaned.startsWith('/')) {
+      return cleaned;
+    }
+    // Check if it's an absolute URL
+    new URL(cleaned);
+    return cleaned;
+  } catch {
+    console.warn('Invalid image URL detected and replaced with default:', url);
+    return '/images/default-avatar.png';
+  }
+};
+
 interface CharacterCardProps {
   character: Character;
   isSelected?: boolean;
@@ -96,7 +118,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               />
             ) : (
               <Image
-                src={character.background_url}
+                src={sanitizeImageUrl(character.background_url)}
                 alt=""
                 fill
                 style={{ objectFit: "cover" }}

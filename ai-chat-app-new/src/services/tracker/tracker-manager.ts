@@ -1,5 +1,6 @@
-import { TrackerDefinition, UnifiedMessage, TrackerType, LegacyTrackerDefinition } from '@/types';
-import type { NumericTrackerConfig, StateTrackerConfig } from '@/types/core/tracker.types';
+import { TrackerDefinition, UnifiedMessage, TrackerType } from '@/types';
+import type { NumericTrackerConfig, StateTrackerConfig, BooleanTrackerConfig, TextTrackerConfig } from '@/types/core/tracker.types';
+import { logger } from '@/utils/logger';
 
 // 内部使用のための TrackerUpdate 型
 interface InternalTrackerUpdate {
@@ -31,248 +32,34 @@ export class TrackerManager {
 
   /**
    * トラッカーセットの初期化
+   *
+   * ✨ Simplified: 全キャラクターファイルが新フォーマット(config オブジェクト使用)に統一済みのため、
+   * レガシー変換ロジックと推測ロジックを削除し、シンプルな実装に簡素化
    */
   initializeTrackerSet(characterId: string, trackers: TrackerDefinition[]): TrackerSet {
     const trackerMap = new Map<string, Tracker>();
-    
+
     trackers.forEach(definition => {
-      // 古い形式から新しい形式への変換
-      let normalizedDefinition: TrackerDefinition;
-      
-      if (!definition.config && (definition as LegacyTrackerDefinition).type) {
-        // 古い形式の場合、新しい形式に変換
-        const oldFormat = definition as LegacyTrackerDefinition;
-        // 型安全な変換処理
-        const trackerType = oldFormat.type as TrackerType || 'text';
-        const configBase = {
-          type: trackerType,
-        };
-        
-        let config: TrackerDefinition['config'];
-        
-        switch (trackerType) {
-          case 'numeric':
-            config = {
-              ...configBase,
-              type: 'numeric',
-              initial_value: oldFormat.initial_value ?? (oldFormat.min_value ?? 0),
-              min_value: oldFormat.min_value ?? 0,
-              max_value: oldFormat.max_value ?? 100,
-              step: oldFormat.step ?? 1
-            } as NumericTrackerConfig;
-            break;
-          case 'state':
-            config = {
-              ...configBase,
-              type: 'state',
-              initial_state: oldFormat.initial_state ?? '',
-              possible_states: oldFormat.possible_states?.map(s => ({
-                id: s.id,
-                label: s.label
-              })) ?? []
-            } as StateTrackerConfig;
-            break;
-          case 'boolean':
-            config = {
-              ...configBase,
-              type: 'boolean',
-              initial_value: oldFormat.initial_boolean ?? false
-            };
-            break;
-          case 'text':
-            config = {
-              ...configBase,
-              type: 'text',
-              initial_value: oldFormat.initial_text ?? ''
-            };
-            break;
-          default:
-            config = {
-              ...configBase,
-              type: 'composite'
-            };
-        }
-        
-        normalizedDefinition = {
-          ...definition,
-          config
-        };
-        
-        console.log(`[TrackerManager] Converted old format tracker '${definition.name}':`, {
-          oldFormat: { 
-            type: oldFormat.type, 
-            initial_value: oldFormat.initial_value,
-            initial_text: oldFormat.initial_text,
-            initial_boolean: oldFormat.initial_boolean
-          },
-          newFormat: normalizedDefinition.config
-        });
-      } else {
-        normalizedDefinition = definition;
-      }
-      
-      if (!normalizedDefinition.config) {
-        console.error('Tracker definition is missing config:', normalizedDefinition);
+      // 新フォーマット検証
+      if (!definition.config) {
+        logger.error('Tracker definition is missing config:', definition);
         return;
       }
-      
-      // 初期値を設定 - JSONのcurrent_valueを優先
-      let currentValue: string | number | boolean;
-      
-      // JSONファイルにcurrent_valueが存在する場合はそれを使用
-      if ('current_value' in normalizedDefinition && (normalizedDefinition as any).current_value !== undefined) {
-        currentValue = (normalizedDefinition as any).current_value as string | number | boolean;
-        console.log(`Using JSON current_value for ${normalizedDefinition.name}:`, currentValue);
-      } else {
-        // current_valueが無い場合のみデフォルト値を設定
-        switch (normalizedDefinition.config.type) {
-        case 'numeric':
-          // 数値型の場合、初期値をチェック（古いフォーマットも考慮）
-          const numericConfig = normalizedDefinition.config as any;
-          const oldFormatValue = (normalizedDefinition as any).initial_value;
-          
-          if (typeof numericConfig.initial_value === 'number') {
-            currentValue = numericConfig.initial_value;
-          } else if (typeof oldFormatValue === 'number') {
-            currentValue = oldFormatValue;
-          } else {
-            // min_value/max_valueが設定されていない場合のデフォルト値設定
-            if (normalizedDefinition.config.min_value === undefined) {
-              normalizedDefinition.config.min_value = 0;
-            }
-            if (normalizedDefinition.config.max_value === undefined) {
-              normalizedDefinition.config.max_value = 100;
-            }
-            
-            // トラッカー名から適切な初期値を推測
-            const trackerName = normalizedDefinition.name.toLowerCase();
-            const description = normalizedDefinition.description?.toLowerCase() || '';
-            
-            if (trackerName.includes('arousal') || trackerName.includes('興奮')) {
-              currentValue = 20; // 興奮度系は20から開始
-            } else if (trackerName.includes('delusion') || trackerName.includes('妄想')) {
-              currentValue = 50; // 妄想系は中間値から開始
-            } else if (trackerName.includes('level') || trackerName.includes('レベル')) {
-              currentValue = 1;  // レベル系は1から開始
-            } else if (description.includes('興奮') || description.includes('媚薬')) {
-              currentValue = 15; // 薬物系は低めから開始
-            } else {
-              currentValue = normalizedDefinition.config.min_value || 0;
-            }
-          }
-          break;
-        case 'state':
-          // 状態型の場合、initial_stateまたは最初の可能な状態を使用
-          const stateConfig = normalizedDefinition.config as any;
-          currentValue = stateConfig.initial_state || 
-                       stateConfig.initial_value ||
-                       (stateConfig.possible_states && stateConfig.possible_states.length > 0 
-                         ? stateConfig.possible_states[0].id || stateConfig.possible_states[0]
-                         : '');
-          
-          // possible_statesが空の場合、トラッカー名と説明から推測して設定
-          if ((!normalizedDefinition.config.possible_states || normalizedDefinition.config.possible_states.length === 0)) {
-            const trackerName = normalizedDefinition.name.toLowerCase();
-            const description = normalizedDefinition.description?.toLowerCase() || '';
-            
-            if (trackerName.includes('relationship') || trackerName.includes('関係')) {
-              if (description.includes('撮影')) {
-                normalizedDefinition.config.possible_states = [
-                  { id: '演技指導者と女優', label: '演技指導者と女優' },
-                  { id: '撮影監督と出演者', label: '撮影監督と出演者' },
-                  { id: '信頼できるパートナー', label: '信頼できるパートナー' },
-                  { id: '特別な存在', label: '特別な存在' }
-                ];
-                currentValue = currentValue || '演技指導者と女優';
-              } else {
-                normalizedDefinition.config.possible_states = [
-                  { id: '初対面', label: '初対面' },
-                  { id: '知り合い', label: '知り合い' },
-                  { id: '友人', label: '友人' },
-                  { id: '信頼関係', label: '信頼関係' },
-                  { id: '特別な存在', label: '特別な存在' }
-                ];
-                currentValue = currentValue || '初対面';
-              }
-            } else if (trackerName.includes('mental') || trackerName.includes('勘違い')) {
-              if (description.includes('撮影')) {
-                normalizedDefinition.config.possible_states = [
-                  { id: '完全に信じている', label: '完全に信じている' },
-                  { id: '少し疑問', label: '少し疑問' },
-                  { id: '半信半疑', label: '半信半疑' },
-                  { id: '現実を理解', label: '現実を理解' }
-                ];
-                currentValue = currentValue || '完全に信じている';
-              } else {
-                normalizedDefinition.config.possible_states = [
-                  { id: '通常', label: '通常' },
-                  { id: '混乱', label: '混乱' },
-                  { id: '理解', label: '理解' },
-                  { id: '受容', label: '受容' }
-                ];
-                currentValue = currentValue || '通常';
-              }
-            } else {
-              normalizedDefinition.config.possible_states = [
-                { id: '通常', label: '通常' },
-                { id: '変化中', label: '変化中' },
-                { id: '発展', label: '発展' }
-              ];
-              currentValue = currentValue || '通常';
-            }
-          } else if (normalizedDefinition.config.possible_states.length > 0 && !currentValue) {
-            // 最初の状態を初期値とする - オブジェクトの場合はidを取得
-            const firstState = normalizedDefinition.config.possible_states[0];
-            currentValue = typeof firstState === 'string' ? firstState : firstState.id;
-          }
-          
-          if (!currentValue) {
-            // トラッカー名から適切な初期状態を推測
-            const trackerName = normalizedDefinition.name.toLowerCase();
-            if (trackerName.includes('relationship') || trackerName.includes('関係')) {
-              currentValue = '初対面';
-            } else if (trackerName.includes('mental') || trackerName.includes('勘違い')) {
-              currentValue = '完全に信じている';
-            } else {
-              currentValue = '通常';
-            }
-          }
-          break;
-        case 'boolean':
-          // ブール型の場合、initial_valueまたは変換時のinitial_booleanまたはfalseをデフォルトとして設定
-          const booleanConfig = normalizedDefinition.config as any;
-          currentValue = typeof booleanConfig.initial_value === 'boolean' 
-            ? booleanConfig.initial_value 
-            : typeof booleanConfig.initial_boolean === 'boolean'
-            ? booleanConfig.initial_boolean
-            : false;
-          break;
-        case 'text':
-          // テキスト型の場合、initial_valueまたは変換時のinitial_textまたは空文字をデフォルトとして設定
-          const textConfig = normalizedDefinition.config as any;
-          currentValue = typeof textConfig.initial_value === 'string' 
-            ? textConfig.initial_value 
-            : typeof textConfig.initial_text === 'string'
-            ? textConfig.initial_text
-            : '未設定';
-          break;
-        default:
-          currentValue = 0;
-        }
-      }
-      
-      const initializedTracker: Tracker = { 
-        ...normalizedDefinition, 
-        current_value: currentValue 
+
+      // config から初期値を取得（型安全）
+      const currentValue = this.getInitialValue(definition.config);
+
+      const initializedTracker: Tracker = {
+        ...definition,
+        current_value: currentValue
       };
-      
-      console.log(`Initialized tracker ${normalizedDefinition.name}:`, {
-        type: normalizedDefinition.config.type,
-        initial_value: (normalizedDefinition.config as any).initial_value,
-        initial_state: (normalizedDefinition.config as any).initial_state,
+
+      logger.debug(`Initialized tracker ${definition.name}:`, {
+        type: definition.config.type,
         current_value: currentValue
       });
-      trackerMap.set(normalizedDefinition.name, initializedTracker);
+
+      trackerMap.set(definition.name, initializedTracker);
     });
 
     const trackerSet: TrackerSet = {
@@ -283,11 +70,32 @@ export class TrackerManager {
     };
 
     this.trackerSets.set(characterId, trackerSet);
+    logger.info(`Initialized tracker set for character ${characterId}: ${trackerMap.size} trackers`);
+
     return trackerSet;
   }
 
   /**
-   * プロンプト用に整形されたトラッカー情報を取得
+   * config から型安全に初期値を取得
+   */
+  private getInitialValue(config: TrackerDefinition['config']): string | number | boolean {
+    switch (config.type) {
+      case 'numeric':
+        return (config as NumericTrackerConfig).initial_value;
+      case 'state':
+        return (config as StateTrackerConfig).initial_state;
+      case 'boolean':
+        return (config as BooleanTrackerConfig).initial_value;
+      case 'text':
+        return (config as TextTrackerConfig).initial_value;
+      default:
+        logger.warn(`Unknown tracker type: ${config.type}, defaulting to 0`);
+        return 0;
+    }
+  }
+
+  /**
+   * プロンプト用に整形されたトラッカー情報を取得（日本語版）
    */
   getTrackersForPrompt(characterId: string): string {
     const trackerSet = this.trackerSets.get(characterId);
@@ -295,25 +103,25 @@ export class TrackerManager {
       return '';
     }
 
-    let promptText = '<trackers>\n';
+    let promptText = '<トラッカー情報>\n';
     for (const tracker of trackerSet.trackers.values()) {
       // current_value が undefined や null の場合は初期値を表示
-      const trackerAsAny = tracker as any;
+      const trackerConfigRecord = tracker.config as unknown as Record<string, unknown>;
       const value = tracker.current_value ??
         (tracker.config.type === 'numeric' ? (tracker.config as NumericTrackerConfig).initial_value :
          tracker.config.type === 'state' ? (tracker.config as StateTrackerConfig).initial_state :
-         tracker.config.type === 'boolean' ? (trackerAsAny.config.initial_value ?? false) :
-         tracker.config.type === 'text' ? (trackerAsAny.config.initial_value ?? '') :
+         tracker.config.type === 'boolean' ? (trackerConfigRecord.initial_value ?? false) :
+         tracker.config.type === 'text' ? (trackerConfigRecord.initial_value ?? '') :
          'N/A');
-      promptText += `${tracker.display_name}: ${value}\n`;
+      promptText += `【${tracker.display_name}】: ${value}\n`;
     }
-    promptText += '</trackers>';
-    
+    promptText += '</トラッカー情報>';
+
     return promptText;
   }
 
   /**
-   * 詳細なトラッカー情報をプロンプト用に取得（キャラクター設定強化版）
+   * 詳細なトラッカー情報をプロンプト用に取得（日本語版・キャラクター設定強化版）
    */
   getDetailedTrackersForPrompt(characterId: string): string {
     const trackerSet = this.trackerSets.get(characterId);
@@ -322,46 +130,49 @@ export class TrackerManager {
     }
 
     let promptText = '';
-    
+
     for (const tracker of trackerSet.trackers.values()) {
       const value = tracker.current_value ?? 'N/A';
-      
-      // トラッカー情報を詳細に記述
-      promptText += `## ${tracker.display_name}\n`;
-      promptText += `Current Value: ${value}`;
-      
+
+      // トラッカー情報を詳細に記述（日本語）
+      promptText += `## 【${tracker.display_name}】\n`;
+      promptText += `現在の値: ${value}`;
+
       // 数値型の場合は範囲情報も含める
       if (tracker.config.type === 'numeric' && tracker.config.min_value !== undefined && tracker.config.max_value !== undefined) {
-        promptText += ` (Range: ${tracker.config.min_value}-${tracker.config.max_value})`;
+        promptText += ` (範囲: ${tracker.config.min_value}～${tracker.config.max_value})`;
       }
-      
+
       // 状態型の場合は可能な状態を含める
       if (tracker.config.type === 'state' && tracker.config.possible_states && tracker.config.possible_states.length > 0) {
-        promptText += ` (Possible: ${tracker.config.possible_states.join(', ')})`;
+        const possibleStatesText = tracker.config.possible_states
+          .map(s => typeof s === 'string' ? s : s.label || s.id)
+          .join('、');
+        promptText += ` (選択肢: ${possibleStatesText})`;
       }
-      
+
       promptText += '\n';
-      
+
       // 説明があれば含める
       if (tracker.description) {
-        promptText += `Description: ${tracker.description}\n`;
+        promptText += `説明: ${tracker.description}\n`;
       }
-      
+
       // 最近の変更履歴があれば含める（最新3件）
       const recentUpdates = trackerSet.history
         .filter(update => update.tracker_name === tracker.name)
         .slice(-3);
-      
+
       if (recentUpdates.length > 0) {
-        promptText += `Recent Changes:\n`;
+        promptText += `最近の変化:\n`;
         recentUpdates.forEach(update => {
-          promptText += `- ${update.old_value} → ${update.new_value} (${update.reason || 'No reason'})\n`;
+          promptText += `- ${update.old_value} → ${update.new_value} (${update.reason || '理由なし'})\n`;
         });
       }
-      
+
       promptText += '\n';
     }
-    
+
     return promptText;
   }
 
@@ -383,13 +194,13 @@ export class TrackerManager {
   ): boolean {
     const trackerSet = this.trackerSets.get(characterId);
     if (!trackerSet) {
-      console.error(`Tracker set for character ${characterId} not found.`);
+      logger.error(`Tracker set for character ${characterId} not found.`);
       return false;
     }
 
     const tracker = trackerSet.trackers.get(trackerName);
     if (!tracker) {
-      console.error(`Tracker ${trackerName} not found for character ${characterId}.`);
+      logger.error(`Tracker ${trackerName} not found for character ${characterId}.`);
       return false;
     }
 
@@ -411,7 +222,7 @@ export class TrackerManager {
 
     trackerSet.history.push(update);
 
-    console.log(`[TrackerManager] Updated tracker '${trackerName}': ${oldValue} → ${newValue}`);
+    logger.debug(`[TrackerManager] Updated tracker '${trackerName}': ${oldValue} → ${newValue}`);
 
     // Notify listeners about the update
     this.notifyUpdate(update);
@@ -450,17 +261,48 @@ export class TrackerManager {
 
   /**
    * プレーンオブジェクトから状態を復元
+   * 🔧 修正: 防御的な実装で復元の信頼性を向上
    */
   loadFromObject(data: { trackerSets: Record<string, Record<string, unknown>> }): void {
+    if (!data || !data.trackerSets) {
+      logger.warn('[TrackerManager] loadFromObject: Invalid data, skipping restoration');
+      return;
+    }
+
     const restoredTrackerSets = new Map<string, TrackerSet>();
+
     for (const key in data.trackerSets) {
       const value = data.trackerSets[key];
-      restoredTrackerSets.set(key, {
-        ...(value as Omit<TrackerSet, 'trackers'>),
-        trackers: new Map(value.trackers as [string, Tracker][])
-      });
+
+      if (!value || typeof value !== 'object') {
+        logger.warn(`[TrackerManager] Invalid trackerSet for key: ${key}`);
+        continue;
+      }
+
+      // trackersが配列形式かチェック
+      if (!value.trackers || !Array.isArray(value.trackers)) {
+        logger.warn(`[TrackerManager] Invalid trackers format for key: ${key}`, {
+          hasTrackers: !!value.trackers,
+          trackersType: typeof value.trackers,
+          isArray: Array.isArray(value.trackers)
+        });
+        continue;
+      }
+
+      try {
+        restoredTrackerSets.set(key, {
+          ...(value as Omit<TrackerSet, 'trackers'>),
+          trackers: new Map(value.trackers as [string, Tracker][])
+        });
+
+        logger.debug(`[TrackerManager] Restored ${(value.trackers as unknown[]).length} trackers for character: ${key}`);
+      } catch (error) {
+        logger.error(`[TrackerManager] Failed to restore trackers for key: ${key}`, error);
+      }
     }
+
     this.trackerSets = restoredTrackerSets;
+    logger.info(`[TrackerManager] Restored ${restoredTrackerSets.size} tracker sets from storage`);
   }
 
   /**
@@ -469,11 +311,11 @@ export class TrackerManager {
   analyzeMessageForTrackerUpdates(message: UnifiedMessage, characterId: string): InternalTrackerUpdate[] {
     const trackerSet = this.trackerSets.get(characterId);
     if (!trackerSet) {
-      console.log('[TrackerManager] No tracker set found for character:', characterId);
+      logger.debug('[TrackerManager] No tracker set found for character:', characterId);
       return [];
     }
-    
-    console.log(`🎯 [TrackerManager] Analyzing message for tracker updates:`, {
+
+    logger.debug(`🎯 [TrackerManager] Analyzing message for tracker updates:`, {
       characterId: characterId.substring(0, 8) + '...',
       trackerCount: trackerSet.trackers.size,
       messageContent: message.content.substring(0, 50) + '...',
@@ -533,12 +375,12 @@ export class TrackerManager {
       }
 
       if (shouldUpdate && newValue !== oldValue) {
-        console.log(`🎯 [TrackerManager] Updating tracker '${trackerName}':`, {
+        logger.debug(`🎯 [TrackerManager] Updating tracker '${trackerName}':`, {
           oldValue,
           newValue,
           reason
         });
-        
+
         // 実際に更新実行
         this.updateTracker(characterId, trackerName, newValue, `自動更新: ${reason}`);
         hasAnyUpdate = true;
@@ -556,12 +398,12 @@ export class TrackerManager {
     }
 
     if (hasAnyUpdate) {
-      console.log(`✅ [TrackerManager] Analysis complete - ${updates.length} tracker(s) updated:`, {
+      logger.debug(`✅ [TrackerManager] Analysis complete - ${updates.length} tracker(s) updated:`, {
         characterId: characterId.substring(0, 8) + '...',
         updates: updates.map(u => `${u.tracker_name}: ${u.old_value}→${u.new_value}`)
       });
     } else {
-      console.log(`📊 [TrackerManager] Analysis complete - No tracker updates needed`, {
+      logger.debug(`📊 [TrackerManager] Analysis complete - No tracker updates needed`, {
         characterId: characterId.substring(0, 8) + '...',
         analyzedTrackers: trackerSet.trackers.size,
         messageContent: message.content.substring(0, 30) + '...'
@@ -786,7 +628,7 @@ export class TrackerManager {
     for (const state of possibleStates) {
       const stateId = typeof state === 'string' ? state : state.id;
       if (!stateId || typeof stateId !== 'string') {
-        console.warn(`Tracker "${tracker.name}" has an invalid state:`, state);
+        logger.warn(`Tracker "${tracker.name}" has an invalid state:`, state);
         continue;
       }
       const keywords = stateKeywords[stateId] || [stateId.toLowerCase()];

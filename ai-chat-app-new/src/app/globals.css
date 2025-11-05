@@ -118,8 +118,11 @@ button,
 }
 
 .default-emotion {
-  color: #e8e8e8 !important;
-  text-shadow: 0 0 5px rgba(232, 232, 232, 0.4) !important;
+  /* より明るく、目立つ白色に変更 */
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 15px rgba(139, 92, 246, 0.4) !important;
+  /* 微妙な紫の光で強調 */
+  font-weight: 500 !important;
 }
 
 @import "tw-animate-css";
@@ -642,17 +645,22 @@ button,
     -webkit-backdrop-filter: blur(12px) saturate(120%);
     border: 1px solid oklch(0.95 0.01 270 / 20%);
   }
-  /* Disable all backdrop filters when blur is disabled via HTML attribute */
-  html[data-background-blur="disabled"] .glass-effect,
-  html[data-background-blur="disabled"] .backdrop-blur-sm,
-  html[data-background-blur="disabled"] .backdrop-blur,
-  html[data-background-blur="disabled"] .backdrop-blur-md,
-  html[data-background-blur="disabled"] .backdrop-blur-lg,
-  html[data-background-blur="disabled"] .backdrop-blur-xl,
-  html[data-background-blur="disabled"] .bubble-transparent,
-  html[data-background-blur="disabled"] .message-bubble-user-transparent,
-  html[data-background-blur="disabled"] .message-bubble-character-transparent,
-  html[data-background-blur="disabled"] .elegant-card {
+  /* 🖼️ 画像背景のぼかし無効化（独立制御） */
+  html[data-image-background-blur="disabled"] .glass-effect,
+  html[data-image-background-blur="disabled"] .backdrop-blur-sm,
+  html[data-image-background-blur="disabled"] .backdrop-blur,
+  html[data-image-background-blur="disabled"] .backdrop-blur-md,
+  html[data-image-background-blur="disabled"] .backdrop-blur-lg,
+  html[data-image-background-blur="disabled"] .backdrop-blur-xl,
+  html[data-image-background-blur="disabled"] .elegant-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* 💬 吹き出しのぼかし無効化（独立制御） */
+  html[data-bubble-blur="disabled"] .bubble-transparent,
+  html[data-bubble-blur="disabled"] .message-bubble-user-transparent,
+  html[data-bubble-blur="disabled"] .message-bubble-character-transparent {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }

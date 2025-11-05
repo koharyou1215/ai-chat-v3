@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 import { CharacterGallery } from './CharacterGallery';
 import { useAppStore } from '@/store';
 import { Character } from '@/types/core/character.types';
-import { generateCharacterId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 
 export interface CharacterGalleryModalProps {
   isGroupEditingMode?: boolean;
@@ -78,7 +78,7 @@ export const CharacterGalleryModal: React.FC<CharacterGalleryModalProps> = ({
       // Generate unique ID if not present or if it already exists
       let characterId = characterData.id as string;
       if (!characterId || characters.has(characterId)) {
-        characterId = generateCharacterId();
+        characterId = generateStableId('character');
         console.log('Generated new unique ID for character:', characterId);
       }
       

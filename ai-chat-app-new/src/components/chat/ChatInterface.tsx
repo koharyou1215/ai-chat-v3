@@ -9,7 +9,6 @@ import React, {
   Suspense,
 } from "react";
 import { MotionLoaders } from "@/components/optimized/FramerMotionOptimized";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -40,8 +39,11 @@ import ChatSidebar from "./ChatSidebar";
 import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { cn } from "@/lib/utils";
 import { Character } from "@/types/core/character.types";
+import { UnifiedMessage } from "@/types/core/message.types";
+import { GroupChatSession } from "@/types/core/group-chat.types";
 import useVH from "@/hooks/useVH";
 import { SDTestButton } from "../debug/SDTestButton";
+import type { AnimatePresence as AnimatePresenceType } from 'framer-motion';
 
 // メッセージ入力欄ラッパーコンポーネント
 const MessageInputWrapper: React.FC = () => {
@@ -201,6 +203,62 @@ const ThinkingIndicator = () => {
   );
 };
 
+// 🚀 Static tab definitions (outside component for performance)
+const TAB_DEFINITIONS = [
+  { key: "memory" as const, icon: Brain, label: "メモリー" },
+  { key: "tracker" as const, icon: BarChart3, label: "トラッカー" },
+  { key: "history" as const, icon: History, label: "履歴検索" },
+  { key: "layers" as const, icon: Layers, label: "記憶層" },
+] as const;
+
+type TabKey = typeof TAB_DEFINITIONS[number]["key"];
+
+// 🚀 Optimized tab content component (React.memo to prevent unnecessary re-renders)
+interface TabContentProps {
+  activeTab: TabKey;
+  displaySessionId: string;
+  currentCharacterId: string | undefined;
+}
+
+const TabContent = React.memo<TabContentProps>(({ activeTab, displaySessionId, currentCharacterId }) => {
+  switch (activeTab) {
+    case "memory":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <MemoryGallery
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
+        </Suspense>
+      );
+    case "tracker":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <TrackerDisplay
+            session_id={displaySessionId}
+            character_id={currentCharacterId!}
+          />
+        </Suspense>
+      );
+    case "history":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <HistorySearch session_id={displaySessionId} />
+        </Suspense>
+      );
+    case "layers":
+      return (
+        <Suspense fallback={<PanelLoadingFallback />}>
+          <MemoryLayerDisplay session_id={displaySessionId} />
+        </Suspense>
+      );
+    default:
+      return null;
+  }
+});
+
+TabContent.displayName = "TabContent";
+
 // SSR安全なチャットインターフェースコンテンツ
 const ChatInterfaceContent: React.FC = () => {
   // keyboard hook removed for simplicity
@@ -245,6 +303,7 @@ const ChatInterfaceContent: React.FC = () => {
     isScenarioModalOpen, // 追加
     toggleScenarioModal, // 追加
     appearanceSettings, // 背景設定の競合を解決するために追加
+    resetGeneratingState, // 生成状態リセット関数を追加
   } = useAppStore();
   useVH(); // Safari対応版のVHフックを使用
   const session = getActiveSession();
@@ -260,24 +319,45 @@ const ChatInterfaceContent: React.FC = () => {
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<
-    "memory" | "tracker" | "history" | "layers"
-  >("memory");
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 0
-  );
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("memory");
+  // 🔧 Hydration fix: Initialize to 0 for consistent SSR/client rendering
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [userScrolled, setUserScrolled] = useState(false);
+  const lastMessageCountRef = useRef(0);
+  const savedScrollPositionRef = useRef<number>(0);
+  const isRegeneratingRef = useRef(false);
   // Motion components lazy loading
   const [motionComponents, setMotionComponents] = useState<{
-    motion?: any;
-    AnimatePresence?: any;
+    motion?: typeof import('framer-motion').motion;
+    AnimatePresence?: typeof AnimatePresenceType;
   }>({});
   const [stagingGroupMembers, setStagingGroupMembers] = useState<Character[]>(
     []
-  ); // 追加
+  );
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const generatingStartTimeRef = useRef<number | null>(null);
+  const [showResetNotification, setShowResetNotification] = useState(false);
+
+  // AnimatePresenceコンポーネントを取得
+  const AnimatePresence = motionComponents.AnimatePresence || (({ children }: React.PropsWithChildren) => children);
+
+  // 🔧 FIX: 背景設定をコンポーネントのトップレベルでメモ化（無限ループ防止）
+  const backgroundSettings = React.useMemo(() => {
+    return {
+      backgroundType: appearanceSettings.backgroundType,
+      backgroundImage: appearanceSettings.backgroundImage,
+      backgroundGradient: appearanceSettings.backgroundGradient,
+      backgroundOpacity: appearanceSettings.backgroundOpacity,
+      backgroundBlur: appearanceSettings.backgroundBlur,
+      backgroundColor: appearanceSettings.backgroundColor,
+    };
+  }, [appearanceSettings]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // 🔧 Hydration fix: Set initial width after mount
+    setWindowWidth(window.innerWidth);
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -298,9 +378,46 @@ const ChatInterfaceContent: React.FC = () => {
     };
   }, []);
 
+  // 🔧 FIX: 生成状態の自動リセット（30秒タイマー）
+  useEffect(() => {
+    const isGenerating = is_generating || group_generating;
+
+    if (isGenerating) {
+      // 生成開始時刻を記録
+      if (generatingStartTimeRef.current === null) {
+        generatingStartTimeRef.current = Date.now();
+        console.log('⏱️ 生成状態開始:', new Date().toLocaleTimeString());
+      }
+
+      // 30秒後に自動リセット
+      const resetTimer = setTimeout(() => {
+        const elapsedTime = Date.now() - (generatingStartTimeRef.current || 0);
+        console.warn('⚠️ 生成状態が30秒以上継続しているため、自動的にリセットします。経過時間:', elapsedTime / 1000, '秒');
+
+        if (resetGeneratingState) {
+          resetGeneratingState();
+          generatingStartTimeRef.current = null;
+
+          // 通知を表示
+          setShowResetNotification(true);
+          setTimeout(() => setShowResetNotification(false), 3000);
+        }
+      }, 30000); // 30秒
+
+      return () => clearTimeout(resetTimer);
+    } else {
+      // 生成完了時にタイマーをリセット
+      if (generatingStartTimeRef.current !== null) {
+        const elapsedTime = Date.now() - generatingStartTimeRef.current;
+        console.log('✅ 生成完了。経過時間:', elapsedTime / 1000, '秒');
+        generatingStartTimeRef.current = null;
+      }
+    }
+  }, [is_generating, group_generating, resetGeneratingState]);
+
   // グループチャットセッションの取得
-  const activeGroupSession = active_group_session_id
-    ? (groupSessions.get(active_group_session_id) as any)
+  const activeGroupSession: GroupChatSession | null | undefined = active_group_session_id
+    ? groupSessions.get(active_group_session_id)
     : null;
 
   // キャラクターIDを安全に取得（修正版：グループセッションでも一貫性のある取得方法）
@@ -328,75 +445,89 @@ const ChatInterfaceContent: React.FC = () => {
   const displaySessionId =
     displaySession && displaySession.id ? displaySession.id : "";
 
-  // Lazy-loaded panel components with proper fallbacks
-  const sidePanelTabs = useMemo(
-    () => [
-      {
-        key: "memory" as const,
-        icon: Brain,
-        label: "メモリー",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <MemoryGallery
-              session_id={displaySessionId}
-              character_id={currentCharacterId!}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        key: "tracker" as const,
-        icon: BarChart3,
-        label: "トラッカー",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <TrackerDisplay
-              session_id={displaySessionId}
-              character_id={currentCharacterId!}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        key: "history" as const,
-        icon: History,
-        label: "履歴検索",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <HistorySearch session_id={displaySessionId} />
-          </Suspense>
-        ),
-      },
-      {
-        key: "layers" as const,
-        icon: Layers,
-        label: "記憶層",
-        component: (
-          <Suspense fallback={<PanelLoadingFallback />}>
-            <MemoryLayerDisplay session_id={displaySessionId} />
-          </Suspense>
-        ),
-      },
-    ],
-    [displaySessionId, currentCharacterId]
-  );
+  // 🚀 Performance optimization: Static tab definitions (no components)
+  // Components are rendered only for the active tab to prevent unnecessary re-renders
 
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
+  const scrollToBottom = useCallback((force = false) => {
+    if (messagesEndRef.current && (!userScrolled || force)) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      setUserScrolled(false);
     }
-  };
+  }, [userScrolled]);
 
-  // Extract complex expressions for dependency array
-  const sessionMessages = session && session.messages ? session.messages : null;
-  const groupSessionMessages =
-    activeGroupSession && activeGroupSession.messages
-      ? activeGroupSession.messages
-      : null;
+  // 🔧 FIX: メッセージエリアのダブルクリックで生成状態をリセット
+  const handleMessagesDoubleClick = useCallback(() => {
+    if (is_generating || group_generating) {
+      console.log('🖱️ ダブルクリックによる生成状態のリセット');
+      if (resetGeneratingState) {
+        resetGeneratingState();
+        generatingStartTimeRef.current = null;
 
+        // 通知を表示
+        setShowResetNotification(true);
+        setTimeout(() => setShowResetNotification(false), 3000);
+      }
+    }
+  }, [is_generating, group_generating, resetGeneratingState]);
+
+  // スクロールイベント監視
   useEffect(() => {
-    scrollToBottom();
-  }, [sessionMessages, groupSessionMessages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setUserScrolled(!isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // メッセージ追加時のみ自動スクロール（再生成時は除外）
+  useEffect(() => {
+    const currentMessageCount = currentMessages.length;
+    const container = messagesContainerRef.current;
+
+    // 新しいメッセージが追加された場合のみスクロール
+    if (currentMessageCount > lastMessageCountRef.current) {
+      console.log('📜 新しいメッセージ追加: スクロールダウン実行');
+      isRegeneratingRef.current = false;
+      scrollToBottom(true);
+    } else if (currentMessageCount === lastMessageCountRef.current && currentMessageCount > 0) {
+      // メッセージ数が同じ = 再生成の可能性
+      // スクロール位置を保存
+      if (container && !isRegeneratingRef.current) {
+        savedScrollPositionRef.current = container.scrollTop;
+        isRegeneratingRef.current = true;
+        console.log('🔄 メッセージ再生成検出: スクロール位置保存', savedScrollPositionRef.current);
+      }
+    }
+
+    lastMessageCountRef.current = currentMessageCount;
+  }, [currentMessages.length, scrollToBottom]);
+
+  // 再生成時のスクロール位置復元
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    if (isRegeneratingRef.current && container && savedScrollPositionRef.current > 0) {
+      // 次のフレームでスクロール位置を復元
+      requestAnimationFrame(() => {
+        if (container && savedScrollPositionRef.current > 0) {
+          container.scrollTop = savedScrollPositionRef.current;
+          console.log('✅ スクロール位置復元:', savedScrollPositionRef.current);
+
+          // 復元後、フラグをリセット
+          setTimeout(() => {
+            isRegeneratingRef.current = false;
+            savedScrollPositionRef.current = 0;
+          }, 100);
+        }
+      });
+    }
+  }, [currentMessages]);
 
   // グループモードかつアクティブなグループセッションがない場合
   if (is_group_mode && !activeGroupSession) {
@@ -532,7 +663,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as GroupChatSession)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);
@@ -660,6 +791,7 @@ const ChatInterfaceContent: React.FC = () => {
         }
 
         // キャラクター背景がない場合は設定の背景を表示
+        // 🔧 FIX: メモ化された背景設定を使用（無限ループ防止）
         const {
           backgroundType,
           backgroundImage,
@@ -667,13 +799,13 @@ const ChatInterfaceContent: React.FC = () => {
           backgroundOpacity,
           backgroundBlur,
           backgroundColor,
-        } = useAppStore.getState().appearanceSettings;
+        } = backgroundSettings;
 
         // 🎯 外観設定のURL背景をデフォルトとして適用
         // backgroundTypeに関わらず、backgroundImageにURLが設定されていれば優先表示
         if (backgroundImage && backgroundImage.trim() !== "") {
           // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
-          const imageOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
+          const imageOpacity = (backgroundOpacity ?? 100) > 0 ? (backgroundOpacity ?? 100) / 100 : 1;
 
           return (
             <div
@@ -684,7 +816,7 @@ const ChatInterfaceContent: React.FC = () => {
                 top: 0,
                 bottom: 0,
                 opacity: imageOpacity,
-                filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+                filter: (backgroundBlur ?? 0) > 0 ? `blur(${backgroundBlur}px)` : "none",
               }}>
               {backgroundImage.endsWith(".mp4") ||
               backgroundImage.includes("video") ? (
@@ -714,7 +846,7 @@ const ChatInterfaceContent: React.FC = () => {
 
         // URL背景がない場合、backgroundTypeに応じた背景を適用
         // 🔧 FIX: opacityが0の場合はデフォルト値100を使用
-        const finalOpacity = backgroundOpacity > 0 ? backgroundOpacity / 100 : 1;
+        const finalOpacity = (backgroundOpacity ?? 100) > 0 ? (backgroundOpacity ?? 100) / 100 : 1;
 
         return (
           <div
@@ -725,7 +857,7 @@ const ChatInterfaceContent: React.FC = () => {
               top: 0,
               bottom: 0,
               opacity: finalOpacity,
-              filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+              filter: (backgroundBlur ?? 0) > 0 ? `blur(${backgroundBlur}px)` : "none",
             }}>
             {backgroundType === "gradient" ? (
               <div
@@ -734,7 +866,7 @@ const ChatInterfaceContent: React.FC = () => {
                   background: backgroundGradient,
                 }}
               />
-            ) : backgroundType === "solid" ? (
+            ) : backgroundType === "color" ? (
               <div
                 className="w-full h-full"
                 style={{
@@ -794,6 +926,8 @@ const ChatInterfaceContent: React.FC = () => {
 
           {/* メッセージリスト専用コンテナ - 透明な背景でスクロール */}
           <div
+            ref={messagesContainerRef}
+            onDoubleClick={handleMessagesDoubleClick}
             className="flex-1 overflow-y-auto overflow-x-visible px-3 md:px-4 py-4 space-y-3 md:space-y-4 scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent z-10 messages-container transition-all duration-300"
             style={{
               position: "fixed",
@@ -806,8 +940,8 @@ const ChatInterfaceContent: React.FC = () => {
               backgroundColor: "transparent",
             }}>
             {currentMessages.length > 0 ? (
-              <AnimatePresence mode="popLayout" initial={false}>
-                {currentMessages.map((message: any, index: number) => (
+              <AnimatePresence mode="wait" initial={false}>
+                {currentMessages.map((message: UnifiedMessage, index: number) => (
                   <MessageBubble
                     key={message.id}
                     message={message}
@@ -832,6 +966,17 @@ const ChatInterfaceContent: React.FC = () => {
             {(is_generating || group_generating) && <ThinkingIndicator />}
 
             <div ref={messagesEndRef} />
+
+            {/* 🔧 生成状態リセット通知 */}
+            {showResetNotification && (
+              <div
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-in slide-in-from-top-2 fade-in-0 duration-300"
+                style={{
+                  animation: 'slideInFromTop 0.3s ease-out',
+                }}>
+                ✅ 生成状態をリセットしました
+              </div>
+            )}
           </div>
 
           {/* メッセージ入力欄 */}
@@ -844,8 +989,8 @@ const ChatInterfaceContent: React.FC = () => {
             {isRightPanelOpen && (
               <>
                 {/* モバイル用の背景オーバーレイ */}
-                {windowWidth < 768 && (
-                  <motion.div
+                {windowWidth < 768 && motionComponents.motion && (
+                  <motionComponents.motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -853,26 +998,27 @@ const ChatInterfaceContent: React.FC = () => {
                     onClick={() => setRightPanelOpen(false)}
                   />
                 )}
-                
+
                 {/* 右パネル本体 */}
-                <motion.div
-                  initial={{ x: "100%", opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: "100%", opacity: 0 }}
-                  transition={{ duration: 0.3, type: "spring", damping: 25 }}
-                  className={cn(
-                    "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
-                    "bg-slate-800/80 backdrop-blur-md",
-                    windowWidth < 768
-                      ? "fixed right-0 top-0 w-[85vw] h-full z-[60]" // モバイルでは画面の85%幅
-                      : "fixed right-0 top-0 h-full w-[380px] z-[60]"
-                  )}
-                  style={{
-                    backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
-                    backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
-                    WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
-                  }}
-                  onClick={(e) => e.stopPropagation()}>
+                {motionComponents.motion ? (
+                  <motionComponents.motion.div
+                    initial={{ x: "100%", opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: "100%", opacity: 0 }}
+                    transition={{ duration: 0.3, type: "spring", damping: 25 }}
+                    className={cn(
+                      "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
+                      "bg-slate-800/80 backdrop-blur-md",
+                      windowWidth < 768
+                        ? "fixed right-0 top-0 w-[85vw] h-full z-[60]"
+                        : "fixed right-0 top-0 h-full w-[380px] z-[60]"
+                    )}
+                    style={{
+                      backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
+                      backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                      WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                    }}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">記憶情報</h3>
                   <button
@@ -882,43 +1028,101 @@ const ChatInterfaceContent: React.FC = () => {
                   </button>
                 </div>
                 <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
-                  {sidePanelTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTab(tab.key);
-                      }}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
-                        activeTab === tab.key
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "text-white/60 hover:bg-white/10"
-                      )}>
-                      <tab.icon className="w-4 h-4" />
-                      {tab.label}
-                    </button>
-                  ))}
+                  {TAB_DEFINITIONS.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab(tab.key);
+                        }}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                          activeTab === tab.key
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "text-white/60 hover:bg-white/10"
+                        )}>
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
                   <AnimatePresence mode="wait">
-                    {sidePanelTabs.map(
-                      (tab) =>
-                        activeTab === tab.key &&
-                        displaySession && (
-                          <motion.div
-                            key={tab.key}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}>
-                            {tab.component}
-                          </motion.div>
-                        )
+                    {displaySession && motionComponents.motion && (
+                      <motionComponents.motion.div
+                        key={activeTab}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}>
+                        <TabContent
+                          activeTab={activeTab}
+                          displaySessionId={displaySessionId}
+                          currentCharacterId={currentCharacterId}
+                        />
+                      </motionComponents.motion.div>
                     )}
                   </AnimatePresence>
                 </div>
-              </motion.div>
+              </motionComponents.motion.div>
+                ) : (
+                  <div
+                    className={cn(
+                      "right-panel-content border-l border-purple-400/20 flex flex-col h-full",
+                      "bg-slate-800/80 backdrop-blur-md",
+                      windowWidth < 768
+                        ? "fixed right-0 top-0 w-[85vw] h-full z-[60]"
+                        : "fixed right-0 top-0 h-full w-[380px] z-[60]"
+                    )}
+                    style={{
+                      backgroundColor: `rgba(30, 41, 59, ${(appearanceSettings.backgroundOpacity || 80) / 100})`,
+                      backdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                      WebkitBackdropFilter: `blur(${appearanceSettings.backgroundBlur || 12}px)`,
+                    }}>
+                    <div className="p-4 border-b border-purple-400/20 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white">記憶情報</h3>
+                      <button
+                        onClick={() => setRightPanelOpen(false)}
+                        className="p-2 hover:bg-white/10 rounded-full">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex p-2 bg-slate-800/50 backdrop-blur-sm border-b border-purple-400/20">
+                      {TAB_DEFINITIONS.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                          <button
+                            key={tab.key}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTab(tab.key);
+                            }}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm transition-colors",
+                              activeTab === tab.key
+                                ? "bg-purple-500/20 text-purple-300"
+                                : "text-white/60 hover:bg-white/10"
+                            )}>
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      {displaySession && (
+                        <TabContent
+                          activeTab={activeTab}
+                          displaySessionId={displaySessionId}
+                          currentCharacterId={currentCharacterId}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </AnimatePresence>
@@ -1036,7 +1240,7 @@ const ChatInterfaceContent: React.FC = () => {
           {isGroupMemberModalOpen && activeGroupSession && (
             <CharacterGalleryModal
               isGroupEditingMode={true}
-              activeGroupMembers={activeGroupSession?.characters || []}
+              activeGroupMembers={(activeGroupSession as GroupChatSession)?.characters || []}
               onUpdateGroupMembers={(newCharacters) => {
                 if (active_group_session_id) {
                   updateGroupMembers(active_group_session_id, newCharacters);

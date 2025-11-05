@@ -12,6 +12,21 @@ import { geminiClient } from "./api/gemini-client";
 import { APIConfig } from "@/types";
 import { formatMessageContent } from "@/utils/text-formatter";
 import { validateGeminiModel, formatModelForProvider } from "@/utils/model-migration";
+import { logger } from "@/utils/logger";
+
+/**
+ * 🔧 Type-safe API response types
+ */
+interface OpenRouterUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+interface OpenRouterResponse {
+  content: string;
+  usage?: OpenRouterUsage;
+}
 
 export class SimpleAPIManagerV2 {
   private geminiApiKey: string | null = null;
@@ -36,45 +51,62 @@ export class SimpleAPIManagerV2 {
   }
 
   /**
-   * APIキーの読み込み - 既存システムと互換性を保つ
+   * APIキーの読み込み
+   * 🔧 FIX: 環境変数を優先（本番環境対策）
+   *
+   * 優先順位:
+   * 1. 環境変数（Vercel等の本番環境設定）
+   * 2. LocalStorage（ユーザー設定）
    */
   private loadApiKeys() {
+    // 環境変数から読み込み（本番環境の正しい値）
+    const envGeminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || null;
+    const envOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || null;
+
+    // LocalStorageから読み込み（ユーザー設定）
+    let localGeminiKey: string | null = null;
+    let localOpenRouterKey: string | null = null;
+
     if (typeof window !== "undefined") {
       try {
-        // 既存のAPIManagerと同じキー名を使用
         const savedData = localStorage.getItem("ai-chat-v3-storage");
         if (savedData) {
           const parsed = JSON.parse(savedData);
-          this.geminiApiKey = parsed?.state?.geminiApiKey || null;
-          this.openRouterApiKey = parsed?.state?.openRouterApiKey || null;
+          localGeminiKey = parsed?.state?.geminiApiKey || null;
+          localOpenRouterKey = parsed?.state?.openRouterApiKey || null;
           this.useDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI || false;
-
-          // APIキー読み込み完了
         }
       } catch (error) {
-        console.warn("APIキーの読み込みに失敗:", error);
+        logger.warn("APIキーの読み込みに失敗:", error);
       }
     }
 
-    // 環境変数からも読み込み
-    this.geminiApiKey =
-      this.geminiApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || null;
-    this.openRouterApiKey =
-      this.openRouterApiKey ||
-      process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
-      null;
+    // 🔧 FIX: 環境変数を優先（本番環境の正しいキーを使用）
+    // LocalStorageに値があっても、環境変数がある場合は環境変数を使用
+    this.geminiApiKey = envGeminiKey || localGeminiKey;
+    this.openRouterApiKey = envOpenRouterKey || localOpenRouterKey;
+
+    // デバッグログ: APIキーの読み込み元を表示
+    if (typeof window !== "undefined") {
+      logger.debug("🔑 APIキー読み込み:", {
+        gemini: envGeminiKey ? "環境変数" : localGeminiKey ? "LocalStorage" : "未設定",
+        openRouter: envOpenRouterKey ? "環境変数" : localOpenRouterKey ? "LocalStorage" : "未設定",
+        useDirectGeminiAPI: this.useDirectGeminiAPI
+      });
+    }
   }
 
   /**
    * JSON安全解析機能
+   * 🔧 Returns unknown instead of any for type safety
    */
-  private safeJsonParse(text: string): any {
+  private safeJsonParse(text: string): unknown {
     try {
       // 制御文字を除去
       const sanitized = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
       return JSON.parse(sanitized);
     } catch (error) {
-      console.error("🚨 JSON Parse Error:", error);
+      logger.error("🚨 JSON Parse Error:", error);
 
       // 不正なJSONから有効な部分を抽出
       const jsonMatch = text.match(/\{.*\}/s);
@@ -86,7 +118,7 @@ export class SimpleAPIManagerV2 {
           );
           return JSON.parse(sanitized);
         } catch (secondError) {
-          console.error("🚨 Second JSON parse attempt failed:", secondError);
+          logger.error("🚨 Second JSON parse attempt failed:", secondError);
         }
       }
 
@@ -100,19 +132,16 @@ export class SimpleAPIManagerV2 {
 
   /**
    * APIキーの設定
+   * 🔧 FIX: LocalStorageへの直接保存を削除（統一設定システムで管理）
    */
   setGeminiApiKey(key: string) {
     this.geminiApiKey = key;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gemini_api_key", key);
-    }
+    // LocalStorage直接保存は統一設定システムに任せる
   }
 
   setOpenRouterApiKey(key: string) {
     this.openRouterApiKey = key;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("openrouter_api_key", key);
-    }
+    // LocalStorage直接保存は統一設定システムに任せる
   }
 
   /**
@@ -120,7 +149,7 @@ export class SimpleAPIManagerV2 {
    */
   setAPIConfig(config: Partial<APIConfig>) {
     this.currentConfig = { ...this.currentConfig, ...config };
-    console.log("🔧 API設定更新:", this.currentConfig);
+    logger.debug("🔧 API設定更新:", this.currentConfig);
   }
 
   setAPIProvider(provider: APIConfig["provider"]) {
@@ -145,7 +174,7 @@ export class SimpleAPIManagerV2 {
 
   setUseDirectGeminiAPI(enabled: boolean) {
     this.useDirectGeminiAPI = enabled;
-    console.log("🔧 Gemini API直接使用フラグ:", enabled);
+    logger.debug("🔧 Gemini API直接使用フラグ:", enabled);
   }
 
   getCurrentConfig(): APIConfig {
@@ -161,8 +190,8 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[] = [],
     options?: Partial<APIConfig>
   ): Promise<string> {
-    console.log("🔧 [SimpleAPIManagerV2] generateMessage called");
-    console.log("🔍 Options provided:", {
+    logger.debug("🔧 [SimpleAPIManagerV2] generateMessage called");
+    logger.debug("🔍 Options provided:", {
       hasOptions: !!options,
       model: options?.model,
       provider: options?.provider,
@@ -170,26 +199,69 @@ export class SimpleAPIManagerV2 {
       hasGeminiKey: !!options?.geminiApiKey,
     });
 
-    // 🔧 リアルタイムでAPIキーを取得（Zustandストアから）
+    // 🔧 リアルタイムでAPIキーを取得
+    // 環境変数を優先（本番環境対策）
     this.refreshApiKeys();
 
-    // optionsからAPIキーを優先的に使用
-    if (options?.openRouterApiKey) {
-      this.openRouterApiKey = options.openRouterApiKey;
-      console.log("✅ Using OpenRouter API key from options");
-    }
-    if (options?.geminiApiKey) {
-      this.geminiApiKey = options.geminiApiKey;
-      console.log("✅ Using Gemini API key from options");
-    }
-    if (options?.useDirectGeminiAPI !== undefined) {
-      this.useDirectGeminiAPI = options.useDirectGeminiAPI;
-      console.log("🔄 useDirectGeminiAPI set to:", options.useDirectGeminiAPI);
+    // 🔧 FIX: モバイルSafari対策 - LocalStorageから直接useDirectGeminiAPIを読み込む
+    if (typeof window !== 'undefined' && this.useDirectGeminiAPI === false) {
+      try {
+        const savedData = localStorage.getItem("ai-chat-v3-storage");
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          const storedFlag = parsed?.state?.useDirectGeminiAPI;
+          if (storedFlag === true) {
+            logger.debug("🔧 [Safari Fix] LocalStorageから直接useDirectGeminiAPI=trueを読み込みました");
+            this.useDirectGeminiAPI = true;
+          }
+        }
+      } catch (error) {
+        logger.warn("⚠️ LocalStorageからのuseDirectGeminiAPI読み込みに失敗:", error);
+      }
     }
 
-    // AIタブのuseDirectGeminiAPIトグルのみで判断
-    if (this.useDirectGeminiAPI && this.geminiApiKey) {
-      console.log("🔥 Gemini API直接使用 (AIタブトグルON)");
+    // 🔧 FIX: 環境変数がない場合のみoptionsから設定
+    // 本番環境では環境変数が優先されるため、LocalStorageの古いキーで上書きしない
+    const envGeminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const envOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+
+    if (!envGeminiKey && options?.geminiApiKey) {
+      this.geminiApiKey = options.geminiApiKey;
+      logger.info("✅ Using Gemini API key from options (環境変数なし)");
+    } else if (envGeminiKey) {
+      logger.info("✅ Using Gemini API key from environment variable (優先)");
+    }
+
+    if (!envOpenRouterKey && options?.openRouterApiKey) {
+      this.openRouterApiKey = options.openRouterApiKey;
+      logger.info("✅ Using OpenRouter API key from options (環境変数なし)");
+    } else if (envOpenRouterKey) {
+      logger.info("✅ Using OpenRouter API key from environment variable (優先)");
+    }
+
+    if (options?.useDirectGeminiAPI !== undefined) {
+      this.useDirectGeminiAPI = options.useDirectGeminiAPI;
+      logger.debug("🔄 useDirectGeminiAPI set to:", options.useDirectGeminiAPI);
+    }
+
+    // モデルタイプを判定してプロバイダーを選択
+    const model = options?.model || this.currentConfig.model || "gpt-4o-mini";
+    const isGeminiModel = model.includes("gemini");
+
+    // 🔧 デバッグ: モデル選択状況を詳細にログ
+    logger.debug("🔍 [API Manager] モデル選択状況:");
+    logger.debug("  - options?.model:", options?.model);
+    logger.debug("  - this.currentConfig.model:", this.currentConfig.model);
+    logger.debug("  - 最終選択モデル:", model);
+    logger.debug("  - isGeminiModel:", isGeminiModel);
+    logger.debug("  - useDirectGeminiAPI:", this.useDirectGeminiAPI);
+    logger.debug("  - geminiApiKey present:", !!this.geminiApiKey);
+    logger.debug("  - User Agent:", typeof navigator !== 'undefined' ? navigator.userAgent : 'Server-side');
+    logger.debug("  - LocalStorage available:", typeof window !== 'undefined' && typeof localStorage !== 'undefined');
+
+    // AIタブがONで、かつGemini系モデルの場合のみGemini APIを使用
+    if (this.useDirectGeminiAPI && this.geminiApiKey && isGeminiModel) {
+      logger.info("🔥 Gemini API直接使用 (AIタブトグルON & Geminiモデル)");
       const result = await this.generateWithGemini(
         systemPrompt,
         userMessage,
@@ -198,15 +270,17 @@ export class SimpleAPIManagerV2 {
       );
       return result;
     } else {
-      console.log(
-        "🌐 OpenRouter使用 (AIタブトグルOFF または Geminiキー未設定)"
+      logger.info(
+        "🌐 OpenRouter使用 (AIタブトグルOFF / 非Geminiモデル / Geminiキー未設定)"
       );
-      console.log("🔑 OpenRouter API key available:", !!this.openRouterApiKey);
+      logger.debug("🔑 OpenRouter API key available:", !!this.openRouterApiKey);
+      logger.debug("📍 Selected model:", model);
+
       // 🚨 修正: GeminiモデルをOpenRouterに送信しない
-      let model = options?.model || this.currentConfig.model || "gpt-4o-mini";
+      let finalModel = model;
 
       // Geminiモデルの場合のみ検証とフォーマット
-      if (model.includes("gemini")) {
+      if (isGeminiModel) {
         // 有効性チェック（自動変換なし）
         if (!validateGeminiModel(model)) {
           throw new Error(`❌ 無効なGeminiモデル: ${model}. Gemini 2.5シリーズ(flash, light, pro)のみ使用可能です。`);
@@ -216,19 +290,19 @@ export class SimpleAPIManagerV2 {
         if (!formattedModel) {
           throw new Error(`❌ モデルフォーマットエラー: ${model}`);
         }
-        model = formattedModel;
-        console.log("📍 OpenRouter用Geminiモデル:", model);
+        finalModel = formattedModel;
+        logger.debug("📍 OpenRouter用Geminiモデル:", finalModel);
       }
       // Gemini以外のモデル（deepseek等）はそのまま使用
       else {
-        console.log("✅ OpenRouter用モデル（そのまま使用）:", model);
+        logger.debug("✅ OpenRouter用モデル（そのまま使用）:", finalModel);
       }
 
       const result = await this.generateWithOpenRouter(
         systemPrompt,
         userMessage,
         conversationHistory,
-        model,
+        finalModel,
         options
       );
       return result.content;
@@ -237,55 +311,84 @@ export class SimpleAPIManagerV2 {
 
   /**
    * ZustandストアからリアルタイムでAPIキーを取得
+   * 🔧 FIX: 環境変数を優先（本番環境対策）
    */
   private refreshApiKeys() {
+    logger.debug("🔄 [refreshApiKeys] APIキーを再読み込み中...");
+
+    // 環境変数から読み込み（本番環境の正しい値）
+    const envGeminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || null;
+    const envOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || null;
+
+    // LocalStorageから読み込み（ユーザー設定）
+    let localGeminiKey: string | null = null;
+    let localOpenRouterKey: string | null = null;
+    let newUseDirectGeminiAPI: boolean | undefined = undefined;
+    let currentApiConfig: Partial<APIConfig> | null = null;
+
     if (typeof window !== "undefined") {
       try {
         const savedData = localStorage.getItem("ai-chat-v3-storage");
         if (savedData) {
           const parsed = JSON.parse(savedData);
-          const newGeminiKey = parsed?.state?.geminiApiKey;
-          const newOpenRouterKey = parsed?.state?.openRouterApiKey;
-          const newUseDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI;
-          const currentApiConfig = parsed?.state?.apiConfig;
+          localGeminiKey = parsed?.state?.geminiApiKey;
+          localOpenRouterKey = parsed?.state?.openRouterApiKey;
+          newUseDirectGeminiAPI = parsed?.state?.useDirectGeminiAPI;
+          currentApiConfig = parsed?.state?.apiConfig;
 
-          if (newGeminiKey && newGeminiKey !== this.geminiApiKey) {
-            this.geminiApiKey = newGeminiKey;
-            console.log("🔄 Gemini APIキーを更新しました");
-          }
-
-          if (newOpenRouterKey && newOpenRouterKey !== this.openRouterApiKey) {
-            this.openRouterApiKey = newOpenRouterKey;
-            console.log("🔄 OpenRouter APIキーを更新しました");
-          }
-
-          // useDirectGeminiAPIフラグも更新
-          if (newUseDirectGeminiAPI !== undefined) {
-            this.useDirectGeminiAPI = newUseDirectGeminiAPI;
-            console.log(
-              "🔄 Gemini API直接使用フラグ:",
-              this.useDirectGeminiAPI
-            );
-          }
-
-          // 現在のAPIConfigも更新（モデル設定を反映）
-          if (currentApiConfig && currentApiConfig.model) {
-            // Geminiモデルの場合のみ検証
-            if (currentApiConfig.model.includes('gemini') && !validateGeminiModel(currentApiConfig.model)) {
-              console.error(`❌ 無効なGeminiモデル設定: ${currentApiConfig.model}`);
-              // 無効なモデルは使用しない
-            } else {
-              this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
-              console.log(
-                "🔄 APIConfig更新（モデル:",
-                currentApiConfig.model,
-                "）"
-              );
-            }
-          }
+          logger.debug("📊 [refreshApiKeys] LocalStorage読み込み結果:", {
+            hasLocalGeminiKey: !!localGeminiKey,
+            hasLocalOpenRouterKey: !!localOpenRouterKey,
+            hasEnvGeminiKey: !!envGeminiKey,
+            hasEnvOpenRouterKey: !!envOpenRouterKey,
+            useDirectGeminiAPI: newUseDirectGeminiAPI,
+            apiConfigModel: currentApiConfig?.model,
+            apiConfigProvider: currentApiConfig?.provider
+          });
         }
       } catch (error) {
-        console.warn("APIキーのリアルタイム取得に失敗:", error);
+        logger.warn("APIキーのリアルタイム取得に失敗:", error);
+      }
+    }
+
+    // 🔧 FIX: 環境変数を優先
+    const finalGeminiKey = envGeminiKey || localGeminiKey;
+    const finalOpenRouterKey = envOpenRouterKey || localOpenRouterKey;
+
+    if (finalGeminiKey && finalGeminiKey !== this.geminiApiKey) {
+      this.geminiApiKey = finalGeminiKey;
+      logger.debug("🔄 Gemini APIキーを更新しました (元:", envGeminiKey ? "環境変数" : "LocalStorage", ")");
+      geminiClient.setApiKey(finalGeminiKey);
+    }
+
+    if (finalOpenRouterKey && finalOpenRouterKey !== this.openRouterApiKey) {
+      this.openRouterApiKey = finalOpenRouterKey;
+      logger.debug("🔄 OpenRouter APIキーを更新しました (元:", envOpenRouterKey ? "環境変数" : "LocalStorage", ")");
+      geminiClient.setOpenRouterApiKey(finalOpenRouterKey);
+    }
+
+    // useDirectGeminiAPIフラグも更新
+    if (newUseDirectGeminiAPI !== undefined) {
+      this.useDirectGeminiAPI = newUseDirectGeminiAPI;
+      logger.debug(
+        "🔄 Gemini API直接使用フラグ:",
+        this.useDirectGeminiAPI
+      );
+    }
+
+    // 現在のAPIConfigも更新（モデル設定を反映）
+    if (currentApiConfig && currentApiConfig.model) {
+      // Geminiモデルの場合のみ検証
+      if (currentApiConfig.model.includes('gemini') && !validateGeminiModel(currentApiConfig.model)) {
+        logger.error(`❌ 無効なGeminiモデル設定: ${currentApiConfig.model}`);
+        // 無効なモデルは使用しない
+      } else {
+        this.currentConfig = { ...this.currentConfig, ...currentApiConfig };
+        logger.debug(
+          "🔄 APIConfig更新（モデル:",
+          currentApiConfig.model,
+          "）"
+        );
       }
     }
   }
@@ -299,13 +402,16 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[],
     options?: Partial<APIConfig>
   ): Promise<string> {
+    // 🔥 Performance Measurement: 開始時刻を記録
+    const startTime = Date.now();
+
     if (!this.geminiApiKey) {
       throw new Error(
         "Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。"
       );
     }
 
-    console.log("🔥 Using Gemini API directly");
+    logger.info("🔥 Using Gemini API directly");
 
     // モデル名の検証とフォーマット
     const requestedModel = options?.model || "gemini-2.5-flash";
@@ -327,17 +433,36 @@ export class SimpleAPIManagerV2 {
       conversationHistory
     );
 
+    // 🔥 Prompt Caching: Pass cache-related options to gemini-client
+    // 🚨 CRITICAL FIX: Disable cache for free tier (limit=0)
     const response = await geminiClient.generateMessage(messages, {
       temperature: options?.temperature || 0.7,
       maxTokens: options?.max_tokens || 2048,
       topP: options?.top_p || 0.9,
+      characterId: options?.characterId,
+      personaId: options?.personaId,
+      systemPrompt: systemPrompt, // For cache key generation
+      enableCache: false, // 🔧 FIX: 無料版ではキャッシュ制限(limit=0)のため無効化
     });
+
+    // 🔥 Performance Measurement: 終了時刻と処理時間を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    logger.debug("📊 [Gemini Performance]");
+    logger.debug(`  - Generation Time: ${duration}ms`);
+    logger.debug(`  - Model: ${cleanModel}`);
+    logger.debug(`  - System Prompt Length: ${systemPrompt.length} chars`);
+    logger.debug(`  - Response Length: ${response.length} chars`);
+    if (options?.characterId) logger.debug(`  - Character ID: ${options.characterId}`);
+    if (options?.personaId) logger.debug(`  - Persona ID: ${options.personaId}`);
 
     return formatMessageContent(response, "readable");
   }
 
   /**
    * OpenRouter使用
+   * 🔧 Returns properly typed OpenRouterResponse
    */
   private async generateWithOpenRouter(
     systemPrompt: string,
@@ -345,14 +470,17 @@ export class SimpleAPIManagerV2 {
     conversationHistory: { role: "user" | "assistant"; content: string }[],
     model: string,
     options?: Partial<APIConfig>
-  ): Promise<{ content: string; usage?: any }> {
+  ): Promise<OpenRouterResponse> {
+    // 🔥 Performance Measurement: 開始時刻を記録
+    const startTime = Date.now();
+
     if (!this.openRouterApiKey) {
       throw new Error(
         `OpenRouter APIキーが設定されていません。${model}を使用するにはOpenRouter APIキーが必要です。`
       );
     }
 
-    console.log(`🌐 Using OpenRouter with model: ${model}`);
+    logger.info(`🌐 Using OpenRouter with model: ${model}`);
 
     const messages = [
       { role: "system" as const, content: systemPrompt },
@@ -391,7 +519,7 @@ export class SimpleAPIManagerV2 {
     const data = await response.json();
 
     // 🔧 完全なAPIレスポンスをデバッグログ出力（Grok等の問題診断用）
-    console.log("📥 OpenRouter完全レスポンス:", JSON.stringify(data, null, 2));
+    logger.debug("📥 OpenRouter完全レスポンス:", JSON.stringify(data, null, 2));
 
     const choice = data.choices?.[0];
     if (!choice) {
@@ -402,14 +530,14 @@ export class SimpleAPIManagerV2 {
     const content = choice.message?.content || "";
 
     // 🔧 finish_reason と content の状態をログ出力
-    console.log(`📋 OpenRouter finish_reason: "${finishReason}", content length: ${content.length}`);
+    logger.debug(`📋 OpenRouter finish_reason: "${finishReason}", content length: ${content.length}`);
 
     // 🔧 finish_reason別の詳細なハンドリング（Grok 4 Fast問題対応）
     if (finishReason === "length") {
-      console.warn("⚠️ トークン制限で応答が切り詰められました");
+      logger.warn("⚠️ トークン制限で応答が切り詰められました");
       if (content) {
         // 部分的な応答でも返す（インスピレーションのパースを試行可能にする）
-        console.log("✅ 部分的な応答を返します");
+        logger.debug("✅ 部分的な応答を返します");
         return { content: formatMessageContent(content, "readable"), usage: data.usage };
       } else {
         throw new Error(
@@ -425,14 +553,14 @@ export class SimpleAPIManagerV2 {
     } else if (finishReason === "stop") {
       // 正常終了
       if (!content) {
-        console.error("🚨 finish_reason=stop だが contentが空！");
+        logger.error("🚨 finish_reason=stop だが contentが空！");
         throw new Error(
           `モデル${model}から空の応答が返されました。モデルの制限に達した可能性があります。`
         );
       }
     } else if (!finishReason) {
       // finish_reasonがnullまたはundefined（Grok 4 Fast無料版で発生）
-      console.warn(`⚠️ finish_reasonがnullです（モデル: ${model}）`);
+      logger.warn(`⚠️ finish_reasonがnullです（モデル: ${model}）`);
       if (!content) {
         throw new Error(
           `モデル${model}から不完全な応答が返されました。` +
@@ -440,10 +568,10 @@ export class SimpleAPIManagerV2 {
         );
       }
       // contentがある場合はログを出力して続行
-      console.log("✅ finish_reasonはnullですが、contentがあるため続行します");
+      logger.debug("✅ finish_reasonはnullですが、contentがあるため続行します");
     } else {
       // 未知のfinish_reason
-      console.warn(`⚠️ 未知のfinish_reason: "${finishReason}"`);
+      logger.warn(`⚠️ 未知のfinish_reason: "${finishReason}"`);
       if (!content) {
         throw new Error(
           `モデル${model}から空の応答が返されました (finish_reason: ${finishReason})`
@@ -451,19 +579,27 @@ export class SimpleAPIManagerV2 {
       }
     }
 
+    // 🔥 Performance Measurement: 終了時刻と処理時間を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
     // 使用量情報を詳細にログ出力
     if (data.usage) {
-      console.log("📊 OpenRouter API使用量:", {
-        model: model,
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-        finish_reason: finishReason,
-        contentLength: content.length,
-        promptCost: data.usage.prompt_tokens * 0.000002, // 概算コスト
-        completionCost: data.usage.completion_tokens * 0.000002, // 概算コスト
-        totalCost: data.usage.total_tokens * 0.000002, // 概算コスト
-      });
+      logger.debug("📊 [OpenRouter Performance]");
+      logger.debug(`  - Generation Time: ${duration}ms`);
+      logger.debug(`  - Model: ${model}`);
+      logger.debug(`  - Prompt Tokens: ${data.usage.prompt_tokens}`);
+      logger.debug(`  - Completion Tokens: ${data.usage.completion_tokens}`);
+      logger.debug(`  - Total Tokens: ${data.usage.total_tokens}`);
+      logger.debug(`  - Finish Reason: ${finishReason}`);
+      logger.debug(`  - Response Length: ${content.length} chars`);
+      logger.debug(`  - Estimated Cost: $${(data.usage.total_tokens * 0.000002).toFixed(6)}`);
+    } else {
+      // Usage情報がない場合でも基本的なパフォーマンス情報を出力
+      logger.debug("📊 [OpenRouter Performance]");
+      logger.debug(`  - Generation Time: ${duration}ms`);
+      logger.debug(`  - Model: ${model}`);
+      logger.debug(`  - Response Length: ${content.length} chars`);
     }
 
     return {
@@ -513,11 +649,11 @@ export class SimpleAPIManagerV2 {
           throw new Error(`❌ モデルフォーマットエラー: ${model}`);
         }
         model = formattedModel;
-        console.log("📍 OpenRouter用Geminiモデル:", model);
+        logger.debug("📍 OpenRouter用Geminiモデル:", model);
       }
       // Gemini以外のモデル（deepseek等）はそのまま使用
       else {
-        console.log("✅ OpenRouter用モデル（そのまま使用）:", model);
+        logger.debug("✅ OpenRouter用モデル（そのまま使用）:", model);
       }
 
       const result = await this.generateWithOpenRouter(
@@ -567,6 +703,7 @@ export class SimpleAPIManagerV2 {
 
   /**
    * 接続テスト
+   * 🔧 Uses proper error type guards
    */
   async testConnection(
     model: string
@@ -586,10 +723,11 @@ export class SimpleAPIManagerV2 {
           50
         )}...`,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        message: `${model} との接続に失敗: ${error.message}`,
+        message: `${model} との接続に失敗: ${errorMessage}`,
       };
     }
   }

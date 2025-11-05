@@ -2,7 +2,7 @@
 // Hierarchical memory system based on cognitive science memory models
 
 // Removed unused import
-import { MemoryLayer } from '@/types/memory';
+import { LegacyMemoryLayer as MemoryLayer } from '@/types/core/memory.types';
 import { UnifiedMessage } from '@/types';
 
 /**

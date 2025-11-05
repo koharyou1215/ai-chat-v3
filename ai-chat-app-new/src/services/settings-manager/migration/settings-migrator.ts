@@ -49,6 +49,7 @@ import type { UnifiedSettings } from '../../settings-manager';
 import {
   ThreeDMigrationStrategy,
   EmotionMigrationStrategy,
+  BackgroundMigrationStrategy,
   LocalStorageMigrationStrategy,
   ZustandMigrationStrategy,
   type MigrationStrategy,
@@ -67,6 +68,7 @@ export class SettingsMigrator {
   private readonly strategies: MigrationStrategy[] = [
     new ThreeDMigrationStrategy(), // Phase 2.1
     new EmotionMigrationStrategy(), // Phase 2.2
+    new BackgroundMigrationStrategy(), // Phase 3
     new LocalStorageMigrationStrategy(), // Legacy storage
     new ZustandMigrationStrategy(), // Zustand persist
   ];

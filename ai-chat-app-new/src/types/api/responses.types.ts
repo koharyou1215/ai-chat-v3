@@ -128,7 +128,7 @@ export interface VectorSearchResponse {
     id: string;
     content: string;
     score: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }>;
   total_results: number;
   processing_time_ms: number;

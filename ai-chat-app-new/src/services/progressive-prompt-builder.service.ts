@@ -11,8 +11,87 @@ import {
 import { replaceVariables } from "@/utils/variable-replacer";
 import { TrackerManager } from "./tracker/tracker-manager";
 import { MemoryCard } from "@/types";
+import { TRACKER_WARNING } from "@/constants/prompts";
+import { ConversationHistoryManager } from "./conversation-history-manager";
+import { limitTokens, estimateTokenCount } from "@/utils/token-counter";
 
 export class ProgressivePromptBuilder {
+  /**
+   * 共通: 基本的なAI/User定義を生成
+   */
+  private buildBaseDefinition(charName: string, userName: string): string {
+    return `AI=${charName}, User=${userName}`;
+  }
+
+  /**
+   * 共通: メモリーカードセクションを生成
+   */
+  private buildMemorySection(
+    memoryCards: MemoryCard[],
+    maxPinned: number = 3,
+    maxRelevant: number = 2,
+    detailed: boolean = false
+  ): string {
+    if (!memoryCards || memoryCards.length === 0) return "";
+
+    const pinnedMemories = memoryCards.filter((m) => m.is_pinned).slice(0, maxPinned);
+    const relevantMemories = memoryCards.filter((m) => !m.is_pinned).slice(0, maxRelevant);
+
+    if (pinnedMemories.length === 0 && relevantMemories.length === 0) return "";
+
+    if (detailed) {
+      // Stage 3用の詳細版
+      return `
+<memory_system>
+${pinnedMemories.length > 0 ? `## Pinned Memories (Most Important)
+${pinnedMemories.map((m) => `
+[${m.category}] ${m.title}
+Summary: ${m.summary}
+Keywords: ${m.keywords.join(", ")}
+Importance: ${m.importance.score}
+`).join("\n")}` : ""}
+${relevantMemories.length > 0 ? `
+## Relevant Memories
+${relevantMemories.map((m) => `
+[${m.category}] ${m.title}
+Summary: ${m.summary}
+Keywords: ${m.keywords.join(", ")}
+`).join("\n")}` : ""}
+</memory_system>`;
+    } else {
+      // Stage 1, 2用の簡潔版
+      return `
+<memory_context>
+${pinnedMemories.map((m) => `[Pinned] ${m.title}: ${m.summary}`).join("\n")}
+${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
+</memory_context>`;
+    }
+  }
+
+  /**
+   * 共通: トラッカーセクションを生成
+   */
+  private buildTrackerSection(
+    trackerManager: TrackerManager | undefined,
+    characterId: string,
+    detailed: boolean = false
+  ): string {
+    if (!trackerManager || !characterId) return "";
+
+    const trackerInfo = detailed
+      ? trackerManager.getDetailedTrackersForPrompt?.(characterId)
+      : trackerManager.getTrackersForPrompt?.(characterId);
+
+    if (!trackerInfo) return "";
+
+    const sectionTag = detailed ? "relationship_dynamics" : "relationship_state";
+
+    return `
+<${sectionTag}>
+${TRACKER_WARNING}
+${trackerInfo}
+</${sectionTag}>`;
+  }
   /**
    * Stage 1: Reflex Prompt (反射的応答)
    * 最小限の情報で即座の感情的反応を生成
@@ -26,6 +105,10 @@ export class ProgressivePromptBuilder {
     const userName = persona?.name || "User";
     const charName = character.name;
 
+    // 共通メソッドを使用
+    const baseDefinition = this.buildBaseDefinition(charName, userName);
+    const memorySection = this.buildMemorySection(memoryCards || [], 2, 1, false);
+
     // 最小限のキャラクター情報
     const minimalCharInfo = `
 あなたは${charName}です。
@@ -38,26 +121,8 @@ ${character.first_person ? `一人称: ${character.first_person}` : ""}
 ${character.second_person ? `二人称: ${character.second_person}` : ""}
 `;
 
-    // メモリーカード情報（重要なもののみ）
-    const memorySection =
-      memoryCards && memoryCards.length > 0
-        ? `
-<memory_context>
-${memoryCards
-  .filter((m) => m.is_pinned)
-  .slice(0, 2)
-  .map((m) => `[Pinned] ${m.title}: ${m.summary}`)
-  .join("\n")}
-${memoryCards
-  .filter((m) => !m.is_pinned)
-  .slice(0, 1)
-  .map((m) => `[Related] ${m.title}: ${m.summary}`)
-  .join("\n")}
-</memory_context>`
-        : "";
-
     const prompt = `
-AI=${charName}, User=${userName}
+${baseDefinition}
 
 ${minimalCharInfo}
 ${memorySection}
@@ -77,11 +142,11 @@ ${charName}:`;
       stage: "reflex",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
+        user: persona || {
+          id: 'default',
+          name: userName,
+          role: 'user',
+          other_settings: '',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1
@@ -106,6 +171,11 @@ ${charName}:`;
     const persona = session.participants.user;
     const charName = character.name;
     const userName = persona?.name || "User";
+
+    // 共通メソッドを使用
+    const baseDefinition = this.buildBaseDefinition(charName, userName);
+    const memorySection = this.buildMemorySection(memoryCards, 3, 2, false);
+    const trackerSection = this.buildTrackerSection(trackerManager, character.id, false);
 
     // キャラクター情報（中程度の詳細）
     const characterInfo = `
@@ -139,40 +209,13 @@ ${
 </persona_information>`
       : "";
 
-    // メモリーカード（重要なもののみ）
-    const pinnedMemories = memoryCards.filter((m) => m.is_pinned).slice(0, 3);
-    const relevantMemories = memoryCards
-      .filter((m) => !m.is_pinned)
-      .slice(0, 2);
+    // 統一されたHistoryManagerを使用して会話履歴を取得
+    const conversationHistoryArray = ConversationHistoryManager.getHistoryForStage2(session);
 
-    const memorySection =
-      pinnedMemories.length > 0 || relevantMemories.length > 0
-        ? `
-<memory_context>
-${pinnedMemories.map((m) => `[Pinned] ${m.title}: ${m.summary}`).join("\n")}
-${relevantMemories.map((m) => `[Related] ${m.title}: ${m.summary}`).join("\n")}
-</memory_context>`
-        : "";
-
-    // Mem0を使用して最適化された会話履歴を取得
-    let conversationHistoryArray;
-    try {
-      const { Mem0 } = require("@/services/mem0/core");
-      const maxContextMessages = 20; // プログレッシブ用の軽量設定
-      conversationHistoryArray = Mem0.getCandidateHistory(
-        session.messages,
-        {
-          sessionId: session.id,
-          maxContextMessages,
-          minRecentMessages: 5, // 最低5ラウンド保証
-        }
-      );
-    } catch (e) {
-      // フォールバック
-      conversationHistoryArray = session.messages.slice(-5)
-        .filter(m => m.role === "user" || m.role === "assistant")
-        .map(m => ({ role: m.role, content: m.content }));
-    }
+    // 🔥 過去のパターンと異なる応答を促す（簡潔版）
+    const stage2PatternSection = session.messages.length > 0
+      ? `\n【重要】過去の表現と異なる新しい視点・感情の角度で応答してください。`
+      : "";
 
     const conversationHistory =
       conversationHistoryArray.length > 0
@@ -190,27 +233,15 @@ ${conversationHistoryArray
 </recent_conversation>`
         : "";
 
-    // トラッカー情報（あれば）
-    const trackerInfo =
-      trackerManager && character.id
-        ? trackerManager.getTrackersForPrompt?.(character.id)
-        : null;
-
-    const trackerSection = trackerInfo
-      ? `
-<relationship_state>
-${trackerInfo}
-</relationship_state>`
-      : "";
-
     let prompt = `
-AI=${charName}, User=${userName}
+${baseDefinition}
 
 ${characterInfo}
 ${personaInfo}
 ${memorySection}
 ${trackerSection}
 ${conversationHistory}
+${stage2PatternSection}
 
 ## 応答指示
 - 会話の文脈と記憶を踏まえて応答してください
@@ -222,49 +253,41 @@ ${conversationHistory}
 ${userName}: ${input}
 ${charName}:`;
 
-    // 🔧 トークン制限の適用（Stage 2: 最大10,000トークン）
-    const maxTokensForStage2 = 10000;
-    const maxCharsForStage2 = Math.floor(maxTokensForStage2 / 3);
+    // 🔧 改善されたトークン制限の適用（Stage 2: 最大10,000トークン）
+    const { limitedText, wasLimited } = limitTokens(prompt, {
+      maxTokens: 10000,
+      reducibleSections: [
+        {
+          name: "会話履歴",
+          content: conversationHistory,
+          priority: 3, // 最も削減しやすい
+        },
+        {
+          name: "メモリーカード",
+          content: memorySection,
+          priority: 2,
+        },
+        {
+          name: "ペルソナ情報",
+          content: personaInfo,
+          priority: 1,
+        },
+      ],
+    });
 
-    if (prompt.length > maxCharsForStage2) {
-      console.warn(`⚠️ Stage 2プロンプトが制限を超過: ${prompt.length} > ${maxCharsForStage2}文字`);
-
-      // 基本部分を保持
-      const beforeHistory = `AI=${charName}, User=${userName}
-
-${characterInfo}
-${personaInfo}
-${memorySection}
-${trackerSection}
-`;
-      const afterHistory = `
-
-## 応答指示
-- 会話の文脈と記憶を踏まえて応答してください
-- 相手との関係性を考慮してください
-- 3-5文程度で自然に応答してください
-- 過去の会話内容を適切に参照してください
-
-## 現在の入力
-${userName}: ${input}
-${charName}:`;
-
-      const remainingChars = maxCharsForStage2 - beforeHistory.length - afterHistory.length;
-      const truncatedHistory = conversationHistory.substring(0, Math.max(remainingChars, 500)) + '\n... [履歴を短縮] ...\n';
-
-      prompt = beforeHistory + truncatedHistory + afterHistory;
-      console.log(`✅ Stage 2プロンプトを${maxCharsForStage2}文字（約${maxTokensForStage2}トークン）に短縮`);
+    if (wasLimited) {
+      prompt = limitedText;
     }
 
     return {
       stage: "context",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
+        user: persona || {
+          id: 'default',
+          name: userName,
+          role: 'user',
+          other_settings: '',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1
@@ -292,6 +315,16 @@ ${charName}:`;
     const persona = session.participants.user;
     const charName = character.name;
     const userName = persona?.name || "User";
+
+    // 共通メソッドを使用
+    const baseDefinition = this.buildBaseDefinition(charName, userName);
+    const fullMemorySection = this.buildMemorySection(memoryCards, 999, 10, true); // 詳細版
+    const fullTrackerSection = this.buildTrackerSection(trackerManager, character.id, true);
+
+    // 🔥 過去のパターンと異なる応答を促す（簡潔版）
+    const stage3PatternSection = session.messages.length > 0
+      ? `\n【重要】過去の言い回し・行動提案と異なる新しいアプローチで応答してください。`
+      : "";
 
     // システム指示（完全版）
     const systemSection =
@@ -379,71 +412,22 @@ ${persona.other_settings ? `Other Settings: ${persona.other_settings}` : ""}
 </persona_information>`
       : "";
 
-    // 完全なメモリーシステム
-    const fullMemorySection =
-      memoryCards.length > 0
-        ? `
-<memory_system>
-## Pinned Memories (Most Important)
-${memoryCards
-  .filter((m) => m.is_pinned)
-  .map(
-    (m) => `
-[${m.category}] ${m.title}
-Summary: ${m.summary}
-Keywords: ${m.keywords.join(", ")}
-Importance: ${m.importance.score}
-`
-  )
-  .join("\n")}
-
-## Relevant Memories
-${memoryCards
-  .filter((m) => !m.is_pinned)
-  .slice(0, 10)
-  .map(
-    (m) => `
-[${m.category}] ${m.title}
-Summary: ${m.summary}
-Keywords: ${m.keywords.join(", ")}
-`
-  )
-  .join("\n")}
-</memory_system>`
-        : "";
-
-    // 完全な会話履歴（10メッセージに制限）
+    // 統一されたHistoryManagerを使用して会話履歴を取得
+    const historyMessages = ConversationHistoryManager.getHistoryForStage3(session);
     const fullConversationHistory =
-      session.messages.length > 0
+      historyMessages.length > 0
         ? `
 <conversation_history>
-${session.messages
-  .slice(-10)
+${historyMessages
   .map(
-    (msg) => `
-${msg.role === "user" ? userName : charName}: ${msg.content}
-${msg.memory?.summary ? `[Memory: ${msg.memory.summary}]` : ""}
-`
+    (msg) => `${msg.role === "user" ? userName : charName}: ${msg.content}`
   )
   .join("\n")}
 </conversation_history>`
         : "";
 
-    // 完全なトラッカー情報
-    const fullTrackerInfo =
-      trackerManager && character.id
-        ? trackerManager.getDetailedTrackersForPrompt?.(character.id)
-        : null;
-
-    const fullTrackerSection = fullTrackerInfo
-      ? `
-<relationship_dynamics>
-${fullTrackerInfo}
-</relationship_dynamics>`
-      : "";
-
     let prompt = `
-AI=${charName}, User=${userName}
+${baseDefinition}
 
 ${systemSection}
 ${fullCharacterInfo}
@@ -451,6 +435,7 @@ ${fullPersonaInfo}
 ${fullMemorySection}
 ${fullTrackerSection}
 ${fullConversationHistory}
+${stage3PatternSection}
 
 ## Advanced Response Guidelines
 - Provide deep insights and thoughtful analysis when appropriate
@@ -468,60 +453,46 @@ Consider the user's emotional state, the conversation trajectory, and any implic
 ${userName}: ${input}
 ${charName}:`;
 
-    // 🔧 トークン制限の適用（Stage 3: 最大15,000トークン）
-    const maxTokensForStage3 = 15000;
-    const maxCharsForStage3 = Math.floor(maxTokensForStage3 / 3);
+    // 🔧 改善されたトークン制限の適用（Stage 3: 最大15,000トークン）
+    const { limitedText, wasLimited } = limitTokens(prompt, {
+      maxTokens: 15000,
+      reducibleSections: [
+        {
+          name: "会話履歴",
+          content: fullConversationHistory,
+          priority: 4, // 最も削減しやすい
+        },
+        {
+          name: "メモリーシステム",
+          content: fullMemorySection,
+          priority: 3,
+        },
+        {
+          name: "トラッカー情報",
+          content: fullTrackerSection,
+          priority: 2,
+        },
+        {
+          name: "ペルソナ情報",
+          content: fullPersonaInfo,
+          priority: 1, // 最も削減しにくい
+        },
+      ],
+    });
 
-    if (prompt.length > maxCharsForStage3) {
-      console.warn(`⚠️ Stage 3プロンプトが制限を超過: ${prompt.length} > ${maxCharsForStage3}文字`);
-
-      // 重要部分を保持
-      const essentialPart = `AI=${charName}, User=${userName}
-
-${systemSection}
-${fullCharacterInfo}
-${fullPersonaInfo}
-`;
-      const endPart = `
-
-## Advanced Response Guidelines
-- Provide deep insights and thoughtful analysis when appropriate
-- Reference specific past conversations and shared experiences
-- Show emotional depth and understanding
-- Offer creative suggestions or alternative perspectives
-- Maintain character authenticity while demonstrating intelligence
-- Consider long-term relationship dynamics
-- Balance detail with natural conversation flow
-
-## Current Context Analysis
-Consider the user's emotional state, the conversation trajectory, and any implicit needs or desires that haven't been directly expressed.
-
-## Current Input
-${userName}: ${input}
-${charName}:`;
-
-      const remainingChars = maxCharsForStage3 - essentialPart.length - endPart.length;
-
-      // メモリーと履歴を制限内に収める
-      const memoryChars = Math.floor(remainingChars * 0.3);
-      const historyChars = Math.floor(remainingChars * 0.7);
-
-      const truncatedMemory = fullMemorySection.substring(0, memoryChars) + '\n... [メモリー短縮] ...';
-      const truncatedHistory = fullConversationHistory.substring(0, historyChars) + '\n... [履歴短縮] ...';
-
-      prompt = essentialPart + truncatedMemory + '\n' + truncatedHistory + endPart;
-      console.log(`✅ Stage 3プロンプトを${maxCharsForStage3}文字（約${maxTokensForStage3}トークン）に短縮`);
+    if (wasLimited) {
+      prompt = limitedText;
     }
 
     return {
       stage: "intelligence",
       prompt: replaceVariables(prompt, {
         character,
-        user: persona || { 
-          id: 'default', 
-          name: userName, 
-          role: 'user', 
-          other_settings: '', 
+        user: persona || {
+          id: 'default',
+          name: userName,
+          role: 'user',
+          other_settings: '',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1
@@ -532,10 +503,7 @@ ${charName}:`;
       systemInstructions: systemSection,
       characterContext: fullCharacterInfo,
       memoryContext: fullMemorySection,
-      conversationHistory: session.messages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+      conversationHistory: historyMessages,
     };
   }
 

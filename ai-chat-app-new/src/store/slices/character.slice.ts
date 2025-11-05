@@ -2,6 +2,8 @@ import { StateCreator } from 'zustand';
 import { Character, UUID, TrackerDefinition, TrackerCategory, TrackerType } from '@/types';
 import type { StateDefinition, StateTrackerConfig } from '@/types/core/tracker.types';
 import { AppStore } from '..';
+import { geminiCacheManager } from '@/services/api/gemini-cache-manager';
+import { generateStableCharacterID } from '@/utils/character-id-generator';
 
 export interface CharacterSlice {
     characters: Map<UUID, Character>;
@@ -48,6 +50,11 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     set(state => {
       const characters = new Map(state.characters);
       characters.set(character.id, character);
+
+      // 🔥 Cache Invalidation: キャラクター更新時にキャッシュ無効化
+      geminiCacheManager.invalidateCharacter(character.id);
+      console.log(`💾 [Cache] Invalidated cache for character: ${character.id}`);
+
       return { characters, editingCharacter: character };
     });
   },
@@ -66,7 +73,7 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       };
     });
   },
-  selectCharacter: (characterId) => {
+  selectCharacter: async (characterId) => {
     const characters = get().characters;
     let character;
     // Map型かオブジェクト型かを確認して対応
@@ -75,10 +82,15 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
     } else if (typeof characters === 'object' && characters && characterId in characters) {
       character = (characters as Record<string, Character>)[characterId];
     }
-    
+
     const persona = get().getSelectedPersona();
     if (character && persona) {
-        get().createSession(character, persona);
+        // 新しいセッションを作成
+        const newSessionId = await get().createSession(character, persona);
+
+        // アクティブセッションを明示的に切り替え
+        get().setActiveSessionId(newSessionId);
+
         set({ selectedCharacterId: characterId, showCharacterGallery: false });
     } else {
         // キャラクターまたはペルソナが見つからない場合のエラーハンドリング
@@ -108,29 +120,56 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
   closeCharacterForm: () => set({ showCharacterForm: false, editingCharacter: null }),
   saveCharacter: async (character) => {
     try {
-      const response = await fetch('/api/characters', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(character),
-      });
+      // 🔧 FIX: 本番環境（Vercel）ではファイルシステムへの書き込みができないため、
+      // LocalStorage（Zustand persist）のみに保存する
+      const isProduction = typeof window !== 'undefined' &&
+        (window.location.hostname.includes('vercel.app') ||
+         window.location.hostname.includes('netlify.app') ||
+         process.env.NODE_ENV === 'production');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save character on the server');
+      // 開発環境のみAPIコールを実行
+      if (!isProduction) {
+        const response = await fetch('/api/characters', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(character),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save character on the server');
+        }
+      } else {
+        console.log('🌐 Production environment detected: Skipping API call, saving to LocalStorage only');
       }
 
-      // If API call is successful, update the state
+      // Zustand stateを更新（LocalStorageに自動保存される）
       set(state => ({
         characters: new Map(state.characters).set(character.id, character),
         showCharacterForm: false,
         editingCharacter: null
       }));
 
+      // 🔥 Cache Invalidation: キャラクター保存時にキャッシュ無効化
+      geminiCacheManager.invalidateCharacter(character.id);
+      console.log(`💾 [Cache] Invalidated cache for character: ${character.id}`);
+
+      console.log(`✅ Character ${character.name} saved successfully (background_url: ${character.background_url})`);
+
     } catch (error) {
-      console.error('Error saving character:', error);
-      // Optionally, handle the error in the UI, e.g., show a notification
+      console.error('❌ Error saving character:', error);
+      // エラーが発生してもstateは更新する（LocalStorage保存のため）
+      set(state => ({
+        characters: new Map(state.characters).set(character.id, character),
+        showCharacterForm: false,
+        editingCharacter: null
+      }));
+
+      // 🔥 Cache Invalidation: エラー時もキャッシュ無効化（状態は更新されているため）
+      geminiCacheManager.invalidateCharacter(character.id);
+      console.log(`💾 [Cache] Invalidated cache for character: ${character.id}`);
     }
   },
 
@@ -195,7 +234,13 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
               : '',
             background_url: (characterData.background_url && typeof characterData.background_url === 'string' && characterData.background_url.trim() !== '')
               ? characterData.background_url
-              : '/images/default-bg.jpg',
+              : '', // 🔧 FIX: デフォルト背景を空にして外観設定にフォールバック
+            background_url_desktop: (characterData.background_url_desktop && typeof characterData.background_url_desktop === 'string' && characterData.background_url_desktop.trim() !== '')
+              ? characterData.background_url_desktop
+              : undefined, // 🆕 デスクトップ用背景画像URL
+            background_url_mobile: (characterData.background_url_mobile && typeof characterData.background_url_mobile === 'string' && characterData.background_url_mobile.trim() !== '')
+              ? characterData.background_url_mobile
+              : undefined, // 🆕 モバイル用背景画像URL
 
             speaking_style: characterData.speaking_style || '',
             first_person: characterData.first_person || '私',
@@ -217,8 +262,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
 
               // Support both old format (direct fields) and new format (config object)
               const hasConfig = t.config && typeof t.config === 'object';
+              const configRecord = t.config as Record<string, unknown> | undefined;
               const trackerType = hasConfig
-                ? (t.config as any).type
+                ? (configRecord?.type as string)
                 : t.type;
 
               if (!trackerType || typeof trackerType !== 'string') {
@@ -241,16 +287,16 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                 name: t.name,
                 display_name: String(t.display_name || ''),
                 description: String(t.description || ''),
-                category: (hasConfig ? (t.config as any).category : t.category) as TrackerCategory || 'status',
+                category: (hasConfig ? (configRecord?.category as TrackerCategory) : t.category) as TrackerCategory || 'status',
                 type: trackerType as TrackerType,
               };
 
               let isValid = true;
 
               // Extract values from either old format or new format (config object)
-              if (hasConfig) {
+              if (hasConfig && configRecord) {
                 // New format with config object
-                const config = t.config as any;
+                const config = configRecord;
                 switch (trackerType) {
                   case 'numeric':
                     definition.config = {
@@ -266,8 +312,8 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
                       type: 'state',
                       initial_state: config.initial_state as string,
                       possible_states: Array.isArray(config.possible_states)
-                        ? config.possible_states.map((s: any) =>
-                            typeof s === 'object' ? s : { id: String(s), label: String(s) }
+                        ? config.possible_states.map((s: unknown) =>
+                            typeof s === 'object' && s !== null ? s as StateDefinition : { id: String(s), label: String(s) }
                           )
                         : [],
                     };

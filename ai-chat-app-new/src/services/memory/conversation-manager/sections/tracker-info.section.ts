@@ -8,6 +8,7 @@
 
 import type { Character } from '@/types';
 import type { TrackerManager } from '@/services/tracker/tracker-manager';
+import { TRACKER_WARNING } from '@/constants/prompts';
 
 export interface TrackerInfoContext {
   character?: Character;
@@ -41,7 +42,10 @@ export class TrackerInfoSection {
             trackerInfo.length,
             "characters"
           );
-          prompt += `<relationship_state>\n${trackerInfo}\n</relationship_state>\n\n`;
+          prompt += `<relationship_state>
+${TRACKER_WARNING}
+${trackerInfo}
+</relationship_state>\n\n`;
         } else {
           console.log("❌ [ConversationManager] No tracker info available");
         }

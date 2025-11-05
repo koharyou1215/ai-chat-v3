@@ -62,7 +62,7 @@ export async function evolveCharacterSafely(
   context: string = "unknown"
 ): Promise<boolean> {
   try {
-    const { Mem0Character } = require("@/services/mem0/character");
+    const { Mem0Character } = require("@/services/mem0/character-service");
     await Mem0Character.evolveCharacter(characterId, messages);
     console.log(
       `✅ [${context}] Character evolution completed for:`,

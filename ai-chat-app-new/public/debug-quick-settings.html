@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クイック設定デバッグ - AI Chat V3</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #a78bfa;
+      border-bottom: 2px solid #8b5cf6;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #c4b5fd;
+      margin-top: 30px;
+    }
+    .section {
+      background: #16213e;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .info {
+      background: #1f2937;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 10px 0;
+      border-left: 4px solid #8b5cf6;
+    }
+    .warning {
+      background: #451a03;
+      border-left: 4px solid #f59e0b;
+    }
+    .success {
+      background: #064e3b;
+      border-left: 4px solid #10b981;
+    }
+    .error {
+      background: #450a0a;
+      border-left: 4px solid #ef4444;
+    }
+    pre {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    button {
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #7c3aed;
+    }
+    button.danger {
+      background: #ef4444;
+    }
+    button.danger:hover {
+      background: #dc2626;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .card {
+      background: #1f2937;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid #374151;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .status.on {
+      background: #10b981;
+      color: white;
+    }
+    .status.off {
+      background: #6b7280;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 クイック設定デバッグツール</h1>
+
+  <div class="section">
+    <h2>📊 現在の設定状態</h2>
+    <div class="info">
+      <strong>検証項目:</strong>
+      <ul>
+        <li>LocalStorageに設定が保存されているか</li>
+        <li>統一設定（unified-settings）の内容</li>
+        <li>エフェクト設定の各項目の有効/無効状態</li>
+        <li>設定の永続化が正しく機能しているか</li>
+      </ul>
+    </div>
+    <div id="storage-check"></div>
+  </div>
+
+  <div class="section">
+    <h2>🎨 エフェクト設定の詳細</h2>
+    <div id="effect-settings"></div>
+  </div>
+
+  <div class="section">
+    <h2>🔧 API設定</h2>
+    <div id="api-settings"></div>
+  </div>
+
+  <div class="section">
+    <h2>📝 完全な設定データ</h2>
+    <button onclick="showFullSettings()">完全な設定を表示</button>
+    <button onclick="location.reload()" class="success">再読み込み</button>
+    <button onclick="testToggle()" class="warning">トグルテスト</button>
+    <pre id="full-settings" style="display: none;"></pre>
+  </div>
+
+  <script>
+    // LocalStorageから設定を読み込む
+    function loadSettings() {
+      const stored = localStorage.getItem('unified-settings');
+      if (!stored) {
+        return null;
+      }
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Failed to parse settings:', e);
+        return null;
+      }
+    }
+
+    // 設定を保存
+    function saveSettings(settings) {
+      try {
+        localStorage.setItem('unified-settings', JSON.stringify(settings));
+        console.log('✅ Settings saved successfully');
+        return true;
+      } catch (e) {
+        console.error('❌ Failed to save settings:', e);
+        return false;
+      }
+    }
+
+    // ストレージチェック
+    function checkStorage() {
+      const settings = loadSettings();
+      const container = document.getElementById('storage-check');
+
+      if (!settings) {
+        container.innerHTML = `
+          <div class="info error">
+            <strong>❌ エラー:</strong> LocalStorageに設定が見つかりません
+          </div>
+        `;
+        return;
+      }
+
+      const hasEffects = !!settings.effects;
+      const hasApi = !!settings.api;
+      const hasUi = !!settings.ui;
+
+      container.innerHTML = `
+        <div class="info success">
+          <strong>✅ LocalStorage:</strong> 設定が存在します
+        </div>
+        <div class="grid">
+          <div class="card">
+            <strong>Effects設定:</strong> ${hasEffects ? '✅ 存在' : '❌ なし'}
+          </div>
+          <div class="card">
+            <strong>API設定:</strong> ${hasApi ? '✅ 存在' : '❌ なし'}
+          </div>
+          <div class="card">
+            <strong>UI設定:</strong> ${hasUi ? '✅ 存在' : '❌ なし'}
+          </div>
+        </div>
+      `;
+    }
+
+    // エフェクト設定を表示
+    function showEffectSettings() {
+      const settings = loadSettings();
+      const container = document.getElementById('effect-settings');
+
+      if (!settings || !settings.effects) {
+        container.innerHTML = `
+          <div class="info error">
+            <strong>❌ エラー:</strong> エフェクト設定が見つかりません
+          </div>
+        `;
+        return;
+      }
+
+      const effects = settings.effects;
+
+      container.innerHTML = `
+        <div class="grid">
+          <div class="card">
+            <strong>カラフルバブル</strong>
+            <span class="status ${effects.colorfulBubbles ? 'on' : 'off'}">
+              ${effects.colorfulBubbles ? 'ON' : 'OFF'}
+            </span>
+          </div>
+          <div class="card">
+            <strong>パーティクルエフェクト</strong>
+            <span class="status ${effects.particleEffects ? 'on' : 'off'}">
+              ${effects.particleEffects ? 'ON' : 'OFF'}
+            </span>
+          </div>
+          <div class="card">
+            <strong>タイプライター効果</strong>
+            <span class="status ${effects.typewriterEffect ? 'on' : 'off'}">
+              ${effects.typewriterEffect ? 'ON' : 'OFF'}
+            </span>
+          </div>
+          <div class="card">
+            <strong>吹き出しの透明度</strong>
+            <span class="status on">${effects.bubbleOpacity || 80}%</span>
+          </div>
+          <div class="card">
+            <strong>背景ぼかし効果</strong>
+            <span class="status ${effects.bubbleBlur ? 'on' : 'off'}">
+              ${effects.bubbleBlur ? 'ON' : 'OFF'}
+            </span>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 20px; color: #c4b5fd;">3D機能</h3>
+        <div class="grid">
+          ${effects.threeDEffects ? `
+            <div class="card">
+              <strong>ホログラムメッセージ</strong>
+              <span class="status ${effects.threeDEffects.hologram?.enabled ? 'on' : 'off'}">
+                ${effects.threeDEffects.hologram?.enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div class="card">
+              <strong>パーティクルテキスト</strong>
+              <span class="status ${effects.threeDEffects.particleText?.enabled ? 'on' : 'off'}">
+                ${effects.threeDEffects.particleText?.enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div class="card">
+              <strong>リップルエフェクト</strong>
+              <span class="status ${effects.threeDEffects.ripple?.enabled ? 'on' : 'off'}">
+                ${effects.threeDEffects.ripple?.enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div class="card">
+              <strong>背景パーティクル</strong>
+              <span class="status ${effects.threeDEffects.backgroundParticles?.enabled ? 'on' : 'off'}">
+                ${effects.threeDEffects.backgroundParticles?.enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          ` : '<div class="info warning">3D機能設定が見つかりません</div>'}
+        </div>
+
+        <h3 style="margin-top: 20px; color: #c4b5fd;">感情分析</h3>
+        <div class="grid">
+          ${effects.emotion ? `
+            <div class="card">
+              <strong>リアルタイム感情分析</strong>
+              <span class="status ${effects.emotion.realtimeDetection ? 'on' : 'off'}">
+                ${effects.emotion.realtimeDetection ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div class="card">
+              <strong>感情ベーススタイリング</strong>
+              <span class="status ${effects.emotion.display?.applyColors ? 'on' : 'off'}">
+                ${effects.emotion.display?.applyColors ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div class="card">
+              <strong>自動リアクション</strong>
+              <span class="status ${effects.emotion.autoReactions ? 'on' : 'off'}">
+                ${effects.emotion.autoReactions ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          ` : '<div class="info warning">感情分析設定が見つかりません</div>'}
+        </div>
+      `;
+    }
+
+    // API設定を表示
+    function showApiSettings() {
+      const settings = loadSettings();
+      const container = document.getElementById('api-settings');
+
+      if (!settings || !settings.api) {
+        container.innerHTML = `
+          <div class="info error">
+            <strong>❌ エラー:</strong> API設定が見つかりません
+          </div>
+        `;
+        return;
+      }
+
+      const api = settings.api;
+      const isGemini = api.model?.includes('gemini');
+
+      container.innerHTML = `
+        <div class="grid">
+          <div class="card">
+            <strong>プロバイダー:</strong> ${api.provider || 'openrouter'}
+          </div>
+          <div class="card">
+            <strong>モデル:</strong> ${api.model || 'gemini-2.5-flash'}
+          </div>
+          <div class="card">
+            <strong>Temperature:</strong> ${api.temperature || 0.7}
+          </div>
+          <div class="card">
+            <strong>Max Tokens:</strong> ${api.maxTokens || 2048}
+          </div>
+          ${isGemini ? `
+            <div class="card">
+              <strong>Gemini直接接続:</strong>
+              <span class="status ${api.useDirectGeminiAPI ? 'on' : 'off'}">
+                ${api.useDirectGeminiAPI ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // 完全な設定を表示
+    function showFullSettings() {
+      const settings = loadSettings();
+      const container = document.getElementById('full-settings');
+
+      if (!settings) {
+        container.textContent = 'エラー: 設定が見つかりません';
+        container.style.display = 'block';
+        return;
+      }
+
+      container.textContent = JSON.stringify(settings, null, 2);
+      container.style.display = container.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // トグルテスト
+    function testToggle() {
+      const settings = loadSettings();
+      if (!settings || !settings.effects) {
+        alert('❌ 設定が見つかりません');
+        return;
+      }
+
+      // カラフルバブルをトグル
+      settings.effects.colorfulBubbles = !settings.effects.colorfulBubbles;
+
+      if (saveSettings(settings)) {
+        alert(`✅ トグルテスト成功！\nカラフルバブル: ${settings.effects.colorfulBubbles ? 'ON' : 'OFF'}`);
+        location.reload();
+      } else {
+        alert('❌ 設定の保存に失敗しました');
+      }
+    }
+
+    // ページ読み込み時に実行
+    document.addEventListener('DOMContentLoaded', () => {
+      checkStorage();
+      showEffectSettings();
+      showApiSettings();
+    });
+  </script>
+</body>
+</html>

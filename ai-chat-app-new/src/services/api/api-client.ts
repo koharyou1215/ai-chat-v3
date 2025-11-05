@@ -30,7 +30,7 @@ export class APIClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        let errorData = {};
+        let errorData: Record<string, unknown> = {};
         try {
           // Check content type before parsing JSON
           const contentType = response.headers.get('content-type');
@@ -45,12 +45,13 @@ export class APIClient {
           // If parsing fails, use empty object as fallback
           errorData = {};
         }
-        
-        throw new APIError(
-          response.status,
-          (errorData as any).message || `HTTP error! status: ${response.status}`,
-          (errorData as any).details
-        );
+
+        const message = typeof errorData.message === 'string'
+          ? errorData.message
+          : `HTTP error! status: ${response.status}`;
+        const details = errorData.details;
+
+        throw new APIError(response.status, message, details);
       }
 
       // Safe JSON parsing for successful responses

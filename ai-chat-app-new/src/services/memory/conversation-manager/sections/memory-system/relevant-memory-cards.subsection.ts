@@ -6,8 +6,16 @@
  * Purpose: Build relevant memory cards section
  */
 
-import type { Character } from '@/types';
+import type { Character, MemoryCard } from '@/types';
 import type { ConversationManager } from '@/services/memory/conversation-manager';
+
+// Internal type extension for accessing private methods
+type ConversationManagerInternal = {
+  getRelevantMemoryCards: (
+    userInput: string,
+    character?: Character
+  ) => Promise<MemoryCard[]>;
+};
 
 export interface RelevantMemoryCardsContext {
   conversationManager: ConversationManager;
@@ -23,11 +31,12 @@ export class RelevantMemoryCardsSubsection {
    */
   async build(context: RelevantMemoryCardsContext): Promise<string> {
     const { conversationManager, userInput, processedCharacter } = context;
+    const internal = conversationManager as unknown as ConversationManagerInternal;
     let prompt = "";
 
     // 🔒 lines 69-98 - exact copy
     // 6b. 関連メモリーカード（スマート選択版）
-    const relevantMemoryCards = await (conversationManager as any).getRelevantMemoryCards(
+    const relevantMemoryCards = await internal.getRelevantMemoryCards(
       userInput,
       processedCharacter
     );
@@ -40,10 +49,10 @@ export class RelevantMemoryCardsSubsection {
     if (relevantMemoryCards.length > 0) {
       console.log(
         "🔍 [ConversationManager] Adding relevant memory cards to prompt:",
-        relevantMemoryCards.map((c: any) => c.title)
+        relevantMemoryCards.map((c) => c.title)
       );
       prompt += "<relevant_memory_cards>\n";
-      relevantMemoryCards.forEach((card: any) => {
+      relevantMemoryCards.forEach((card) => {
         prompt += `[${card.category}] ${card.title}: ${card.summary}\n`;
         // キーワードも含めてコンテキストを豊富に
         if (card.keywords.length > 0) {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { TestTube2 } from "lucide-react";
 import { useAppStore } from "@/store";
+import { SystemVoiceSelector } from "@/components/settings/SystemVoiceSelector";
 
 /**
  * 音声設定パネル
@@ -310,6 +311,93 @@ export const VoicePanel: React.FC = () => {
                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* システム音声設定 */}
+      {voice.provider === "system" && (
+        <div className="space-y-4 border-t border-gray-600 pt-4">
+          <h4 className="text-lg font-medium text-white">システム音声設定</h4>
+
+          {/* 音声選択UI */}
+          <SystemVoiceSelector />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                話速: {voice.system.rate.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={voice.system.rate}
+                onChange={(e) =>
+                  updateVoiceSettings({
+                    system: {
+                      ...voice.system,
+                      rate: parseFloat(e.target.value),
+                    },
+                  })
+                }
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                音程: {voice.system.pitch.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2.0"
+                step="0.1"
+                value={voice.system.pitch}
+                onChange={(e) =>
+                  updateVoiceSettings({
+                    system: {
+                      ...voice.system,
+                      pitch: parseFloat(e.target.value),
+                    },
+                  })
+                }
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">
+                音量: {voice.system.volume.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1.0"
+                step="0.1"
+                value={voice.system.volume}
+                onChange={(e) =>
+                  updateVoiceSettings({
+                    system: {
+                      ...voice.system,
+                      volume: parseFloat(e.target.value),
+                    },
+                  })
+                }
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="p-3 bg-blue-900/30 border border-blue-600/50 rounded-lg">
+            <p className="text-sm text-blue-200">
+              💡 システム音声は本番環境でも無料で利用できます
+            </p>
+            <p className="text-xs text-blue-300 mt-1">
+              Safari iOS/macOSで最適化された長文分割機能が有効です
+            </p>
           </div>
         </div>
       )}

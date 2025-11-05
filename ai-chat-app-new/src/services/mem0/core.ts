@@ -6,6 +6,7 @@
 // - createEphemeralSummary / promoteToMemoryCard: hooks to summarizer / memory card store
 
 import { UnifiedMessage, MemoryCard } from "@/types";
+import { memoryDebugLog } from "@/utils/memory-debug";
 import { DynamicSummarizer } from "../memory/dynamic-summarizer";
 import { VectorStore } from "../memory/vector-store";
 import { useAppStore } from "@/store";
@@ -27,6 +28,7 @@ export class Mem0Service {
 
   async ingestMessage(message: UnifiedMessage): Promise<void> {
     try {
+      memoryDebugLog.mem0('ingestMessage', { messageId: message.id, content: message.content.substring(0, 50) });
       // update vector store asynchronously (cost-optimized inside VectorStore)
       await this.vectorStore.addMessage(message);
     } catch (error) {
@@ -163,6 +165,32 @@ export class Mem0Service {
 
     console.log("✅ [Mem0] Memory card promoted and persisted:", card.id);
     return card;
+  }
+
+  async shouldPromoteToMemoryCard(
+    messages: UnifiedMessage[]
+  ): Promise<{ shouldPromote: boolean; importance: number }> {
+    // AutoMemoryManagerのロジックを移植（改善版）
+
+    const importance = this.calculateImportance(messages);
+
+    // 閾値を0.3 → 0.6に引き上げ（診断レポートの推奨）
+    return {
+      shouldPromote: importance >= 0.6,
+      importance
+    };
+  }
+
+  private calculateImportance(messages: UnifiedMessage[]): number {
+    // 1. 重要キーワード検出（AutoMemoryManagerから移植）
+    // 2. 感情的重要度（改善版）
+    // 3. 会話の深さ（新規）
+    // 4. ユーザー強調（改善版）
+
+    // 総合スコア計算
+    // TODO: Implement the logic from AutoMemoryManager
+    const totalScore = 0.7; // Placeholder
+    return totalScore;
   }
 
   async search(query: string, k = 5) {

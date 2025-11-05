@@ -10,13 +10,7 @@ import { TrackerManager } from "@/services/tracker/tracker-manager";
 import { generateCompactGroupPrompt } from "@/utils/character-summarizer";
 import { GroupEmotionAnalyzer } from "@/services/emotion/GroupEmotionAnalyzer";
 import { AppStore } from "..";
-import {
-  generateGroupSessionId,
-  generateWelcomeMessageId,
-  generateUserMessageId,
-  generateAIMessageId,
-  generateSystemMessageId,
-} from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 
 // 🎭 グループ感情から絵文字への変換ヘルパー
 const getGroupEmotionEmoji = (emotion: string): string => {
@@ -98,7 +92,7 @@ export const createGroupChatSlice: StateCreator<
     groupName,
     scenario
   ) => {
-    const groupSessionId = generateGroupSessionId();
+    const groupSessionId = generateStableId('group');
 
     // シナリオ有りの場合の初期メッセージ
     const initialContent = scenario
@@ -126,7 +120,7 @@ export const createGroupChatSlice: StateCreator<
       scenario, // シナリオ情報を追加
       messages: [
         {
-          id: generateWelcomeMessageId(),
+          id: generateStableId('welcome'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -212,7 +206,7 @@ export const createGroupChatSlice: StateCreator<
     try {
       // ユーザーメッセージを追加
       const userMessage: UnifiedMessage = {
-        id: generateUserMessageId(),
+        id: generateStableId('user'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -248,8 +242,8 @@ export const createGroupChatSlice: StateCreator<
       groupSession.messages.push(userMessage);
 
       // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
-      const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
-      if (emotionalIntelligenceFlags?.emotion_analysis_enabled) {
+      const emotionalIntelligence = get().unifiedSettings.emotionalIntelligence;
+      if (emotionalIntelligence?.enabled && emotionalIntelligence?.analysis.basic) {
         setTimeout(async () => {
           try {
             const groupAnalyzer = new GroupEmotionAnalyzer();
@@ -450,7 +444,7 @@ export const createGroupChatSlice: StateCreator<
 
       // 🎭 感情分析: AI応答群 (バックグラウンド処理)
       if (
-        emotionalIntelligenceFlags?.emotion_analysis_enabled &&
+        emotionalIntelligence?.enabled && emotionalIntelligence?.analysis.basic &&
         responses.length > 0
       ) {
         setTimeout(async () => {
@@ -547,7 +541,7 @@ export const createGroupChatSlice: StateCreator<
         Promise.allSettled([
           // 🧠 各キャラクターのメモリー処理（emotional_memory_enabled設定チェック追加）
           (async () => {
-            if (!get().emotionalIntelligenceFlags.emotional_memory_enabled) {
+            if (!get().unifiedSettings.emotionalIntelligence.memoryEnabled) {
               return Promise.resolve([]);
             }
             try {
@@ -556,13 +550,37 @@ export const createGroupChatSlice: StateCreator<
               );
               return await Promise.all(
                 responses.map((response) =>
-                  autoMemoryManager.processNewMessage(
-                    response,
-                    activeGroupSessionId,
-                    response.character_id,
-                    undefined,
-                    get().createMemoryCard
-                  )
+                  (async () => {
+                    const { FEATURE_FLAGS } = await import('@/config/feature-flags');
+                    const { memoryDebugLog } = await import('@/utils/memory-debug');
+                    const { Mem0 } = await import('@/services/mem0/core');
+                    const state = get();
+                    const userMessage = state.messages[state.messages.length - 2];
+
+                    if (FEATURE_FLAGS.USE_MEM0_MEMORY_GENERATION) {
+                      const messages = [userMessage, response];
+                      const result = await Mem0.shouldPromoteToMemoryCard(messages);
+                      memoryDebugLog.mem0('shouldPromote', result);
+                      if (result.shouldPromote) {
+                        await Mem0.promoteToMemoryCard(
+                          `Conversation: ${messages.map(m => m.content.slice(0, 30)).join(' → ')}`,
+                          {
+                            importance: { score: result.importance, factors: {} },
+                            session_id: activeGroupSessionId,
+                            character_id: response.character_id,
+                          }
+                        );
+                      }
+                    } else {
+                      await autoMemoryManager.processNewMessage(
+                        response,
+                        activeGroupSessionId,
+                        response.character_id,
+                        undefined,
+                        get().createMemoryCard
+                      );
+                    }
+                  })()
                 )
               );
             } catch (error) {
@@ -683,11 +701,11 @@ export const createGroupChatSlice: StateCreator<
         }
       );
       // Mem0の結果をUnifiedMessage形式に変換
-      recentMessages = history.map((h: any) => ({
-        role: h.role,
-        content: h.content,
-        character_id: h.character_id,
-        character_name: h.character_name,
+      recentMessages = history.map((h: Record<string, unknown>) => ({
+        role: h.role as string,
+        content: h.content as string,
+        character_id: h.character_id as string,
+        character_name: h.character_name as string,
       }));
     } catch (e) {
       // フォールバック: 元のロジック
@@ -835,6 +853,7 @@ ${
       const effectSettings = get().effectSettings || {};
       const textFormatting = effectSettings.textFormatting || "readable";
 
+      // 🔧 FIX: API設定にuseDirectGeminiAPIとAPIキーを含める（モバイルSafari対策）
       const aiResponse = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
@@ -842,11 +861,14 @@ ${
         {
           ...apiConfig,
           max_tokens: finalMaxTokens,
+          openRouterApiKey: openRouterApiKey,
+          geminiApiKey: geminiApiKey,
+          useDirectGeminiAPI: get().useDirectGeminiAPI,
         }
       );
 
       return {
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -887,7 +909,7 @@ ${
       );
 
       return {
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -1085,7 +1107,7 @@ ${
 
         // Add system message
         const systemMessage: UnifiedMessage = {
-          id: generateSystemMessageId(),
+          id: generateStableId('system'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -1148,7 +1170,7 @@ ${
       if (!session) return state;
 
       const systemMessage: UnifiedMessage = {
-        id: generateSystemMessageId(),
+        id: generateStableId('system'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         version: 1,
@@ -1354,7 +1376,7 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
 
       const regeneratedMessage: UnifiedMessage = {
         ...lastAiMessage,
-        id: generateAIMessageId(),
+        id: generateStableId('ai'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         content: aiResponseContent,
@@ -1437,15 +1459,15 @@ ${session.scenario ? `- **現在のシナリオ:** ${session.scenario.title}` : 
       // 🎯 続きメッセージを新しいメッセージとして追加（元のメッセージは変更しない）
       const newContinuationMessage = {
         ...continuationMessage,
-        id: generateAIMessageId(), // 新しいIDを生成
+        id: generateStableId('ai'), // 新しいIDを生成
         metadata: {
           ...continuationMessage.metadata,
           is_continuation: true,
           continuation_of: lastAiMessage.id,
           continuation_count:
-            (typeof (lastAiMessage.metadata as any)?.continuation_count ===
+            (typeof (lastAiMessage.metadata as Record<string, unknown>)?.continuation_count ===
             "number"
-              ? (lastAiMessage.metadata as any).continuation_count
+              ? (lastAiMessage.metadata as Record<string, unknown>).continuation_count as number
               : 0) + 1,
         },
       };

@@ -26,6 +26,12 @@ import { StateCreator } from "zustand";
 import { StorageManager } from "@/utils/storage";
 // Model migration removed - no auto-conversion
 
+// 🔧 Type-safe persistence serialization types
+type SerializedMap<K, V> = { _type: "map"; value: [K, V][] };
+type SerializedSet<T> = { _type: "set"; value: T[] };
+type SerializedTrackerManager = { _type: "TrackerManager"; value: { trackerSets: Record<string, unknown> } };
+type SerializedValue = SerializedMap<unknown, unknown> | SerializedSet<unknown> | SerializedTrackerManager;
+
 export type AppStore = ChatSlice &
   GroupChatSlice &
   CharacterSlice &
@@ -103,20 +109,31 @@ const createStore = () => {
                 if (
                   typeof window === "undefined" ||
                   typeof localStorage === "undefined"
-                )
-                  return null;
-
-                // Safari でlocalStorageが無効な場合をハンドル
-                if (!window.localStorage) return null;
-
-                const item = window.localStorage.getItem(name);
-                if (!item) {
+                ) {
+                  console.log("🔍 [Storage] SSR環境 - localStorageは利用不可");
                   return null;
                 }
 
+                // Safari でlocalStorageが無効な場合をハンドル
+                if (!window.localStorage) {
+                  console.warn("⚠️ [Storage] window.localStorageが存在しません");
+                  return null;
+                }
+
+                const item = window.localStorage.getItem(name);
+                if (!item) {
+                  console.log("🔍 [Storage] データなし:", name);
+                  return null;
+                }
+
+                console.log("✅ [Storage] データ取得成功:", {
+                  name,
+                  size: `${(new Blob([item]).size / 1024).toFixed(2)}KB`,
+                });
+
                 // JSONの基本的な検証
                 if (!item.startsWith("{") && !item.startsWith("[")) {
-                  console.warn("Invalid JSON format in localStorage, clearing");
+                  console.warn("⚠️ [Storage] Invalid JSON format, clearing:", name);
                   localStorage.removeItem(name);
                   return null;
                 }
@@ -126,16 +143,24 @@ const createStore = () => {
                   try {
                     const parsed = JSON.parse(item);
                     if (!parsed || typeof parsed !== "object") {
-                      console.warn("Invalid storage data structure, clearing");
+                      console.warn("⚠️ [Storage] Invalid data structure, clearing");
                       localStorage.removeItem(name);
                       return null;
                     }
 
                     // 設定が確実に保存されるよう、stateが存在することを確認
                     if (!parsed.state) {
-                      console.warn("Missing state in stored data");
+                      console.warn("⚠️ [Storage] Missing state in stored data");
                       return null;
                     }
+
+                    // 🆕 本番環境デバッグ: セッションデータの確認
+                    console.log("📊 [Storage] Loaded data structure:", {
+                      hasSessions: !!parsed.state?.sessions,
+                      sessionsType: parsed.state?.sessions?._type || 'unknown',
+                      sessionsCount: parsed.state?.sessions?.value?.length || 0,
+                      activeSessionId: parsed.state?.active_session_id || 'none',
+                    });
                   } catch (parseErr) {
                     console.error(
                       "Failed to parse stored settings, clearing corrupted data:",
@@ -175,6 +200,8 @@ const createStore = () => {
                     const parsed = JSON.parse(value);
                     if (parsed?.state?.sessions) {
                       const sessions = parsed.state.sessions;
+                      const activeSessionId = parsed.state?.active_session_id;
+
                       if (
                         sessions instanceof Map ||
                         (sessions._type === "map" && sessions.value)
@@ -184,26 +211,41 @@ const createStore = () => {
                             ? Array.from(sessions.entries())
                             : sessions.value;
 
-                        // セッション数を制限（最新の5セッションのみ保持）
-                        if (sessionEntries.length > 5) {
+                        // 🔧 FIX: セッション数を制限（最新の10セッションのみ保持）
+                        // アクティブセッションは必ず保持
+                        if (sessionEntries.length > 10) {
                           const sortedSessions = sessionEntries
-                            .sort((a: any, b: any) => {
-                              const aTime =
-                                a[1]?.updatedAt || a[1]?.createdAt || 0;
-                              const bTime =
-                                b[1]?.updatedAt || b[1]?.createdAt || 0;
+                            .sort((a: [string, unknown], b: [string, unknown]) => {
+                              const aSession = a[1] as Record<string, unknown>;
+                              const bSession = b[1] as Record<string, unknown>;
+                              const aTime = (aSession?.updatedAt as number) || (aSession?.createdAt as number) || 0;
+                              const bTime = (bSession?.updatedAt as number) || (bSession?.createdAt as number) || 0;
                               return bTime - aTime;
-                            })
-                            .slice(0, 5);
+                            });
+
+                          // 🔧 FIX: アクティブセッションを保護
+                          let keptSessions = sortedSessions.slice(0, 10);
+
+                          // アクティブセッションがスライス外の場合、含める
+                          if (activeSessionId && !keptSessions.find(([id]) => id === activeSessionId)) {
+                            const activeSession = sortedSessions.find(([id]) => id === activeSessionId);
+                            if (activeSession) {
+                              // 最古のセッションを削除してアクティブセッションを追加
+                              keptSessions = keptSessions.slice(0, 9);
+                              keptSessions.push(activeSession);
+                              console.log(`🔒 [Storage] Protected active session: ${activeSessionId}`);
+                            }
+                          }
 
                           if (sessions instanceof Map) {
-                            parsed.state.sessions = new Map(sortedSessions);
+                            parsed.state.sessions = new Map(keptSessions);
                           } else {
                             parsed.state.sessions = {
                               _type: "map",
-                              value: sortedSessions,
+                              value: keptSessions,
                             };
                           }
+                          console.log(`🧹 [Storage] Cleaned up sessions: ${sessionEntries.length} → ${keptSessions.length}`);
                         }
                       }
                     }
@@ -216,7 +258,8 @@ const createStore = () => {
                       if (parsed.state.memoryCards.length > 50) {
                         parsed.state.memoryCards = parsed.state.memoryCards
                           .sort(
-                            (a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)
+                            (a: Record<string, unknown>, b: Record<string, unknown>) =>
+                              ((b.timestamp as number) || 0) - ((a.timestamp as number) || 0)
                           )
                           .slice(0, 50);
                       }
@@ -235,11 +278,11 @@ const createStore = () => {
                             : groupSessions.value;
                         if (groupEntries.length > 3) {
                           const sortedGroups = groupEntries
-                            .sort((a: any, b: any) => {
-                              const aTime =
-                                a[1]?.updated_at || a[1]?.created_at || 0;
-                              const bTime =
-                                b[1]?.updated_at || b[1]?.created_at || 0;
+                            .sort((a: [string, unknown], b: [string, unknown]) => {
+                              const aGroup = a[1] as Record<string, unknown>;
+                              const bGroup = b[1] as Record<string, unknown>;
+                              const aTime = (aGroup?.updated_at as number) || (aGroup?.created_at as number) || 0;
+                              const bTime = (bGroup?.updated_at as number) || (bGroup?.created_at as number) || 0;
                               return bTime - aTime;
                             })
                             .slice(0, 3);
@@ -355,55 +398,91 @@ const createStore = () => {
             },
           }),
           {
-            replacer: (key: string, value: any) => {
+            replacer: (key: string, value: unknown): unknown => {
               if (value instanceof Map) {
-                return { _type: "map", value: Array.from(value.entries()) };
+                return { _type: "map", value: Array.from(value.entries()) } as SerializedMap<unknown, unknown>;
               }
               if (value instanceof Set) {
-                return { _type: "set", value: Array.from(value.values()) };
+                return { _type: "set", value: Array.from(value.values()) } as SerializedSet<unknown>;
               }
               if (value instanceof TrackerManager) {
+                const trackerSets = value.getTrackerSetsAsObject();
+                const characterIds = Object.keys(trackerSets);
+                console.log(`[Store] 💾 Serializing TrackerManager:`, {
+                  characterCount: characterIds.length,
+                  characterIds: characterIds.map(id => id.substring(0, 20) + '...')
+                });
+
                 return {
                   _type: "TrackerManager",
-                  value: { trackerSets: value.getTrackerSetsAsObject() },
-                };
+                  value: { trackerSets },
+                } as SerializedTrackerManager;
               }
               return value;
             },
-            reviver: (key: string, value: any) => {
+            reviver: (key: string, value: unknown): unknown => {
               if (value && typeof value === "object" && "_type" in value) {
-                if (value._type === "map") {
+                const serialized = value as SerializedValue;
+                if (serialized._type === "map") {
+                  const mapData = serialized as SerializedMap<unknown, unknown>;
                   // Restore TrackerManager instances correctly
                   if (key === "trackerManagers") {
+                    console.log('[Store] 🔄 Restoring trackerManagers from LocalStorage...');
                     const restoredMap = new Map();
                     // value.value が配列であることを確認
-                    if (Array.isArray(value.value)) {
-                      for (const [k, v] of value.value) {
+                    if (Array.isArray(mapData.value)) {
+                      console.log(`[Store] Found ${mapData.value.length} tracker manager(s) to restore`);
+
+                      for (const [k, v] of mapData.value) {
                         const manager = new TrackerManager();
                         if (
                           v &&
                           typeof v === "object" &&
                           "value" in v &&
-                          v.value
+                          (v as { value?: unknown }).value
                         ) {
-                          manager.loadFromObject(v.value);
+                          const serialized = v as { value: { trackerSets: Record<string, Record<string, unknown>> } };
+                          manager.loadFromObject(serialized.value);
+                          console.log(`[Store] ✅ Restored TrackerManager for session: ${String(k).substring(0, 20)}...`);
+                        } else {
+                          console.warn(`[Store] ⚠️ Invalid TrackerManager data for session: ${String(k).substring(0, 20)}...`);
                         }
                         restoredMap.set(k, manager);
+                      }
+
+                      console.log(`[Store] ✅ Total TrackerManagers restored: ${restoredMap.size}`);
+                    } else {
+                      console.warn('[Store] ⚠️ trackerManagers.value is not an array');
+                    }
+                    return restoredMap;
+                  }
+
+                  // 🔧 FIX: ネストされたMapを正しく復元（sessions内のtrackers等）
+                  if (Array.isArray(mapData.value)) {
+                    const restoredMap = new Map();
+                    for (const [k, v] of mapData.value) {
+                      // 値もSerializedMapの可能性を処理
+                      if (v && typeof v === "object" && "_type" in v && (v as SerializedValue)._type === "map") {
+                        const nestedMapData = v as SerializedMap<unknown, unknown>;
+                        restoredMap.set(k, new Map(nestedMapData.value || []));
+                      } else {
+                        restoredMap.set(k, v);
                       }
                     }
                     return restoredMap;
                   }
-                  return new Map(value.value || []); // value.value が存在しない場合を考慮
+                  return new Map(mapData.value || []);
                 }
-                if (value._type === "set") {
-                  return new Set(value.value || []); // value.value が存在しない場合を考慮
+                if (serialized._type === "set") {
+                  const setData = serialized as SerializedSet<unknown>;
+                  return new Set(setData.value || []); // value.value が存在しない場合を考慮
                 }
               }
               return value;
             },
           }
         ),
-        version: 3, // バージョンを3に更新
+        version: 4, // 🔧 バージョン4にアップデート
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Partial<AppStore>;
 
@@ -439,12 +518,27 @@ const createStore = () => {
                   state.characters = {
                     _type: "map",
                     value: filtered,
-                  } as any;
+                  } as SerializedMap<string, unknown>;
                 }
               }
             }
 
             console.log("🔄 Migration v3: Cleaned up old character data");
+          }
+
+          // 🆕 version 3から4へのマイグレーション
+          if (version < 4) {
+            console.log("🔄 Migration v4: Converting character-scoped to session-scoped trackers");
+
+            // 古い形式のtrackerManagers（characterId → TrackerManager）をクリア
+            if (state.trackerManagers) {
+              console.warn("⚠️ Clearing old character-scoped trackerManagers");
+              console.warn("⚠️ Tracker values will be reset to initial_value on next session");
+              state.trackerManagers = new Map();  // 空のMapで初期化
+            }
+
+            // 既存セッションのTrackerManagerは次のセッション作成時に自動的に再初期化される
+            console.log("✅ Migration v4 complete: Tracker system now session-scoped");
           }
 
           return state as AppStore;
@@ -469,18 +563,22 @@ const createStore = () => {
           // ═══════════════════════════════════════
           // Character & Persona Data
           // ═══════════════════════════════════════
-          characters: state.characters,
-          selectedCharacterId: state.selectedCharacterId,
+          // 🔧 CRITICAL FIX: Exclude character/persona data from LocalStorage
+          // to prevent quota exceeded errors (~3.8MB savings)
+          // Characters and personas are always loaded from files on startup
+          // characters: state.characters,  // ❌ Excluded from persist
+          selectedCharacterId: state.selectedCharacterId,  // ✅ Keep selection state only
           // Note: isCharactersLoaded is intentionally NOT persisted
           // This forces a refresh from files on each startup
-          personas: state.personas,
-          activePersonaId: state.activePersonaId,
+          // personas: state.personas,  // ❌ Excluded from persist
+          activePersonaId: state.activePersonaId,  // ✅ Keep selection state only
 
           // ═══════════════════════════════════════
           // Memory System
           // ═══════════════════════════════════════
           memories: state.memories,
-          memoryCards: state.memory_cards,
+          memory_cards_by_session: state.memory_cards_by_session,  // ✅ セッションごとのメモリーカードMap（実データ）
+          memory_layers_by_session: state.memory_layers_by_session,  // ✅ セッションごとのメモリーレイヤーMap（実データ）
           memoryLayers: state.memoryLayers,
 
           // ═══════════════════════════════════════
@@ -490,13 +588,23 @@ const createStore = () => {
           suggestionData: state.suggestionData,
 
           // ═══════════════════════════════════════
-          // ⚠️ ALL SETTINGS REMOVED
+          // 🔧 CRITICAL FIX: API Key Settings
+          // ═══════════════════════════════════════
+          // These API settings must be persisted for production compatibility
+          // settingsManager handles unified-settings, but these are also needed
+          // in Zustand store for immediate access during API calls
+          openRouterApiKey: state.openRouterApiKey,
+          geminiApiKey: state.geminiApiKey,
+          useDirectGeminiAPI: state.useDirectGeminiAPI,
+
+          // ═══════════════════════════════════════
+          // ⚠️ OTHER SETTINGS MANAGED BY SETTINGSMANAGER
           // ═══════════════════════════════════════
           // Settings are now managed by settingsManager
           // and persisted in localStorage["unified-settings"]
           //
           // Removed from persist:
-          // - apiConfig, openRouterApiKey, geminiApiKey
+          // - apiConfig (except provider/model through settingsManager)
           // - systemPrompts, enableSystemPrompt, enableJailbreakPrompt
           // - chat, voice, imageGeneration
           // - languageSettings, effectSettings, appearanceSettings
@@ -592,6 +700,5 @@ try {
 export { useAppStore };
 
 // 🧪 E2Eテスト用: ブラウザコンソール/Playwrightからアクセス可能にする
-if (typeof window !== 'undefined') {
-  (window as any).useAppStore = useAppStore;
-}
+// ⚠️ HYDRATION FIX: モジュールレベルでのwindow代入を削除
+// → AppInitializer.tsxのuseEffect内で実行するように移動

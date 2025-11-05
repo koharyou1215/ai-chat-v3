@@ -22,7 +22,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
 
   // 感情ベースの自動エフェクトトリガー
   useEffect(() => {
-    if (!settings || !settings.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
+    if (!settings || !settings.emotion.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
     if (!emotion || emotion.intensity < 0.5) return; // 低強度は無視
 
     const emotionEffectMap: Record<string, () => void> = {
@@ -38,7 +38,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
     if (effectFn) {
       effectFn();
     }
-  }, [emotion, settings?.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled]);
+  }, [emotion, settings, emotionalIntelligenceFlags.visual_effects_enabled]);
 
   // キーワードベースのエフェクトトリガー（既存機能）
   useEffect(() => {
@@ -64,7 +64,7 @@ export const MessageEffects: React.FC<MessageEffectsProps> = ({
         break; // 一つだけトリガー
       }
     }
-  }, [trigger, settings?.particleEffects]);
+  }, [trigger, settings]);
 
   // コンポーネントアンマウント時のクリーンアップ
   React.useEffect(() => {

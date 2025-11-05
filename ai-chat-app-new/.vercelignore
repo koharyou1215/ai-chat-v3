@@ -1,0 +1,91 @@
+# Vercel Deployment Exclusions
+
+# ===== EXTERNAL ASSETS (CRITICAL) =====
+# Exclude external local assets directory
+../ai-chat-v3-local-assets/**
+**/ai-chat-v3-local-assets/**
+
+# ===== USER UPLOADS =====
+# Exclude all user-uploaded files from deployment
+# These should be stored in Vercel Blob or external CDN
+public/uploads/**
+
+# ===== LARGE FILES =====
+# Video and large media files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+
+# ===== DEVELOPMENT FILES =====
+# Testing and debugging files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+tests/
+__tests__/
+coverage/
+
+# Debug HTML files
+debug-*.html
+*.debug.html
+
+# ===== BUILD ARTIFACTS =====
+# These are rebuilt during deployment
+.next/
+out/
+bundle-analysis/
+node_modules/
+
+# ===== DOCUMENTATION =====
+# Development documentation not needed in production
+claudedocs/
+docs/
+*.md
+!README.md
+.specstory/
+
+# ===== CONFIGURATION =====
+# Local environment files
+.env.local
+.env.development
+.env.test
+
+# Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.backup
+*.backup2
+*.bak
+
+# ===== PERFORMANCE ANALYSIS =====
+# Bundle analysis reports
+bundle-analysis/
+lighthouse-reports/
+*.stats.json
+
+# ===== VERSION CONTROL =====
+.git/
+.gitignore
+.gitattributes
+
+# ===== ADMIN PANEL (if not needed in prod) =====
+src/app/admin/
+src/app/api/admin/
+src/components/admin/
+
+# ===== MISC =====
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+debug.log
+*.log

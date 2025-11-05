@@ -1,7 +1,7 @@
 // Prompt Template Management for AI Chat V3
 // Manages dynamic prompt templates for conversation enhancement
 
-import { PromptTemplate } from "@/types/memory";
+import { PromptTemplate } from "@/types/core/memory.types";
 
 export class PromptTemplateManager {
   private templates: Map<string, PromptTemplate> = new Map();

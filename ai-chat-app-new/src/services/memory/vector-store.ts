@@ -2,7 +2,7 @@
 // High-performance vector search using OpenAI embeddings and FAISS
 
 import { UnifiedMessage } from '@/types';
-import { SearchResult, Message } from '@/types/memory';
+import { SearchResult } from '@/types/core/memory.types';
 
 /**
  * FAISSをTypeScriptで使用するためのブリッジクラス
@@ -35,33 +35,26 @@ export class VectorStore {
    * OpenAI Embedding APIまたはローカルモデルを使用
    */
   private async embed(text: string): Promise<number[]> {
+    // 🔧 UPDATE: Embedding API呼び出しを条件付きで実行
+    // OpenAI APIキーが設定されている場合のみAPI呼び出し
+
     try {
-      // 実際のOpenAI Embedding API呼び出し
       const response = await fetch('/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
-        // OpenAI API key未設定の場合は警告のみでフォールバック
-        if (response.status === 503 || (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY'))) {
-          console.warn('⚠️ OpenAI API key not configured, using fallback embedding');
-        } else {
-          console.error('🚨 Embedding API failed:', response.status, errorData);
-        }
-        
-        // エラーを投げずにフォールバックを使用
+        console.warn('⚠️ [VectorStore] Embedding API failed, using fallback:', response.status);
         return this.createFallbackEmbedding(text);
       }
-      
+
       const data = await response.json();
       return data.embedding;
     } catch (error) {
-      console.warn('⚠️ Embedding API unavailable, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-      // フォールバック: より品質の高いハッシュベースのベクトル
+      console.warn('⚠️ [VectorStore] Embedding API unavailable, using fallback');
       return this.createFallbackEmbedding(text);
     }
   }
@@ -168,55 +161,25 @@ export class VectorStore {
    * バッチembedding（コスト削減）
    */
   private async embedBatch(texts: string[]): Promise<number[][]> {
+    // 🔧 UPDATE: Batch Embedding API呼び出しを条件付きで実行
+    console.log('📦 [VectorStore] Batch embedding for', texts.length, 'texts');
+
     try {
-      // バッチサイズ制限（APIの制限に応じて調整）
-      const batchSize = 100;
-      const batches: string[][] = [];
-      
-      for (let i = 0; i < texts.length; i += batchSize) {
-        batches.push(texts.slice(i, i + batchSize));
-      }
-      
-      const allEmbeddings: number[][] = [];
-      
-      // 並列でバッチ処理
-      const batchPromises = batches.map(async (batch) => {
-        try {
-          const response = await fetch('/api/embeddings/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ texts: batch })
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            
-            // OpenAI API key未設定の場合は警告のみでフォールバック
-            if (response.status === 500 && errorData.details?.includes('OPENAI_API_KEY')) {
-              console.warn('⚠️ OpenAI API key not configured for batch embedding, using fallback');
-            } else {
-              console.error('🚨 Batch embedding API failed:', response.status, errorData);
-            }
-            
-            // エラーを投げずにフォールバックを使用
-            return batch.map(text => this.createFallbackEmbedding(text));
-          }
-          
-          const data = await response.json();
-          return data.embeddings;
-        } catch (error) {
-          console.warn('⚠️ Batch embedding API unavailable, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-          return batch.map(text => this.createFallbackEmbedding(text));
-        }
+      const response = await fetch('/api/embeddings/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts })
       });
-      
-      const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach(embeddings => allEmbeddings.push(...embeddings));
-      
-      return allEmbeddings;
+
+      if (!response.ok) {
+        console.warn('⚠️ [VectorStore] Batch Embedding API failed, using fallback');
+        return texts.map(text => this.createFallbackEmbedding(text));
+      }
+
+      const data = await response.json();
+      return data.embeddings;
     } catch (error) {
-      console.error('Batch embedding error:', error);
-      // フォールバック: より品質の高い疑似ベクトル
+      console.warn('⚠️ [VectorStore] Batch Embedding API unavailable, using fallback');
       return texts.map(text => this.createFallbackEmbedding(text));
     }
   }

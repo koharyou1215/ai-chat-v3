@@ -4,6 +4,7 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, X, User, Minimize2 } fr
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store';
 import { UnifiedMessage } from '@/types/core/message.types';
+import { formatDuration } from '@/utils/time-formatters';
 
 interface WebSocketMessage {
   type: string;
@@ -567,13 +568,6 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, onClose]);
-
-  // Format duration
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Get connection status color
   const getConnectionStatusColor = () => {

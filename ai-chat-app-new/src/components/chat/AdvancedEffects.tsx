@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffectSettings } from "@/hooks/useEffectSettings";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { ClientOnly } from "@/components/utils/ClientOnly";
 
 // WebGL Support Detection
@@ -19,12 +20,18 @@ const detectWebGLSupport = (): boolean => {
   }
 };
 
+// Navigator API拡張（deviceMemory）
+interface NavigatorWithMemory extends Navigator {
+  deviceMemory?: number;
+}
+
 // Performance Level Detection
 const detectPerformanceLevel = (): "low" | "medium" | "high" => {
   if (typeof navigator === "undefined") return "medium";
 
   const hardwareConcurrency = navigator.hardwareConcurrency || 4;
-  const memory = (navigator as any).deviceMemory || 4;
+  const nav = navigator as NavigatorWithMemory;
+  const memory = nav.deviceMemory || 4;
 
   if (hardwareConcurrency >= 8 && memory >= 8) return "high";
   if (hardwareConcurrency >= 4 && memory >= 4) return "medium";
@@ -376,7 +383,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   const animationRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!canvasRef.current || !settings.particleEffects) return;
+    if (!canvasRef.current || !settings.threeDEffects?.particleText.enabled) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
@@ -498,7 +505,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     };
   }, [
     text,
-    settings.particleEffects,
+    settings.threeDEffects?.particleText.enabled,
     settings.animationSpeed,
     settings.threeDEffects?.enabled,
     settings.webglEnabled,
@@ -509,12 +516,12 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
   ]);
 
   useEffect(() => {
-    if (trigger && settings.particleEffects) {
+    if (trigger && settings.threeDEffects?.particleText.enabled) {
       particlesRef.current.forEach((particle) =>
         particle.explode(settings.animationSpeed)
       );
     }
-  }, [trigger, settings.particleEffects, settings.animationSpeed]);
+  }, [trigger, settings.threeDEffects?.particleText.enabled, settings.animationSpeed]);
 
   // Performance monitoring and 3D capability check
   const performanceLevel = detectPerformanceLevel();
@@ -528,7 +535,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
     (settings.webglEnabled || webglSupported || !settings.adaptivePerformance);
 
   if (
-    !settings.particleEffects ||
+    !settings.threeDEffects?.particleText.enabled ||
     (!settings.threeDEffects?.enabled && settings.adaptivePerformance)
   )
     return null;
@@ -543,7 +550,7 @@ export const ParticleText: React.FC<{ text: string; trigger: boolean }> = ({
         />
 
         {/* 3D depth indicators for high quality mode */}
-        {shouldRenderHighQuality && settings.particleEffects && (
+        {shouldRenderHighQuality && settings.threeDEffects?.particleText.enabled && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -593,10 +600,10 @@ export const NeumorphicRipple: React.FC<{ children: React.ReactNode }> = ({
 
   // コンポーネントアンマウント時にタイマーをクリーンアップ
   useEffect(() => {
+    const currentTimeouts = timeoutsRef.current; // エフェクト実行時の参照を保存
     return () => {
-      const timeouts = timeoutsRef.current;
-      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
-      timeouts.clear();
+      currentTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      currentTimeouts.clear();
     };
   }, []);
 
@@ -684,31 +691,13 @@ export const BackgroundParticles: React.FC = () => {
  */
 const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
   const { settings } = useEffectSettings();
-  const [displayedText, setDisplayedText] = useState("");
-  const [isActive, setIsActive] = useState(false);
   const elementRef = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
-    if (!settings.typewriterEffect || !text) return;
-
-    const speed = Math.max(10, 100 - settings.typewriterIntensity);
-    setIsActive(true);
-    setDisplayedText("");
-
-    const typeText = async () => {
-      const characters = text.split("");
-      let currentText = "";
-
-      for (let i = 0; i < characters.length; i++) {
-        currentText += characters[i];
-        setDisplayedText(currentText);
-        await new Promise((resolve) => setTimeout(resolve, speed));
-      }
-      setIsActive(false);
-    };
-
-    typeText();
-  }, [text, settings.typewriterEffect, settings.typewriterIntensity]);
+  // useTypewriter フックを使用してタイプライター効果を実装
+  const { displayedContent, isTyping } = useTypewriter(text, {
+    enabled: settings.typewriterEffect,
+    speed: Math.max(10, 100 - settings.typewriterIntensity),
+  });
 
   if (!settings.typewriterEffect) {
     return <span>{text}</span>;
@@ -716,8 +705,8 @@ const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
 
   return (
     <span ref={elementRef}>
-      {displayedText}
-      {isActive && (
+      {displayedContent}
+      {isTyping && (
         <span className="animate-pulse ml-1 text-purple-400">|</span>
       )}
     </span>

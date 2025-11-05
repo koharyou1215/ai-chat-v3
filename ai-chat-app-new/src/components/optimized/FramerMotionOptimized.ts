@@ -112,19 +112,19 @@ interface OptimizedModalProps {
   children: React.ReactNode;
   isVisible: boolean;
   onClose?: () => void;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface OptimizedFadeInProps {
   children: React.ReactNode;
   delay?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface OptimizedSlideInProps {
   children: React.ReactNode;
   direction?: 'up' | 'down' | 'left' | 'right';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export const getLazyMotionComponents = async () => {

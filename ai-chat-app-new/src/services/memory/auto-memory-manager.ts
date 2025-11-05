@@ -3,15 +3,16 @@
 
 import { UnifiedMessage, MemoryCard, EmotionTag } from "@/types";
 import { EmotionResult } from "@/services/emotion/EmotionAnalyzer";
+import { memoryDebugLog } from "@/utils/memory-debug";
 // Removed unused import
 
 export class AutoMemoryManager {
   private lastProcessedMessageId: string | null = null;
   private messageBuffer: UnifiedMessage[] = [];
-  private readonly BUFFER_SIZE = 2; // 2メッセージで積極的生成
-  private readonly IMPORTANCE_THRESHOLD = 0.1; // さらに低い閾値で頻繁に生成
+  private readonly BUFFER_SIZE = 5; // 🔧 2→5: メモリー生成頻度を削減（API呼び出し削減）
+  private readonly IMPORTANCE_THRESHOLD = 0.3; // 🔧 0.1→0.3: より重要なメッセージのみ生成（API呼び出し削減）
   private readonly EMOTIONAL_IMPACT_THRESHOLD = 0.7; // 感情的重要度の閾値
-  private readonly TIME_THRESHOLD = 30 * 1000; // 30秒に短縮
+  private readonly TIME_THRESHOLD = 60 * 1000; // 🔧 30秒→60秒: 生成間隔を延長（API呼び出し削減）
   private lastMemoryCreated: number = 0; // 最後のメモリ作成時刻
   private memoryCount: number = 0; // 生成されたメモリーの数
 
@@ -37,10 +38,10 @@ export class AutoMemoryManager {
       this.messageBuffer.shift();
     }
 
-    // 連続生成防止のチェック（さらに短縮）
+    // 🔧 連続生成防止のチェック（2秒→5秒：API呼び出し削減）
     const now = Date.now();
-    if (now - this.lastMemoryCreated < 2000) {
-      // 2秒以内は生成しない（さらに短縮）
+    if (now - this.lastMemoryCreated < 5000) {
+      // 5秒以内は生成しない
       return;
     }
 
@@ -78,6 +79,8 @@ export class AutoMemoryManager {
           this.messageBuffer
         );
         const messageIds = relevantMessages.map((msg) => msg.id);
+
+        memoryDebugLog.autoMemory('createMemoryCard', { sessionId, characterId, messageCount: messageIds.length });
 
         await createMemoryCardFn(messageIds, sessionId, characterId, emotionTags);
         this.memoryCount++;

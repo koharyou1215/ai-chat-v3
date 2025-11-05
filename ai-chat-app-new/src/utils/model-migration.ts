@@ -26,8 +26,15 @@ export function validateGeminiModel(modelName: string): boolean {
 
   // 許容パターン: 基本名（例: gemini-2.5-flash）か、
   // 末尾に任意のサフィックス（例: -preview-09-2025）が付いている場合を許可する。
-  // これにより `google/gemini-2.5-flash-preview-09-2025` のようなモデル名も受け入れます。
-  const pattern = /^gemini-2\.5-(pro|flash(?:-light)?)(?:-.*)?$/;
+  // これにより以下のすべてを受け入れます：
+  // - gemini-2.5-pro
+  // - gemini-2.5-pro-preview-*
+  // - gemini-2.5-flash
+  // - gemini-2.5-flash-preview-*
+  // - gemini-2.5-flash-light
+  // - gemini-2.5-flash-lite
+  // - gemini-2.5-flash-lite-preview-*
+  const pattern = /^gemini-2\.5-(pro|flash(?:-(?:light|lite))?)(?:-.*)?$/;
   return pattern.test(cleanModel);
 }
 

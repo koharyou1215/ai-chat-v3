@@ -12,7 +12,7 @@ interface QueuedRequest {
   priority: RequestPriority;
   request: () => Promise<unknown>;
   timestamp: number;
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (error: unknown) => void;
 }
 

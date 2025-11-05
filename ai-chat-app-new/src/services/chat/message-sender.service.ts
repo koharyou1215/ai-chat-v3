@@ -1,6 +1,6 @@
 import { UUID } from '@/types';
 import { UnifiedMessage, UnifiedChatSession, Character, Persona } from '@/types';
-import { generateUserMessageId, generateAIMessageId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import { simpleAPIManagerV2 } from '@/services/simple-api-manager-v2';
 import { promptBuilderService } from '@/services/prompt-builder.service';
 
@@ -39,14 +39,14 @@ export class ChatErrorHandler {
   }
 }
 
-export class MessageSenderService {
+export class MessageSenderService<TState = Record<string, unknown>> {
   private config: MessageSenderConfig;
-  private getState: () => any;
-  private setState: (updater: (state: any) => any) => void;
+  private getState: () => TState;
+  private setState: (updater: (state: TState) => TState) => void;
 
   constructor(
-    getState: () => any, 
-    setState: (updater: (state: any) => any) => void,
+    getState: () => TState,
+    setState: (updater: (state: TState) => TState) => void,
     config?: Partial<MessageSenderConfig>
   ) {
     this.getState = getState;
@@ -68,14 +68,18 @@ export class MessageSenderService {
     imageUrl?: string
   ): Promise<{ userMessage: UnifiedMessage; aiMessage: UnifiedMessage }> {
     const state = this.getState();
-    const session = state.sessions.get(sessionId);
+    const stateRecord = state as Record<string, unknown>;
+    const sessions = stateRecord.sessions as Map<UUID, UnifiedChatSession>;
+    const session = sessions.get(sessionId);
 
     if (!session) {
       throw new Error('Session not found');
     }
 
-    const user = state.personas.get(state.activePersonaId);
-    const character = state.characters.get(state.selectedCharacterId);
+    const personas = stateRecord.personas as Map<UUID, Persona>;
+    const characters = stateRecord.characters as Map<UUID, Character>;
+    const user = personas.get(stateRecord.activePersonaId as UUID);
+    const character = characters.get(stateRecord.selectedCharacterId as UUID);
 
     if (!user) {
       throw new Error('No active persona found');
@@ -115,7 +119,7 @@ export class MessageSenderService {
     imageUrl?: string
   ): UnifiedMessage {
     return {
-      id: generateUserMessageId(),
+      id: generateStableId('user'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -160,12 +164,34 @@ export class MessageSenderService {
     session: UnifiedChatSession
   ): Promise<UnifiedMessage> {
     const state = this.getState();
-    
+    const stateRecord = state as Record<string, unknown>;
+
     // プロンプト構築 - 正しい引数でbuildPromptを呼び出し
     const systemPrompt = await promptBuilderService.buildPrompt(
       session,
       userMessage.content
     );
+
+    // 🔧 FIX: API設定をoptionsとして渡す（モバイルSafari対策）
+    const apiConfig = stateRecord.apiConfig as Record<string, unknown> | undefined;
+    const apiOptions = {
+      model: apiConfig?.model,
+      provider: apiConfig?.provider,
+      temperature: apiConfig?.temperature,
+      max_tokens: apiConfig?.max_tokens,
+      top_p: apiConfig?.top_p,
+      geminiApiKey: stateRecord.geminiApiKey,
+      openRouterApiKey: stateRecord.openRouterApiKey,
+      useDirectGeminiAPI: stateRecord.useDirectGeminiAPI,
+    };
+
+    console.log("📤 [MessageSender] Sending API request with options:", {
+      model: apiOptions.model,
+      provider: apiOptions.provider,
+      useDirectGeminiAPI: apiOptions.useDirectGeminiAPI,
+      hasGeminiKey: !!apiOptions.geminiApiKey,
+      hasOpenRouterKey: !!apiOptions.openRouterApiKey,
+    });
 
     // API呼び出し
     const response = await ChatErrorHandler.withErrorHandling(
@@ -173,7 +199,8 @@ export class MessageSenderService {
         return await simpleAPIManagerV2.generateMessage(
           systemPrompt,
           userMessage.content,
-          this.formatConversationHistory(session.messages)
+          this.formatConversationHistory(session.messages),
+          apiOptions
         );
       },
       'AI応答生成',
@@ -197,7 +224,7 @@ export class MessageSenderService {
     character: Character
   ): UnifiedMessage {
     return {
-      id: generateAIMessageId(),
+      id: generateStableId('ai'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
@@ -256,7 +283,9 @@ export class MessageSenderService {
     message: UnifiedMessage
   ): void {
     this.setState(state => {
-      const session = state.sessions.get(sessionId);
+      const stateRecord = state as Record<string, unknown>;
+      const sessions = stateRecord.sessions as Map<UUID, UnifiedChatSession>;
+      const session = sessions.get(sessionId);
       if (session) {
         session.messages.push(message);
         session.updated_at = new Date().toISOString();

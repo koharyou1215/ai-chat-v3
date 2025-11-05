@@ -55,8 +55,8 @@ export function useMessageEffects() {
     background: settings.threeDEffects?.backgroundParticles.enabled,
     particleText: settings.threeDEffects?.particleText.enabled,
     colorfulBubbles: settings.colorfulBubbles,
-    realtimeEmotion: settings.realtimeEmotion,
-    autoReactions: settings.autoReactions,
+    realtimeEmotion: settings.emotion?.realtimeDetection ?? settings.realtimeEmotion,
+    autoReactions: settings.emotion?.autoReactions ?? settings.autoReactions,
   }), [
     settings.particleEffects,
     settings.fontEffects,
@@ -66,7 +66,9 @@ export function useMessageEffects() {
     settings.threeDEffects?.backgroundParticles.enabled,
     settings.threeDEffects?.particleText.enabled,
     settings.colorfulBubbles,
+    settings.emotion?.realtimeDetection,
     settings.realtimeEmotion,
+    settings.emotion?.autoReactions,
     settings.autoReactions,
   ]);
 

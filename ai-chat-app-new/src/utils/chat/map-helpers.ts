@@ -26,7 +26,7 @@ export function getSessionSafely<T = UnifiedChatSession>(
 /**
  * MapまたはRecordを安全にMapに変換
  */
-export function createMapSafely<K = string, V = any>(
+export function createMapSafely<K = string, V = unknown>(
   source: Map<K, V> | Record<string, V> | undefined
 ): Map<K, V> {
   if (!source) {

@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
 import { debugLog } from "@/utils/debug-logger"; // debugLogをインポート
-// Removed unused import: import type { APIConfig } from '@/types';
+import { logger } from '@/utils/logger';
+import type { APIConfig } from '@/types';
 
 export async function POST(request: Request) {
+  // 🔥 Performance Measurement: リクエスト開始時刻を記録
+  const requestStartTime = Date.now();
+
   debugLog("#### API Route: /api/chat/generate called (to file) ####"); // ファイルにログ出力
-  console.log("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
+  logger.info("#### API Route: /api/chat/generate called (to console) ####"); // コンソールにも一応出力
 
   // 変数をトップレベルで宣言（catch文からもアクセス可能にする）
-  let apiConfig: any;
+  let apiConfig: Partial<APIConfig> = {};
 
   try {
     const body = await request.json();
@@ -18,10 +22,37 @@ export async function POST(request: Request) {
       conversationHistory,
       apiConfig: requestApiConfig,
       textFormatting = "readable",
+      characterId, // 🔥 Prompt Caching: キャッシュキー生成用
+      personaId, // 🔥 Prompt Caching: キャッシュキー生成用
     } = body;
 
     // apiConfigを代入
     apiConfig = requestApiConfig;
+
+    // 🔍 CRITICAL DEBUG: 受信したapiConfigを完全にログ出力
+    logger.debug("🔍 [CRITICAL DEBUG] Received apiConfig:", JSON.stringify({
+      provider: apiConfig?.provider,
+      model: apiConfig?.model,
+      useDirectGeminiAPI: apiConfig?.useDirectGeminiAPI,
+      hasGeminiKey: !!apiConfig?.geminiApiKey,
+      hasOpenRouterKey: !!apiConfig?.openRouterApiKey,
+      // 🔧 追加: apiConfig全体のキーを確認
+      allKeys: Object.keys(apiConfig || {}),
+    }, null, 2));
+
+    // 🔍 CRITICAL DEBUG: requestApiConfigも確認
+    logger.debug("🔍 [CRITICAL DEBUG] requestApiConfig (body.apiConfig):", JSON.stringify({
+      provider: requestApiConfig?.provider,
+      model: requestApiConfig?.model,
+      useDirectGeminiAPI: requestApiConfig?.useDirectGeminiAPI,
+      // 🔧 追加: 全キーを確認
+      allKeys: Object.keys(requestApiConfig || {}),
+      // 🔧 追加: 値の型も確認
+      useDirectGeminiAPIType: typeof requestApiConfig?.useDirectGeminiAPI,
+    }, null, 2));
+
+    // 🔍 CRITICAL DEBUG: body全体の構造を確認
+    logger.debug("🔍 [CRITICAL DEBUG] Request body keys:", Object.keys(body));
 
     if (!userMessage) {
       return NextResponse.json(
@@ -36,24 +67,79 @@ export async function POST(request: Request) {
     const model = apiConfig.model || "gemini-2.5-flash";
     let effectiveProvider = apiConfig.provider;
 
-    const wantsGeminiModel =
-      model.includes("gemini") || model.includes("google/");
+    // 🔧 CRITICAL FIX: クライアント設定を最優先（本番環境対応）
+    // クライアントから明示的に設定された値を確認
+    const clientUseDirectGemini =
+      apiConfig?.useDirectGeminiAPI !== undefined
+        ? apiConfig.useDirectGeminiAPI
+        : requestApiConfig?.useDirectGeminiAPI;
 
-    // If the model is a Gemini model but the request (or persisted config)
-    // does not allow direct Gemini usage, route Gemini-model requests
-    // through OpenRouter instead. This prevents the route from requiring
-    // a Gemini API key when `useDirectGeminiAPI` is disabled.
+    const envUseDirectGemini = process.env.NEXT_PUBLIC_USE_DIRECT_GEMINI_API === 'true';
+
+    // 🔍 DEBUG: 受信した設定値を詳細ログ出力（本番環境デバッグ用）
+    logger.debug("🔍 [Provider Selection] Input values:", JSON.stringify({
+      model,
+      clientUseDirectGemini,
+      envUseDirectGemini,
+      hasGeminiKey: !!apiConfig?.geminiApiKey,
+      hasOpenRouterKey: !!apiConfig?.openRouterApiKey,
+    }, null, 2));
+
+    // 🔧 FIX: モデル名から直接APIかOpenRouter経由かを判定
+    const isGeminiDirectModel = model.startsWith("gemini-");  // gemini-2.5-flash等
+    const isGeminiOpenRouterModel = model.startsWith("google/");  // google/gemini-*
+    const wantsGeminiModel = isGeminiDirectModel || isGeminiOpenRouterModel;
+
+    // 🔧 CRITICAL FIX: 判定優先順位を明確化
+    // 1. クライアント設定が明示的にtrue → Gemini直接API
+    // 2. モデル名が "gemini-*" → Gemini直接API
+    // 3. モデル名が "google/*" → OpenRouter経由
+    // 4. それ以外 → OpenRouter
+    let wantsDirectGemini = false;
+
     if (wantsGeminiModel) {
-      const wantsDirectGemini =
-        !!apiConfig?.useDirectGeminiAPI ||
-        !!requestApiConfig?.useDirectGeminiAPI;
+      // 🔧 PRIORITY 1: クライアント設定が明示的に設定されている場合、それを最優先
+      if (clientUseDirectGemini === true) {
+        wantsDirectGemini = true;
+        logger.info("✅ [Priority 1] Client setting: useDirectGeminiAPI=true - Using Gemini API directly");
+      }
+      // 🔧 PRIORITY 2: クライアント設定がfalseの場合、OpenRouter経由
+      else if (clientUseDirectGemini === false) {
+        wantsDirectGemini = false;
+        logger.warn("⚠️ [Priority 1] Client setting: useDirectGeminiAPI=false - Using OpenRouter");
+      }
+      // 🔧 PRIORITY 3: クライアント設定がundefinedの場合、モデル名で判定
+      else if (isGeminiDirectModel) {
+        wantsDirectGemini = true;
+        logger.info("✅ [Priority 2] Model name detection: gemini-* - Using Gemini API directly");
+      }
+      else if (isGeminiOpenRouterModel) {
+        wantsDirectGemini = false;
+        logger.info("✅ [Priority 2] Model name detection: google/* - Using OpenRouter");
+      }
+      // 🔧 PRIORITY 4: 環境変数チェック（最終フォールバック）
+      else {
+        wantsDirectGemini = envUseDirectGemini;
+        logger.debug(`🔧 [Priority 3] Environment variable: NEXT_PUBLIC_USE_DIRECT_GEMINI_API=${envUseDirectGemini}`);
+      }
+
+      // 🔍 DEBUG: 最終判定結果をログ出力
+      logger.debug("🔍 [Final Decision] Gemini routing:", JSON.stringify({
+        isGeminiDirectModel,
+        isGeminiOpenRouterModel,
+        model,
+        clientUseDirectGemini,
+        envUseDirectGemini,
+        wantsDirectGemini,
+        finalProvider: wantsDirectGemini ? "gemini" : "openrouter"
+      }, null, 2));
+
       if (wantsDirectGemini) {
         effectiveProvider = "gemini";
+        logger.info("✅ Final: Using Gemini API directly");
       } else {
         effectiveProvider = "openrouter";
-        console.log(
-          "⚠️ Gemini model detected but direct Gemini use is disabled; routing via OpenRouter"
-        );
+        logger.warn("⚠️ Final: Routing via OpenRouter");
       }
     } else if (
       model.includes("claude") ||
@@ -71,12 +157,30 @@ export async function POST(request: Request) {
       model.includes("moonshotai/")
     ) {
       effectiveProvider = "openrouter";
+      logger.info("✅ Non-Gemini model detected - Using OpenRouter");
     }
 
     // プロバイダー判定（非表示）
 
     // 環境変数から API キーを取得
-    const effectiveApiConfig = { ...apiConfig, provider: effectiveProvider };
+    // 🔧 FIX: wantsDirectGeminiの判定結果を明示的にeffectiveApiConfigに含める
+    const effectiveApiConfig = {
+      ...apiConfig,
+      provider: effectiveProvider,
+      useDirectGeminiAPI: wantsGeminiModel ? wantsDirectGemini : (apiConfig.useDirectGeminiAPI ?? false),
+      // 🔥 Prompt Caching: キャッシュキー生成用のIDを追加
+      characterId,
+      personaId,
+    };
+
+    // 🔍 DEBUG: effectiveApiConfigの最終状態をログ出力
+    logger.debug("🔍 [DEBUG] effectiveApiConfig:", JSON.stringify({
+      provider: effectiveApiConfig.provider,
+      model: effectiveApiConfig.model,
+      useDirectGeminiAPI: effectiveApiConfig.useDirectGeminiAPI,
+      hasGeminiKey: !!effectiveApiConfig.geminiApiKey,
+      hasOpenRouterKey: !!effectiveApiConfig.openRouterApiKey,
+    }, null, 2));
 
     if (effectiveProvider === "gemini") {
       // フロントエンドから送られてくる API キーを最優先で使用
@@ -90,7 +194,7 @@ export async function POST(request: Request) {
           effectiveApiConfig.geminiApiKey = geminiKey;
           // 環境変数からのAPIキー読み込み（ログ非表示）
         } else {
-          console.error("❌ No Gemini API key found (client or environment)");
+          logger.error("❌ No Gemini API key found (client or environment)");
           throw new Error("Gemini API キーが設定されていません");
         }
       }
@@ -98,7 +202,7 @@ export async function POST(request: Request) {
       // OpenRouter の場合、フロントエンドから送られてくる API キーを使用
       if (apiConfig.openRouterApiKey) {
         effectiveApiConfig.openRouterApiKey = apiConfig.openRouterApiKey;
-        console.log("✅ OpenRouter API key provided from client");
+        logger.info("✅ OpenRouter API key provided from client");
       } else {
         // フォールバック: 環境変数から読み込み
         const openRouterKey =
@@ -106,13 +210,13 @@ export async function POST(request: Request) {
           process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
         if (openRouterKey) {
           effectiveApiConfig.openRouterApiKey = openRouterKey;
-          console.log("✅ OpenRouter API key loaded from environment");
+          logger.info("✅ OpenRouter API key loaded from environment");
         } else {
-          console.error(
+          logger.error(
             "❌ OpenRouter API key not provided (client or environment)"
           );
           // エラーにせず、simpleAPIManagerV2のデフォルト処理に任せる
-          console.log(
+          logger.warn(
             "⚠️ Proceeding without explicit OpenRouter API key - will use manager's default"
           );
         }
@@ -142,22 +246,22 @@ export async function POST(request: Request) {
 
     if (false) {
       // 無効化: isDevelopment
-      console.log("[DEV]");
-      console.log("--- [API Route: /api/chat/generate] ---");
-      console.log(
+      logger.debug("[DEV]");
+      logger.debug("--- [API Route: /api/chat/generate] ---");
+      logger.debug(
         `[DEV][Config] Provider: ${apiConfig.provider}, Model: ${apiConfig.model}`
       );
 
       // システムプロンプトの詳細表示
       if (systemPrompt) {
-        console.log("[DEV]--- System Prompt ---");
+        logger.debug("[DEV]--- System Prompt ---");
         // システムプロンプト全体を表示（最初の部分）
         const lines = systemPrompt.split("\n");
         lines.slice(0, 15).forEach((line: string) => {
-          console.log(line);
+          logger.debug(line);
         });
         if (lines.length > 15) {
-          console.log("...");
+          logger.debug("...");
         }
 
         // キャラクター情報の抽出と表示
@@ -165,14 +269,14 @@ export async function POST(request: Request) {
           /<character_information>([\s\S]*?)<\/character_information>/
         );
         if (charInfoMatch) {
-          console.log("\n[DEV]--- Character Information ---");
+          logger.debug("\n[DEV]--- Character Information ---");
           const charInfo = charInfoMatch[1].trim();
           const charLines = charInfo.split("\n");
           charLines.slice(0, 10).forEach((line: string) => {
-            console.log(line);
+            logger.debug(line);
           });
           if (charLines.length > 10) {
-            console.log("...");
+            logger.debug("...");
           }
         }
 
@@ -181,9 +285,9 @@ export async function POST(request: Request) {
           /<persona_information>([\s\S]*?)<\/persona_information>/
         );
         if (personaInfoMatch) {
-          console.log("\n[DEV]--- Persona Information ---");
+          logger.debug("\n[DEV]--- Persona Information ---");
           const personaInfo = personaInfoMatch[1].trim();
-          console.log(personaInfo);
+          logger.debug(personaInfo);
         }
 
         // トラッカー情報の抽出と表示
@@ -191,20 +295,20 @@ export async function POST(request: Request) {
           /<character_trackers>([\s\S]*?)<\/character_trackers>/
         );
         if (trackerMatch) {
-          console.log("\n[DEV]--- Tracker Information ---");
+          logger.debug("\n[DEV]--- Tracker Information ---");
           const trackerInfo = trackerMatch[1].trim();
           const trackerLines = trackerInfo.split("\n");
           trackerLines.slice(0, 20).forEach((line: string) => {
-            console.log(line);
+            logger.debug(line);
           });
           if (trackerLines.length > 20) {
-            console.log("...");
+            logger.debug("...");
           }
         }
       }
 
       // 会話履歴の詳細表示
-      console.log(
+      logger.debug(
         `\n[DEV]--- Conversation History (${conversationHistory.length} messages) ---`
       );
       if (conversationHistory && conversationHistory.length > 0) {
@@ -213,10 +317,10 @@ export async function POST(request: Request) {
           .forEach(
             (
               msg: { role: "user" | "assistant"; content: string },
-              idx: number
+              _idx: number
             ) => {
               const preview = msg.content.substring(0, 200);
-              console.log(
+              logger.debug(
                 `${msg.role}: ${preview}${
                   msg.content.length > 200 ? "..." : ""
                 }`
@@ -224,194 +328,90 @@ export async function POST(request: Request) {
             }
           );
         if (conversationHistory.length > 3) {
-          console.log(`[... ${conversationHistory.length - 3} older messages]`);
+          logger.debug(`[... ${conversationHistory.length - 3} older messages]`);
         }
       }
 
       // ユーザーメッセージ
-      console.log(`\n[DEV]--- User Message ---`);
-      console.log(userMessage);
+      logger.debug(`\n[DEV]--- User Message ---`);
+      logger.debug(userMessage);
 
-      console.log("=====================================\n");
+      logger.debug("=====================================\n");
     }
 
     let aiResponseContent: string;
 
     try {
-      // プロンプト全体をログ出力
-      console.log("\n==== APIリクエスト ====");
-      console.log("🚀 モデル:", effectiveApiConfig.model);
+      // 🔥 Performance Measurement: API呼び出し前の計測
+      const apiCallStartTime = Date.now();
+      const systemPromptLength = systemPrompt.length;
 
-      console.log("\n📝 ユーザーメッセージ:");
-      console.log(userMessage);
-
-      // 会話履歴を表示
-      console.log("\n📚 会話履歴 (" + conversationHistory.length + "件):");
-      conversationHistory
-        .slice(-10)
-        .forEach(
-          (
-            msg: { role: "user" | "assistant"; content: string },
-            index: number
-          ) => {
-            console.log(
-              `  ${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${
-                msg.content.length > 100 ? "..." : ""
-              }`
-            );
-          }
-        );
-
-      // システムプロンプトから情報を抽出して表示（PROMPT_VERIFICATION_GUIDE.mdの順序に従う）
-      console.log("\n📦 システムプロンプト構成（正しい順序）:");
-
-      // 1. System Instructions (必須)
-      const systemInstructionsMatch = systemPrompt.match(
-        /<system_instructions>([\s\S]*?)<\/system_instructions>/
-      );
-      console.log(
-        "  1️⃣ System Instructions: " +
-          (systemInstructionsMatch ? "✅ あり" : "❌ なし")
-      );
-
-      // 2. Jailbreak (オプション)
-      const jailbreakMatch = systemPrompt.match(
-        /<jailbreak>([\s\S]*?)<\/jailbreak>/
-      );
-      console.log(
-        "  2️⃣ Jailbreak: " +
-          (jailbreakMatch ? "✅ あり" : "➖ なし（オプション）")
-      );
-
-      // 3. Character Information（必須）
-      const charMatch = systemPrompt.match(
-        /<character_information>([\s\S]*?)<\/character_information>/
-      );
-      if (charMatch) {
-        const charInfo = charMatch[1];
-        const nameMatch = charInfo.match(/Name: (.+)/);
-        console.log(
-          "  3️⃣ Character Information: ✅ " +
-            (nameMatch ? nameMatch[1] : "キャラクター名不明")
-        );
-      } else {
-        console.log("  3️⃣ Character Information: ❌ なし");
-      }
-
-      // 4. Persona Information（必須）
-      const personaMatch = systemPrompt.match(
-        /<persona_information>([\s\S]*?)<\/persona_information>/
-      );
-      if (personaMatch) {
-        console.log("  4️⃣ Persona Information: ✅ あり");
-        const personaInfo = personaMatch[1].substring(0, 100);
-        console.log(
-          "    " + personaInfo.replace(/\n/g, " ").substring(0, 80) + "..."
-        );
-      } else {
-        console.log("  4️⃣ Persona Information: ❌ なし");
-      }
-
-      // 5. Relationship State（トラッカー情報）
-      const trackerMatch = systemPrompt.match(
-        /<relationship_state>([\s\S]*?)<\/relationship_state>/
-      );
-      if (trackerMatch) {
-        const trackerInfo = trackerMatch[1];
-        // トラッカー名を抽出（## で始まる行を探す）
-        const trackerNames = trackerInfo.match(/## [^\n]+/g) || [];
-        console.log(
-          "  5️⃣ Relationship State: ✅ トラッカー" + trackerNames.length + "個"
-        );
-        trackerNames.slice(0, 5).forEach((tracker: string) => {
-          console.log("    - " + tracker.replace("## ", ""));
-        });
-        if (trackerNames.length > 5) {
-          console.log("    ... 他" + (trackerNames.length - 5) + "個");
-        }
-      } else {
-        console.log("  5️⃣ Relationship State: ➖ トラッカーなし");
-      }
-
-      // 6. Memory Context（メモリーカード）
-      const memoryContextMatch = systemPrompt.match(
-        /<memory_context>([\s\S]*?)<\/memory_context>/
-      );
-
-      let totalMemoryCards = 0;
-      if (memoryContextMatch) {
-        // 正確にカードをカウント: [category] title: のパターンを探す
-        const cardPattern = /^\s*\[([^\]]+)\]\s+[^:]+:/gm;
-        const cards = memoryContextMatch[1].match(cardPattern);
-        totalMemoryCards = cards ? cards.length : 0;
-        console.log(
-          "  6️⃣ Memory Context: " +
-            (totalMemoryCards > 0 ? "✅ " + totalMemoryCards + "件" : "➖ なし")
-        );
-      } else {
-        console.log("  6️⃣ Memory Context: ➖ なし");
-      }
-
-      // 7. Current Input（必須 - プロンプトの最後にあるはず）
-      const currentInputMatch = systemPrompt.match(/## Current Input[\s\S]*$/);
-      console.log(
-        "  7️⃣ Current Input: " + (currentInputMatch ? "✅ あり" : "❌ なし")
-      );
-
-      console.log("\n📊 プロンプト順序の検証:");
-      console.log(
-        "  " +
-          (systemInstructionsMatch && charMatch && personaMatch
-            ? "✅ 正しい順序"
-            : "❌ 順序に問題あり")
-      );
-
-      // システムプロンプトの実際の内容を表示
-      console.log("\n📦 システムプロンプト (先頭1000文字):");
-      console.log(systemPrompt.substring(0, 1000));
-      console.log("... [" + systemPrompt.length + "文字]\n");
+      // シンプル化されたログ: APIに送信される完全なプロンプトのみ表示
+      logger.info("\n" + "=".repeat(80));
+      logger.info("📤 APIリクエスト - 送信プロンプト全文");
+      logger.info("=".repeat(80));
+      logger.info("🚀 モデル:", effectiveApiConfig.model);
+      logger.info("📏 文字数:", systemPromptLength, "文字");
+      logger.info("-".repeat(80));
+      logger.info(systemPrompt);
+      logger.info("=".repeat(80) + "\n");
 
       // APIリクエスト送信
-      console.log("\n🚀 APIリクエスト送信中...");
-
       aiResponseContent = await simpleAPIManagerV2.generateMessage(
         systemPrompt,
         userMessage,
         conversationHistory,
-        { ...effectiveApiConfig, textFormatting } // 環境変数とテキスト整形設定を渡す
+        effectiveApiConfig // 環境変数設定を渡す
       );
 
-      console.log("✅ API生成成功");
+      // 🔥 Performance Measurement: API呼び出し後の計測
+      const apiCallEndTime = Date.now();
+      const apiCallDuration = apiCallEndTime - apiCallStartTime;
+
+      logger.info("✅ API生成成功");
+      logger.info(`⏱️ [Performance] API呼び出し時間: ${apiCallDuration}ms`);
     } catch (error) {
-      console.error("❌ API生成エラー:", error);
+      logger.error("❌ API生成エラー:", error);
       throw error;
     }
 
-    // レスポンスログ
-    console.log("\n🤖 AI応答 (先頭200文字):");
-    console.log(
-      aiResponseContent.substring(0, 200) +
-        (aiResponseContent.length > 200 ? "..." : "")
-    );
-    console.log("==== リクエスト完了 ====\n");
+    // レスポンスログ（シンプル化）
+    logger.info("=".repeat(80));
+    logger.info("📥 AI応答");
+    logger.info("=".repeat(80));
+    logger.info("📏 文字数:", aiResponseContent.length, "文字");
+    logger.info("-".repeat(80));
+    logger.info(aiResponseContent);
+    logger.info("=".repeat(80) + "\n");
+
+    // 🔥 Performance Measurement: 全体の処理時間を記録
+    const requestEndTime = Date.now();
+    const totalDuration = requestEndTime - requestStartTime;
+
+    logger.info("📊 [Performance Summary]");
+    logger.info(`  - Total Request Time: ${totalDuration}ms`);
+    logger.info(`  - Model: ${effectiveApiConfig.model}`);
+    logger.info(`  - Provider: ${effectiveApiConfig.provider}`);
+    if (characterId) logger.info(`  - Character ID: ${characterId}`);
+    if (personaId) logger.info(`  - Persona ID: ${personaId}`);
 
     return NextResponse.json({ response: aiResponseContent });
   } catch (error) {
-    console.error("❌❌❌ Critical Error in /api/chat/generate:", error);
-    console.error("🔍 Error type:", typeof error);
-    console.error("🔍 Error message:", (error as Error).message);
-    console.error("🔍 Error stack:", (error as Error).stack);
+    logger.error("❌❌❌ Critical Error in /api/chat/generate:", error);
+    logger.error("🔍 Error type:", typeof error);
+    logger.error("🔍 Error message:", (error as Error).message);
+    logger.error("🔍 Error stack:", (error as Error).stack);
 
     // APIキーの状態を確認（apiConfigが利用可能になった）
-    console.error("🔑 API Key Status:");
-    console.error(
+    logger.error("🔑 API Key Status:");
+    logger.error(
       "  - OpenRouter key provided:",
       !!apiConfig?.openRouterApiKey
     );
-    console.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);
-    console.error("  - Use Direct Gemini:", apiConfig?.useDirectGeminiAPI);
-    console.error("  - Model:", apiConfig?.model);
-    console.error("  - Provider:", apiConfig?.provider);
+    logger.error("  - Gemini key provided:", !!apiConfig?.geminiApiKey);
+    logger.error("  - Use Direct Gemini:", apiConfig?.useDirectGeminiAPI);
+    logger.error("  - Model:", apiConfig?.model);
+    logger.error("  - Provider:", apiConfig?.provider);
 
     return NextResponse.json(
       {

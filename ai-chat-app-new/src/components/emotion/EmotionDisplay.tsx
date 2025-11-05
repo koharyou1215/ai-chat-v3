@@ -24,7 +24,7 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
   const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
-    if (!settings.realtimeEmotion || !emotionalIntelligenceFlags.emotion_analysis_enabled || !message.trim()) return;
+    if (!settings.emotion.realtimeDetection || !emotionalIntelligenceFlags.emotion_analysis_enabled || !message.trim()) return;
 
     const analyzeEmotion = async () => {
       setIsAnalyzing(true);
@@ -57,9 +57,9 @@ export const EmotionDisplay: React.FC<EmotionDisplayProps> = ({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [message, settings.realtimeEmotion, emotionalIntelligenceFlags.emotion_analysis_enabled, onEmotionDetected]);
+  }, [message, settings.emotion.realtimeDetection, emotionalIntelligenceFlags.emotion_analysis_enabled, onEmotionDetected]);
 
-  if (!settings.realtimeEmotion || !emotionalIntelligenceFlags.emotion_analysis_enabled) return null;
+  if (!settings.emotion.realtimeDetection || !emotionalIntelligenceFlags.emotion_analysis_enabled) return null;
 
   return (
     <div className="space-y-1">
@@ -328,27 +328,30 @@ export const EmotionReactions: React.FC<{
   const reactionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
-    if (!settings.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
+    if (!settings.emotion.autoReactions || !emotionalIntelligenceFlags.visual_effects_enabled) return;
 
     // Clear existing timeouts
     reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
     reactionTimeoutsRef.current = [];
-    
+
     // 自動リアクションを実行
-    emotion.suggestedReactions.forEach((reaction, index) => {
-      const timeoutId = setTimeout(() => {
-        if (onReactionTriggered) {
-          onReactionTriggered(reaction);
-        }
-      }, index * 200);
-      reactionTimeoutsRef.current.push(timeoutId);
-    });
-    
+    // Safety check: ensure suggestedReactions exists and is an array
+    if (emotion?.suggestedReactions && Array.isArray(emotion.suggestedReactions)) {
+      emotion.suggestedReactions.forEach((reaction, index) => {
+        const timeoutId = setTimeout(() => {
+          if (onReactionTriggered) {
+            onReactionTriggered(reaction);
+          }
+        }, index * 200);
+        reactionTimeoutsRef.current.push(timeoutId);
+      });
+    }
+
     return () => {
       reactionTimeoutsRef.current.forEach((timeoutId: NodeJS.Timeout) => clearTimeout(timeoutId));
       reactionTimeoutsRef.current = [];
     };
-  }, [emotion, settings.autoReactions, emotionalIntelligenceFlags.visual_effects_enabled, onReactionTriggered]);
+  }, [emotion, settings, emotionalIntelligenceFlags.visual_effects_enabled, onReactionTriggered]);
   
   // Cleanup all timeouts on unmount
   useEffect(() => {

@@ -122,7 +122,7 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           getPopularTopics(),
           getConversationTrends()
         ]);
-        
+
         // Convert HistoryStatistics to HistoryStats
         const statsData: HistoryStats = {
           total_messages: (historyStats as HistoryStatistics).total_messages,
@@ -130,7 +130,7 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
           avg_messages_per_session: (historyStats as HistoryStatistics).average_messages_per_session
         };
         setStats(statsData);
-        
+
         // Convert TopicAnalysis[] to TopicData[]
         const topicsData: TopicData[] = (popularTopics as TopicAnalysis[]).map(topic => ({
           name: topic.topic,
@@ -142,9 +142,10 @@ export const HistorySearch: React.FC<HistorySearchProps> = ({
         console.error('履歴データ読み込みエラー:', error);
       }
     };
-    
+
     loadHistoryData();
-  }, [session_id, getHistoryStatistics, getPopularTopics, getConversationTrends]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session_id]);
   
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('ja-JP');

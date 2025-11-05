@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>トラッカー永続化デバッグ</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+    pre { background: #000; padding: 10px; overflow-x: auto; border: 1px solid #00ff00; }
+    button { padding: 10px; margin: 5px; background: #00ff00; color: #000; border: none; cursor: pointer; }
+    .error { color: #ff0000; }
+    .success { color: #00ff00; }
+    .warning { color: #ffaa00; }
+  </style>
+</head>
+<body>
+  <h1>🔍 トラッカー永続化デバッグツール</h1>
+
+  <button onclick="checkStorage()">LocalStorage確認</button>
+  <button onclick="checkTrackerManagers()">TrackerManagers確認</button>
+  <button onclick="clearStorage()">LocalStorageクリア</button>
+
+  <h2>結果:</h2>
+  <pre id="output"></pre>
+
+  <script>
+    function log(message, type = 'normal') {
+      const output = document.getElementById('output');
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+      output.innerHTML += `<span class="${className}">${message}</span>\n`;
+    }
+
+    function checkStorage() {
+      document.getElementById('output').innerHTML = '';
+      log('=== LocalStorage確認 ===', 'success');
+
+      const storageKey = 'ai-chat-v3-storage';
+      const data = localStorage.getItem(storageKey);
+
+      if (!data) {
+        log('❌ LocalStorageにデータが存在しません', 'error');
+        return;
+      }
+
+      log(`✅ データサイズ: ${(data.length / 1024).toFixed(2)}KB`, 'success');
+
+      try {
+        const parsed = JSON.parse(data);
+        log(`✅ JSON解析成功`, 'success');
+
+        if (parsed.state) {
+          log(`✅ state存在: ${Object.keys(parsed.state).length}個のキー`, 'success');
+
+          // trackerManagers確認
+          if (parsed.state.trackerManagers) {
+            log(`✅ trackerManagers存在`, 'success');
+            log(`   タイプ: ${parsed.state.trackerManagers._type || 'unknown'}`, 'warning');
+
+            if (parsed.state.trackerManagers._type === 'map' && parsed.state.trackerManagers.value) {
+              const entries = parsed.state.trackerManagers.value;
+              log(`   エントリー数: ${entries.length}`, 'success');
+
+              entries.forEach(([sessionId, manager], index) => {
+                log(`\n   [${index}] SessionID: ${sessionId.substring(0, 20)}...`, 'warning');
+
+                if (manager && manager._type === 'TrackerManager') {
+                  log(`       ✅ TrackerManager形式`, 'success');
+
+                  if (manager.value && manager.value.trackerSets) {
+                    const trackerSetKeys = Object.keys(manager.value.trackerSets);
+                    log(`       TrackerSets: ${trackerSetKeys.length}個`, 'success');
+
+                    trackerSetKeys.forEach(characterId => {
+                      const trackerSet = manager.value.trackerSets[characterId];
+                      log(`\n         CharacterID: ${characterId.substring(0, 20)}...`, 'warning');
+
+                      if (trackerSet.trackers) {
+                        if (Array.isArray(trackerSet.trackers)) {
+                          log(`           ✅ trackers配列: ${trackerSet.trackers.length}個`, 'success');
+
+                          trackerSet.trackers.slice(0, 3).forEach(([name, tracker]) => {
+                            log(`             - ${name}: ${tracker.current_value}`, 'normal');
+                          });
+
+                          if (trackerSet.trackers.length > 3) {
+                            log(`             ... 他${trackerSet.trackers.length - 3}個`, 'normal');
+                          }
+                        } else {
+                          log(`           ❌ trackers形式エラー: ${typeof trackerSet.trackers}`, 'error');
+                        }
+                      } else {
+                        log(`           ❌ trackersが存在しません`, 'error');
+                      }
+                    });
+                  } else {
+                    log(`       ❌ trackerSetsが存在しません`, 'error');
+                  }
+                } else {
+                  log(`       ❌ TrackerManager形式エラー`, 'error');
+                  log(`       実際の型: ${manager?._type || typeof manager}`, 'error');
+                }
+              });
+            } else {
+              log(`   ❌ trackerManagers.valueが存在しないか形式エラー`, 'error');
+            }
+          } else {
+            log(`❌ trackerManagersが存在しません`, 'error');
+          }
+        } else {
+          log(`❌ stateが存在しません`, 'error');
+        }
+
+        log(`\n=== 完全なデータ構造（最初の2000文字） ===`, 'warning');
+        log(JSON.stringify(parsed, null, 2).substring(0, 2000) + '...');
+
+      } catch (error) {
+        log(`❌ JSON解析エラー: ${error.message}`, 'error');
+      }
+    }
+
+    function checkTrackerManagers() {
+      document.getElementById('output').innerHTML = '';
+      log('=== TrackerManagers（ランタイム）確認 ===', 'success');
+
+      if (typeof window.useAppStore === 'undefined') {
+        log('❌ useAppStoreが存在しません（開発サーバーが起動していない可能性）', 'error');
+        return;
+      }
+
+      try {
+        const state = window.useAppStore.getState();
+        const trackerManagers = state.trackerManagers;
+
+        if (trackerManagers instanceof Map) {
+          log(`✅ TrackerManagers: Map (${trackerManagers.size}個)`, 'success');
+
+          let index = 0;
+          for (const [sessionId, manager] of trackerManagers.entries()) {
+            log(`\n[${index}] SessionID: ${sessionId.substring(0, 20)}...`, 'warning');
+
+            if (manager && typeof manager.getTrackerSet === 'function') {
+              log(`  ✅ TrackerManagerインスタンス`, 'success');
+
+              // trackerSetsを取得
+              const trackerSetsObj = manager.getTrackerSetsAsObject ? manager.getTrackerSetsAsObject() : {};
+              const characterIds = Object.keys(trackerSetsObj);
+
+              log(`  TrackerSets: ${characterIds.length}個`, 'success');
+
+              characterIds.forEach(characterId => {
+                const trackerSet = trackerSetsObj[characterId];
+                log(`\n    CharacterID: ${characterId.substring(0, 20)}...`, 'warning');
+
+                if (trackerSet.trackers && Array.isArray(trackerSet.trackers)) {
+                  log(`      ✅ trackers: ${trackerSet.trackers.length}個`, 'success');
+
+                  trackerSet.trackers.slice(0, 3).forEach(([name, tracker]) => {
+                    log(`        - ${name}: ${tracker.current_value}`, 'normal');
+                  });
+
+                  if (trackerSet.trackers.length > 3) {
+                    log(`        ... 他${trackerSet.trackers.length - 3}個`, 'normal');
+                  }
+                } else {
+                  log(`      ❌ trackersが配列ではない`, 'error');
+                }
+              });
+            } else {
+              log(`  ❌ TrackerManagerインスタンスではない`, 'error');
+              log(`  型: ${typeof manager}`, 'error');
+            }
+
+            index++;
+          }
+        } else {
+          log(`❌ trackerManagersがMapではない: ${typeof trackerManagers}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ エラー: ${error.message}`, 'error');
+        log(error.stack, 'error');
+      }
+    }
+
+    function clearStorage() {
+      if (confirm('LocalStorageをクリアしますか？')) {
+        localStorage.removeItem('ai-chat-v3-storage');
+        document.getElementById('output').innerHTML = '';
+        log('✅ LocalStorageをクリアしました', 'success');
+      }
+    }
+
+    log('デバッグツール準備完了', 'success');
+    log('開発サーバー起動後、ボタンを押して確認してください', 'warning');
+  </script>
+</body>
+</html>

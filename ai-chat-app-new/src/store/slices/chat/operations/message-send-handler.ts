@@ -1,5 +1,5 @@
 import { StateCreator } from "zustand";
-import { UnifiedMessage, UnifiedChatSession } from "@/types";
+import { UnifiedMessage, UnifiedChatSession, MemoryCard } from "@/types";
 import { AppStore } from "@/store";
 import { SendMessageOptions, SendMessageResult } from "./types";
 import { apiRequestQueue } from "@/services/api-request-queue";
@@ -13,8 +13,11 @@ import {
   ingestMessageToMem0Safely,
   ingestConversationPairToMem0,
 } from "@/utils/chat/mem0-integration-helper";
-import { generateUserMessageId, generateAIMessageId } from "@/utils/uuid";
+import { generateStableId } from "@/utils/uuid";
 import { debugLog } from "@/utils/debug-logger";
+import { getTrackerManagerSafely } from "@/utils/chat/tracker-helpers";
+import { createUserMessage, createAIMessage } from "@/utils/chat/message-factory";
+import { buildConversationHistory } from "@/utils/chat/context-management";
 
 /**
  * Phase 3.4: Send Handler
@@ -53,113 +56,8 @@ const getEmotionEmoji = (emotion: string): string => {
   return emotionEmojiMap[emotion] || "😐";
 };
 
-/**
- * TrackerManager を安全に取得
- * Exported for use by other handlers (e.g., chat-progressive-handler)
- */
-export const getTrackerManagerSafely = (
-  trackerManagers: any,
-  key: string
-): TrackerManager | undefined => {
-  if (!trackerManagers || !key) return undefined;
-  if (trackerManagers instanceof Map) {
-    return trackerManagers.get(key);
-  } else if (typeof trackerManagers === "object") {
-    return trackerManagers[key];
-  }
-  return undefined;
-};
-
-/**
- * ユーザーメッセージを作成
- */
-const createUserMessage = (
-  content: string,
-  activeSessionId: string,
-  imageUrl?: string
-): UnifiedMessage => {
-  return {
-    id: generateUserMessageId(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    version: 1,
-    session_id: activeSessionId,
-    is_deleted: false,
-    role: "user",
-    content,
-    image_url: imageUrl,
-    memory: {
-      importance: {
-        score: 0.7,
-        factors: {
-          emotional_weight: 0.5,
-          repetition_count: 0,
-          user_emphasis: 0.8,
-          ai_judgment: 0.6,
-        },
-      },
-      is_pinned: false,
-      is_bookmarked: false,
-      keywords: [],
-      summary: undefined,
-    },
-    expression: {
-      emotion: { primary: "neutral", intensity: 0.5, emoji: "😐" },
-      style: { font_weight: "normal", text_color: "#ffffff" },
-      effects: [],
-    },
-    edit_history: [],
-    regeneration_count: 0,
-    metadata: {},
-  };
-};
-
-/**
- * AIメッセージを作成
- */
-const createAIMessage = (
-  content: string,
-  activeSessionId: string,
-  characterId?: string,
-  characterName?: string,
-  emotionExpression?: any
-): UnifiedMessage => {
-  return {
-    id: generateAIMessageId(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    version: 1,
-    session_id: activeSessionId,
-    is_deleted: false,
-    role: "assistant",
-    content,
-    character_id: characterId,
-    character_name: characterName,
-    memory: {
-      importance: {
-        score: 0.6,
-        factors: {
-          emotional_weight: 0.4,
-          repetition_count: 0,
-          user_emphasis: 0.3,
-          ai_judgment: 0.7,
-        },
-      },
-      is_pinned: false,
-      is_bookmarked: false,
-      keywords: ["response"],
-      summary: "ユーザーの質問への回答",
-    },
-    expression: emotionExpression || {
-      emotion: { primary: "neutral", intensity: 0.6, emoji: "🤔" },
-      style: { font_weight: "normal", text_color: "#ffffff" },
-      effects: [],
-    },
-    edit_history: [],
-    regeneration_count: 0,
-    metadata: {},
-  };
-};
+// Re-export for backward compatibility (chat-progressive-handler imports from here)
+export { getTrackerManagerSafely };
 
 // =============================================================================
 // メインハンドラー
@@ -174,9 +72,9 @@ export interface MessageSendHandlerState {
 }
 
 export const createMessageSendHandler = (
-  set: any,
-  get: any,
-  api: any
+  set: Parameters<StateCreator<AppStore>>[0],
+  get: Parameters<StateCreator<AppStore>>[1],
+  api: Parameters<StateCreator<AppStore>>[2]
 ): MessageSendHandlerState => {
   return {
     sendMessage: async (
@@ -200,21 +98,26 @@ export const createMessageSendHandler = (
       };
 
       // 🔄 グループモード判定: グループチャットの場合は専用処理を呼び出し
-      const state = get() as any;
+      const state = get();
+      const stateWithGroup = state as typeof state & {
+        is_group_mode?: boolean;
+        active_group_session_id?: string;
+        sendGroupMessage?: (content: string, imageUrl?: string) => Promise<void>;
+      };
       console.log(
         "📊 [NEW sendMessage] State check - is_group_mode:",
-        state.is_group_mode,
+        stateWithGroup.is_group_mode,
         "active_session_id:",
-        state.active_session_id
+        stateWithGroup.active_session_id
       );
 
       if (
-        state.is_group_mode &&
-        state.active_group_session_id &&
-        state.sendGroupMessage
+        stateWithGroup.is_group_mode &&
+        stateWithGroup.active_group_session_id &&
+        stateWithGroup.sendGroupMessage
       ) {
         console.log("🔄 [NEW sendMessage] Redirecting to group chat");
-        await state.sendGroupMessage(content, imageUrl);
+        await stateWithGroup.sendGroupMessage(content, imageUrl);
         return { success: true };
       }
 
@@ -238,7 +141,7 @@ export const createMessageSendHandler = (
         return { success: false, error: "Already generating" };
       }
 
-      console.log("✅ [NEW sendMessage] Starting message generation");
+      console.log("✅ [NEW sendMessage] Starting message generation [v2]");
       set({ is_generating: true });
 
       try {
@@ -252,7 +155,7 @@ export const createMessageSendHandler = (
           message_count: activeSession.message_count + 1,
           updated_at: new Date().toISOString(),
         };
-        set((state: any) => ({
+        set((state: AppStore) => ({
           sessions: createMapSafely(state.sessions).set(
             activeSessionId,
             sessionWithUserMessage
@@ -265,7 +168,7 @@ export const createMessageSendHandler = (
         }
 
         // 🧠 感情分析: ユーザーメッセージ (バックグラウンド処理)
-        const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags;
+        const emotionalIntelligenceFlags = get().emotionalIntelligenceFlags as { emotion_analysis_enabled?: boolean; emotional_memory_enabled?: boolean } | undefined;
         if (opts.enableEmotionAnalysis && emotionalIntelligenceFlags?.emotion_analysis_enabled) {
           setTimeout(async () => {
             try {
@@ -309,7 +212,7 @@ export const createMessageSendHandler = (
               };
 
               // セッションを更新（非同期）
-              set((state: any) => {
+              set((state: AppStore) => {
                 const currentSession = getSessionSafely(
                   state.sessions,
                   activeSessionId
@@ -342,23 +245,54 @@ export const createMessageSendHandler = (
         }
 
         // 3. AI応答生成
+        // 🔧 修正: sessionIdでTrackerManagerを取得（セッションスコープ設計に統一）
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId
-          ? getTrackerManagerSafely(get().trackerManagers, characterId)
+        const trackerManager = get().getTrackerManager
+          ? get().getTrackerManager(activeSessionId)
           : null;
 
         console.log("🔍 [NEW sendMessage] TrackerManager check:", {
+          sessionId: activeSessionId,
           characterId,
           hasTrackerManager: !!trackerManager,
         });
 
+        // 🧠 メモリーカード取得（重複を避けるため、1回のみ取得）
+        console.log("🧠 [NEW sendMessage] Retrieving memory cards...");
+        let memoryCards: MemoryCard[] = [];
+        try {
+          memoryCards = await autoMemoryManager.getRelevantMemoriesForContext(
+            sessionWithUserMessage.messages,
+            content
+          );
+          console.log(
+            `✅ [NEW sendMessage] Memory retrieval complete: ${memoryCards.length} cards found`
+          );
+        } catch (error) {
+          console.error("❌ [NEW sendMessage] Memory retrieval failed:", error);
+          memoryCards = []; // フォールバック
+        }
+
         // ⚡ プログレッシブプロンプト構築
         console.log("🎯 [NEW sendMessage] Building progressive prompt...");
+
+        // Convert MemoryCard[] to simplified format for prompt builder
+        const simplifiedMemoryCards = memoryCards.map(card => ({
+          id: card.id,
+          title: card.title,
+          summary: card.summary || '',
+          category: card.category,
+          keywords: card.keywords,
+          is_pinned: card.is_pinned,
+          character_id: card.character_id,
+        }));
+
         const { basePrompt, enhancePrompt } =
           await promptBuilderService.buildPromptProgressive(
             sessionWithUserMessage,
             content,
-            trackerManager || undefined
+            trackerManager || undefined,
+            simplifiedMemoryCards
           );
         console.log(
           "✅ [NEW sendMessage] Progressive prompt built, length:",
@@ -396,54 +330,17 @@ export const createMessageSendHandler = (
             console.log("📝 [NEW sendMessage] Prompt length:", finalPrompt.length);
             debugLog("📝 [NEW sendMessage] Final Prompt:", finalPrompt);
 
-            // APIリクエスト
-            const initialResponse = await fetch("/api/chat/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            // APIリクエストボディを準備
+            const requestBody = {
                 systemPrompt: finalPrompt,
                 userMessage: content,
-                conversationHistory: (() => {
-                  try {
-                    const { Mem0 } = require("@/services/mem0/core");
-                    const history = Mem0.getCandidateHistory(
-                      activeSession.messages,
-                      {
-                        sessionId: activeSession.id,
-                        maxContextMessages,
-                        minRecentMessages: Math.max(5, Math.floor(maxContextMessages / 4)),
-                      }
-                    );
-                    return history;
-                  } catch (e) {
-                    // Fallback
-                    const recentMessages = activeSession.messages.slice(
-                      -maxContextMessages
-                    );
-                    const deduplicatedHistory: Array<{
-                      role: "user" | "assistant";
-                      content: string;
-                    }> = [];
-                    for (const msg of recentMessages) {
-                      if (msg.role === "user" || msg.role === "assistant") {
-                        const historyEntry = {
-                          role: msg.role as "user" | "assistant",
-                          content: msg.content,
-                        };
-                        const isDuplicate = deduplicatedHistory.some(
-                          (existing) =>
-                            existing.role === historyEntry.role &&
-                            existing.content === historyEntry.content
-                        );
-                        if (!isDuplicate && historyEntry.content.trim())
-                          deduplicatedHistory.push(historyEntry);
-                      }
-                    }
-                    return deduplicatedHistory.slice(
-                      -Math.floor(maxContextMessages / 2)
-                    );
+                conversationHistory: buildConversationHistory(
+                  activeSession.messages,
+                  {
+                    sessionId: activeSession.id,
+                    maxContextMessages,
                   }
-                })(),
+                ),
                 textFormatting: state.effectSettings.textFormatting,
                 apiConfig: {
                   ...apiConfig,
@@ -452,13 +349,77 @@ export const createMessageSendHandler = (
                   useDirectGeminiAPI: get().useDirectGeminiAPI,
                 },
                 useEnhancedPrompt: false,
-              }),
+              };
+
+            console.log("🌐 [NEW sendMessage] Request Body Summary:", {
+              hasSystemPrompt: !!requestBody.systemPrompt,
+              systemPromptLength: requestBody.systemPrompt?.length || 0,
+              hasUserMessage: !!requestBody.userMessage,
+              conversationHistoryLength: requestBody.conversationHistory?.length || 0,
+              model: requestBody.apiConfig?.model,
+              provider: requestBody.apiConfig?.provider,
+              useDirectGeminiAPI: requestBody.apiConfig?.useDirectGeminiAPI,  // ← 🔧 CRITICAL: 本番環境デバッグ用
+              hasGeminiKey: !!requestBody.apiConfig?.geminiApiKey,
+              hasOpenRouterKey: !!requestBody.apiConfig?.openRouterApiKey,
             });
 
+            // 🔧 CRITICAL DEBUG: Zustandストアの状態を直接確認
+            console.log("📊 [NEW sendMessage] Zustand Store State:", {
+              "get().useDirectGeminiAPI": get().useDirectGeminiAPI,
+              "get().apiConfig.provider": get().apiConfig?.provider,
+              "get().apiConfig.model": get().apiConfig?.model,
+              "get().geminiApiKey exists": !!get().geminiApiKey,
+              "get().openRouterApiKey exists": !!get().openRouterApiKey,
+            });
+
+            // APIリクエスト実行
+            console.log("🚀 [NEW sendMessage] Sending fetch request to /api/chat/generate");
+            const initialResponse = await fetch("/api/chat/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+            console.log("📡 [NEW sendMessage] Fetch completed, status:", initialResponse.status, initialResponse.statusText);
+
             if (!initialResponse.ok) {
-              const errorData = await initialResponse.json();
-              console.error("❌ [NEW sendMessage] API request failed:", errorData);
-              throw new Error(errorData.error || "API request failed");
+              console.error("❌ [NEW sendMessage] HTTP Error - Status:", initialResponse.status);
+              console.error("❌ [NEW sendMessage] HTTP Error - StatusText:", initialResponse.statusText);
+
+              // Try to parse error response with detailed diagnostics
+              let errorData: { error?: string; details?: string; rawError?: string; parseError?: string } = {};
+              let errorText = "";
+
+              try {
+                // First, get the raw text
+                errorText = await initialResponse.text();
+                console.error("❌ [NEW sendMessage] Raw Response Text:", errorText);
+
+                // Try to parse as JSON
+                if (errorText.trim()) {
+                  const parsed: unknown = JSON.parse(errorText);
+                  if (typeof parsed === 'object' && parsed !== null) {
+                    errorData = parsed as typeof errorData;
+                  }
+                  console.error("❌ [NEW sendMessage] Parsed Error Data:", errorData);
+                } else {
+                  console.error("❌ [NEW sendMessage] Response body is empty!");
+                }
+              } catch (parseError) {
+                console.error("❌ [NEW sendMessage] Failed to parse error response:", parseError);
+                console.error("❌ [NEW sendMessage] Raw text was:", errorText);
+                errorData = {
+                  error: "Failed to parse error response",
+                  rawError: errorText,
+                  parseError: (parseError as Error).message
+                };
+              }
+
+              const errorMessage = errorData.error ||
+                                  errorData.details ||
+                                  `HTTP ${initialResponse.status}: ${initialResponse.statusText}`;
+
+              console.error("❌ [NEW sendMessage] Final Error Message:", errorMessage);
+              throw new Error(errorMessage);
             }
 
             console.log("✅ [NEW sendMessage] API request successful");
@@ -515,7 +476,7 @@ export const createMessageSendHandler = (
               };
 
               const tempAiMessage: UnifiedMessage = {
-                id: generateAIMessageId(),
+                id: generateStableId('ai'),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 version: 1,
@@ -595,7 +556,7 @@ export const createMessageSendHandler = (
           message_count: finalSession.message_count + 1,
           updated_at: new Date().toISOString(),
         };
-        set((state: any) => ({
+        set((state: AppStore) => ({
           sessions: createMapSafely(state.sessions).set(
             activeSessionId,
             sessionWithAiResponse
@@ -629,7 +590,7 @@ export const createMessageSendHandler = (
               console.log(
                 `✅ [NEW sendMessage] Updated ${updatedTrackers.length} tracker(s)`
               );
-              set((state: any) => ({
+              set((state: AppStore) => ({
                 trackerManagers: new Map(state.trackerManagers),
               }));
 
@@ -657,15 +618,45 @@ export const createMessageSendHandler = (
         if (opts.enableBackgroundProcessing) {
           setTimeout(() => {
             Promise.allSettled([
-              get().emotionalIntelligenceFlags.emotional_memory_enabled
-                ? autoMemoryManager.processNewMessage(
-                    aiResponse,
-                    activeSessionId,
-                    activeSession.participants.characters[0]?.id,
-                    undefined,
-                    get().createMemoryCard
-                  )
-                : Promise.resolve(null),
+              (async () => {
+                const { FEATURE_FLAGS } = await import('@/config/feature-flags');
+                const { memoryDebugLog } = await import('@/utils/memory-debug');
+                const { Mem0 } = await import('@/services/mem0/core');
+
+                if (FEATURE_FLAGS.USE_MEM0_MEMORY_GENERATION) {
+                  const messages = [userMessage, aiResponse];
+                  const result = await Mem0.shouldPromoteToMemoryCard(messages);
+                  memoryDebugLog.mem0('shouldPromote', result);
+                  if (result.shouldPromote) {
+                    await Mem0.promoteToMemoryCard(
+                      `Conversation: ${messages.map(m => m.content.slice(0, 30)).join(' → ')}`,
+                      {
+                        importance: {
+                          score: result.importance,
+                          factors: {
+                            emotional_weight: 0.5,
+                            repetition_count: 0,
+                            user_emphasis: 0.5,
+                            ai_judgment: 0.5,
+                          },
+                        },
+                        session_id: activeSessionId,
+                        character_id: activeSession.participants.characters[0]?.id,
+                      }
+                    );
+                  }
+                } else {
+                  if ((get().emotionalIntelligenceFlags as { emotional_memory_enabled?: boolean } | undefined)?.emotional_memory_enabled) {
+                     await autoMemoryManager.processNewMessage(
+                        aiResponse,
+                        activeSessionId,
+                        activeSession.participants.characters[0]?.id,
+                        undefined,
+                        get().createMemoryCard
+                      )
+                  }
+                }
+              })(),
               trackerManager &&
               characterId &&
               get().effectSettings.autoTrackerUpdate
@@ -711,7 +702,7 @@ export const createMessageSendHandler = (
                       `✅ [NEW sendMessage] Background tracker analysis updated ${allUpdates.length} tracker(s)`
                     );
 
-                    set((state: any) => ({
+                    set((state: AppStore) => ({
                       trackerManagers: new Map(state.trackerManagers),
                     }));
 

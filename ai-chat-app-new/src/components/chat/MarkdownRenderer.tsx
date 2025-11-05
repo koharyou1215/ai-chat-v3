@@ -55,27 +55,40 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
   };
 
   const renderInlineMarkdown = (text: string, keyPrefix: number): React.ReactNode => {
+    // 🔧 FIX: HTMLタグを保持するため、先にHTMLを検出して保護
+    const htmlTagRegex = /<span\s+class="[^"]*emotion[^"]*"[^>]*>.*?<\/span>/g;
+    const htmlSegments: Array<{start: number, end: number, html: string}> = [];
+    let htmlMatch;
+
+    while ((htmlMatch = htmlTagRegex.exec(text)) !== null) {
+      htmlSegments.push({
+        start: htmlMatch.index,
+        end: htmlMatch.index + htmlMatch[0].length,
+        html: htmlMatch[0]
+      });
+    }
+
     // Process all inline patterns in a single pass
     const patterns = [
-      { 
-        regex: /`([^`]+)`/g, 
-        type: 'code' 
+      {
+        regex: /`([^`]+)`/g,
+        type: 'code'
       },
-      { 
-        regex: /\*\*([^*]+)\*\*|__([^_]+)__/g, 
-        type: 'bold' 
+      {
+        regex: /\*\*([^*]+)\*\*|__([^_]+)__/g,
+        type: 'bold'
       },
-      { 
-        regex: /\*([^*]+)\*|_([^_]+)_/g, 
-        type: 'italic' 
+      {
+        regex: /\*([^*]+)\*|_([^_]+)_/g,
+        type: 'italic'
       },
-      { 
-        regex: /\[([^\]]+)\]\(([^)]+)\)/g, 
-        type: 'link' 
+      {
+        regex: /\[([^\]]+)\]\(([^)]+)\)/g,
+        type: 'link'
       },
-      { 
-        regex: /(https?:\/\/[^\s]+)/g, 
-        type: 'autolink' 
+      {
+        regex: /(https?:\/\/[^\s]+)/g,
+        type: 'autolink'
       }
     ];
 
@@ -107,9 +120,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       // Skip overlapping matches
       if (item.start < lastIndex) continue;
 
-      // Add text before match
+      // 🔧 FIX: HTMLセグメントと重複していたらスキップ
+      const overlapsHtml = htmlSegments.some(seg =>
+        (item.start >= seg.start && item.start < seg.end) ||
+        (item.end > seg.start && item.end <= seg.end)
+      );
+      if (overlapsHtml) continue;
+
+      // Add text before match (but check for HTML segments first)
       if (item.start > lastIndex) {
-        parts.push(text.slice(lastIndex, item.start));
+        const beforeText = text.slice(lastIndex, item.start);
+        // HTMLセグメントがあればdangerouslySetInnerHTMLで挿入
+        const hasHtml = htmlSegments.some(seg => seg.start >= lastIndex && seg.end <= item.start);
+        if (hasHtml) {
+          parts.push(<span key={`html-${keyPrefix}-${parts.length}`} dangerouslySetInnerHTML={{__html: beforeText}} />);
+        } else {
+          parts.push(beforeText);
+        }
       }
 
       // Add formatted match
@@ -168,7 +195,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
     // Add remaining text
     if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex));
+      const remainingText = text.slice(lastIndex);
+      // 🔧 FIX: 残りのテキストにHTMLが含まれていたらdangerouslySetInnerHTMLで挿入
+      const hasHtml = htmlSegments.some(seg => seg.start >= lastIndex);
+      if (hasHtml) {
+        parts.push(<span key={`html-remaining-${keyPrefix}`} dangerouslySetInnerHTML={{__html: remainingText}} />);
+      } else {
+        parts.push(remainingText);
+      }
     }
 
     return parts.length > 1 ? <>{parts}</> : text;

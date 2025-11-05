@@ -1,23 +1,17 @@
 import { StateCreator } from 'zustand';
-import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType, EmotionTag } from '@/types';
+import { MemoryCard, UUID, UnifiedMessage, MemoryCategory as MemoryCategoryType, EmotionTag, UnifiedChatSession } from '@/types';
 import { memoryCardGenerator } from '@/services/memory/memory-card-generator';
-import { generateMemoryId } from '@/utils/uuid';
+import { generateStableId } from '@/utils/uuid';
 import { sessionStorageService } from '@/services/session-storage.service';
 
 export interface MemorySlice {
   // セッションごとに分離された記憶データ
   memory_cards_by_session: Map<UUID, Map<UUID, MemoryCard>>; // session_id -> memory_cards
   memory_layers_by_session: Map<UUID, Map<UUID, MemoryLayer>>; // session_id -> memory_layers
-  current_session_id: UUID | null;
   pinned_memories: MemoryCard[];
 
   // 後方互換性のためのプロパティ（現在のセッションのメモリーカードを参照）
   memory_cards: Map<UUID, MemoryCard>;
-
-  // セッション管理
-  setCurrentSessionId: (session_id: UUID) => void;
-  getCurrentSessionMemoryCards: () => Map<UUID, MemoryCard>;
-  getCurrentSessionMemoryLayers: () => Map<UUID, MemoryLayer>;
 
   // メモリーカードの作成・管理 - null返却を許可
   createMemoryCard: (
@@ -83,7 +77,7 @@ export interface MemoryLayer {
     facts: string[];
     emotions: { type: string; intensity: number }[];
     relationships: { entity: string; relation: string; strength: number }[];
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   };
   metadata: {
     message_count: number;
@@ -122,33 +116,8 @@ export const createMemorySlice: StateCreator<
   return {
     memory_cards_by_session: new Map(),
     memory_layers_by_session: new Map(),
-    current_session_id: null,
     pinned_memories: [],
     memory_cards: new Map(), // 後方互換性のため初期化
-
-    // セッション管理
-    setCurrentSessionId: (session_id: UUID) => {
-      set((state) => {
-        const newMemoryCards = state.memory_cards_by_session.get(session_id) || new Map();
-        return {
-          ...state,
-          current_session_id: session_id,
-          memory_cards: newMemoryCards // 現在のセッションのメモリーカードに更新
-        };
-      });
-    },
-
-    getCurrentSessionMemoryCards: () => {
-      const state = get();
-      if (!state.current_session_id) return new Map();
-      return state.memory_cards_by_session.get(state.current_session_id) || new Map();
-    },
-
-    getCurrentSessionMemoryLayers: () => {
-      const state = get();
-      if (!state.current_session_id) return new Map();
-      return state.memory_layers_by_session.get(state.current_session_id) || new Map();
-    },
 
     // Lazy initialization method for memory cards
     initializeMemoryCards: () => {
@@ -161,36 +130,50 @@ export const createMemorySlice: StateCreator<
       const state = get();
 
       // ソロチャットとグループチャットの両方をチェック
-      const soloSessions = (state as any).sessions || new Map();
-      const groupSessions = (state as any).group_sessions || new Map();
+      // Type-safe access to sessions from the complete store state
+      const stateRecord = state as unknown as Record<string, Map<string, UnifiedChatSession>>;
+      const soloSessions = stateRecord.sessions || new Map<string, UnifiedChatSession>();
+      const groupSessions = stateRecord.group_sessions || new Map<string, UnifiedChatSession>();
 
       const session =
         soloSessions.get(session_id) || groupSessions.get(session_id);
 
       if (!session) {
-        console.warn(
-          `🔍 [MemorySlice] Session ${session_id} not found in solo (${soloSessions.size}) or group (${groupSessions.size}) sessions`
+        console.error(
+          `❌ [MemorySlice] セッション ${session_id} が見つかりません`
         );
-        console.warn(
-          "🔍 Available solo sessions:",
+        console.error(
+          `🔍 [MemorySlice] ソロセッション数: ${soloSessions.size}, グループセッション数: ${groupSessions.size}`
+        );
+        console.error(
+          "🔍 [MemorySlice] 利用可能なソロセッション:",
           Array.from(soloSessions.keys()).slice(0, 3)
         );
-        console.warn(
-          "🔍 Available group sessions:",
+        console.error(
+          "🔍 [MemorySlice] 利用可能なグループセッション:",
           Array.from(groupSessions.keys()).slice(0, 3)
         );
         return null; // 型に合わせてnull返却を許可
       }
 
       // 指定されたメッセージIDのメッセージを取得
+      // session.messages が存在することを確認
+      if (!session.messages || !Array.isArray(session.messages)) {
+        console.error("❌ [MemorySlice] セッションにメッセージ配列が存在しません");
+        return null;
+      }
+
       const messages = session.messages.filter((msg: UnifiedMessage) =>
         message_ids.includes(msg.id)
       );
 
       if (messages.length === 0) {
-        console.warn("No messages found for the specified IDs");
+        console.error("❌ [MemorySlice] 指定されたIDのメッセージが見つかりません");
+        console.error("🔍 [MemorySlice] 要求されたメッセージID:", message_ids);
+        console.error("🔍 [MemorySlice] セッション内のメッセージ数:", session.messages.length);
         return null; // エラーの代わりにnull返却
       }
+      console.log("✅ [MemorySlice] メッセージ取得成功:", messages.length, "件");
 
       try {
         // AI自動生成でメモリーカード内容を作成
@@ -201,7 +184,7 @@ export const createMemorySlice: StateCreator<
         );
 
         const newMemoryCard: MemoryCard = {
-          id: generateMemoryId(),
+          id: generateStableId('memory'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           version: 1,
@@ -264,11 +247,14 @@ export const createMemorySlice: StateCreator<
           };
         });
 
-        console.log(`✅ Created memory card: ${newMemoryCard.title} for session: ${session_id}`);
+        console.log(`✅ [MemorySlice] メモリーカード作成成功: "${newMemoryCard.title}" (セッション: ${session_id.substring(0, 8)}...)`);
         return newMemoryCard;
 
       } catch (error) {
-        console.error("Failed to create memory card:", error);
+        console.error("❌ [MemorySlice] メモリーカード作成でエラーが発生しました:", error);
+        if (error instanceof Error) {
+          console.error("❌ [MemorySlice] エラー詳細:", error.message);
+        }
         return null; // エラー時もnull返却
       }
     },
@@ -582,14 +568,11 @@ export const createMemorySlice: StateCreator<
     },
 
     // メモリーレイヤー管理 (Memory Manager V2)
+    // Note: This method requires session_id to be passed explicitly
     addMessageToLayers: (message) => {
-      const state = get();
-      if (!state.current_session_id) {
-        console.log('No current session ID, skipping addMessageToLayers');
-        return;
-      }
       // この機能は必要に応じて実装
-      console.log('addMessageToLayers called for session:', state.current_session_id, 'message:', message.id);
+      // session_idはmessage.session_idから取得可能
+      console.log('addMessageToLayers called for message:', message.id, 'session:', message.session_id);
     },
   };
 };

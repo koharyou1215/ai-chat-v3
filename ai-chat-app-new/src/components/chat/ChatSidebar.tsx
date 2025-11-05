@@ -22,8 +22,31 @@ import {
 import { useAppStore } from '@/store';
 import { shallow } from 'zustand/shallow';
 import { cn } from '@/lib/utils';
-import { UnifiedChatSession } from '@/types';
+import { UnifiedChatSession, UUID } from '@/types';
 import { GroupChatSession } from '@/types/core/group-chat.types';
+
+// SerializedMap型定義（永続化されたMap型）
+interface SerializedMap<K, V> {
+  _type: 'map';
+  value: [K, V][];
+}
+
+// 型ガード: SerializedMapかどうかを判定
+const isSerializedMap = <K, V>(obj: unknown): obj is SerializedMap<K, V> => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    '_type' in obj &&
+    (obj as SerializedMap<K, V>)._type === 'map' &&
+    'value' in obj &&
+    Array.isArray((obj as SerializedMap<K, V>).value)
+  );
+};
+
+// Memory slice用のstate extension
+interface AppStoreWithMemory {
+  setCurrentSessionId?: (sessionId: UUID) => void;
+}
 
 const ChatSidebar: React.FC = React.memo(() => {
   // const router = useRouter(); // 일단 주석 처리
@@ -67,16 +90,17 @@ const ChatSidebar: React.FC = React.memo(() => {
   // 統合されたセッション一覧（通常セッション + グループセッション）
   const allSessions = useMemo(() => {
     // sessionsがMapでない場合の対処（シリアライズされたオブジェクトも考慮）
-    let sessionsMap: Map<string, any>;
+    let sessionsMap: Map<string, UnifiedChatSession>;
     if (sessions instanceof Map) {
       sessionsMap = sessions;
-    } else if (sessions && typeof sessions === 'object' && (sessions as any)._type === 'map' && Array.isArray((sessions as any).value)) {
+    } else if (sessions && isSerializedMap<string, UnifiedChatSession>(sessions)) {
       // シリアライズされたMap形式の場合
-      sessionsMap = new Map((sessions as any).value);
+      const serialized = sessions as SerializedMap<string, UnifiedChatSession>;
+      sessionsMap = new Map(serialized.value);
     } else {
       sessionsMap = new Map();
     }
-    
+
     const regularSessions = Array.from(sessionsMap.values()).map(session => ({
       ...session,
       type: 'individual' as const,
@@ -85,12 +109,13 @@ const ChatSidebar: React.FC = React.memo(() => {
     }));
     
     // groupSessionsがMapでない場合の対処（シリアライズされたオブジェクトも考慮）
-    let groupSessionsMap: Map<string, any>;
+    let groupSessionsMap: Map<string, GroupChatSession>;
     if (groupSessions instanceof Map) {
       groupSessionsMap = groupSessions;
-    } else if (groupSessions && typeof groupSessions === 'object' && (groupSessions as any)._type === 'map' && Array.isArray((groupSessions as any).value)) {
+    } else if (groupSessions && isSerializedMap<string, GroupChatSession>(groupSessions)) {
       // シリアライズされたMap形式の場合
-      groupSessionsMap = new Map((groupSessions as any).value);
+      const serialized = groupSessions as SerializedMap<string, GroupChatSession>;
+      groupSessionsMap = new Map(serialized.value);
     } else {
       groupSessionsMap = new Map();
     }
@@ -100,7 +125,8 @@ const ChatSidebar: React.FC = React.memo(() => {
       type: 'group' as const,
       displayName: groupSession.name,
       session_info: { title: groupSession.name }, // 互換性のため
-      message_count: groupSession.message_count
+      message_count: groupSession.message_count,
+      isPinned: false // グループセッションはまだpin機能未実装
     }));
     
     return [...regularSessions, ...groupSessionsList];
@@ -155,7 +181,7 @@ const ChatSidebar: React.FC = React.memo(() => {
           setActiveGroupSession(sessionId);
 
           // 記憶システムのセッションIDも切り替え（グループセッション）
-          const memorySlice = useAppStore.getState() as any;
+          const memorySlice = useAppStore.getState() as ReturnType<typeof useAppStore.getState> & AppStoreWithMemory;
           if (memorySlice.setCurrentSessionId) {
             memorySlice.setCurrentSessionId(sessionId);
           }
@@ -185,7 +211,7 @@ const ChatSidebar: React.FC = React.memo(() => {
           setActiveSessionId(sessionId);
 
           // 記憶システムのセッションIDも切り替え
-          const memorySlice = useAppStore.getState() as any;
+          const memorySlice = useAppStore.getState() as ReturnType<typeof useAppStore.getState> & AppStoreWithMemory;
           if (memorySlice.setCurrentSessionId) {
             memorySlice.setCurrentSessionId(sessionId);
           }
@@ -416,7 +442,7 @@ const ChatSidebar: React.FC = React.memo(() => {
                         "text-xs truncate mb-2",
                          isActive ? "text-slate-300" : "text-slate-400"
                       )}>
-                        {getSessionPreview(session as any)}
+                        {getSessionPreview(session as UnifiedChatSession)}
                       </p>
                       
                       <div className="flex items-center justify-between text-xs">

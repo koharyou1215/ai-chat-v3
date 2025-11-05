@@ -1,24 +1,31 @@
 import { StateCreator } from "zustand";
-import { UUID, Character } from "@/types";
+import { UUID, Character, UnifiedMessage, TrackerDefinition } from "@/types";
 import { AppStore } from "@/store";
 import { TrackerManager } from "@/services/tracker/tracker-manager";
 
+// Internal Tracker type matching TrackerManager's internal type
+type Tracker = TrackerDefinition & {
+  current_value: string | number | boolean;
+};
+
 export interface TrackerIntegration {
-  trackerManagers: Map<UUID, TrackerManager>;
-  
-  // トラッカー管理操作
-  initializeTrackerForCharacter: (character: Character) => Promise<void>;
-  getTrackerManager: (characterId: UUID) => TrackerManager | undefined;
-  updateTrackerValues: (characterId: UUID, updates: Record<string, number>) => void;
-  resetTrackerForCharacter: (characterId: UUID) => void;
-  cleanupUnusedTrackers: (activeCharacterIds: UUID[]) => void;
+  // 🔧 修正: キャラクター単位からセッション単位に変更
+  trackerManagers: Map<UUID, TrackerManager>;  // sessionId → TrackerManager
+
+  // トラッカー管理操作（セッション単位）
+  initializeTrackerForSession: (sessionId: UUID, character: Character) => Promise<void>;
+  getTrackerManager: (sessionId: UUID) => TrackerManager | undefined;
+  updateTrackerValues: (sessionId: UUID, updates: Record<string, number>) => void;
+  resetTrackerForSession: (sessionId: UUID) => void;
+  cleanupUnusedTrackers: (activeSessionIds: UUID[]) => void;
 }
 
 /**
  * トラッカー統合モジュール
- * 🔧 修正: キャラクターIDベースで統一管理
- * - セッションごとではなく、キャラクターごとにトラッカーを管理
- * - 同一キャラクターの複数セッション間でトラッカー状態を共有
+ * 🔧 修正: セッションIDベースで統一管理
+ * - キャラクターごとではなく、セッションごとにトラッカーを管理
+ * - 同一キャラクターの複数セッション間でトラッカー状態を独立
+ * - 新しいセッション作成時に必ず initial_value にリセット
  */
 export const createTrackerIntegration: StateCreator<
   AppStore,
@@ -29,15 +36,36 @@ export const createTrackerIntegration: StateCreator<
   trackerManagers: new Map(),
 
   /**
-   * キャラクターのトラッカーを初期化
+   * セッションのトラッカーを初期化
+   * 🔧 修正: セッションIDで管理、同じキャラクターでも新しいセッションなら新規作成
+   * 🔧 修正: 既存のTrackerManagerがある場合は保護（永続化データを保持）
    */
-  initializeTrackerForCharacter: async (character: Character) => {
+  initializeTrackerForSession: async (sessionId: UUID, character: Character) => {
     const trackerManagers = get().trackerManagers;
-    
+
     // 既に初期化済みの場合はスキップ
-    if (trackerManagers.has(character.id)) {
-      console.log(`✅ Tracker already initialized for character: ${character.name}`);
-      return;
+    if (trackerManagers.has(sessionId)) {
+      const existing = trackerManagers.get(sessionId);
+
+      // 既存のTrackerManagerが有効なデータを持っているかチェック
+      if (existing && typeof existing.getTrackerSet === 'function') {
+        const trackerSet = existing.getTrackerSet(character.id);
+        const hasTrackers = trackerSet && trackerSet.trackers && trackerSet.trackers.size > 0;
+
+        console.log(`✅ Tracker already initialized for session: ${sessionId}`, {
+          hasValidTrackerSet: !!trackerSet,
+          trackerCount: trackerSet?.trackers?.size || 0,
+          willPreserve: hasTrackers
+        });
+
+        // 有効なトラッカーデータがある場合は保持
+        if (hasTrackers) {
+          return;
+        }
+
+        // 空のTrackerManagerの場合は再初期化
+        console.log(`⚠️ TrackerManager exists but empty, re-initializing for session: ${sessionId}`);
+      }
     }
 
     try {
@@ -45,77 +73,88 @@ export const createTrackerIntegration: StateCreator<
       const { TrackerManager } = await import(
         "@/services/tracker/tracker-manager"
       );
-      
+
       const trackerManager = new TrackerManager();
-      
+
       // キャラクターのトラッカー設定を初期化
       if (character.trackers && character.trackers.length > 0) {
         trackerManager.initializeTrackerSet(character.id, character.trackers);
         console.log(
-          `🎯 Initialized ${character.trackers.length} trackers for character: ${character.name}`
+          `🎯 Initialized ${character.trackers.length} trackers for session: ${sessionId} (character: ${character.name})`
         );
       } else {
         console.log(
-          `ℹ️ No trackers defined for character: ${character.name}`
+          `ℹ️ No trackers defined for session: ${sessionId} (character: ${character.name})`
         );
       }
-      
-      // Mapに追加
-      trackerManagers.set(character.id, trackerManager);
-      
+
+      // Mapに追加（sessionIdで保存）
+      trackerManagers.set(sessionId, trackerManager);
+
       // ストアを更新
       set({
         trackerManagers: new Map(trackerManagers),
       });
-      
+
     } catch (error) {
       console.error(
-        `❌ Failed to initialize tracker for character ${character.name}:`,
+        `❌ Failed to initialize tracker for session ${sessionId}:`,
         error
       );
     }
   },
 
   /**
-   * 指定されたキャラクターIDのトラッカーマネージャーを取得
+   * 指定されたセッションIDのトラッカーマネージャーを取得
+   * 🔧 修正: characterId → sessionId
    */
-  getTrackerManager: (characterId: UUID): TrackerManager | undefined => {
+  getTrackerManager: (sessionId: UUID): TrackerManager | undefined => {
     const trackerManagers = get().trackerManagers;
-    
+
     if (trackerManagers instanceof Map) {
-      return trackerManagers.get(characterId);
+      return trackerManagers.get(sessionId);
     } else if (typeof trackerManagers === "object") {
       // 後方互換性のため、オブジェクト形式もサポート
-      return (trackerManagers as any)[characterId];
+      return (trackerManagers as Record<UUID, TrackerManager>)[sessionId];
     }
-    
+
     return undefined;
   },
 
   /**
    * トラッカーの値を更新
+   * 🔧 修正: sessionIdからcharacterIdを取得
    */
-  updateTrackerValues: (characterId: UUID, updates: Record<string, number>) => {
-    const trackerManager = get().getTrackerManager(characterId);
-    
+  updateTrackerValues: (sessionId: UUID, updates: Record<string, number>) => {
+    const trackerManager = get().getTrackerManager(sessionId);
+
     if (!trackerManager) {
-      console.warn(`⚠️ No tracker manager found for character: ${characterId}`);
+      console.warn(`⚠️ No tracker manager found for session: ${sessionId}`);
       return;
     }
-    
+
+    // セッションからキャラクターIDを取得
+    const session = get().sessions.get(sessionId);
+    if (!session || session.participants.characters.length === 0) {
+      console.warn(`⚠️ No character found in session: ${sessionId}`);
+      return;
+    }
+
+    const characterId = session.participants.characters[0].id;
+
     // 各トラッカーの値を更新
     Object.entries(updates).forEach(([trackerName, value]) => {
       try {
         const trackerSet = trackerManager.getTrackerSet(characterId);
-        let tracker: any = null;
-        let currentValue: any = undefined;
+        let tracker: Tracker | null = null;
+        let currentValue: unknown = undefined;
 
         // Mapをイテレートして特定のトラッカーを探す
         if (trackerSet?.trackers instanceof Map) {
-          trackerSet.trackers.forEach((t: any, key: string) => {
+          trackerSet.trackers.forEach((t: Tracker, key: string) => {
             if (key === trackerName || t.name === trackerName) {
               tracker = t;
-              currentValue = t.value;
+              currentValue = t.current_value;
             }
           });
         }
@@ -129,11 +168,11 @@ export const createTrackerIntegration: StateCreator<
             numericValue - numericCurrent // 差分を計算して更新
           );
           console.log(
-            `📊 Updated tracker "${trackerName}" for character ${characterId}: ${currentValue} → ${value}`
+            `📊 Updated tracker "${trackerName}" for session ${sessionId}: ${currentValue} → ${value}`
           );
         } else {
           console.warn(
-            `⚠️ Tracker "${trackerName}" not found for character ${characterId}`
+            `⚠️ Tracker "${trackerName}" not found in session ${sessionId}`
           );
         }
       } catch (error) {
@@ -143,7 +182,7 @@ export const createTrackerIntegration: StateCreator<
         );
       }
     });
-    
+
     // ストアを更新して再レンダリングをトリガー
     set({
       trackerManagers: new Map(get().trackerManagers),
@@ -151,35 +190,25 @@ export const createTrackerIntegration: StateCreator<
   },
 
   /**
-   * キャラクターのトラッカーをリセット
+   * セッションのトラッカーをリセット
+   * 🔧 修正: sessionId → characterを取得 → リセット
    */
-  resetTrackerForCharacter: (characterId: UUID) => {
-    const sessions = get().sessions;
-    let character: Character | undefined;
-    
-    // セッションからキャラクター情報を取得
-    for (const session of sessions.values()) {
-      const foundCharacter = session.participants.characters.find(
-        (c) => c.id === characterId
-      );
-      if (foundCharacter) {
-        character = foundCharacter;
-        break;
-      }
-    }
-    
-    if (!character) {
-      console.warn(`⚠️ Character not found: ${characterId}`);
+  resetTrackerForSession: (sessionId: UUID) => {
+    const session = get().sessions.get(sessionId);
+
+    if (!session || session.participants.characters.length === 0) {
+      console.warn(`⚠️ Session or character not found: ${sessionId}`);
       return;
     }
-    
-    const trackerManager = get().getTrackerManager(characterId);
-    
+
+    const character = session.participants.characters[0];
+    const trackerManager = get().getTrackerManager(sessionId);
+
     if (trackerManager && character.trackers) {
       // 全てのトラッカーを初期値にリセット
-      trackerManager.initializeTrackerSet(characterId, character.trackers);
-      console.log(`🔄 Reset all trackers for character: ${character.name}`);
-      
+      trackerManager.initializeTrackerSet(character.id, character.trackers);
+      console.log(`🔄 Reset all trackers for session: ${sessionId} (character: ${character.name})`);
+
       // ストアを更新
       set({
         trackerManagers: new Map(get().trackerManagers),
@@ -189,27 +218,27 @@ export const createTrackerIntegration: StateCreator<
 
   /**
    * 使用されていないトラッカーをクリーンアップ
-   * メモリリーク防止のため、アクティブでないキャラクターのトラッカーを削除
+   * 🔧 修正: アクティブでないセッションのトラッカーを削除
    */
-  cleanupUnusedTrackers: (activeCharacterIds: UUID[]) => {
+  cleanupUnusedTrackers: (activeSessionIds: UUID[]) => {
     const trackerManagers = get().trackerManagers;
-    const activeSet = new Set(activeCharacterIds);
+    const activeSet = new Set(activeSessionIds);
     const beforeSize = trackerManagers.size;
-    
-    // アクティブでないキャラクターのトラッカーを削除
-    for (const characterId of trackerManagers.keys()) {
-      if (!activeSet.has(characterId)) {
-        trackerManagers.delete(characterId);
-        console.log(`🧹 Cleaned up tracker for inactive character: ${characterId}`);
+
+    // アクティブでないセッションのトラッカーを削除
+    for (const sessionId of trackerManagers.keys()) {
+      if (!activeSet.has(sessionId)) {
+        trackerManagers.delete(sessionId);
+        console.log(`🧹 Cleaned up tracker for inactive session: ${sessionId}`);
       }
     }
-    
+
     const cleanedCount = beforeSize - trackerManagers.size;
     if (cleanedCount > 0) {
       console.log(
         `📊 Tracker cleanup: Removed ${cleanedCount} inactive trackers (${trackerManagers.size} remaining)`
       );
-      
+
       // ストアを更新
       set({
         trackerManagers: new Map(trackerManagers),
@@ -287,7 +316,7 @@ export class TrackerIntegrationHelper {
    */
   static async analyzeMessageForTrackerUpdate(
     trackerManager: TrackerManager,
-    message: any,
+    message: UnifiedMessage,
     characterId: UUID
   ): Promise<Array<{ name: string; change: number }>> {
     if (!trackerManager) return [];

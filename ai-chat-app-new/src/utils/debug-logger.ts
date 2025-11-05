@@ -1,4 +1,4 @@
-export const debugLog = (message: string, data?: any) => {
+export const debugLog = (message: string, data?: unknown) => {
   // ブラウザ環境では fs モジュールを使用できないため、コンソールログのみ
   if (typeof window === 'undefined') {
     // Node.js環境（サーバーサイド）の場合のみファイル書き込み

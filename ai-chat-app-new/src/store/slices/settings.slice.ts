@@ -4,7 +4,7 @@
  */
 
 import { StateCreator } from "zustand";
-import { settingsManager, UnifiedSettings } from "@/services/settings-manager";
+import { settingsManager, UnifiedSettings, DEFAULT_SETTINGS } from "@/services/settings-manager";
 import { simpleAPIManagerV2 } from "@/services/simple-api-manager-v2";
 import {
   AISettings,
@@ -17,6 +17,25 @@ import {
 } from "@/types/core/settings.types";
 import { EmotionalIntelligenceFlags } from "@/types/core/emotional-intelligence.types";
 
+// Helper function: Ensure background structure is type-safe
+const ensureBackgroundStructure = (
+  current: Partial<UnifiedSettings["ui"]["background"]> | undefined,
+  existingSettings: Partial<UnifiedSettings["ui"]>
+): UnifiedSettings["ui"]["background"] => ({
+  type: current?.type || existingSettings.background?.type || 'gradient',
+  image: {
+    url: current?.image?.url || existingSettings.background?.image?.url || '',
+    desktop: current?.image?.desktop || existingSettings.background?.image?.desktop || '',
+    mobile: current?.image?.mobile || existingSettings.background?.image?.mobile || '',
+    blur: current?.image?.blur ?? existingSettings.background?.image?.blur ?? 10,
+    blurEnabled: current?.image?.blurEnabled ?? existingSettings.background?.image?.blurEnabled ?? false,
+    opacity: current?.image?.opacity ?? existingSettings.background?.image?.opacity ?? 100,
+  },
+  gradient: {
+    value: current?.gradient?.value || existingSettings.background?.gradient?.value || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  },
+});
+
 // Zustand用の設定スライス型
 export interface SettingsSliceV2 extends AISettings {
   // Modal states
@@ -27,6 +46,9 @@ export interface SettingsSliceV2 extends AISettings {
   // 統一設定（読み取り専用）
   unifiedSettings: UnifiedSettings;
 
+  // 🧠 感情知能システムフラグ（読み取り専用、統一設定から計算）
+  emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
+
   // 互換性のための既存設定（統一設定から導出）
   languageSettings: {
     language: "ja" | "en" | "zh" | "ko";
@@ -36,8 +58,7 @@ export interface SettingsSliceV2 extends AISettings {
     currency: string;
   };
   effectSettings: UnifiedSettings["effects"];
-  appearanceSettings: any; // 既存の外観設定型を維持
-  emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
+  appearanceSettings: Partial<UnifiedSettings["ui"]>; // UI設定を使用
 
   // Actions - 統一設定マネージャーへの委譲
   updateUnifiedSettings: (updates: Partial<UnifiedSettings>) => void;
@@ -45,10 +66,9 @@ export interface SettingsSliceV2 extends AISettings {
     category: K,
     updates: Partial<UnifiedSettings[K]>
   ) => void;
-  updateLanguageSettings: (settings: any) => void;
+  updateLanguageSettings: (settings: Partial<UnifiedSettings["ui"]>) => void;
   updateEffectSettings: (settings: Partial<UnifiedSettings["effects"]>) => void;
-  updateAppearanceSettings: (settings: any) => void;
-  updateEmotionalFlags: (flags: Partial<EmotionalIntelligenceFlags>) => void;
+  updateAppearanceSettings: (settings: Partial<UnifiedSettings["ui"]>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
@@ -86,10 +106,29 @@ export const createSettingsSliceV2: StateCreator<
   // 統一設定から初期値を取得
   const initialSettings = settingsManager.getSettings();
 
+  // 同期ガード: 無限ループを防ぐ
+  let isSyncing = false;
+
   // 統一設定の変更を監視
   settingsManager.subscribe((newSettings) => {
-    set({ unifiedSettings: newSettings });
-    get().syncFromUnifiedSettings();
+    if (isSyncing) {
+      console.log("🔒 [settingsManager.subscribe] Sync in progress, skipping...");
+      return;
+    }
+
+    console.log("📢 [settingsManager.subscribe] Settings changed, syncing to Zustand store");
+    isSyncing = true;
+
+    try {
+      // unifiedSettingsの更新とsyncFromUnifiedSettingsを1回のset()にまとめる
+      set({ unifiedSettings: newSettings });
+      get().syncFromUnifiedSettings();
+    } finally {
+      // 同期完了後、次のフレームで解除
+      setTimeout(() => {
+        isSyncing = false;
+      }, 0);
+    }
   });
 
   return {
@@ -112,67 +151,75 @@ export const createSettingsSliceV2: StateCreator<
 
     effectSettings: initialSettings.effects,
 
+    // 🧠 感情知能システムフラグ（統一設定から計算）
+    emotionalIntelligenceFlags: {
+      emotion_analysis_enabled: initialSettings.emotionalIntelligence.enabled && initialSettings.emotionalIntelligence.analysis.basic,
+      emotional_memory_enabled: initialSettings.emotionalIntelligence.memoryEnabled,
+      basic_effects_enabled: initialSettings.effects.emotion.displayMode !== 'none',
+      contextual_analysis_enabled: initialSettings.emotionalIntelligence.analysis.contextual,
+      adaptive_performance_enabled: initialSettings.emotionalIntelligence.adaptivePerformance,
+      visual_effects_enabled: initialSettings.effects.emotion.displayMode === 'rich' || initialSettings.effects.emotion.displayMode === 'standard',
+      predictive_analysis_enabled: initialSettings.emotionalIntelligence.analysis.predictive,
+      advanced_effects_enabled: initialSettings.effects.emotion.displayMode === 'rich',
+      multi_layer_analysis_enabled: initialSettings.emotionalIntelligence.analysis.multiLayer,
+      safe_mode: initialSettings.emotionalIntelligence.safeMode,
+      fallback_to_legacy: initialSettings.emotionalIntelligence.fallbackToLegacy,
+      performance_monitoring: initialSettings.emotionalIntelligence.performanceMonitoring,
+      debug_mode: initialSettings.emotionalIntelligence.debugMode,
+    },
+
+    // 🔧 FIX: すべての外観設定を統一設定から読み込む
     appearanceSettings: {
       theme:
         initialSettings.ui.theme === "auto" ? "dark" : initialSettings.ui.theme,
-      primaryColor: "#8b5cf6",
-      accentColor: "#ec4899",
-      backgroundColor: "#0f0f23",
-      surfaceColor: "#1e1e2e",
-      textColor: "#ffffff",
-      secondaryTextColor: "#9ca3af",
-      borderColor: "#374151",
-      shadowColor: "#000000",
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      // Colors
+      primaryColor: initialSettings.ui.primaryColor,
+      accentColor: initialSettings.ui.accentColor,
+      backgroundColor: initialSettings.ui.backgroundColor,
+      surfaceColor: initialSettings.ui.surfaceColor,
+      textColor: initialSettings.ui.textColor,
+      secondaryTextColor: initialSettings.ui.secondaryTextColor,
+      borderColor: initialSettings.ui.borderColor,
+      shadowColor: initialSettings.ui.shadowColor,
+      // Typography
+      fontFamily: initialSettings.ui.fontFamily,
       fontSize: initialSettings.ui.fontSize,
-      fontWeight: "normal",
-      lineHeight: "normal",
-      messageSpacing: "normal",
-      messageBorderRadius: "medium",
-      chatMaxWidth: "normal",
-      sidebarWidth: "normal",
-      backgroundType: initialSettings.ui.backgroundType || "gradient",
-      backgroundGradient: initialSettings.ui.backgroundGradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      // 🔧 FIX: backgroundTypeに関わらず、backgroundImageを常に保持
-      backgroundImage: initialSettings.ui.backgroundImage || "",
-      backgroundBlur: initialSettings.ui.backgroundBlur || 10,
-      backgroundBlurEnabled: initialSettings.ui.backgroundBlurEnabled ?? true,
-      backgroundOpacity: initialSettings.ui.backgroundOpacity || 100,
-      // favicon settings (public/ 配置があればそのまま使えるようデフォルトを用意)
+      fontWeight: initialSettings.ui.fontWeight,
+      lineHeight: initialSettings.ui.lineHeight,
+      // Layout
+      messageSpacing: initialSettings.ui.messageSpacing,
+      messageBorderRadius: initialSettings.ui.messageBorderRadius,
+      chatMaxWidth: initialSettings.ui.chatMaxWidth,
+      sidebarWidth: initialSettings.ui.sidebarWidth,
+      // 🆕 Phase 3: 階層構造からフラット構造への変換
+      backgroundType: initialSettings.ui.background?.type || "gradient",
+      backgroundImage: initialSettings.ui.background?.image?.url || "",
+      backgroundBlur: initialSettings.ui.background?.image?.blur || 10,
+      backgroundBlurEnabled: initialSettings.ui.background?.image?.blurEnabled ?? false,
+      backgroundOpacity: initialSettings.ui.background?.image?.opacity || 100,
+      backgroundGradient: initialSettings.ui.background?.gradient?.value || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      // Favicon
       faviconPath: initialSettings.ui.faviconPath || "/favicon.ico",
       faviconSvg: initialSettings.ui.faviconSvg || "/favicon.svg",
       appleTouchIcon: initialSettings.ui.appleTouchIcon || "/apple-touch-icon.png",
+      // Effects
       enableAnimations: initialSettings.ui.enableAnimations ?? true,
       transitionDuration: initialSettings.ui.transitionDuration || "normal",
+      // Custom CSS
       customCSS: initialSettings.ui.customCSS || "",
-    },
-
-    emotionalIntelligenceFlags: {
-      emotion_analysis_enabled: false,
-      emotional_memory_enabled: true,
-      basic_effects_enabled: true,
-      contextual_analysis_enabled: true,
-      adaptive_performance_enabled: true,
-      visual_effects_enabled: true,
-      predictive_analysis_enabled: true,
-      advanced_effects_enabled: true,
-      multi_layer_analysis_enabled: true,
-      safe_mode: false,
-      fallback_to_legacy: true,
-      performance_monitoring: false,
-      debug_mode: false,
     },
 
     // AI Settings (既存の型を維持)
     apiConfig: {
+      // 🔧 CRITICAL FIX: "gemini"と"google"を許可（OpenRouterに強制変換しない）
       provider: (initialSettings.api.provider === "openai" ||
       initialSettings.api.provider === "anthropic" ||
-      initialSettings.api.provider === "google" ||
       initialSettings.api.provider === "groq"
         ? "openrouter"
-        : initialSettings.api.provider) as APIProvider,
-      model: initialSettings.api.model || "gpt-4o-mini",
+        : initialSettings.api.provider === "google"
+          ? "gemini"  // 🔧 "google"を"gemini"に正規化（OpenRouterではなく）
+          : initialSettings.api.provider) as APIProvider,
+      model: initialSettings.api.model || DEFAULT_SETTINGS.api.model!,
       temperature: initialSettings.api.temperature || 0.7,
       max_tokens: initialSettings.api.maxTokens || 2048,
       top_p: 1.0,
@@ -182,30 +229,37 @@ export const createSettingsSliceV2: StateCreator<
     },
     openRouterApiKey: initialSettings.api.openrouterApiKey,
     geminiApiKey: initialSettings.api.geminiApiKey,
-    useDirectGeminiAPI: false,
+    // 🔧 FIX: 初期化時に統一設定から読み込む（デフォルト値はtrue）
+    useDirectGeminiAPI: initialSettings.api.useDirectGeminiAPI ?? true,
 
+    // 🔧 FIX: systemPrompts設定を統一設定から読み込む
     systemPrompts: {
-      system: "",
-      jailbreak: "",
-      replySuggestion: "",
-      textEnhancement: "",
+      system: initialSettings.prompts?.system || "",
+      jailbreak: initialSettings.prompts?.jailbreak || "",
+      replySuggestion: initialSettings.prompts?.replySuggestion || "",
+      textEnhancement: initialSettings.prompts?.textEnhancement || "",
     },
-    enableSystemPrompt: false,
-    enableJailbreakPrompt: false,
+    enableSystemPrompt: initialSettings.prompts?.enableSystemPrompt ?? false,
+    enableJailbreakPrompt: initialSettings.prompts?.enableJailbreakPrompt ?? false,
 
     chat: {
-      bubbleBlur: true,
-      responseFormat: "normal",
-      memoryCapacity: 20,
-      generationCandidates: 1,
-      memory_limits: {
+      responseFormat: initialSettings.chat?.responseFormat ?? "normal",
+      memoryCapacity: initialSettings.chat?.memoryCapacity ?? 20,
+      generationCandidates: initialSettings.chat?.generationCandidates ?? 1,
+      memory_limits: initialSettings.chat?.memoryLimits ? {
+        max_working_memory: initialSettings.chat.memoryLimits.maxWorkingMemory,
+        max_memory_cards: initialSettings.chat.memoryLimits.maxMemoryCards,
+        max_relevant_memories: initialSettings.chat.memoryLimits.maxRelevantMemories,
+        max_prompt_tokens: initialSettings.chat.memoryLimits.maxPromptTokens,
+        max_context_messages: initialSettings.chat.memoryLimits.maxContextMessages,
+      } : {
         max_working_memory: 6,
         max_memory_cards: 50,
         max_relevant_memories: 5,
         max_prompt_tokens: 32000,
         max_context_messages: 40,
       },
-      progressiveMode: {
+      progressiveMode: initialSettings.chat?.progressiveMode ?? {
         enabled: true,
         showIndicators: true,
         highlightChanges: true,
@@ -218,7 +272,8 @@ export const createSettingsSliceV2: StateCreator<
       },
     },
 
-    voice: {
+    // 🔧 FIX: voice設定を統一設定から読み込む
+    voice: initialSettings.voice || {
       enabled: true,
       autoPlay: false,
       provider: "voicevox",
@@ -249,7 +304,8 @@ export const createSettingsSliceV2: StateCreator<
       },
     },
 
-    imageGeneration: {
+    // 🔧 FIX: imageGeneration設定を統一設定から読み込む
+    imageGeneration: initialSettings.imageGeneration || {
       provider: "runware",
       runware: {
         modelId: "runware:100@1",
@@ -300,123 +356,319 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     updateEffectSettings: (settings) => {
+      console.log("🎨 [updateEffectSettings] Updating effects via unified settings:", settings);
+      // ✅ FIX: 統一設定経由でのみ更新（二重更新を排除）
+      // subscribeコールバック → syncFromUnifiedSettings() → effectSettings更新
       settingsManager.updateCategory("effects", settings);
-      set((state) => ({
-        effectSettings: { ...state.effectSettings, ...settings },
-      }));
     },
 
     updateAppearanceSettings: (settings) => {
-      // 外観設定の一部を統一設定に反映
-      if (settings.fontSize) {
-        settingsManager.updateCategory("ui", { fontSize: settings.fontSize });
-      }
-      if (settings.theme) {
-        settingsManager.updateCategory("ui", {
-          theme:
-            settings.theme === "dark" || settings.theme === "light"
-              ? settings.theme
-              : "auto",
-        });
-      }
-      // 🔧 FIX: backgroundImage/backgroundTypeも統一設定に保存
-      if (settings.backgroundImage !== undefined) {
-        settingsManager.updateCategory("ui", {
-          backgroundImage: settings.backgroundImage,
-        });
-      }
-      if (settings.backgroundType !== undefined) {
-        settingsManager.updateCategory("ui", {
-          backgroundType: settings.backgroundType,
-        });
-      }
-      if (settings.backgroundGradient !== undefined) {
-        settingsManager.updateCategory("ui", {
-          backgroundGradient: settings.backgroundGradient,
-        });
-      }
-      set((state) => ({
-        appearanceSettings: { ...state.appearanceSettings, ...settings },
-      }));
-    },
+      // 🔧 FIX: すべての外観設定を統一設定に反映
+      const uiUpdates: Partial<UnifiedSettings["ui"]> = {};
 
-    updateEmotionalFlags: (flags) => {
-      set((state) => ({
-        emotionalIntelligenceFlags: {
-          ...state.emotionalIntelligenceFlags,
-          ...flags,
-        },
-      }));
+      // Typography
+      if (settings.fontSize !== undefined) uiUpdates.fontSize = settings.fontSize;
+      if (settings.fontWeight !== undefined) uiUpdates.fontWeight = settings.fontWeight;
+      if (settings.fontFamily !== undefined) uiUpdates.fontFamily = settings.fontFamily;
+      if (settings.lineHeight !== undefined) uiUpdates.lineHeight = settings.lineHeight;
+
+      // Theme
+      if (settings.theme !== undefined) {
+        uiUpdates.theme =
+          settings.theme === "dark" || settings.theme === "light"
+            ? settings.theme
+            : "auto";
+      }
+
+      // Layout
+      if (settings.messageSpacing !== undefined) uiUpdates.messageSpacing = settings.messageSpacing;
+      if (settings.messageBorderRadius !== undefined) uiUpdates.messageBorderRadius = settings.messageBorderRadius;
+      if (settings.chatMaxWidth !== undefined) uiUpdates.chatMaxWidth = settings.chatMaxWidth;
+      if (settings.sidebarWidth !== undefined) uiUpdates.sidebarWidth = settings.sidebarWidth;
+
+      // Colors
+      if (settings.primaryColor !== undefined) uiUpdates.primaryColor = settings.primaryColor;
+      if (settings.accentColor !== undefined) uiUpdates.accentColor = settings.accentColor;
+      if (settings.backgroundColor !== undefined) uiUpdates.backgroundColor = settings.backgroundColor;
+      if (settings.surfaceColor !== undefined) uiUpdates.surfaceColor = settings.surfaceColor;
+      if (settings.textColor !== undefined) uiUpdates.textColor = settings.textColor;
+      if (settings.secondaryTextColor !== undefined) uiUpdates.secondaryTextColor = settings.secondaryTextColor;
+      if (settings.borderColor !== undefined) uiUpdates.borderColor = settings.borderColor;
+      if (settings.shadowColor !== undefined) uiUpdates.shadowColor = settings.shadowColor;
+
+      // 🆕 Phase 3: Background（階層構造への変換）
+      // Build background updates incrementally
+      const needsBackgroundUpdate =
+        settings.backgroundType !== undefined ||
+        settings.backgroundImage !== undefined ||
+        settings.backgroundBlur !== undefined ||
+        settings.backgroundBlurEnabled !== undefined ||
+        settings.backgroundOpacity !== undefined ||
+        settings.backgroundGradient !== undefined;
+
+      if (needsBackgroundUpdate) {
+        const currentState = get().appearanceSettings;
+        const currentUnified = get().unifiedSettings.ui;
+
+        // Get current background or create new one
+        const currentBackground: Partial<UnifiedSettings["ui"]["background"]> = uiUpdates.background || {};
+
+        // Update type
+        if (settings.backgroundType !== undefined) {
+          currentBackground.type = settings.backgroundType;
+        }
+
+        // Update image settings
+        if (settings.backgroundImage !== undefined) {
+          currentBackground.type = 'image';
+          if (!currentBackground.image) {
+            currentBackground.image = {
+              url: '',
+              desktop: '',
+              mobile: '',
+              blur: 10,
+              blurEnabled: false,
+              opacity: 100
+            };
+          }
+          currentBackground.image.url = settings.backgroundImage;
+          // Preserve other image settings from current state
+          if (currentBackground.image.blur === undefined) {
+            currentBackground.image.blur = currentState.backgroundBlur ?? 10;
+          }
+          if (currentBackground.image.blurEnabled === undefined) {
+            currentBackground.image.blurEnabled = currentState.backgroundBlurEnabled ?? false;
+          }
+          if (currentBackground.image.opacity === undefined) {
+            currentBackground.image.opacity = currentState.backgroundOpacity ?? 100;
+          }
+        }
+
+        if (settings.backgroundBlur !== undefined) {
+          if (!currentBackground.image) {
+            currentBackground.image = {
+              url: currentState.backgroundImage || '',
+              desktop: '',
+              mobile: '',
+              blur: 10,
+              blurEnabled: false,
+              opacity: 100
+            };
+          }
+          currentBackground.image.blur = settings.backgroundBlur;
+        }
+
+        if (settings.backgroundBlurEnabled !== undefined) {
+          if (!currentBackground.image) {
+            currentBackground.image = {
+              url: currentState.backgroundImage || '',
+              desktop: '',
+              mobile: '',
+              blur: 10,
+              blurEnabled: false,
+              opacity: 100
+            };
+          }
+          currentBackground.image.blurEnabled = settings.backgroundBlurEnabled;
+        }
+
+        if (settings.backgroundOpacity !== undefined) {
+          if (!currentBackground.image) {
+            currentBackground.image = {
+              url: currentState.backgroundImage || '',
+              desktop: '',
+              mobile: '',
+              blur: 10,
+              blurEnabled: false,
+              opacity: 100
+            };
+          }
+          currentBackground.image.opacity = settings.backgroundOpacity;
+        }
+
+        if (settings.backgroundGradient !== undefined) {
+          if (!currentBackground.gradient) {
+            currentBackground.gradient = { value: '' };
+          }
+          currentBackground.gradient.value = settings.backgroundGradient;
+        }
+
+        // Ensure complete structure with helper function
+        uiUpdates.background = ensureBackgroundStructure(currentBackground, currentUnified);
+      }
+
+      // Effects
+      if (settings.enableAnimations !== undefined) uiUpdates.enableAnimations = settings.enableAnimations;
+      if (settings.transitionDuration !== undefined) uiUpdates.transitionDuration = settings.transitionDuration;
+
+      // Favicon
+      if (settings.faviconPath !== undefined) uiUpdates.faviconPath = settings.faviconPath;
+      if (settings.faviconSvg !== undefined) uiUpdates.faviconSvg = settings.faviconSvg;
+      if (settings.appleTouchIcon !== undefined) uiUpdates.appleTouchIcon = settings.appleTouchIcon;
+
+      // Custom CSS
+      if (settings.customCSS !== undefined) uiUpdates.customCSS = settings.customCSS;
+
+      // 統一設定に保存
+      if (Object.keys(uiUpdates).length > 0) {
+        console.log("🎨 [updateAppearanceSettings] Updating UI via unified settings:", uiUpdates);
+        settingsManager.updateCategory("ui", uiUpdates);
+      }
+
+      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → appearanceSettings更新
+      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     updateSystemPrompts: (prompts) => {
-      set((state) => {
-        const updatedPrompts = { ...state.systemPrompts, ...prompts };
-        console.log("🔧 Updating system prompts:", {
-          hasSystem: !!updatedPrompts.system,
-          hasJailbreak: !!updatedPrompts.jailbreak,
-        });
-        return { systemPrompts: updatedPrompts };
-      });
+      // 🔧 FIX: systemPrompts設定を統一設定に保存
+      const promptUpdates: Partial<UnifiedSettings["prompts"]> = {};
+
+      if (prompts.system !== undefined) promptUpdates.system = prompts.system;
+      if (prompts.jailbreak !== undefined) promptUpdates.jailbreak = prompts.jailbreak;
+      if (prompts.replySuggestion !== undefined) promptUpdates.replySuggestion = prompts.replySuggestion;
+      if (prompts.textEnhancement !== undefined) promptUpdates.textEnhancement = prompts.textEnhancement;
+
+      // 統一設定に保存
+      if (Object.keys(promptUpdates).length > 0) {
+        console.log("📝 [updateSystemPrompts] Updating prompts via unified settings:", promptUpdates);
+        settingsManager.updateCategory("prompts", promptUpdates);
+      }
+
+      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → systemPrompts更新
+      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     setEnableSystemPrompt: (enable) => {
-      console.log("🔧 Setting enableSystemPrompt:", enable);
-      set({ enableSystemPrompt: enable });
+      console.log("📝 [setEnableSystemPrompt] Updating via unified settings:", enable);
+      // ✅ FIX: 統一設定経由でのみ更新（二重更新を排除）
+      settingsManager.updateCategory("prompts", { enableSystemPrompt: enable });
     },
 
     setEnableJailbreakPrompt: (enable) => {
-      console.log("🔧 Setting enableJailbreakPrompt:", enable);
-      set({ enableJailbreakPrompt: enable });
+      console.log("📝 [setEnableJailbreakPrompt] Updating via unified settings:", enable);
+      // ✅ FIX: 統一設定経由でのみ更新（二重更新を排除）
+      settingsManager.updateCategory("prompts", { enableJailbreakPrompt: enable });
     },
 
     updateChatSettings: (settings) => {
       console.log("🔧 [updateChatSettings] Called with:", settings);
 
-      // チャット設定を統一設定に反映
-      const chatUpdates: any = {};
-      if ("enterToSend" in settings)
-        chatUpdates.enterToSend = settings.enterToSend;
-      if ("autoScroll" in settings)
-        chatUpdates.autoScroll = settings.autoScroll;
+      // ✅ FIX: すべてのチャット設定を統一設定に反映
+      const chatUpdates: Partial<UnifiedSettings["chat"]> = {};
 
+      // 既存の設定
+      if ("enterToSend" in settings && typeof settings.enterToSend === 'boolean')
+        chatUpdates.enterToSend = settings.enterToSend;
+      if ("autoScroll" in settings && typeof settings.autoScroll === 'boolean')
+        chatUpdates.autoScroll = settings.autoScroll;
+      if ("showTypingIndicator" in settings && typeof settings.showTypingIndicator === 'boolean')
+        chatUpdates.showTypingIndicator = settings.showTypingIndicator;
+      if ("messageGrouping" in settings && typeof settings.messageGrouping === 'boolean')
+        chatUpdates.messageGrouping = settings.messageGrouping;
+      if ("soundEnabled" in settings && typeof settings.soundEnabled === 'boolean')
+        chatUpdates.soundEnabled = settings.soundEnabled;
+      if ("notificationsEnabled" in settings && typeof settings.notificationsEnabled === 'boolean')
+        chatUpdates.notificationsEnabled = settings.notificationsEnabled;
+      if ("responseFormat" in settings)
+        chatUpdates.responseFormat = settings.responseFormat as typeof chatUpdates.responseFormat;
+      if ("memoryCapacity" in settings && typeof settings.memoryCapacity === 'number')
+        chatUpdates.memoryCapacity = settings.memoryCapacity;
+      if ("generationCandidates" in settings && typeof settings.generationCandidates === 'number')
+        chatUpdates.generationCandidates = settings.generationCandidates;
+
+      // ✅ 追加: メモリー制限設定（スネークケース → キャメルケース変換）
+      if ("memoryLimits" in settings && settings.memoryLimits) {
+        chatUpdates.memoryLimits = settings.memoryLimits as typeof chatUpdates.memoryLimits;
+        console.log("🔧 [updateChatSettings] Saving memoryLimits to settingsManager:", settings.memoryLimits);
+      }
+      if ("memory_limits" in settings && settings.memory_limits) {
+        const ml = settings.memory_limits as Record<string, unknown>;
+        // スネークケースをキャメルケースに変換
+        chatUpdates.memoryLimits = {
+          maxWorkingMemory: ml.max_working_memory as number,
+          maxMemoryCards: ml.max_memory_cards as number,
+          maxRelevantMemories: ml.max_relevant_memories as number,
+          maxPromptTokens: ml.max_prompt_tokens as number,
+          maxContextMessages: ml.max_context_messages as number,
+        };
+        console.log("🔧 [updateChatSettings] Converted memory_limits (snake_case) to memoryLimits (camelCase):", chatUpdates.memoryLimits);
+      }
+
+      // ✅ 追加: プログレッシブモード設定（最重要！）
+      if ("progressiveMode" in settings && settings.progressiveMode) {
+        const pm = settings.progressiveMode;
+        const currentProgressive = get().chat.progressiveMode || {
+          enabled: true,
+          showIndicators: true,
+          highlightChanges: true,
+          glowIntensity: "medium" as const,
+          stageDelays: { reflex: 0, context: 1000, intelligence: 2000 }
+        };
+        chatUpdates.progressiveMode = {
+          enabled: typeof pm.enabled === 'boolean' ? pm.enabled : (currentProgressive?.enabled ?? true),
+          showIndicators: typeof pm.showIndicators === 'boolean' ? pm.showIndicators : (currentProgressive?.showIndicators ?? true),
+          highlightChanges: typeof pm.highlightChanges === 'boolean' ? pm.highlightChanges : (currentProgressive?.highlightChanges ?? true),
+          glowIntensity: (pm.glowIntensity || currentProgressive?.glowIntensity) as "none" | "soft" | "medium" | "strong",
+          stageDelays: pm.stageDelays || currentProgressive?.stageDelays || { reflex: 0, context: 1000, intelligence: 2000 },
+        };
+        console.log("🔧 [updateChatSettings] Saving progressive mode to settingsManager:", {
+          progressiveMode: settings.progressiveMode,
+        });
+      }
+
+      // 統一設定に保存
       if (Object.keys(chatUpdates).length > 0) {
+        console.log("💬 [updateChatSettings] Updating chat via unified settings:", chatUpdates);
         settingsManager.updateCategory("chat", chatUpdates);
       }
 
-      set((state) => {
-        const newChatSettings = { ...state.chat, ...settings };
-        console.log("🔧 [updateChatSettings] Previous state:", state.chat);
-        console.log("🔧 [updateChatSettings] New state:", newChatSettings);
-
-        if ("progressiveMode" in settings) {
-          console.log("🔧 [updateChatSettings] Progressive mode update:", {
-            oldEnabled: state.chat?.progressiveMode?.enabled,
-            newEnabled: newChatSettings.progressiveMode?.enabled,
-            settingsParam: settings.progressiveMode,
-          });
-        }
-
-        return { chat: newChatSettings };
-      });
+      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → chat更新
+      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     updateVoiceSettings: (settings) => {
-      set((state) => {
-        const newVoiceSettings = { ...state.voice, ...settings };
-        return { voice: newVoiceSettings };
-      });
+      // 🔧 FIX: voice設定を統一設定に保存
+      const voiceUpdates: Partial<UnifiedSettings["voice"]> = {};
+
+      if (settings.enabled !== undefined) voiceUpdates.enabled = settings.enabled;
+      if (settings.provider !== undefined) voiceUpdates.provider = settings.provider;
+      if (settings.autoPlay !== undefined) voiceUpdates.autoPlay = settings.autoPlay;
+      if (settings.voicevox !== undefined) voiceUpdates.voicevox = settings.voicevox;
+      if (settings.elevenlabs !== undefined) voiceUpdates.elevenlabs = settings.elevenlabs;
+      if (settings.system !== undefined) voiceUpdates.system = settings.system;
+      if (settings.advanced !== undefined) voiceUpdates.advanced = settings.advanced;
+
+      // 統一設定に保存
+      if (Object.keys(voiceUpdates).length > 0) {
+        console.log("🔊 [updateVoiceSettings] Updating voice via unified settings:", voiceUpdates);
+        settingsManager.updateCategory("voice", voiceUpdates);
+      }
+
+      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → voice更新
+      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     updateImageGenerationSettings: (settings) => {
-      set((state) => ({
-        imageGeneration: { ...state.imageGeneration, ...settings },
-      }));
+      // 🔧 FIX: imageGeneration設定を統一設定に保存
+      const imageGenUpdates: Partial<UnifiedSettings["imageGeneration"]> = {};
+
+      if (settings.provider !== undefined) imageGenUpdates.provider = settings.provider;
+      if (settings.runware !== undefined) imageGenUpdates.runware = settings.runware;
+      if (settings.stableDiffusion !== undefined) imageGenUpdates.stableDiffusion = settings.stableDiffusion;
+
+      // 統一設定に保存
+      if (Object.keys(imageGenUpdates).length > 0) {
+        console.log("🖼️ [updateImageGenerationSettings] Updating imageGen via unified settings:", imageGenUpdates);
+        settingsManager.updateCategory("imageGeneration", imageGenUpdates);
+      }
+
+      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → imageGeneration更新
+      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     updateAPIConfig: (config) => {
       // API設定を統一設定に反映
-      const apiUpdates: any = {};
+      const apiUpdates: Partial<UnifiedSettings["api"]> = {};
       if (config.provider) apiUpdates.provider = config.provider;
       if (config.model) apiUpdates.model = config.model;
       if (config.temperature !== undefined)
@@ -457,6 +709,8 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     setUseDirectGeminiAPI: (enabled) => {
+      // 🔧 FIX: 統一設定に保存を追加（画面切り替え時の設定保持）
+      settingsManager.updateCategory("api", { useDirectGeminiAPI: enabled });
       set({ useDirectGeminiAPI: enabled });
       simpleAPIManagerV2.setUseDirectGeminiAPI(enabled);
       console.log(`Gemini API Direct Mode: ${enabled ? "ON" : "OFF"}`);
@@ -527,14 +781,80 @@ export const createSettingsSliceV2: StateCreator<
     syncFromUnifiedSettings: () => {
       const unified = get().unifiedSettings;
 
+      console.log("🔄 [syncFromUnifiedSettings] Syncing settings from unified settings:", {
+        effectSettings: unified.effects,
+        chatSettings: unified.chat,
+        progressiveMode: unified.chat?.progressiveMode,
+        uiSettings: unified.ui,
+        prompts: unified.prompts,
+      });
+
       set({
         effectSettings: unified.effects,
+        // 🧠 感情知能システムフラグの同期
+        emotionalIntelligenceFlags: {
+          emotion_analysis_enabled: unified.emotionalIntelligence.enabled && unified.emotionalIntelligence.analysis.basic,
+          emotional_memory_enabled: unified.emotionalIntelligence.memoryEnabled,
+          basic_effects_enabled: unified.effects.emotion.displayMode !== 'none',
+          contextual_analysis_enabled: unified.emotionalIntelligence.analysis.contextual,
+          adaptive_performance_enabled: unified.emotionalIntelligence.adaptivePerformance,
+          visual_effects_enabled: unified.effects.emotion.displayMode === 'rich' || unified.effects.emotion.displayMode === 'standard',
+          predictive_analysis_enabled: unified.emotionalIntelligence.analysis.predictive,
+          advanced_effects_enabled: unified.effects.emotion.displayMode === 'rich',
+          multi_layer_analysis_enabled: unified.emotionalIntelligence.analysis.multiLayer,
+          safe_mode: unified.emotionalIntelligence.safeMode,
+          fallback_to_legacy: unified.emotionalIntelligence.fallbackToLegacy,
+          performance_monitoring: unified.emotionalIntelligence.performanceMonitoring,
+          debug_mode: unified.emotionalIntelligence.debugMode,
+        },
+        // 🔧 FIX: systemPromptsの同期を追加
+        systemPrompts: {
+          system: unified.prompts?.system || "",
+          jailbreak: unified.prompts?.jailbreak || "",
+          replySuggestion: unified.prompts?.replySuggestion || "",
+          textEnhancement: unified.prompts?.textEnhancement || "",
+        },
+        enableSystemPrompt: unified.prompts?.enableSystemPrompt ?? false,
+        enableJailbreakPrompt: unified.prompts?.enableJailbreakPrompt ?? false,
         languageSettings: {
           language: unified.ui.language,
           timezone: "Asia/Tokyo",
           dateFormat: "YYYY/MM/DD",
           timeFormat: unified.ui.language === "ja" ? "24" : "12",
           currency: unified.ui.language === "ja" ? "JPY" : "USD",
+        },
+        // 🔧 FIX: 外観設定の同期を追加
+        appearanceSettings: {
+          theme: unified.ui.theme === "auto" ? "dark" : unified.ui.theme,
+          primaryColor: unified.ui.primaryColor,
+          accentColor: unified.ui.accentColor,
+          backgroundColor: unified.ui.backgroundColor,
+          surfaceColor: unified.ui.surfaceColor,
+          textColor: unified.ui.textColor,
+          secondaryTextColor: unified.ui.secondaryTextColor,
+          borderColor: unified.ui.borderColor,
+          shadowColor: unified.ui.shadowColor,
+          fontFamily: unified.ui.fontFamily,
+          fontSize: unified.ui.fontSize,
+          fontWeight: unified.ui.fontWeight,
+          lineHeight: unified.ui.lineHeight,
+          messageSpacing: unified.ui.messageSpacing,
+          messageBorderRadius: unified.ui.messageBorderRadius,
+          chatMaxWidth: unified.ui.chatMaxWidth,
+          sidebarWidth: unified.ui.sidebarWidth,
+          // 🆕 Phase 3: 階層構造からフラット構造への変換（後方互換性）
+          backgroundType: unified.ui.background?.type || 'gradient',
+          backgroundImage: unified.ui.background?.image?.url || '',
+          backgroundBlur: unified.ui.background?.image?.blur || 10,
+          backgroundBlurEnabled: unified.ui.background?.image?.blurEnabled ?? false,
+          backgroundOpacity: unified.ui.background?.image?.opacity || 100,
+          backgroundGradient: unified.ui.background?.gradient?.value || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          faviconPath: unified.ui.faviconPath || "/favicon.ico",
+          faviconSvg: unified.ui.faviconSvg || "/favicon.svg",
+          appleTouchIcon: unified.ui.appleTouchIcon || "/apple-touch-icon.png",
+          enableAnimations: unified.ui.enableAnimations ?? true,
+          transitionDuration: unified.ui.transitionDuration || "normal",
+          customCSS: unified.ui.customCSS || "",
         },
         apiConfig: {
           ...get().apiConfig,
@@ -550,6 +870,33 @@ export const createSettingsSliceV2: StateCreator<
         },
         openRouterApiKey: unified.api.openrouterApiKey,
         geminiApiKey: unified.api.geminiApiKey,
+        // 🔧 FIX: useDirectGeminiAPIの同期を追加（デフォルト値はtrue）
+        useDirectGeminiAPI: unified.api.useDirectGeminiAPI ?? true,
+        // 🔧 FIX: voice設定の同期を追加
+        voice: unified.voice || get().voice,
+        // 🔧 FIX: imageGeneration設定の同期を追加
+        imageGeneration: unified.imageGeneration || get().imageGeneration,
+        // ✅ FIX: チャット設定の同期を追加
+        chat: {
+          ...get().chat,
+          responseFormat: unified.chat?.responseFormat ?? get().chat.responseFormat,
+          memoryCapacity: unified.chat?.memoryCapacity ?? get().chat.memoryCapacity,
+          generationCandidates: unified.chat?.generationCandidates ?? get().chat.generationCandidates,
+          memory_limits: unified.chat?.memoryLimits ? {
+            max_working_memory: unified.chat.memoryLimits.maxWorkingMemory,
+            max_memory_cards: unified.chat.memoryLimits.maxMemoryCards,
+            max_relevant_memories: unified.chat.memoryLimits.maxRelevantMemories,
+            max_prompt_tokens: unified.chat.memoryLimits.maxPromptTokens,
+            max_context_messages: unified.chat.memoryLimits.maxContextMessages,
+          } : get().chat.memory_limits,
+          progressiveMode: unified.chat?.progressiveMode ?? get().chat.progressiveMode,
+        },
+      });
+
+      console.log("✅ [syncFromUnifiedSettings] Settings synced:", {
+        newChatSettings: get().chat,
+        progressiveMode: get().chat.progressiveMode,
+        newAppearanceSettings: get().appearanceSettings,
       });
     },
   };
