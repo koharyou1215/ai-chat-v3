@@ -482,7 +482,7 @@ const createStore = () => {
             },
           }
         ),
-        version: 4, // 🔧 バージョン4にアップデート
+        version: 5, // 🔧 バージョン5にアップデート（キャラクターデータクリーンアップ）
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Partial<AppStore>;
 
@@ -539,6 +539,29 @@ const createStore = () => {
 
             // 既存セッションのTrackerManagerは次のセッション作成時に自動的に再初期化される
             console.log("✅ Migration v4 complete: Tracker system now session-scoped");
+          }
+
+          // 🆕 version 4から5へのマイグレーション
+          if (version < 5) {
+            console.log("🔄 Migration v5: Cleaning up old character data from LocalStorage");
+
+            // 🧹 キャラクターデータをLocalStorageから完全削除
+            // キャラクターはmanifest.jsonとJSONファイルから毎回読み込まれるべき
+            if (state.characters) {
+              console.log(`🗑️  Removing ${state.characters instanceof Map ? state.characters.size : 'unknown'} characters from LocalStorage`);
+              delete state.characters;
+            }
+
+            // ペルソナデータも削除（同様の理由）
+            if (state.personas) {
+              console.log(`🗑️  Removing personas from LocalStorage`);
+              delete state.personas;
+            }
+
+            // キャラクター関連の読み込みフラグもリセット
+            delete state.isCharactersLoaded;
+
+            console.log("✅ Migration v5 complete: Character data will be freshly loaded from files");
           }
 
           return state as AppStore;

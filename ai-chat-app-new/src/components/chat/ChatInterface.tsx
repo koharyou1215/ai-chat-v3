@@ -43,6 +43,7 @@ import { UnifiedMessage } from "@/types/core/message.types";
 import { GroupChatSession } from "@/types/core/group-chat.types";
 import useVH from "@/hooks/useVH";
 import { SDTestButton } from "../debug/SDTestButton";
+import { selectBackgroundImageURL } from "@/utils/device-detection";
 import type { AnimatePresence as AnimatePresenceType } from 'framer-motion';
 
 // メッセージ入力欄ラッパーコンポーネント
@@ -766,26 +767,35 @@ const ChatInterfaceContent: React.FC = () => {
                 top: 0,
                 bottom: 0,
               }}>
-              {character.background_url.endsWith(".mp4") ||
-              character.background_url.includes("video") ? (
-                <video
-                  src={character.background_url}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${character.background_url})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }}
-                />
-              )}
+              {(() => {
+                // 🔧 FIX: デバイス別背景画像URLを選択
+                const selectedBgUrl = selectBackgroundImageURL(
+                  character.background_url || '',
+                  character.background_url_desktop,
+                  character.background_url_mobile
+                );
+
+                return selectedBgUrl.endsWith(".mp4") || selectedBgUrl.includes("video") ? (
+                  <video
+                    src={selectedBgUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      backgroundImage: `url(${selectedBgUrl})`,
+                      backgroundSize: "contain", // 🔧 FIX: cover → contain（画像が切れないように）
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  />
+                );
+              })()}
             </div>
           );
         }

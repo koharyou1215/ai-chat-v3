@@ -415,10 +415,18 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             }
             charactersMap.set(id, newChar);
           } else {
-            // New character that doesn't exist in files - preserve it
-            // This handles manually added characters
-            console.log(`📝 Preserving manually added character: ${existingChar.name}`);
-            charactersMap.set(id, existingChar);
+            // 🔧 FIX: ユーザーがアップロードした画像を持つキャラクターのみ復元
+            // manifest.jsonに存在しないキャラクターは基本的に無視（重複防止）
+            const hasUserUpload =
+              (existingChar.avatar_url && existingChar.avatar_url.includes('/uploads/')) ||
+              (existingChar.background_url && existingChar.background_url.includes('/uploads/'));
+
+            if (hasUserUpload) {
+              console.log(`📝 Preserving character with user uploads: ${existingChar.name}`);
+              charactersMap.set(id, existingChar);
+            } else {
+              console.log(`🗑️  Skipping character not in manifest.json: ${existingChar.name}`);
+            }
           }
         });
       }
