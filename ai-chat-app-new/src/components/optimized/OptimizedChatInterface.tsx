@@ -385,12 +385,21 @@ const OptimizedChatInterfaceContent: React.FC = memo(() => {
     },
   ]);
 
-  // Optimized scroll effect
+  // Optimized scroll effect - only scroll when new messages are added
   const sessionMessages = session?.messages;
   const groupSessionMessages = displaySession?.messages;
+  const prevMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
-    scrollToBottom();
+    const currentMessageCount = sessionMessages?.length || groupSessionMessages?.length || 0;
+    const isNewMessage = currentMessageCount > prevMessageCountRef.current;
+
+    // 新しいメッセージが追加された場合のみスクロール（再生成・続き生成時はスクロールしない）
+    if (isNewMessage) {
+      scrollToBottom();
+    }
+
+    prevMessageCountRef.current = currentMessageCount;
   }, [sessionMessages, groupSessionMessages, scrollToBottom]);
 
   // Timeout cleanup effect

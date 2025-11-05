@@ -778,7 +778,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           <div
             ref={menuRef}
             className={cn(
-              "relative px-4 pt-3 pb-1.5 rounded-2xl shadow-lg transition-all duration-200",
+              "relative px-4 pt-3 rounded-2xl shadow-lg transition-all duration-200",
+              // 感情表示や他のエフェクトが表示される場合のみ下部パディングを追加
+              (emotionResult && isEffectEnabled("realtimeEmotion")) ||
+              isEffectEnabled("hologram") ||
+              isEffectEnabled("particles") ||
+              isEffectEnabled("typewriter")
+                ? "pb-1.5"
+                : "pb-0",
               // User messages: Dynamic transparency with backdrop blur
               isUser
                 ? effectSettings.bubbleBlur

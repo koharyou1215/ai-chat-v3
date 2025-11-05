@@ -394,8 +394,19 @@ const ChatInterfaceContent: React.FC = () => {
       ? activeGroupSession.messages
       : null;
 
+  // メッセージが追加されたときのみスクロール（再生成・続き生成時はスクロールしない）
+  const prevMessageCountRef = useRef<number>(0);
+
   useEffect(() => {
-    scrollToBottom();
+    const currentMessageCount = sessionMessages?.length || groupSessionMessages?.length || 0;
+    const isNewMessage = currentMessageCount > prevMessageCountRef.current;
+
+    // 新しいメッセージが追加された場合のみスクロール（生成中でも新規メッセージならスクロール）
+    if (isNewMessage) {
+      scrollToBottom();
+    }
+
+    prevMessageCountRef.current = currentMessageCount;
   }, [sessionMessages, groupSessionMessages]);
 
   // グループモードかつアクティブなグループセッションがない場合
