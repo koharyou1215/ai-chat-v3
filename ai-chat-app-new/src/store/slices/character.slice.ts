@@ -136,9 +136,17 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
 
   loadCharactersFromPublic: async (forceReload = false) => {
     // Always load from files on startup to get latest character data
-    // Then merge with persisted data (for user-uploaded images)
+    // 🔧 FIX: 既にロード済みで強制リロードでない場合はスキップ
+    if (!forceReload && get().isCharactersLoaded) {
+      console.log('✅ キャラクターは既にロード済みです。スキップします。');
+      return;
+    }
 
     try {
+      console.log('🔄 キャラクターデータを読み込み中...');
+
+      // 🔧 FIX: 既存データを完全にクリア（重複防止）
+      set({ characters: new Map(), isCharactersLoaded: false });
       // ✅ キャッシュバスティング: ビルドIDまたはタイムスタンプをクエリパラメータに追加
       const buildId = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_BUILD_TIME || Date.now().toString();
       const cacheBuster = forceReload ? `&_t=${Date.now()}` : '';

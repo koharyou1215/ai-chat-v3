@@ -36,12 +36,17 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // 🔧 FIX: 重複排除（IDベース）
+          const uniqueCharacters = Array.from(
+            new Map(characters.map(char => [char.id, char])).values()
+          );
+
           console.log(
-            `Characters API: Loaded ${characters.length} characters from manifest`
+            `Characters API: Loaded ${characters.length} characters from manifest (${uniqueCharacters.length} unique)`
           );
 
           // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
-          return NextResponse.json(characters, {
+          return NextResponse.json(uniqueCharacters, {
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
               'Pragma': 'no-cache',
@@ -76,12 +81,17 @@ export async function GET(request: NextRequest) {
               }
             }
 
+            // 🔧 FIX: 重複排除（IDベース）
+            const uniqueCharacters = Array.from(
+              new Map(characters.map(char => [char.id, char])).values()
+            );
+
             console.log(
-              `Characters API: Loaded ${characters.length} characters from URL manifest`
+              `Characters API: Loaded ${characters.length} characters from URL manifest (${uniqueCharacters.length} unique)`
             );
 
             // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
-            return NextResponse.json(characters, {
+            return NextResponse.json(uniqueCharacters, {
               headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
                 'Pragma': 'no-cache',
@@ -165,12 +175,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 🔧 FIX: 重複排除（IDベース）
+    const uniqueCharacters = Array.from(
+      new Map(characters.map(char => [char.id, char])).values()
+    );
+
     console.log(
-      `Characters API: Loaded ${characters.length} characters from filesystem`
+      `Characters API: Loaded ${characters.length} characters from filesystem (${uniqueCharacters.length} unique)`
     );
 
     // ✅ キャッシュ制御ヘッダーを追加（デプロイごとに最新データを取得）
-    return NextResponse.json(characters, {
+    return NextResponse.json(uniqueCharacters, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
         'Pragma': 'no-cache',
