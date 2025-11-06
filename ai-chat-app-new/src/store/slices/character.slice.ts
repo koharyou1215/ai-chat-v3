@@ -161,7 +161,12 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       
       const charactersData = await response.json();
       const charactersMap = new Map<UUID, Character>();
-      
+
+      // 🔍 DEBUG: APIレスポンスの重複チェック
+      console.log(`📥 APIから${charactersData.length}個のキャラクターデータを受信`);
+      const seenIds = new Set<string>();
+      const seenNames = new Map<string, number>();
+
       // APIから直接キャラクターデータを処理
       for (const characterData of charactersData) {
         try {
@@ -344,7 +349,19 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
               average_session_length: 0
             }
           };
-          
+
+          // 🔍 DEBUG: 重複チェック
+          const nameCount = seenNames.get(character.name) || 0;
+          seenNames.set(character.name, nameCount + 1);
+
+          if (seenIds.has(character.id)) {
+            console.error(`🚨 重複ID検出: ${character.id} (${character.name})`);
+          }
+          if (nameCount > 0) {
+            console.warn(`⚠️ 同じ名前が${nameCount + 1}回目: ${character.name} (ID: ${character.id})`);
+          }
+
+          seenIds.add(character.id);
           charactersMap.set(character.id, character);
         } catch (error) {
           console.error(`character.slice: Error processing character data:`, error);
@@ -354,6 +371,16 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
       // 🔧 FIX: キャラクターデータは永続化しないため、マージ処理は不要
       // ファイルが真実の源（Single Source of Truth）
       console.log(`✅ キャラクターデータをファイルから読み込み完了: ${charactersMap.size}個`);
+
+      // 🔍 DEBUG: 重複チェック（ID別にカウント）
+      const idCounts = new Map<string, number>();
+      charactersMap.forEach((char, id) => {
+        const count = idCounts.get(id) || 0;
+        idCounts.set(id, count + 1);
+        if (count > 0) {
+          console.error(`🚨 重複ID検出: ${id} (${char.name}) - ${count + 1}回目`);
+        }
+      });
 
       set({
         characters: charactersMap,

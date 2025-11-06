@@ -403,7 +403,7 @@ const createStore = () => {
             },
           }
         ),
-        version: 3, // バージョンを3に更新
+        version: 4, // バージョンを4に更新
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Partial<AppStore>;
 
@@ -445,6 +445,14 @@ const createStore = () => {
             }
 
             console.log("🔄 Migration v3: Cleaned up old character data");
+          }
+
+          // version 3以下から4へのマイグレーション
+          if (version < 4) {
+            // 🔧 FIX: charactersデータを完全に削除（ファイルが真実の源となるため）
+            delete state.characters;
+            delete state.isCharactersLoaded;
+            console.log("🔄 Migration v4: Removed all persisted character data (files are now the single source of truth)");
           }
 
           return state as AppStore;
