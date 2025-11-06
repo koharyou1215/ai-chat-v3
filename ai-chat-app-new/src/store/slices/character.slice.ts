@@ -399,8 +399,21 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
 
       // Merge with existing persisted data (for user-uploaded images)
       const existingCharacters = get().characters;
+
+      // 🔍 デバッグ: 既存キャラクターデータの確認
+      console.log('🔍 [Character Loading] Debug Info:', {
+        hasExistingCharacters: !!(existingCharacters && existingCharacters.size > 0),
+        existingCount: existingCharacters?.size || 0,
+        newCharactersCount: charactersMap.size,
+        manifestFiles: charactersData.length
+      });
+
       if (existingCharacters && existingCharacters.size > 0) {
         console.log('📋 Merging with existing character data...');
+        console.warn('⚠️ LocalStorageにキャラクターデータが残っています。これは想定外です。');
+
+        let preservedCount = 0;
+        let skippedCount = 0;
 
         // Preserve user-uploaded images from existing data
         existingCharacters.forEach((existingChar, id) => {
@@ -424,12 +437,18 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
             if (hasUserUpload) {
               console.log(`📝 Preserving character with user uploads: ${existingChar.name}`);
               charactersMap.set(id, existingChar);
+              preservedCount++;
             } else {
               console.log(`🗑️  Skipping character not in manifest.json: ${existingChar.name}`);
+              skippedCount++;
             }
           }
         });
+
+        console.log(`✅ Merge complete: ${preservedCount} preserved, ${skippedCount} skipped`);
       }
+
+      console.log(`📊 [Character Loading] Final character count: ${charactersMap.size}`);
 
       set({
         characters: charactersMap,

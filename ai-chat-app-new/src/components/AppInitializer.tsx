@@ -44,6 +44,48 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
   useEffect(() => {
     setIsMounted(true);
 
+    // 🆕 CRITICAL FIX: LocalStorageから古いキャラクターデータを強制削除
+    // migration v5がstateから削除しても、LocalStorage自体には残っている問題を解決
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const storageKey = 'ai-chat-v3-storage';
+        const rawData = localStorage.getItem(storageKey);
+
+        if (rawData) {
+          const parsedData = JSON.parse(rawData);
+          let needsUpdate = false;
+
+          // キャラクターデータが存在する場合は削除
+          if (parsedData?.state?.characters) {
+            console.log('🧹 [AppInitializer] Removing old character data from LocalStorage');
+            delete parsedData.state.characters;
+            needsUpdate = true;
+          }
+
+          // ペルソナデータが存在する場合は削除
+          if (parsedData?.state?.personas) {
+            console.log('🧹 [AppInitializer] Removing old persona data from LocalStorage');
+            delete parsedData.state.personas;
+            needsUpdate = true;
+          }
+
+          // isCharactersLoadedフラグが存在する場合は削除
+          if (parsedData?.state?.isCharactersLoaded !== undefined) {
+            delete parsedData.state.isCharactersLoaded;
+            needsUpdate = true;
+          }
+
+          // 変更があった場合のみLocalStorageを更新
+          if (needsUpdate) {
+            localStorage.setItem(storageKey, JSON.stringify(parsedData));
+            console.log('✅ [AppInitializer] LocalStorage cleaned: character/persona data removed');
+          }
+        }
+      } catch (error) {
+        console.error('⚠️ [AppInitializer] Failed to clean LocalStorage:', error);
+      }
+    }
+
     // 🧪 E2Eテスト用: ブラウザコンソール/Playwrightからアクセス可能にする
     // ⚠️ HYDRATION FIX: useEffect内で実行してSSR/CSRの一貫性を保つ
     if (typeof window !== 'undefined') {
