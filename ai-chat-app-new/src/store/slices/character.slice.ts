@@ -351,31 +351,9 @@ export const createCharacterSlice: StateCreator<AppStore, [], [], CharacterSlice
         }
       }
 
-      // Merge with existing persisted data (for user-uploaded images)
-      const existingCharacters = get().characters;
-      if (existingCharacters && existingCharacters.size > 0) {
-        console.log('📋 Merging with existing character data...');
-
-        // Preserve user-uploaded images from existing data
-        existingCharacters.forEach((existingChar, id) => {
-          const newChar = charactersMap.get(id);
-          if (newChar) {
-            // Preserve user-uploaded avatar and background if they exist
-            if (existingChar.avatar_url && existingChar.avatar_url.includes('/uploads/')) {
-              newChar.avatar_url = existingChar.avatar_url;
-            }
-            if (existingChar.background_url && existingChar.background_url.includes('/uploads/')) {
-              newChar.background_url = existingChar.background_url;
-            }
-            charactersMap.set(id, newChar);
-          } else {
-            // New character that doesn't exist in files - preserve it
-            // This handles manually added characters
-            console.log(`📝 Preserving manually added character: ${existingChar.name}`);
-            charactersMap.set(id, existingChar);
-          }
-        });
-      }
+      // 🔧 FIX: キャラクターデータは永続化しないため、マージ処理は不要
+      // ファイルが真実の源（Single Source of Truth）
+      console.log(`✅ キャラクターデータをファイルから読み込み完了: ${charactersMap.size}個`);
 
       set({
         characters: charactersMap,

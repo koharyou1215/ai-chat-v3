@@ -469,7 +469,8 @@ const createStore = () => {
           // ═══════════════════════════════════════
           // Character & Persona Data
           // ═══════════════════════════════════════
-          characters: state.characters,
+          // 🔧 FIX: characters は永続化しない（ファイルが真実の源）
+          // characters: state.characters, // ← 削除
           selectedCharacterId: state.selectedCharacterId,
           // Note: isCharactersLoaded is intentionally NOT persisted
           // This forces a refresh from files on each startup

@@ -241,10 +241,10 @@ export class GeminiClient {
 
       const candidate = data.candidates[0];
       console.log('Gemini API Response:', JSON.stringify(data, null, 2));
-      
+
       if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
         console.error('Gemini candidate details:', candidate);
-        
+
         // Handle different finish reasons appropriately
         if (candidate.finishReason === 'MAX_TOKENS') {
           console.warn('⚠️ Gemini応答がトークン制限で切り詰められました');
@@ -261,11 +261,23 @@ export class GeminiClient {
         } else if (candidate.finishReason) {
           throw new Error(`Gemini応答がブロックされました: ${candidate.finishReason}`);
         }
-        
+
         throw new Error('No content parts in Gemini response');
       }
 
-      return candidate.content.parts[0].text;
+      // 🔧 FIX: 空文字列チェックを追加（空の応答を防ぐ）
+      const responseText = candidate.content.parts[0].text;
+      if (!responseText || responseText.trim().length === 0) {
+        console.error('🚨 Gemini API returned empty text:', {
+          finishReason: candidate.finishReason,
+          hasContent: !!candidate.content,
+          hasParts: !!candidate.content?.parts,
+          partsLength: candidate.content?.parts?.length
+        });
+        throw new Error('Gemini APIから空の応答が返されました。プロンプトを変更するか、別のモデルをお試しください。');
+      }
+
+      return responseText;
     } catch (error) {
       console.error('Gemini message generation failed:', error);
       throw error;
@@ -399,6 +411,12 @@ export class GeminiClient {
         }
       } finally {
         reader.releaseLock();
+      }
+
+      // 🔧 FIX: 空文字列チェックを追加（ストリーミング版）
+      if (!fullContent || fullContent.trim().length === 0) {
+        console.error('🚨 Gemini Streaming API returned empty content');
+        throw new Error('Gemini Streaming APIから空の応答が返されました。プロンプトを変更するか、別のモデルをお試しください。');
       }
 
       return fullContent;
