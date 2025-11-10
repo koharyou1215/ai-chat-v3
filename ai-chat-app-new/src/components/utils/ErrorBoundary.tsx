@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen text-white flex items-center justify-center p-4" style={{ background: 'transparent' }}>
+        <div className="min-h-screen text-white flex items-center justify-center p-4" style={{ background: 'transparent' }} suppressHydrationWarning>
           <div className="max-w-md w-full bg-slate-800/90 backdrop-blur-md rounded-lg p-6 text-center border border-purple-400/20">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold mb-2">アプリケーションエラー</h2>
@@ -90,7 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return <>{this.props.children}</>;
   }
 }
 

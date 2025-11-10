@@ -45,8 +45,8 @@ export default function RootLayout({
   return (
     <html lang="ja" className="h-full" suppressHydrationWarning>
       <body className={`${inter.className} h-full`} suppressHydrationWarning>
-        <HydrationFix />
         <ErrorBoundary>
+          <HydrationFix />
           <StorageInitializer />
           {children}
         </ErrorBoundary>
