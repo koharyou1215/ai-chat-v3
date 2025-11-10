@@ -143,7 +143,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
   // Initialize tracker manager if not exists and we have character data
   useEffect(() => {
     const rawManagers = useAppStore.getState().trackerManagers;
-    const currentManager = getTrackerManagerSafe(rawManagers, character_id);
+    const currentManager = getTrackerManagerSafe(rawManagers, session_id);
     if (
       !currentManager &&
       character &&
@@ -151,7 +151,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       character.trackers.length > 0
     ) {
       console.log(
-        `[TrackerDisplay] Initializing tracker manager for character: ${character.name}`
+        `[TrackerDisplay] Initializing tracker manager for session: ${session_id}, character: ${character.name}`
       );
       console.log(
         `[TrackerDisplay] Character trackers:`,
@@ -170,13 +170,13 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
       const newManager = new TrackerManager();
       newManager.initializeTrackerSet(character_id, character.trackers);
 
-      // Update the store - キャラクターIDをキーとして使用
+      // Update the store - セッションIDをキーとして使用
       useAppStore.setState((state) => {
         const base =
           state.trackerManagers instanceof Map
             ? new Map(state.trackerManagers) as Map<string, TrackerManager>
             : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
-        base.set(character_id, newManager);
+        base.set(session_id, newManager);
         return { trackerManagers: base };
       });
 
@@ -192,7 +192,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     ) {
       // 既存のマネージャーがあっても、トラッカー数が異なる場合は再初期化を検討
       console.log(
-        `[TrackerDisplay] Re-initializing tracker manager due to tracker count mismatch for character: ${character.name}`
+        `[TrackerDisplay] Re-initializing tracker manager due to tracker count mismatch for session: ${session_id}, character: ${character.name}`
       );
       const newManager = new TrackerManager();
       newManager.initializeTrackerSet(character_id, character.trackers);
@@ -201,11 +201,11 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
           state.trackerManagers instanceof Map
             ? new Map(state.trackerManagers) as Map<string, TrackerManager>
             : new Map(Object.entries(state.trackerManagers || {})) as Map<string, TrackerManager>;
-        base.set(character_id, newManager);
+        base.set(session_id, newManager);
         return { trackerManagers: base };
       });
     }
-  }, [character_id, character]);
+  }, [session_id, character_id, character]);
 
   // Get current trackers with values from manager
   const trackersWithValues: TrackerWithValue[] = useMemo(() => {
