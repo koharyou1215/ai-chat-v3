@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { StorageInitializer } from '@/components/utils/StorageInitializer';
 import HydrationFix from '@/components/utils/HydrationFix';
@@ -8,7 +8,10 @@ import HydrationFix from '@/components/utils/HydrationFix';
 // Dynamically import ErrorBoundary with no SSR to prevent hydration issues
 const ErrorBoundary = dynamic(
   () => import('@/components/utils/ErrorBoundary'),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => null
+  }
 );
 
 interface LayoutContentProps {
@@ -16,28 +19,14 @@ interface LayoutContentProps {
 }
 
 export function LayoutContent({ children }: LayoutContentProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Render children directly during SSR, wrap with ErrorBoundary only after hydration
-  if (!isMounted) {
-    return (
-      <>
-        <HydrationFix />
-        <StorageInitializer />
-        {children}
-      </>
-    );
-  }
-
+  // Always render the same structure to avoid hydration mismatch
   return (
-    <ErrorBoundary>
+    <>
       <HydrationFix />
       <StorageInitializer />
-      {children}
-    </ErrorBoundary>
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
+    </>
   );
 }
