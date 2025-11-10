@@ -142,7 +142,7 @@ export const ProgressiveMessageBubble: React.FC<
 
   // 初期化時に利用可能な最新のステージを自動選択
   useEffect(() => {
-    if (!selectedStage && stages && typeof stages === "object") {
+    if (!selectedStage) {
       if (stages.intelligence?.content) {
         setSelectedStage("intelligence");
       } else if (stages.context?.content) {
@@ -282,39 +282,34 @@ export const ProgressiveMessageBubble: React.FC<
               ref={contentRef}
               className={cn(
                 "message-content px-4 py-3 rounded-2xl shadow-lg transition-all duration-200 relative overflow-hidden",
-                ui.highlightChanges && "highlight-changes",
-                isEffectEnabled('colorfulBubbles')
-                  ? "bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-teal-500/20 border-purple-400/40 shadow-purple-500/20"
-                  : "bg-slate-800/60 border-slate-600/30"
+                "message-bubble-character-transparent text-white border-purple-400/40 shadow-purple-500/20",
+                ui.highlightChanges && "highlight-changes"
               )}
-              style={{
-                fontSize: isEffectEnabled('font')
-                  ? `${Math.max(
-                      0.75,
-                      1 + (effectSettings.fontEffectsIntensity - 50) / 100
-                    )}rem`
-                  : undefined,
-                fontWeight:
-                  isEffectEnabled('font') &&
-                  effectSettings.fontEffectsIntensity > 70
-                    ? "bold"
+              style={
+                {
+                  fontSize: isEffectEnabled('font')
+                    ? `${Math.max(
+                        0.75,
+                        1 + (effectSettings.fontEffectsIntensity - 50) / 100
+                      )}rem`
                     : undefined,
-                textShadow:
-                  isEffectEnabled('font') &&
-                  effectSettings.fontEffectsIntensity > 50
-                    ? "0 0 10px rgba(255,255,255,0.3)"
-                    : undefined,
-                opacity: effectSettings.bubbleOpacity
-                  ? effectSettings.bubbleOpacity / 100
-                  : 0.85,
-                // 🆕 Phase 2: Variable blur intensity (0-20px)
-                backdropFilter: effectSettings.bubbleBlur
-                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
-                  : "none",
-                WebkitBackdropFilter: effectSettings.bubbleBlur
-                  ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
-                  : "none",
-              }}>
+                  fontWeight:
+                    isEffectEnabled('font') &&
+                    effectSettings.fontEffectsIntensity > 70
+                      ? "bold"
+                      : undefined,
+                  textShadow:
+                    isEffectEnabled('font') &&
+                    effectSettings.fontEffectsIntensity > 50
+                      ? "0 0 10px rgba(255,255,255,0.3)"
+                      : undefined,
+                  // CSS custom properties for dynamic transparency and blur
+                  "--character-bubble-opacity": (effectSettings.bubbleOpacity || 85) / 100,
+                  "--character-bubble-blur": effectSettings.bubbleBlur
+                    ? `blur(${effectSettings.bubbleBlurIntensity || 8}px)`
+                    : "none",
+                } as React.CSSProperties
+              }>
               {/* メッセージ内容 */}
               <div
                 className="message-text prose prose-sm prose-invert max-w-none"
