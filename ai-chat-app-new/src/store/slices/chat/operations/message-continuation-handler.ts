@@ -40,10 +40,10 @@ export const createMessageContinuationHandler: StateCreator<
       }
 
       const lastAiMessage = session.messages[lastAiMessageIndex];
-      // 🔧 修正: characterIdでTrackerManagerを取得（TrackerManagerはcharacterIdでインデックス化）
+      // 🔧 修正: sessionIdでTrackerManagerを取得（TrackerManagerはsessionIdでインデックス化）
       const characterId = session.participants.characters[0]?.id;
-      const trackerManager = characterId
-        ? getTrackerManagerSafely(get().trackerManagers, characterId)
+      const trackerManager = session.id
+        ? getTrackerManagerSafely(get().trackerManagers, session.id)
         : null;
 
       // 続きを生成するため、前のメッセージの内容を基にプロンプトを構築

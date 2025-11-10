@@ -245,10 +245,10 @@ export const createMessageSendHandler = (
         }
 
         // 3. AI応答生成
-        // 🔧 修正: characterIdでTrackerManagerを取得（TrackerManagerはcharacterIdでインデックス化）
+        // 🔧 修正: sessionIdでTrackerManagerを取得（TrackerManagerはsessionIdでインデックス化）
         const characterId = activeSession.participants.characters[0]?.id;
-        const trackerManager = characterId
-          ? getTrackerManagerSafely(get().trackerManagers, characterId)
+        const trackerManager = activeSessionId
+          ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
           : null;
 
         console.log("🔍 [NEW sendMessage] TrackerManager check:", {

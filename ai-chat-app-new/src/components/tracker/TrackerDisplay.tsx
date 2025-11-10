@@ -106,10 +106,11 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
     return undefined;
   };
 
-  // 🔧 修正: キャラクターIDでTrackerManagerを取得（保存時と同じキーを使用）
+  // 🔧 修正: sessionIdでTrackerManagerを取得（TrackerManagerはsessionIdでインデックス化）
   // Get tracker data from store with initialization check (safe for serialized store shape)
+  const activeSessionId = useAppStore((state) => state.active_session_id);
   const trackerManager = useAppStore((state) =>
-    getTrackerManagerSafe(state.trackerManagers, character_id)
+    activeSessionId ? getTrackerManagerSafe(state.trackerManagers, activeSessionId) : undefined
   );
   const characters = useAppStore((state) => state.characters);
   const character = characters.get(character_id);
@@ -125,7 +126,7 @@ export const TrackerDisplay: React.FC<TrackerDisplayProps> = ({
 
       // セッション切り替え時にトラッカーマネージャーの状態確認
       const rawManagers = useAppStore.getState().trackerManagers;
-      const currentManager = getTrackerManagerSafe(rawManagers, character_id);
+      const currentManager = getTrackerManagerSafe(rawManagers, session_id);
       if (currentManager) {
         // 既存のマネージャーがある場合、一度状態を強制更新
         useAppStore.setState((state) => ({

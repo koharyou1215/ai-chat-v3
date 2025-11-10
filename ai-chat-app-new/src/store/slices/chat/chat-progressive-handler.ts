@@ -217,8 +217,8 @@ export const createProgressiveHandler: StateCreator<
       }));
 
       // 4. 並列実行の準備
-      trackerManager = characterId
-        ? getTrackerManagerSafely(get().trackerManagers, characterId)
+      trackerManager = activeSessionId
+        ? getTrackerManagerSafely(get().trackerManagers, activeSessionId)
         : undefined;
 
       console.log("🔍 DEBUG: Tracker Manager Check", {
