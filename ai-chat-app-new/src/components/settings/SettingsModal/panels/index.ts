@@ -13,3 +13,4 @@ export { CharacterManagementPanel } from "./CharacterManagementPanel";
 export { default as ChatPanel } from "./ChatPanel";
 export { default as AppearancePanel } from "./AppearancePanel";
 export { default as DataManagementPanel } from "./DataManagementPanel";
+export { ImageGenerationPanel } from "./ImageGenerationPanel";

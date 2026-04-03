@@ -419,5 +419,105 @@ export const formatPricePerMillion = (
   return `$${pricePerMillion.toFixed(2)}`;
 };
 
+export interface ModelSelectOption {
+  value: string;
+  label: string;
+}
+
+export interface ModelSelectGroup {
+  label: string;
+  options: ModelSelectOption[];
+}
+
+export const MODEL_SELECT_GROUPS: ModelSelectGroup[] = [
+  {
+    label: "Google Gemini (Direct API)",
+    options: [
+      { value: "gemini-2.5-flash-preview", label: "Gemini 2.5 Flash Preview" },
+      {
+        value: "gemini-2.5-flash-lite-preview",
+        label: "Gemini 2.5 Flash Lite Preview",
+      },
+      {
+        value: "gemini-3.1-flash-lite-preview",
+        label: "Gemini 3.1 Flash Lite Preview",
+      },
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
+      {
+        value: "gemini-3.1-pro-preview",
+        label: "Gemini 3.1 Pro Preview",
+      },
+    ],
+  },
+  {
+    label: "Google Gemini (OpenRouter)",
+    options: [
+      {
+        value: "google/gemini-2.5-flash-preview",
+        label: "Gemini 2.5 Flash Preview",
+      },
+      {
+        value: "google/gemini-2.5-flash-lite-preview",
+        label: "Gemini 2.5 Flash Lite Preview",
+      },
+      {
+        value: "google/gemini-3.1-flash-lite-preview",
+        label: "Gemini 3.1 Flash Lite Preview",
+      },
+      { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      {
+        value: "google/gemini-3.1-pro-preview",
+        label: "Gemini 3.1 Pro Preview",
+      },
+      {
+        value: "google/gemini-3-flash-preview",
+        label: "Gemini 3 Flash Preview",
+      },
+    ],
+  },
+  {
+    label: "Anthropic (OpenRouter)",
+    options: [
+      { value: "anthropic/claude-opus-4", label: "Claude Opus 4" },
+      { value: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
+      { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
+    ],
+  },
+  {
+    label: "xAI (OpenRouter)",
+    options: [
+      { value: "x-ai/grok-4.20-beta", label: "Grok 4.20 Beta" },
+      { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
+    ],
+  },
+  {
+    label: "OpenAI (OpenRouter)",
+    options: [
+      { value: "openai/gpt-5.1-chat", label: "GPT-5.1" },
+      { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+    ],
+  },
+  {
+    label: "Standard (OpenRouter)",
+    options: [
+      { value: "deepseek/deepseek-v3.2", label: "DeepSeek v3.2" },
+      {
+        value: "deepseek/deepseek-v3.2-speciale",
+        label: "DeepSeek v3.2 Speciale",
+      },
+      {
+        value: "mistralai/mistral-large-2512",
+        label: "Mistral Large 3 (2512)",
+      },
+      { value: "mistralai/ministral-14b-2512", label: "Ministral 14B" },
+      {
+        value: "tngtech/tng-r1t-chimera:free",
+        label: "TNG R1T Chimera (Free)",
+      },
+    ],
+  },
+];
+
 
 
