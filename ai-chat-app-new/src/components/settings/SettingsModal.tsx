@@ -27,6 +27,7 @@ import {
   EffectSettings,
 } from "@/types/core/settings.types";
 import { geminiCacheManager } from "@/services/api/gemini-cache-manager";
+import { inferPromptPresetId } from "@/constants/prompt-presets";
 
 // Import all panel components
 import {
@@ -42,6 +43,7 @@ import {
   VoicePanel,
   DataManagementPanel,
   CharacterManagementPanel,
+  ImageGenerationPanel,
 } from "./SettingsModal/panels";
 
 interface SettingsModalProps {
@@ -61,10 +63,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const {
     systemPrompts,
     enableSystemPrompt,
-    enableJailbreakPrompt,
+    chatSystemPromptMode,
+    enableAnchorPrompt,
+    anchorDepth,
     updateSystemPrompts,
     setEnableSystemPrompt,
-    setEnableJailbreakPrompt,
+    setChatSystemPromptMode,
+    setEnableAnchorPrompt,
+    setAnchorDepth,
     apiConfig,
     setTemperature,
     setMaxTokens,
@@ -73,8 +79,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setOpenRouterApiKey,
     geminiApiKey,
     setGeminiApiKey,
+    googleCloudApiKey,
+    setGoogleCloudApiKey,
     useDirectGeminiAPI,
     setUseDirectGeminiAPI,
+    setInspirationUseFixedModel,
+    setInspirationFixedModel,
+    setInspirationFixedUseDirectGeminiAPI,
     setAPIModel,
     setAPIProvider,
     effectSettings,
@@ -91,15 +102,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [localSystemPrompts, setLocalSystemPrompts] =
     useState<SystemPrompts>(systemPrompts);
+  const [localSelectedPromptPresetId, setLocalSelectedPromptPresetId] =
+    useState<string | null>(
+      () => systemPrompts.selectedPresetId || inferPromptPresetId(systemPrompts)
+    );
 
   useEffect(() => {
     if (isOpen) {
       setLocalSystemPrompts(systemPrompts);
+      setLocalSelectedPromptPresetId(
+        systemPrompts.selectedPresetId || inferPromptPresetId(systemPrompts)
+      );
     }
   }, [isOpen, systemPrompts]);
 
   const [_showSystemPrompt, _setShowSystemPrompt] = useState(false);
-  const [_showJailbreakPrompt, _setShowJailbreakPrompt] = useState(false);
+  const [_showAnchorPrompt, _setShowAnchorPrompt] = useState(false);
   const [_showReplySuggestionPrompt, _setShowReplySuggestionPrompt] =
     useState(false);
   const [_showTextEnhancementPrompt, _setShowTextEnhancementPrompt] =
@@ -126,6 +144,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: "characters", label: "キャラクター管理", icon: Edit3 },
     { id: "appearance", label: "外観", icon: Palette },
     { id: "voice", label: "音声", icon: Volume2 },
+    { id: "image", label: "画像生成", icon: Palette },
     { id: "ai", label: "AI", icon: Cpu },
     { id: "data", label: "データ", icon: Database },
     { id: "privacy", label: "プライバシー", icon: Shield },
@@ -154,7 +173,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = () => {
     // AI設定（プロンプト）を保存
-    updateSystemPrompts(localSystemPrompts);
+    updateSystemPrompts({
+      ...localSystemPrompts,
+      selectedPresetId: localSelectedPromptPresetId || undefined,
+    });
 
     // 🔥 Cache Invalidation: システムプロンプト変更時にすべてのキャッシュを無効化
     geminiCacheManager.invalidateAll();
@@ -279,29 +301,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {activeTab === "chat" && <ChatPanel />}
                 {activeTab === "appearance" && <AppearancePanel />}
                 {activeTab === "voice" && <VoicePanel />}
+                {activeTab === "image" && <ImageGenerationPanel />}
                 {activeTab === "ai" && (
                   <AIPanel
                     systemPrompts={localSystemPrompts}
                     enableSystemPrompt={enableSystemPrompt}
-                    enableJailbreakPrompt={enableJailbreakPrompt}
+                    chatSystemPromptMode={chatSystemPromptMode}
+                    enableAnchorPrompt={enableAnchorPrompt}
+                    anchorDepth={anchorDepth}
                     apiConfig={apiConfig}
                     openRouterApiKey={openRouterApiKey ?? ""}
                     geminiApiKey={geminiApiKey ?? ""}
+                    googleCloudApiKey={googleCloudApiKey ?? ""}
                     showSystemPrompt={_showSystemPrompt}
-                    showJailbreakPrompt={_showJailbreakPrompt}
+                    showAnchorPrompt={_showAnchorPrompt}
                     showReplySuggestionPrompt={_showReplySuggestionPrompt}
                     showTextEnhancementPrompt={_showTextEnhancementPrompt}
+                    selectedPromptPresetId={localSelectedPromptPresetId}
                     onUpdateSystemPrompts={setLocalSystemPrompts}
+                    onSelectPromptPreset={setLocalSelectedPromptPresetId}
                     onSetEnableSystemPrompt={setEnableSystemPrompt}
-                    onSetEnableJailbreakPrompt={setEnableJailbreakPrompt}
+                    onSetChatSystemPromptMode={setChatSystemPromptMode}
+                    onSetEnableAnchorPrompt={setEnableAnchorPrompt}
+                    onSetAnchorDepth={setAnchorDepth}
                     onSetTemperature={setTemperature}
                     onSetMaxTokens={setMaxTokens}
                     onSetTopP={setTopP}
                     onToggleSystemPrompt={() =>
                       _setShowSystemPrompt(!_showSystemPrompt)
                     }
-                    onToggleJailbreakPrompt={() =>
-                      _setShowJailbreakPrompt(!_showJailbreakPrompt)
+                    onToggleAnchorPrompt={() =>
+                      _setShowAnchorPrompt(!_showAnchorPrompt)
                     }
                     onToggleReplySuggestionPrompt={() =>
                       _setShowReplySuggestionPrompt(!_showReplySuggestionPrompt)
@@ -313,8 +343,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAPIProvider={setAPIProvider}
                     setOpenRouterApiKey={setOpenRouterApiKey}
                     setGeminiApiKey={setGeminiApiKey}
+                    setGoogleCloudApiKey={setGoogleCloudApiKey}
                     useDirectGeminiAPI={useDirectGeminiAPI ?? false}
                     setUseDirectGeminiAPI={setUseDirectGeminiAPI}
+                    onSetInspirationUseFixedModel={
+                      setInspirationUseFixedModel
+                    }
+                    onSetInspirationFixedModel={setInspirationFixedModel}
+                    onSetInspirationFixedUseDirectGeminiAPI={
+                      setInspirationFixedUseDirectGeminiAPI
+                    }
                   />
                 )}
                 {activeTab === "language" && <LanguagePanel />}
@@ -323,13 +361,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {["privacy", "notifications", "developer"].includes(
                   activeTab
                 ) && (
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">
-                      {tabs.find((t) => t.id === activeTab)?.label}設定
-                    </h3>
-                    <p className="text-gray-400">この設定は開発中です。</p>
-                  </div>
-                )}
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-semibold text-white mb-4">
+                        {tabs.find((t) => t.id === activeTab)?.label}設定
+                      </h3>
+                      <p className="text-gray-400">この設定は開発中です。</p>
+                    </div>
+                  )}
               </div>
             </div>
 

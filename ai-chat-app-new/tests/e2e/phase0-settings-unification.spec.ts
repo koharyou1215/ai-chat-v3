@@ -136,6 +136,30 @@ test.describe('Phase 0: Settings Unification', () => {
     expect(persistedTemp).toBe(testTemperature);
   });
 
+  test('should persist prompt fallback mode across reload', async ({ page }) => {
+    await page.goto('http://localhost:3000');
+    await page.waitForLoadState('networkidle');
+
+    await page.evaluate(() => {
+      // @ts-ignore
+      const store = window.useAppStore?.getState();
+      store?.updateCategory('prompts', { chatSystemPromptMode: 'minimal' });
+    });
+
+    await page.waitForTimeout(200);
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    const persistedMode = await page.evaluate(() => {
+      // @ts-ignore
+      const store = window.useAppStore?.getState();
+      return store?.unifiedSettings?.prompts?.chatSystemPromptMode;
+    });
+
+    expect(persistedMode).toBe('minimal');
+  });
+
   test('should persist UI settings across reload', async ({ page }) => {
     await page.goto('http://localhost:3000');
     await page.waitForLoadState('networkidle');

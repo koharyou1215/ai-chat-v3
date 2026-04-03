@@ -14,17 +14,25 @@ import {
   ImageGenerationSettings,
   APIConfig,
   APIProvider,
+  ChatSystemPromptMode,
 } from "@/types/core/settings.types";
+import { EmotionalIntelligenceFlags } from "@/types/core/emotional-intelligence.types";
 
 // Zustand用の設定スライス型
 export interface SettingsSliceV2 extends AISettings {
   // Modal states
   showSettingsModal: boolean;
   showVoiceSettingsModal: boolean;
+
+  // Anchor Prompt Depth
+  anchorDepth: number;
   initialSettingsTab: string;
 
   // 統一設定（読み取り専用）
   unifiedSettings: UnifiedSettings;
+
+  // 🧠 感情知能システムフラグ（読み取り専用、統一設定から計算）
+  emotionalIntelligenceFlags: EmotionalIntelligenceFlags;
 
   // 互換性のための既存設定（統一設定から導出）
   languageSettings: {
@@ -48,7 +56,10 @@ export interface SettingsSliceV2 extends AISettings {
   updateAppearanceSettings: (settings: Partial<UnifiedSettings["ui"]>) => void;
   updateSystemPrompts: (prompts: Partial<SystemPrompts>) => void;
   setEnableSystemPrompt: (enable: boolean) => void;
+  setChatSystemPromptMode: (mode: ChatSystemPromptMode) => void;
+  setEnableAnchorPrompt: (enable: boolean) => void;
   setEnableJailbreakPrompt: (enable: boolean) => void;
+  setAnchorDepth: (depth: number) => void;
   updateChatSettings: (settings: Partial<ChatSettings>) => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   updateImageGenerationSettings: (
@@ -59,6 +70,7 @@ export interface SettingsSliceV2 extends AISettings {
   setAPIModel: (model: string) => void;
   setOpenRouterApiKey: (key: string) => void;
   setGeminiApiKey: (key: string) => void;
+  setGoogleCloudApiKey: (key: string) => void;
   setUseDirectGeminiAPI: (enabled: boolean) => void;
   setTemperature: (temp: number) => void;
   resetSystemPrompts: () => void;
@@ -69,6 +81,10 @@ export interface SettingsSliceV2 extends AISettings {
   setContextWindow: (window: number) => void;
   setShowSettingsModal: (show: boolean, initialTab?: string) => void;
   setShowVoiceSettingsModal: (show: boolean) => void;
+  // 💡 インスピレーション機能専用モデル設定
+  setInspirationUseFixedModel: (enabled: boolean) => void;
+  setInspirationFixedModel: (model: string, provider?: APIProvider) => void;
+  setInspirationFixedUseDirectGeminiAPI: (enabled: boolean) => void;
 
   // 内部用：統一設定同期
   syncFromUnifiedSettings: () => void;
@@ -120,13 +136,34 @@ export const createSettingsSliceV2: StateCreator<
     // 互換性のための既存設定（統一設定から導出）
     languageSettings: {
       language: initialSettings.ui.language,
-      timezone: "Asia/Tokyo",
-      dateFormat: "YYYY/MM/DD",
-      timeFormat: initialSettings.ui.language === "ja" ? "24" : "12",
-      currency: initialSettings.ui.language === "ja" ? "JPY" : "USD",
+      timezone: initialSettings.ui.timezone || "Asia/Tokyo",
+      dateFormat: initialSettings.ui.dateFormat || "YYYY/MM/DD",
+      timeFormat:
+        initialSettings.ui.timeFormat ||
+        (initialSettings.ui.language === "ja" ? "24" : "12"),
+      currency:
+        initialSettings.ui.currency ||
+        (initialSettings.ui.language === "ja" ? "JPY" : "USD"),
     },
 
     effectSettings: initialSettings.effects,
+
+    // 🧠 感情知能システムフラグ（統一設定から計算）
+    emotionalIntelligenceFlags: {
+      emotion_analysis_enabled: (initialSettings.emotionalIntelligence.enabled ?? false) && (initialSettings.emotionalIntelligence.analysis.basic ?? false),
+      emotional_memory_enabled: initialSettings.emotionalIntelligence.memoryEnabled ?? true,
+      basic_effects_enabled: initialSettings.effects.emotion.displayMode !== 'none',
+      contextual_analysis_enabled: initialSettings.emotionalIntelligence.analysis.contextual ?? false,
+      adaptive_performance_enabled: initialSettings.emotionalIntelligence.adaptivePerformance ?? false,
+      visual_effects_enabled: initialSettings.effects.emotion.displayMode === 'rich' || initialSettings.effects.emotion.displayMode === 'standard',
+      predictive_analysis_enabled: initialSettings.emotionalIntelligence.analysis.predictive ?? false,
+      advanced_effects_enabled: initialSettings.effects.emotion.displayMode === 'rich',
+      multi_layer_analysis_enabled: initialSettings.emotionalIntelligence.analysis.multiLayer ?? false,
+      safe_mode: initialSettings.emotionalIntelligence.safeMode ?? false,
+      fallback_to_legacy: initialSettings.emotionalIntelligence.fallbackToLegacy ?? false,
+      performance_monitoring: initialSettings.emotionalIntelligence.performanceMonitoring ?? false,
+      debug_mode: initialSettings.emotionalIntelligence.debugMode ?? false,
+    },
 
     // 🔧 FIX: すべての外観設定を統一設定から読み込む
     appearanceSettings: {
@@ -158,6 +195,7 @@ export const createSettingsSliceV2: StateCreator<
       backgroundBlurEnabled: initialSettings.ui.background?.image?.blurEnabled ?? false,
       backgroundOpacity: initialSettings.ui.background?.image?.opacity || 100,
       backgroundGradient: initialSettings.ui.background?.gradient?.value || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      background: initialSettings.ui.background,
       // Favicon
       faviconPath: initialSettings.ui.faviconPath || "/favicon.ico",
       faviconSvg: initialSettings.ui.faviconSvg || "/favicon.svg",
@@ -173,8 +211,8 @@ export const createSettingsSliceV2: StateCreator<
     apiConfig: {
       // 🔧 CRITICAL FIX: "gemini"と"google"を許可（OpenRouterに強制変換しない）
       provider: (initialSettings.api.provider === "openai" ||
-      initialSettings.api.provider === "anthropic" ||
-      initialSettings.api.provider === "groq"
+        initialSettings.api.provider === "anthropic" ||
+        initialSettings.api.provider === "groq"
         ? "openrouter"
         : initialSettings.api.provider === "google"
           ? "gemini"  // 🔧 "google"を"gemini"に正規化（OpenRouterではなく）
@@ -186,21 +224,35 @@ export const createSettingsSliceV2: StateCreator<
       frequency_penalty: 0.6,
       presence_penalty: 0.3,
       context_window: 20,
+      inspiration: initialSettings.api.inspiration,
     },
     openRouterApiKey: initialSettings.api.openrouterApiKey,
     geminiApiKey: initialSettings.api.geminiApiKey,
+    googleCloudApiKey: initialSettings.api.googleCloudApiKey,
     // 🔧 FIX: 初期化時に統一設定から読み込む（デフォルト値はtrue）
     useDirectGeminiAPI: initialSettings.api.useDirectGeminiAPI ?? true,
 
     // 🔧 FIX: systemPrompts設定を統一設定から読み込む
+    // Anchor Depth
+    anchorDepth: initialSettings.prompts?.anchorDepth ?? 0,
+
     systemPrompts: {
       system: initialSettings.prompts?.system || "",
-      jailbreak: initialSettings.prompts?.jailbreak || "",
+      anchor: initialSettings.prompts?.anchor || "",
       replySuggestion: initialSettings.prompts?.replySuggestion || "",
+      replySuggestionStyle: initialSettings.prompts?.replySuggestionStyle || {
+        personality: "",
+        tone: "",
+        behavior: "",
+        firstPerson: ""
+      },
       textEnhancement: initialSettings.prompts?.textEnhancement || "",
+      jailbreak: initialSettings.prompts?.jailbreak || "",
+      selectedPresetId: initialSettings.prompts?.selectedPresetId,
     },
     enableSystemPrompt: initialSettings.prompts?.enableSystemPrompt ?? false,
-    enableJailbreakPrompt: initialSettings.prompts?.enableJailbreakPrompt ?? false,
+    chatSystemPromptMode: initialSettings.prompts?.chatSystemPromptMode ?? "legacy",
+    enableAnchorPrompt: initialSettings.prompts?.enableAnchorPrompt ?? false,
 
     chat: {
       responseFormat: initialSettings.chat?.responseFormat ?? "normal",
@@ -216,8 +268,8 @@ export const createSettingsSliceV2: StateCreator<
         max_working_memory: 6,
         max_memory_cards: 50,
         max_relevant_memories: 5,
-        max_prompt_tokens: 32000,
-        max_context_messages: 40,
+        max_prompt_tokens: 80000,
+        max_context_messages: 100,
       },
       progressiveMode: initialSettings.chat?.progressiveMode ?? {
         enabled: true,
@@ -279,13 +331,19 @@ export const createSettingsSliceV2: StateCreator<
         customQualityTags: "",
       },
       stableDiffusion: {
-        modelId: "stable-diffusion-v1-5",
-        width: 512,
-        height: 512,
+        modelId: "miaomiaoHarem_v195.safetensors",
+        width: 1024,
+        height: 1024,
         steps: 20,
-        cfgScale: 7,
-        sampler: "DPM++ 2M Karras",
+        cfgScale: 5.0,
+        distilledCfgScale: 3.5,
+        sampler: "DPM++ 2M",
+        scheduler: "karras",
         seed: -1,
+        customQualityTags: "",
+        clipSkip: 1,
+        batchCount: 1,
+        batchSize: 1,
       },
     },
 
@@ -307,9 +365,18 @@ export const createSettingsSliceV2: StateCreator<
 
     updateLanguageSettings: (settings) => {
       // 言語設定を統一設定に変換
-      if (settings.language) {
-        settingsManager.updateCategory("ui", { language: settings.language });
+      const uiUpdates: Partial<UnifiedSettings["ui"]> = {};
+
+      if (settings.language !== undefined) uiUpdates.language = settings.language;
+      if (settings.timezone !== undefined) uiUpdates.timezone = settings.timezone;
+      if (settings.dateFormat !== undefined) uiUpdates.dateFormat = settings.dateFormat;
+      if (settings.timeFormat !== undefined) uiUpdates.timeFormat = settings.timeFormat;
+      if (settings.currency !== undefined) uiUpdates.currency = settings.currency;
+
+      if (Object.keys(uiUpdates).length > 0) {
+        settingsManager.updateCategory("ui", uiUpdates);
       }
+
       set((state) => ({
         languageSettings: { ...state.languageSettings, ...settings },
       }));
@@ -357,40 +424,59 @@ export const createSettingsSliceV2: StateCreator<
       if (settings.shadowColor !== undefined) uiUpdates.shadowColor = settings.shadowColor;
 
       // 🆕 Phase 3: Background（階層構造への変換）
-      // @ts-expect-error - Migration: complex nested background object type conversions
+      // ヘルパー: 既存設定をベースにbackgroundオブジェクトを安全に構築
+      const ensureBackground = () => {
+        if (!uiUpdates.background) {
+          const current = get().unifiedSettings.ui.background;
+          uiUpdates.background = { ...current };
+        }
+        return uiUpdates.background;
+      };
+      const ensureBackgroundImage = () => {
+        const bg = ensureBackground();
+        if (!bg.image) {
+          const current = get().unifiedSettings.ui.background.image;
+          bg.image = { ...current };
+        }
+        return bg.image;
+      };
+
       if (settings.backgroundType !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        (uiUpdates.background as NonNullable<typeof uiUpdates.background>).type = settings.backgroundType;
+        ensureBackground().type = settings.backgroundType;
       }
-      // @ts-expect-error - Migration: complex nested background object type conversions
       if (settings.backgroundImage !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        if (!(uiUpdates.background as Record<string, unknown>).image) (uiUpdates.background as Record<string, unknown>).image = {} as typeof uiUpdates.background.image;
-        (uiUpdates.background.image as NonNullable<typeof uiUpdates.background.image>).url = settings.backgroundImage;
+        const currentState = get().appearanceSettings;
+        ensureBackground().type = 'image';
+        const img = ensureBackgroundImage();
+        img.url = settings.backgroundImage;
+        if (img.blur === undefined) img.blur = currentState.backgroundBlur ?? 10;
+        if (img.blurEnabled === undefined) img.blurEnabled = currentState.backgroundBlurEnabled ?? false;
+        if (img.opacity === undefined) img.opacity = currentState.backgroundOpacity ?? 100;
       }
-      // @ts-expect-error - Migration: complex nested background object type conversions
       if (settings.backgroundBlur !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        if (!(uiUpdates.background as Record<string, unknown>).image) (uiUpdates.background as Record<string, unknown>).image = {} as typeof uiUpdates.background.image;
-        (uiUpdates.background.image as NonNullable<typeof uiUpdates.background.image>).blur = settings.backgroundBlur;
+        ensureBackgroundImage().blur = settings.backgroundBlur;
       }
-      // @ts-expect-error - Migration: complex nested background object type conversions
       if (settings.backgroundBlurEnabled !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        if (!(uiUpdates.background as Record<string, unknown>).image) (uiUpdates.background as Record<string, unknown>).image = {} as typeof uiUpdates.background.image;
-        (uiUpdates.background.image as NonNullable<typeof uiUpdates.background.image>).blurEnabled = settings.backgroundBlurEnabled;
+        ensureBackgroundImage().blurEnabled = settings.backgroundBlurEnabled;
       }
-      // @ts-expect-error - Migration: complex nested background object type conversions
       if (settings.backgroundOpacity !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        if (!(uiUpdates.background as Record<string, unknown>).image) (uiUpdates.background as Record<string, unknown>).image = {} as typeof uiUpdates.background.image;
-        (uiUpdates.background.image as NonNullable<typeof uiUpdates.background.image>).opacity = settings.backgroundOpacity;
+        ensureBackgroundImage().opacity = settings.backgroundOpacity;
       }
-      // @ts-expect-error - Migration: complex nested background object type conversions
       if (settings.backgroundGradient !== undefined) {
-        if (!uiUpdates.background) uiUpdates.background = {} as typeof uiUpdates.background;
-        if (!(uiUpdates.background as Record<string, unknown>).gradient) (uiUpdates.background as Record<string, unknown>).gradient = {} as typeof uiUpdates.background.gradient;
-        (uiUpdates.background.gradient as NonNullable<typeof uiUpdates.background.gradient>).value = settings.backgroundGradient;
+        const bg = ensureBackground();
+        if (!bg.gradient) {
+          const current = get().unifiedSettings.ui.background.gradient;
+          bg.gradient = { ...current };
+        }
+        bg.gradient.value = settings.backgroundGradient;
+      }
+
+
+      // 🆕 Fix: Explicitly handle the full background object from AppearancePanel
+      if (settings.background !== undefined) {
+        // If we have a comprehensive background object, override/merge it
+        // Note: settingsManager.updateCategory handles deep merging, so we can pass partially populated objects safely
+        uiUpdates.background = settings.background;
       }
 
       // Effects
@@ -420,18 +506,18 @@ export const createSettingsSliceV2: StateCreator<
       const promptUpdates: Partial<UnifiedSettings["prompts"]> = {};
 
       if (prompts.system !== undefined) promptUpdates.system = prompts.system;
-      if (prompts.jailbreak !== undefined) promptUpdates.jailbreak = prompts.jailbreak;
+      if (prompts.anchor !== undefined) promptUpdates.anchor = prompts.anchor;
       if (prompts.replySuggestion !== undefined) promptUpdates.replySuggestion = prompts.replySuggestion;
+      if (prompts.replySuggestionStyle !== undefined) promptUpdates.replySuggestionStyle = prompts.replySuggestionStyle;
       if (prompts.textEnhancement !== undefined) promptUpdates.textEnhancement = prompts.textEnhancement;
+      if (prompts.jailbreak !== undefined) promptUpdates.jailbreak = prompts.jailbreak;
+      if (prompts.selectedPresetId !== undefined) promptUpdates.selectedPresetId = prompts.selectedPresetId;
 
       // 統一設定に保存
       if (Object.keys(promptUpdates).length > 0) {
         console.log("📝 [updateSystemPrompts] Updating prompts via unified settings:", promptUpdates);
         settingsManager.updateCategory("prompts", promptUpdates);
       }
-
-      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → systemPrompts更新
-      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     setEnableSystemPrompt: (enable) => {
@@ -440,9 +526,25 @@ export const createSettingsSliceV2: StateCreator<
       settingsManager.updateCategory("prompts", { enableSystemPrompt: enable });
     },
 
-    setEnableJailbreakPrompt: (enable) => {
-      console.log("📝 [setEnableJailbreakPrompt] Updating via unified settings:", enable);
+    setChatSystemPromptMode: (mode) => {
+      console.log("統 [setChatSystemPromptMode] Updating via unified settings:", mode);
+      settingsManager.updateCategory("prompts", { chatSystemPromptMode: mode });
+    },
+
+    setEnableAnchorPrompt: (enable: boolean) => {
+      console.log("📝 [setEnableAnchorPrompt] Updating via unified settings:", enable);
       // ✅ FIX: 統一設定経由でのみ更新（二重更新を排除）
+      settingsManager.updateCategory("prompts", { enableAnchorPrompt: enable });
+    },
+
+    setAnchorDepth: (depth: number) => {
+      console.log("📝 [setAnchorDepth] Updating via unified settings:", depth);
+      settingsManager.updateCategory("prompts", { anchorDepth: depth });
+    },
+
+    setEnableJailbreakPrompt: (enable: boolean) => {
+      // Jailbreak prompt settings might not be in UnifiedSettings yet, or part of prompts
+      console.log("📝 [setEnableJailbreakPrompt] Updating via unified settings:", enable);
       settingsManager.updateCategory("prompts", { enableJailbreakPrompt: enable });
     },
 
@@ -475,11 +577,9 @@ export const createSettingsSliceV2: StateCreator<
       // ✅ 追加: メモリー制限設定（スネークケース → キャメルケース変換）
       if ("memoryLimits" in settings && settings.memoryLimits) {
         chatUpdates.memoryLimits = settings.memoryLimits as typeof chatUpdates.memoryLimits;
-        console.log("🔧 [updateChatSettings] Saving memoryLimits to settingsManager:", settings.memoryLimits);
       }
       if ("memory_limits" in settings && settings.memory_limits) {
         const ml = settings.memory_limits as Record<string, unknown>;
-        // スネークケースをキャメルケースに変換
         chatUpdates.memoryLimits = {
           maxWorkingMemory: ml.max_working_memory as number,
           maxMemoryCards: ml.max_memory_cards as number,
@@ -487,22 +587,22 @@ export const createSettingsSliceV2: StateCreator<
           maxPromptTokens: ml.max_prompt_tokens as number,
           maxContextMessages: ml.max_context_messages as number,
         };
-        console.log("🔧 [updateChatSettings] Converted memory_limits (snake_case) to memoryLimits (camelCase):", chatUpdates.memoryLimits);
       }
 
-      // ✅ 追加: プログレッシブモード設定（最重要！）
+      // ✅ 追加: プログレッシブモード設定
       if ("progressiveMode" in settings && settings.progressiveMode) {
         const pm = settings.progressiveMode;
         chatUpdates.progressiveMode = {
-          enabled: typeof pm.enabled === 'boolean' ? pm.enabled : false,
-          showIndicators: typeof pm.showIndicators === 'boolean' ? pm.showIndicators : undefined,
-          highlightChanges: typeof pm.highlightChanges === 'boolean' ? pm.highlightChanges : undefined,
-          glowIntensity: pm.glowIntensity as typeof chatUpdates.progressiveMode.glowIntensity,
-          stageDelays: pm.stageDelays as typeof chatUpdates.progressiveMode.stageDelays,
+          enabled: !!pm.enabled,
+          showIndicators: pm.showIndicators ?? true,
+          highlightChanges: pm.highlightChanges ?? true,
+          glowIntensity: pm.glowIntensity ?? "medium",
+          stageDelays: pm.stageDelays ?? {
+            reflex: 0,
+            context: 1000,
+            intelligence: 2000,
+          },
         };
-        console.log("🔧 [updateChatSettings] Saving progressive mode to settingsManager:", {
-          progressiveMode: settings.progressiveMode,
-        });
       }
 
       // 統一設定に保存
@@ -510,9 +610,6 @@ export const createSettingsSliceV2: StateCreator<
         console.log("💬 [updateChatSettings] Updating chat via unified settings:", chatUpdates);
         settingsManager.updateCategory("chat", chatUpdates);
       }
-
-      // ✅ FIX: subscribeコールバック → syncFromUnifiedSettings() → chat更新
-      // 直接のZustandストア更新を削除（二重更新を排除）
     },
 
     updateVoiceSettings: (settings) => {
@@ -524,6 +621,7 @@ export const createSettingsSliceV2: StateCreator<
       if (settings.autoPlay !== undefined) voiceUpdates.autoPlay = settings.autoPlay;
       if (settings.voicevox !== undefined) voiceUpdates.voicevox = settings.voicevox;
       if (settings.elevenlabs !== undefined) voiceUpdates.elevenlabs = settings.elevenlabs;
+      if (settings.vertexHyper !== undefined) voiceUpdates.vertexHyper = settings.vertexHyper; // 🔧 FIX: Vertex Hyper設定を追加
       if (settings.system !== undefined) voiceUpdates.system = settings.system;
       if (settings.advanced !== undefined) voiceUpdates.advanced = settings.advanced;
 
@@ -542,7 +640,12 @@ export const createSettingsSliceV2: StateCreator<
       const imageGenUpdates: Partial<UnifiedSettings["imageGeneration"]> = {};
 
       if (settings.provider !== undefined) imageGenUpdates.provider = settings.provider;
-      if (settings.runware !== undefined) imageGenUpdates.runware = settings.runware;
+      if (settings.runware !== undefined) {
+        imageGenUpdates.runware = {
+          ...settings.runware,
+          apiKey: settings.runware.apiKey || "" // 🔧 FIX: Ensure apiKey is present
+        };
+      }
       if (settings.stableDiffusion !== undefined) imageGenUpdates.stableDiffusion = settings.stableDiffusion;
 
       // 統一設定に保存
@@ -597,6 +700,11 @@ export const createSettingsSliceV2: StateCreator<
       simpleAPIManagerV2.setGeminiApiKey(key);
     },
 
+    setGoogleCloudApiKey: (key) => {
+      settingsManager.updateCategory("api", { googleCloudApiKey: key });
+      set({ googleCloudApiKey: key });
+    },
+
     setUseDirectGeminiAPI: (enabled) => {
       // 🔧 FIX: 統一設定に保存を追加（画面切り替え時の設定保持）
       settingsManager.updateCategory("api", { useDirectGeminiAPI: enabled });
@@ -623,11 +731,13 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     setTopP: (topP) => {
+      settingsManager.updateCategory("api", { topP });
       set((state) => ({ apiConfig: { ...state.apiConfig, top_p: topP } }));
       simpleAPIManagerV2.setAPIConfig(get().apiConfig);
     },
 
     setFrequencyPenalty: (penalty) => {
+      settingsManager.updateCategory("api", { frequencyPenalty: penalty });
       set((state) => ({
         apiConfig: { ...state.apiConfig, frequency_penalty: penalty },
       }));
@@ -635,6 +745,7 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     setPresencePenalty: (penalty) => {
+      settingsManager.updateCategory("api", { presencePenalty: penalty });
       set((state) => ({
         apiConfig: { ...state.apiConfig, presence_penalty: penalty },
       }));
@@ -642,6 +753,7 @@ export const createSettingsSliceV2: StateCreator<
     },
 
     setContextWindow: (window) => {
+      settingsManager.updateCategory("api", { contextWindow: window });
       set((state) => ({
         apiConfig: { ...state.apiConfig, context_window: window },
       }));
@@ -651,9 +763,16 @@ export const createSettingsSliceV2: StateCreator<
     resetSystemPrompts: () => {
       const emptyPrompts = {
         system: "",
-        jailbreak: "",
+        anchor: "",
         replySuggestion: "",
+        replySuggestionStyle: {
+          personality: "",
+          tone: "",
+          behavior: "",
+          firstPerson: ""
+        },
         textEnhancement: "",
+        jailbreak: "",
       };
       set({ systemPrompts: emptyPrompts });
     },
@@ -664,6 +783,40 @@ export const createSettingsSliceV2: StateCreator<
 
     setShowVoiceSettingsModal: (show) => {
       set({ showVoiceSettingsModal: show });
+    },
+
+    // 💡 インスピレーション機能専用モデル設定
+    setInspirationUseFixedModel: (enabled) => {
+      console.log(`💡 [setInspirationUseFixedModel] ${enabled ? 'ON' : 'OFF'}`);
+      const currentInspiration = get().apiConfig.inspiration || { useFixedModel: false };
+      const newConfig = {
+        ...get().apiConfig,
+        inspiration: { ...currentInspiration, useFixedModel: enabled }
+      };
+      set({ apiConfig: newConfig });
+      settingsManager.updateCategory("api", { inspiration: newConfig.inspiration });
+    },
+
+    setInspirationFixedModel: (model, provider) => {
+      console.log(`💡 [setInspirationFixedModel] Model: ${model}, Provider: ${provider || 'auto'}`);
+      const currentInspiration = get().apiConfig.inspiration || { useFixedModel: false };
+      const newInspiration = {
+        ...currentInspiration,
+        fixedModel: model,
+        fixedProvider: provider || (model.startsWith('gemini-') ? 'gemini' as APIProvider : 'openrouter' as APIProvider),
+      };
+      const newConfig = { ...get().apiConfig, inspiration: newInspiration };
+      set({ apiConfig: newConfig });
+      settingsManager.updateCategory("api", { inspiration: newInspiration });
+    },
+
+    setInspirationFixedUseDirectGeminiAPI: (enabled) => {
+      console.log(`💡 [setInspirationFixedUseDirectGeminiAPI] ${enabled ? 'ON' : 'OFF'}`);
+      const currentInspiration = get().apiConfig.inspiration || { useFixedModel: false };
+      const newInspiration = { ...currentInspiration, fixedUseDirectGeminiAPI: enabled };
+      const newConfig = { ...get().apiConfig, inspiration: newInspiration };
+      set({ apiConfig: newConfig });
+      settingsManager.updateCategory("api", { inspiration: newInspiration });
     },
 
     // 内部用：統一設定から同期
@@ -680,21 +833,46 @@ export const createSettingsSliceV2: StateCreator<
 
       set({
         effectSettings: unified.effects,
+        // 🧠 感情知能システムフラグの同期
+        emotionalIntelligenceFlags: {
+          emotion_analysis_enabled: unified.emotionalIntelligence.enabled && unified.emotionalIntelligence.analysis.basic,
+          emotional_memory_enabled: unified.emotionalIntelligence.memoryEnabled,
+          basic_effects_enabled: unified.effects.emotion.displayMode !== 'none',
+          contextual_analysis_enabled: unified.emotionalIntelligence.analysis.contextual,
+          adaptive_performance_enabled: unified.emotionalIntelligence.adaptivePerformance,
+          visual_effects_enabled: unified.effects.emotion.displayMode === 'rich' || unified.effects.emotion.displayMode === 'standard',
+          predictive_analysis_enabled: unified.emotionalIntelligence.analysis.predictive,
+          advanced_effects_enabled: unified.effects.emotion.displayMode === 'rich',
+          multi_layer_analysis_enabled: unified.emotionalIntelligence.analysis.multiLayer,
+          safe_mode: unified.emotionalIntelligence.safeMode,
+          fallback_to_legacy: unified.emotionalIntelligence.fallbackToLegacy,
+          performance_monitoring: unified.emotionalIntelligence.performanceMonitoring,
+          debug_mode: unified.emotionalIntelligence.debugMode,
+        },
         // 🔧 FIX: systemPromptsの同期を追加
         systemPrompts: {
-          system: unified.prompts?.system || "",
-          jailbreak: unified.prompts?.jailbreak || "",
-          replySuggestion: unified.prompts?.replySuggestion || "",
-          textEnhancement: unified.prompts?.textEnhancement || "",
+          system: unified.prompts.system,
+          anchor: unified.prompts.anchor,
+          replySuggestion: unified.prompts.replySuggestion,
+          replySuggestionStyle: unified.prompts.replySuggestionStyle || get().systemPrompts.replySuggestionStyle,
+          textEnhancement: unified.prompts.textEnhancement,
+          jailbreak: unified.prompts.jailbreak || "",
+          selectedPresetId: unified.prompts.selectedPresetId,
         },
         enableSystemPrompt: unified.prompts?.enableSystemPrompt ?? false,
-        enableJailbreakPrompt: unified.prompts?.enableJailbreakPrompt ?? false,
+        chatSystemPromptMode: unified.prompts?.chatSystemPromptMode ?? "legacy",
+        enableAnchorPrompt: unified.prompts?.enableAnchorPrompt ?? false,
+        anchorDepth: unified.prompts?.anchorDepth ?? 0,
         languageSettings: {
           language: unified.ui.language,
-          timezone: "Asia/Tokyo",
-          dateFormat: "YYYY/MM/DD",
-          timeFormat: unified.ui.language === "ja" ? "24" : "12",
-          currency: unified.ui.language === "ja" ? "JPY" : "USD",
+          timezone: unified.ui.timezone || "Asia/Tokyo",
+          dateFormat: unified.ui.dateFormat || "YYYY/MM/DD",
+          timeFormat:
+            unified.ui.timeFormat ||
+            (unified.ui.language === "ja" ? "24" : "12"),
+          currency:
+            unified.ui.currency ||
+            (unified.ui.language === "ja" ? "JPY" : "USD"),
         },
         // 🔧 FIX: 外観設定の同期を追加
         appearanceSettings: {
@@ -722,6 +900,7 @@ export const createSettingsSliceV2: StateCreator<
           backgroundBlurEnabled: unified.ui.background?.image?.blurEnabled ?? false,
           backgroundOpacity: unified.ui.background?.image?.opacity || 100,
           backgroundGradient: unified.ui.background?.gradient?.value || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: unified.ui.background,
           faviconPath: unified.ui.faviconPath || "/favicon.ico",
           faviconSvg: unified.ui.faviconSvg || "/favicon.svg",
           appleTouchIcon: unified.ui.appleTouchIcon || "/apple-touch-icon.png",
@@ -732,14 +911,16 @@ export const createSettingsSliceV2: StateCreator<
         apiConfig: {
           ...get().apiConfig,
           provider: (unified.api.provider === "openai" ||
-          unified.api.provider === "anthropic" ||
-          unified.api.provider === "google" ||
-          unified.api.provider === "groq"
+            unified.api.provider === "anthropic" ||
+            unified.api.provider === "groq"
             ? "openrouter"
+            : unified.api.provider === "google"
+            ? "gemini"
             : unified.api.provider) as APIProvider,
           model: unified.api.model || get().apiConfig.model,
           temperature: unified.api.temperature || get().apiConfig.temperature,
           max_tokens: unified.api.maxTokens || get().apiConfig.max_tokens,
+          inspiration: unified.api.inspiration,
         },
         openRouterApiKey: unified.api.openrouterApiKey,
         geminiApiKey: unified.api.geminiApiKey,

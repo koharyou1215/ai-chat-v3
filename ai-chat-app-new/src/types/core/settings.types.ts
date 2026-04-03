@@ -1,12 +1,33 @@
 // src/types/core/settings.types.ts
 
 export type ChatResponseFormat = "normal" | "roleplay" | "formal";
+export type ChatSystemPromptMode = "legacy" | "minimal";
+
+export interface PromptPreset {
+  id: string;
+  name: string;
+  description: string;
+  prompts: {
+    system: string;
+    anchor: string;
+  };
+}
+
+export interface ReplySuggestionStyleSettings {
+  personality: string;
+  tone: string;
+  behavior: string;
+  firstPerson: string;
+}
 
 export interface SystemPrompts {
   system: string;
-  jailbreak: string;
+  anchor: string;
   replySuggestion: string;
+  replySuggestionStyle: ReplySuggestionStyleSettings;
   textEnhancement: string;
+  jailbreak: string;
+  selectedPresetId?: string;
 }
 
 export interface ChatSettings {
@@ -46,6 +67,7 @@ export interface ImageGenerationSettings {
     sampler: string;
     seed: number;
     customQualityTags: string;
+    apiKey?: string;
   };
   stableDiffusion: {
     modelId: string;
@@ -60,7 +82,7 @@ export interface ImageGenerationSettings {
 
 export interface VoiceSettings {
   enabled: boolean;
-  provider: "voicevox" | "elevenlabs" | "system";
+  provider: "voicevox" | "elevenlabs" | "system" | "vertex-hyper";
   autoPlay: boolean;
   voicevox: {
     speaker: number;
@@ -79,6 +101,14 @@ export interface VoiceSettings {
     rate: number;
     pitch: number;
     volume: number;
+  };
+  vertexHyper?: {
+    name: string;
+    ssmlGender: "MALE" | "FEMALE" | "NEUTRAL";
+    languageCode: string;
+    speakingRate: number;
+    pitch: number;
+    volumeGainDb: number;
   };
   advanced: {
     bufferSize: number;
@@ -124,6 +154,15 @@ export interface APIConfig {
   characterId?: string; // キャッシュキー生成用
   personaId?: string; // キャッシュキー生成用
   enableCache?: boolean; // キャッシュ有効化フラグ（デフォルトtrue）
+
+  // インスピレーション設定
+  inspiration?: {
+    useFixedModel: boolean;
+    fixedModel?: string;
+    provider?: string | APIProvider;
+    fixedProvider?: string | APIProvider;
+    fixedUseDirectGeminiAPI?: boolean;
+  };
 }
 
 export interface AISettings {
@@ -131,12 +170,14 @@ export interface AISettings {
   apiConfig: APIConfig;
   openRouterApiKey?: string;
   geminiApiKey?: string;
+  googleCloudApiKey?: string; // Vertex AI用
   useDirectGeminiAPI?: boolean; // Gemini API直接使用のON/OFF
 
   // System Prompts
   systemPrompts: SystemPrompts;
   enableSystemPrompt: boolean;
-  enableJailbreakPrompt: boolean;
+  enableAnchorPrompt: boolean;
+  chatSystemPromptMode: ChatSystemPromptMode;
 
   // Chat Settings
   chat: ChatSettings;
@@ -188,6 +229,18 @@ export interface EffectSettings {
   typewriterIntensity: number;
   bubbleOpacity: number;
   bubbleBlur: boolean;
+  // 🆕 Phase 2: Bubble blur intensity (0-20px)
+  bubbleBlurIntensity?: number;
+
+  // 🎨 Phase 1: Emotion color customization
+  emotionColors?: {
+    positive: string;
+    negative: string;
+    surprise: string;
+    question: string;
+    general: string;
+    default: string;
+  };
 
   // 🎯 Phase 2.1: New nested 3D structure
   threeDEffects?: {
@@ -278,13 +331,50 @@ export interface AppearanceSettings {
   messageBorderRadius: number;
   chatMaxWidth: number;
   sidebarWidth: number;
-  // Background
-  backgroundType: "gradient" | "image" | "color";
+  // Background (Legacy flat structure - for backward compatibility)
+  backgroundType: "gradient" | "image" | "color" | "slideshow";
   backgroundGradient: string;
   backgroundImage: string;
   backgroundBlur: number;
   backgroundBlurEnabled: boolean;
   backgroundOpacity: number;
+
+  // 🆕 Background (New hierarchical structure with video support)
+  background?: {
+    type: 'gradient' | 'image' | 'video' | 'color' | 'slideshow';
+    image?: {
+      url: string;
+      desktop?: string;
+      mobile?: string;
+      blur?: number;
+      blurEnabled?: boolean;
+      opacity?: number;
+    };
+    video?: {
+      url: string;           // 共通動画URL（フォールバック）
+      desktop?: string;      // デスクトップ用動画URL
+      mobile?: string;       // モバイル用動画URL
+      opacity?: number;      // 動画の不透明度 (0-100)
+      loop?: boolean;        // ループ再生
+      muted?: boolean;       // ミュート
+      autoplay?: boolean;    // 自動再生
+      playbackRate?: number; // 再生速度 (0.5-2.0)
+    };
+    gradient?: {
+      value: string;
+    };
+    color?: {
+      value: string;
+    };
+    slideshow?: {
+      enabled: boolean;
+      interval: number;
+      transition: "fade" | "slide" | "zoom" | "none";
+      keywords?: string[];
+      customUrls?: string[];
+      useCharacterMetadata: boolean;
+    };
+  };
   // Favicon
   faviconPath: string;
   faviconSvg: string;

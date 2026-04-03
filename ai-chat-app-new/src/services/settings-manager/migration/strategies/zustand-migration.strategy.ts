@@ -129,22 +129,32 @@ export class ZustandMigrationStrategy implements MigrationStrategy {
 
   /**
    * Migrates API keys and provider flags
+   *
+   * 🔧 CRITICAL FIX: Only migrate if UnifiedSettings doesn't have a value yet
+   * This prevents overwriting user's new settings with old Zustand data
+   *
    * @private
    */
   private migrateApiKeys(state: Record<string, unknown>, settings: UnifiedSettings): boolean {
     let hasChanges = false;
 
-    if (typeof state.openRouterApiKey === 'string') {
+    // Only migrate if UnifiedSettings doesn't have the key yet
+    if (typeof state.openRouterApiKey === 'string' && !settings.api.openrouterApiKey) {
       settings.api.openrouterApiKey = state.openRouterApiKey;
       hasChanges = true;
+      console.log('🔄 [ZustandMigration] Migrated openRouterApiKey');
     }
-    if (typeof state.geminiApiKey === 'string') {
+
+    if (typeof state.geminiApiKey === 'string' && !settings.api.geminiApiKey) {
       settings.api.geminiApiKey = state.geminiApiKey;
       hasChanges = true;
+      console.log('🔄 [ZustandMigration] Migrated geminiApiKey');
     }
-    if (typeof state.useDirectGeminiAPI === 'boolean') {
+
+    if (typeof state.useDirectGeminiAPI === 'boolean' && settings.api.useDirectGeminiAPI === undefined) {
       settings.api.useDirectGeminiAPI = state.useDirectGeminiAPI;
       hasChanges = true;
+      console.log('🔄 [ZustandMigration] Migrated useDirectGeminiAPI');
     }
 
     return hasChanges;
@@ -156,6 +166,8 @@ export class ZustandMigrationStrategy implements MigrationStrategy {
    */
   private migrateSystemPrompts(state: Record<string, unknown>, settings: UnifiedSettings): boolean {
     let hasChanges = false;
+    const isChatSystemPromptMode = (value: unknown): value is 'legacy' | 'minimal' =>
+      value === 'legacy' || value === 'minimal';
 
     if (state.systemPrompts && typeof state.systemPrompts === 'object') {
       const prompts = state.systemPrompts as Record<string, unknown>;
@@ -164,13 +176,42 @@ export class ZustandMigrationStrategy implements MigrationStrategy {
         system: (typeof prompts.system === 'string' ? prompts.system : '') as string,
         jailbreak: (typeof prompts.jailbreak === 'string' ? prompts.jailbreak : '') as string,
         replySuggestion: (typeof prompts.replySuggestion === 'string' ? prompts.replySuggestion : '') as string,
+        replySuggestionStyle: typeof prompts.replySuggestionStyle === 'object' &&
+          prompts.replySuggestionStyle !== null
+          ? {
+              personality:
+                typeof (prompts.replySuggestionStyle as Record<string, unknown>).personality === 'string'
+                  ? (prompts.replySuggestionStyle as Record<string, unknown>).personality as string
+                  : '',
+              tone:
+                typeof (prompts.replySuggestionStyle as Record<string, unknown>).tone === 'string'
+                  ? (prompts.replySuggestionStyle as Record<string, unknown>).tone as string
+                  : '',
+              behavior:
+                typeof (prompts.replySuggestionStyle as Record<string, unknown>).behavior === 'string'
+                  ? (prompts.replySuggestionStyle as Record<string, unknown>).behavior as string
+                  : '',
+              firstPerson:
+                typeof (prompts.replySuggestionStyle as Record<string, unknown>).firstPerson === 'string'
+                  ? (prompts.replySuggestionStyle as Record<string, unknown>).firstPerson as string
+                  : '',
+            }
+          : settings.prompts.replySuggestionStyle,
         textEnhancement: (typeof prompts.textEnhancement === 'string' ? prompts.textEnhancement : '') as string,
       };
+      if (isChatSystemPromptMode(prompts.chatSystemPromptMode)) {
+        settings.prompts.chatSystemPromptMode = prompts.chatSystemPromptMode;
+      }
       hasChanges = true;
     }
 
     if (typeof state.enableSystemPrompt === 'boolean') {
       settings.prompts.enableSystemPrompt = state.enableSystemPrompt;
+      hasChanges = true;
+    }
+
+    if (isChatSystemPromptMode(state.chatSystemPromptMode)) {
+      settings.prompts.chatSystemPromptMode = state.chatSystemPromptMode;
       hasChanges = true;
     }
 
@@ -212,6 +253,19 @@ export class ZustandMigrationStrategy implements MigrationStrategy {
     if (appearance.fontWeight) settings.ui.fontWeight = appearance.fontWeight as typeof settings.ui.fontWeight;
     if (typeof appearance.fontFamily === 'string') settings.ui.fontFamily = appearance.fontFamily;
     if (appearance.lineHeight) settings.ui.lineHeight = appearance.lineHeight as typeof settings.ui.lineHeight;
+
+    // 🔧 FIX: messageSpacing 'spacious' → 'relaxed' マイグレーション
+    // 古いバージョンでは 'spacious' が許可されていたが、現在のスキーマでは 'compact' | 'normal' | 'relaxed' のみ
+    if (appearance.messageSpacing) {
+      const spacingValue = appearance.messageSpacing as string;
+      if (spacingValue === 'spacious') {
+        settings.ui.messageSpacing = 'relaxed';
+        console.log('🔄 [ZustandMigration] Converted messageSpacing: spacious → relaxed');
+      } else if (['compact', 'normal', 'relaxed'].includes(spacingValue)) {
+        settings.ui.messageSpacing = spacingValue as typeof settings.ui.messageSpacing;
+      }
+    }
+
     if (typeof appearance.primaryColor === 'string') settings.ui.primaryColor = appearance.primaryColor;
     if (typeof appearance.accentColor === 'string') settings.ui.accentColor = appearance.accentColor;
     if (typeof appearance.backgroundColor === 'string') settings.ui.backgroundColor = appearance.backgroundColor;
@@ -289,7 +343,6 @@ export class ZustandMigrationStrategy implements MigrationStrategy {
     if (!state.emotionalIntelligenceFlags) return false;
 
     const flags = state.emotionalIntelligenceFlags as Record<string, unknown>;
-    // @ts-ignore - Migration: emotional intelligence flags with complex dynamic typing
     settings.emotionalIntelligence = {
       ...settings.emotionalIntelligence,
       enabled: (typeof flags.emotion_analysis_enabled === 'boolean' ? flags.emotion_analysis_enabled : settings.emotionalIntelligence.enabled),

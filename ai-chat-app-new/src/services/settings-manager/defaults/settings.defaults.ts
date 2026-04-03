@@ -14,7 +14,7 @@ import type { UnifiedSettings } from '../../settings-manager';
  *
  * Structure:
  * - api: API provider and model configuration
- * - prompts: System prompts and jailbreak settings
+ * - prompts: System prompts and anchor settings
  * - ui: User interface appearance and theming
  * - effects: Visual effects and animations
  * - chat: Chat behavior and message settings
@@ -28,15 +28,21 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // API Configuration
   // ═══════════════════════════════════════
   api: {
-    provider: 'openrouter',
-    model: 'openai/gpt-5-mini',
+    provider: 'openrouter',  // ✅ デフォルトはOpenRouter（CLAUDE.md絶対ルール準拠）
+    model: 'google/gemini-2.5-flash-preview-09-2025',  // ✅ OpenRouter経由のGemini 2.5 Flash Preview（ユーザー絶対指定）
     temperature: 0.7,
-    maxTokens: 2048,
+    maxTokens: 4608,
     topP: 1.0,
     frequencyPenalty: 0.6,
     presencePenalty: 0.3,
     contextWindow: 20,
-    useDirectGeminiAPI: false,
+    useDirectGeminiAPI: false,  // ✅ デフォルトはOpenRouter使用（Gemini直接APIは使用しない）
+    inspiration: {
+      useFixedModel: true,
+      fixedModel: 'gemini-3-flash-preview',
+      fixedProvider: 'gemini',
+      fixedUseDirectGeminiAPI: true,
+    },
   },
 
   // ═══════════════════════════════════════
@@ -44,11 +50,22 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // ═══════════════════════════════════════
   prompts: {
     system: '',
-    jailbreak: '',
+    anchor: '',
     replySuggestion: '',
+    replySuggestionStyle: {
+      personality: '',
+      tone: '',
+      behavior: '',
+      firstPerson: '',
+    },
     textEnhancement: '',
+    jailbreak: '',
     enableSystemPrompt: false,
+    chatSystemPromptMode: 'legacy',
+    enableAnchorPrompt: false,
+    anchorDepth: 3,
     enableJailbreakPrompt: false,
+    selectedPresetId: undefined,
   },
 
   // ═══════════════════════════════════════
@@ -82,15 +99,29 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     borderColor: '#374151',
     shadowColor: '#000000',
 
-    // Background
-    backgroundType: 'gradient',
-    backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    backgroundImage: '',
-    backgroundBlur: 10,
-    backgroundBlurEnabled: false,
-    backgroundOpacity: 100,
-    backgroundPattern: '',
-    backgroundPatternOpacity: 0,
+    // Background (Phase 3: 階層構造)
+    background: {
+      type: 'gradient',
+      image: {
+        url: '',            // 後方互換性フィールド
+        desktop: '',        // 🆕 デスクトップ用URL（横長画像推奨）
+        mobile: '',         // 🆕 モバイル用URL（縦長画像推奨）
+        blur: 10,
+        blurEnabled: false,
+        opacity: 100,
+      },
+      gradient: {
+        value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      },
+      slideshow: {
+        enabled: false,
+        interval: 10,
+        transition: 'fade',
+        keywords: [],
+        customUrls: [],
+        useCharacterMetadata: true,
+      },
+    },
 
     // Effects
     enableAnimations: true,
@@ -122,7 +153,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     colorfulBubbles: true,
     fontEffects: true,
     particleEffects: false,
-    typewriterEffect: true,
+    typewriterEffect: false,
     typewriterSound: true,
 
     // Effect Intensities
@@ -133,30 +164,41 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     typewriterSoundVolume: 30,
 
     // Bubble Settings
-    bubbleOpacity: 85,
-    bubbleBlur: true,
+    bubbleOpacity: 15,
+    bubbleBlur: false,
+    bubbleBlurIntensity: 8,  // 🆕 Phase 2: デフォルト8px
+
+    // 🎨 Phase 1: Emotion Color Settings
+    emotionColors: {
+      positive: '#ff99c2',   // ポジティブ: ピンク
+      negative: '#70b8ff',   // ネガティブ: ライトブルー
+      surprise: '#ffd93d',   // 驚き: イエロー
+      question: '#00d9ff',   // 質問: シアン
+      general: '#ff9999',    // 一般強調: ライトレッド
+      default: '#ffffff',    // デフォルト: 白
+    },
 
     // 🎯 Phase 2.1: 3D Effects Structure
     threeDEffects: {
-      enabled: true,
+      enabled: false,
       hologram: {
         enabled: false,
         intensity: 40,
       },
       particleText: {
-        enabled: true,
+        enabled: false,
         intensity: 35,
       },
       ripple: {
-        enabled: true,
+        enabled: false,
         intensity: 60,
       },
       backgroundParticles: {
-        enabled: true,
+        enabled: false,
         intensity: 25,
       },
       depth: {
-        enabled: true,
+        enabled: false,
       },
       quality: 'medium' as const,
     },
@@ -175,14 +217,14 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // 🎯 Phase 2.2: Emotion Display Structure
     emotion: {
-      displayMode: 'standard' as const,
+      displayMode: 'none' as const,
       display: {
         showText: false,
-        applyColors: true,
-        showIcon: true,
+        applyColors: false,
+        showIcon: false,
       },
-      realtimeDetection: true,
-      autoReactions: true,
+      realtimeDetection: false,
+      autoReactions: false,
       intensity: 50,
     },
 
@@ -199,7 +241,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
     showTrackers: true,
     effectQuality: 'medium',
     animationSpeed: 0.5,
-    webglEnabled: true,
+    webglEnabled: false,
     adaptivePerformance: true,
     maxParticles: 2000,
 
@@ -235,13 +277,13 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
       maxWorkingMemory: 6,
       maxMemoryCards: 50,
       maxRelevantMemories: 5,
-      maxPromptTokens: 32000,
-      maxContextMessages: 40,
+      maxPromptTokens: 80000,
+      maxContextMessages: 50,
     },
 
     // Progressive Mode
     progressiveMode: {
-      enabled: true,
+      enabled: false,  // 🔧 CRITICAL FIX: デフォルト無効化（Gemini APIレート制限対策）
       showIndicators: true,
       highlightChanges: true,
       glowIntensity: 'medium',
@@ -257,7 +299,7 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
   // Voice Synthesis Configuration
   // ═══════════════════════════════════════
   voice: {
-    enabled: true,
+    enabled: false,
     provider: 'voicevox',
     autoPlay: false,
 
@@ -303,10 +345,11 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // Runware Settings
     runware: {
-      modelId: 'runware:100@1',
+      modelId: 'bytedance:5@0', // User preferred model
+      apiKey: '',
       lora: '',
-      width: 512,
-      height: 512,
+      width: 2304, // User preferred width
+      height: 1728, // User preferred height
       steps: 20,
       cfgScale: 7,
       sampler: 'DPM++ 2M Karras',
@@ -343,19 +386,19 @@ export const DEFAULT_SETTINGS: UnifiedSettings = {
 
     // Analysis Capabilities
     analysis: {
-      basic: true,
-      contextual: true,
-      predictive: true,
-      multiLayer: true,
+      basic: false,
+      contextual: false,
+      predictive: false,
+      multiLayer: false,
     },
 
     // Features
     memoryEnabled: true,
-    adaptivePerformance: true,
+    adaptivePerformance: false,
     safeMode: false,
     performanceMonitoring: false,
     debugMode: false,
-    fallbackToLegacy: true,
+    fallbackToLegacy: false,
 
     // 🔄 Phase 2.2: Backwards Compatibility (Deprecated)
     emotionAnalysisEnabled: undefined,

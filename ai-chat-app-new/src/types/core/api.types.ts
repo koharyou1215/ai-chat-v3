@@ -41,6 +41,9 @@ export interface APISettings {
   /** OpenRouter APIキー */
   openrouterApiKey?: string;
 
+  /** Google Cloud APIキー (Text-to-Speech等用) */
+  googleCloudApiKey?: string;
+
   /** 使用モデルID */
   model?: string;
 
@@ -65,15 +68,18 @@ export interface APISettings {
   /** Gemini直接API使用フラグ - trueの場合はOpenRouter経由せずに直接呼び出し */
   useDirectGeminiAPI?: boolean;
 
-  /** Google Cloud APIキー (TTS用等で使用される可能性あり) */
-  googleCloudApiKey?: string;
-
-  /** インスピレーション設定 */
+  /**
+   * インスピレーション機能（返信提案・文章強化）の設定
+   * 固定モデルを使用するか、チャット用モデルと同じモデルを使用するかを制御
+   */
   inspiration?: {
+    /** 固定モデルを使用するか（falseの場合は使用中のモデル） */
     useFixedModel: boolean;
+    /** 固定モデルID */
     fixedModel?: string;
-    provider?: string;
-    fixedProvider?: string;
+    /** 固定モデル用プロバイダー */
+    fixedProvider?: APIProvider;
+    /** 直接Gemini APIを使用するか（固定モデルがGemini直接APIの場合） */
     fixedUseDirectGeminiAPI?: boolean;
   };
 }
@@ -108,6 +114,7 @@ export interface PromptSettings {
   /** テキスト拡張プロンプト - テキストの詳細化 */
   textEnhancement: string;
 
+
   /** Jailbreakプロンプト - 制限解除用 */
   jailbreak: string;
 
@@ -120,12 +127,9 @@ export interface PromptSettings {
   /** アンカープロンプト有効化フラグ */
   enableAnchorPrompt: boolean;
 
+  /** アンカープロンプト挿入位置（Depth: 0〜10） - 0は最新入力の直前、10は10メッセージ前 */
+  anchorDepth: number;
+
   /** Jalbreakプロンプト有効化フラグ */
   enableJailbreakPrompt?: boolean;
-
-  /** アンカープロンプトを挿入する深さ（デフォルト1） */
-  anchorDepth?: number;
-
-  /** 選択中のプロンプトプリセットID */
-  selectedPresetId?: string;
 }

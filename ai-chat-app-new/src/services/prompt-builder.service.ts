@@ -4,6 +4,7 @@ import {
   Character,
   Persona,
 } from "@/types";
+import { StructuredPrompt } from "@/types/api/prompt.types";
 import { ConversationManager } from "./memory/conversation-manager";
 import { TrackerManager } from "./tracker/tracker-manager";
 import { useAppStore } from "@/store";
@@ -12,12 +13,51 @@ import {
   replaceVariablesInCharacter,
   getVariableContext,
 } from "@/utils/variable-replacer";
-import { DEFAULT_SYSTEM_PROMPT } from "@/constants/prompts";
+import {
+  DEFAULT_ANCHOR_PROMPT,
+  DEFAULT_SYSTEM_PROMPT,
+  MINIMAL_CHAT_SYSTEM_PROMPT,
+} from "@/constants/prompts";
+import { logger } from "@/utils/logger";
+import { CharacterInfoBuilder } from "./character-info-builder";
+import { memorySectionBuilder } from "./prompt-sections";
+
+// セクション順序を定数として定義（PROMPT_VERIFICATION_GUIDE.md準拠）
+const PROMPT_SECTION_ORDER = {
+  SYSTEM: 'system',
+  JAILBREAK: 'jailbreak',
+  CHARACTER: 'character',
+  PERSONA: 'persona',
+  RELATIONSHIP: 'relationship',
+  MEMORY: 'memory',
+  CONVERSATION: 'conversation',
+  ANCHOR: 'anchor',
+  INPUT: 'input',
+} as const;
+
+type PromptSectionKey = typeof PROMPT_SECTION_ORDER[keyof typeof PROMPT_SECTION_ORDER];
+
+// セクションマッピング（タグ名を統一）
+const SECTION_TAGS: Record<PromptSectionKey, { tag: string; label: string }> = {
+  system: { tag: 'system_instructions', label: 'System Instructions' },
+  jailbreak: { tag: 'jailbreak_prompt', label: 'Jailbreak Prompt' },
+  character: { tag: 'character_information', label: 'Character Information' },
+  persona: { tag: 'persona_information', label: 'Persona Information' },
+  relationship: { tag: 'relationship_state', label: 'Relationship State' },
+  memory: { tag: 'memory_context', label: 'Memory Context' },
+  conversation: { tag: 'conversation_history', label: 'Conversation History' },
+  anchor: { tag: 'anchor_prompt', label: 'Anchor Prompt' },
+  input: { tag: 'current_input', label: 'Current Input' },
+};
 
 export class PromptBuilderService {
   // ConversationManager キャッシュ
   private static managerCache = new Map<string, ConversationManager>();
   private static lastProcessedCount = new Map<string, number>();
+
+  // ✅ P1-1: システムプロンプトキャッシュ
+  private systemPromptCache = new Map<string, string>();
+  private readonly MAX_SYSTEM_PROMPT_CACHE_SIZE = 100; // キャラクター数に応じて調整
 
   /**
    * 特定のセッションIDのキャッシュをクリア
@@ -26,9 +66,131 @@ export class PromptBuilderService {
     if (PromptBuilderService.managerCache.has(sessionId)) {
       PromptBuilderService.managerCache.delete(sessionId);
       PromptBuilderService.lastProcessedCount.delete(sessionId);
-      console.log(
+      logger.debug(
         `🧹 Cleared ConversationManager cache for session: ${sessionId}`
       );
+    }
+  }
+
+  /**
+   * ✅ P1-1: システムプロンプトを取得（メモ化版）
+   *
+   * キャッシュキー生成ロジック:
+   * - キャラクターID
+   * - カスタムプロンプトの有効状態
+   * - カスタムプロンプトの先頭50文字（ハッシュの代わり）
+   *
+   * @param character - キャラクター情報
+   * @param systemSettings - システム設定
+   * @returns システムプロンプト文字列
+   */
+  private getSystemPromptCached(
+    character: Character,
+    systemSettings: ReturnType<typeof PromptBuilderService.prototype.getSystemSettings>
+  ): string {
+    // キャッシュキー生成
+    const customPromptHash = systemSettings.systemPrompts?.system
+      ?.substring(0, 50)
+      .replace(/\s+/g, '') // 空白を除去してハッシュの一貫性を保つ
+      || 'default';
+
+    const cacheKey = `${character.id}-${systemSettings.enableSystemPrompt ? '1' : '0'}-${systemSettings.chatSystemPromptMode}-${customPromptHash}`;
+
+    // キャッシュヒット確認
+    if (this.systemPromptCache.has(cacheKey)) {
+      logger.debug(`💾 [PromptBuilder] System prompt cache HIT: ${cacheKey.substring(0, 30)}...`);
+      return this.systemPromptCache.get(cacheKey)!;
+    }
+
+    logger.debug(`🔨 [PromptBuilder] System prompt cache MISS: ${cacheKey.substring(0, 30)}...`);
+
+    // キャッシュミス: システムプロンプトを構築
+    let systemInstructions = "";
+
+    if (
+      systemSettings.enableSystemPrompt &&
+      systemSettings.systemPrompts?.system &&
+      systemSettings.systemPrompts.system.trim() !== ""
+    ) {
+      // カスタムシステムプロンプトを使用
+      systemInstructions = systemSettings.systemPrompts.system;
+    } else if (systemSettings.chatSystemPromptMode === "minimal") {
+      systemInstructions = MINIMAL_CHAT_SYSTEM_PROMPT;
+    } else {
+      // デフォルトシステムプロンプトを使用
+      systemInstructions = DEFAULT_SYSTEM_PROMPT;
+    }
+
+    if (character.message_triggers?.some(t => t.emotion_tag)) {
+      const uniqueTags = new Map<string, string>();
+      character.message_triggers
+        .filter(t => t.emotion_tag)
+        .forEach(t => {
+          if (t.emotion_tag && !uniqueTags.has(t.emotion_tag)) {
+            uniqueTags.set(t.emotion_tag, t.description || 'Display this emotion');
+          }
+        });
+
+      if (uniqueTags.size > 0) {
+        const tagsList = Array.from(uniqueTags.entries())
+          .map(([tag, desc]) => `- ${tag} : ${desc}`)
+          .join('\n');
+
+        systemInstructions += `\n\n[EMOTION DISPLAY SYSTEM]
+You are equipped with an emotion display system.
+If your internal state matches one of the following emotions, you MUST append the corresponding tag at the very end of your response.
+Only one tag per response. Do NOT output the tag if the emotion does not match.
+
+Available Tags:
+${tagsList}
+
+Example output:
+"I am so happy to see you! [HAPPY]"
+"Don't look at me... [SHY]"`;
+      }
+    }
+
+    // キャラクター固有のシステムプロンプトを追加
+    if (
+      character.system_prompt &&
+      character.system_prompt.trim() !== ""
+    ) {
+      systemInstructions += `\n\n## キャラクター固有の指示\n${character.system_prompt}`;
+    }
+
+    // キャッシュに保存（LRU方式: 最大サイズを超えたら最古のエントリを削除）
+    if (this.systemPromptCache.size >= this.MAX_SYSTEM_PROMPT_CACHE_SIZE) {
+      const firstKey = (this.systemPromptCache.keys().next().value ?? "") as string;
+      if (typeof firstKey === "string") {
+        this.systemPromptCache.delete(firstKey);
+      }
+      logger.debug(`🗑️ [PromptBuilder] Evicted oldest cache entry: ${firstKey.substring(0, 30)}...`);
+    }
+
+    this.systemPromptCache.set(cacheKey, systemInstructions);
+    logger.debug(`✅ [PromptBuilder] System prompt cached: ${cacheKey.substring(0, 30)}... (${systemInstructions.length} chars)`);
+
+    return systemInstructions;
+  }
+
+  /**
+   * ✅ P1-1: キャッシュをクリア（キャラクター更新時などに使用）
+   *
+   * @param characterId - クリア対象のキャラクターID（省略時は全キャッシュをクリア）
+   */
+  public clearSystemPromptCache(characterId?: string): void {
+    if (characterId) {
+      // 特定のキャラクターに関するキャッシュのみクリア
+      for (const [key] of this.systemPromptCache) {
+        if (key.startsWith(`${characterId}-`)) {
+          this.systemPromptCache.delete(key);
+        }
+      }
+      logger.debug(`🧹 [PromptBuilder] Cleared system prompt cache for character: ${characterId}`);
+    } else {
+      // 全キャッシュをクリア
+      this.systemPromptCache.clear();
+      logger.debug(`🧹 [PromptBuilder] Cleared all system prompt cache`);
     }
   }
 
@@ -49,7 +211,7 @@ export class PromptBuilderService {
 
     if (!manager) {
       // 初期化: 全メッセージをバッチで処理
-      console.log(
+      logger.debug(
         `🆕 Creating ConversationManager for session: ${sessionId} (${messages.length} messages)`
       );
 
@@ -69,7 +231,7 @@ export class PromptBuilderService {
       PromptBuilderService.lastProcessedCount.set(sessionId, messages.length);
 
       const duration = performance.now() - startTime;
-      console.log(`✅ Manager created in ${duration.toFixed(1)}ms`);
+      logger.debug(`✅ Manager created in ${duration.toFixed(1)}ms`);
       return manager;
     }
 
@@ -82,7 +244,7 @@ export class PromptBuilderService {
     // 増分更新: 新しいメッセージのみ処理
     const newMessages = messages.slice(lastProcessed);
     if (newMessages.length > 0) {
-      console.log(`🔄 Processing ${newMessages.length} new messages`);
+      logger.debug(`🔄 Processing ${newMessages.length} new messages`);
 
       // 重要なメッセージのみフィルタリング
       const importantMessages = newMessages.filter(
@@ -90,11 +252,9 @@ export class PromptBuilderService {
       );
 
       if (importantMessages.length > 0) {
-        // バッチで新メッセージを追加（大幅なパフォーマンス向上）
-        await manager.importMessages([
-          ...manager.getAllMessages(),
-          ...importantMessages,
-        ]);
+        // ✅ 真の増分更新: 新規メッセージのみを追加
+        await manager.addNewMessages(importantMessages);
+        logger.debug(`✅ Added ${importantMessages.length} new messages (true incremental update)`);
       }
 
       // 処理済みメッセージ数を更新
@@ -103,7 +263,7 @@ export class PromptBuilderService {
 
     const duration = performance.now() - startTime;
     if (duration > 100) {
-      console.warn(`⚠️ Slow manager operation: ${duration.toFixed(1)}ms`);
+      logger.warn(`⚠️ Slow manager operation: ${duration.toFixed(1)}ms`);
     }
 
     return manager;
@@ -119,7 +279,7 @@ export class PromptBuilderService {
 
     for (const sessionId of PromptBuilderService.managerCache.keys()) {
       if (!activeSet.has(sessionId)) {
-        console.log(
+        logger.debug(
           `🧹 Cleaning up ConversationManager cache for session: ${sessionId}`
         );
         PromptBuilderService.managerCache.delete(sessionId);
@@ -129,7 +289,7 @@ export class PromptBuilderService {
 
     const cleanedCount = beforeSize - PromptBuilderService.managerCache.size;
     if (cleanedCount > 0) {
-      console.log(
+      logger.debug(
         `📊 Cache cleanup: Removed ${cleanedCount} inactive sessions (${PromptBuilderService.managerCache.size} remaining)`
       );
     }
@@ -173,6 +333,8 @@ export class PromptBuilderService {
     return {
       systemPrompts: store.systemPrompts,
       enableSystemPrompt: store.enableSystemPrompt,
+      chatSystemPromptMode: store.chatSystemPromptMode,
+      enableAnchorPrompt: store.enableAnchorPrompt,
       enableJailbreakPrompt: store.enableJailbreakPrompt,
       trackerManagers: store.trackerManagers,
     };
@@ -188,29 +350,30 @@ export class PromptBuilderService {
    * 3. character_information
    * 4. persona_information
    * 5. relationship_state
-   * 6. input
+   * 6. memory_context
+   * 7. conversation_history
+   * 8. input
    */
-  private buildPromptTemplate(sections: Record<string, string>): string {
-    const template = [
-      sections.system &&
-        `<system_instructions>\n${sections.system}\n</system_instructions>`,
-      sections.jailbreak && `<jailbreak>\n${sections.jailbreak}\n</jailbreak>`,
-      sections.character &&
-        `<character_information>\n${sections.character}\n</character_information>`,
-      sections.persona &&
-        `<persona_information>\n${sections.persona}\n</persona_information>`,
-      sections.relationship &&
-        `<relationship_state>\n${sections.relationship}\n</relationship_state>`,
-      sections.memory &&
-        `<memory_context>\n${sections.memory}\n</memory_context>`,
-      sections.conversation &&
-        `<conversation_history>\n${sections.conversation}\n</conversation_history>`,
-      sections.input && `## Current Input\n${sections.input}`,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+  private buildPromptTemplate(sections: Partial<Record<PromptSectionKey, string>>): string {
+    const orderedSections = Object.values(PROMPT_SECTION_ORDER)
+      .filter(key => sections[key])  // 存在するセクションのみ
+      .map(key => this.formatSection(key, sections[key]!))
+      .filter(Boolean);
 
-    return template;
+    return orderedSections.join('\n\n');
+  }
+
+  /**
+   * セクションをフォーマット
+   */
+  private formatSection(key: PromptSectionKey, content: string): string {
+    const { tag } = SECTION_TAGS[key];
+
+    if (key === 'input') {
+      return `## Current Input\n${content}`;
+    }
+
+    return `<${tag}>\n${content}\n</${tag}>`;
   }
 
   /**
@@ -220,16 +383,11 @@ export class PromptBuilderService {
     session: UnifiedChatSession,
     userInput: string,
     trackerManager?: TrackerManager
-  ): Promise<{ basePrompt: string; enhancePrompt: () => Promise<string> }> {
+  ): Promise<{ basePrompt: string; enhancePrompt: () => Promise<StructuredPrompt> }> {
     const startTime = performance.now();
 
     // 強制的にログを出力（ターミナルで確認可能）
-    console.log("🚀🚀🚀 [PromptBuilder] buildPromptProgressive called 🚀🚀🚀");
-    console.log("Session ID:", session.id);
-    console.log("User Input:", userInput.substring(0, 50) + "...");
-    console.log("Character:", session.participants.characters[0]?.name);
-    console.log("User:", session.participants.user?.name);
-    console.log("Has Tracker Manager:", !!trackerManager);
+    logger.debug("🚀🚀🚀 [PromptBuilder] buildPromptProgressive called 🚀🚀🚀");
 
     // セッションデータの厳密な型チェック
     this.validateSessionData(session);
@@ -238,37 +396,78 @@ export class PromptBuilderService {
     const character = session.participants.characters[0];
     const user = session.participants.user;
 
-    // バリデーション済みなので、安全にアクセス可能
-
     // 軽量版: 基本情報のみ（重複しない内容）
-    console.log("🔧 [PromptBuilder] Calling buildBasicInfo...");
+    logger.debug("🔧 [PromptBuilder] Calling buildBasicInfo...");
     const basePrompt = await this.buildBasicInfo(
+      session,
       character,
       user,
       userInput,
       trackerManager
     );
-    console.log(
-      "✅ [PromptBuilder] buildBasicInfo completed, prompt length:",
-      basePrompt.length
-    );
-
+    
     // 2. 拡張プロンプト関数（バックグラウンド実行用）
-    const enhancePrompt = async (): Promise<string> => {
+    const systemSettings = this.getSystemSettings();
+    const enhancePrompt = async (): Promise<StructuredPrompt> => {
       try {
-        // 重量版: 履歴情報のみ（基本情報は含まない）
-        const historyInfo = await this.getHistoryInfo(session, trackerManager);
-        // 基本情報 + 履歴情報を結合（重複なし）
-        return basePrompt + "\n\n" + historyInfo;
+        // 静的なベースプロンプトを構築（指示系統）
+        const staticInstruction = basePrompt;
+
+        // 会話履歴を取得（履歴情報を指示から分離）
+        const store = useAppStore.getState();
+        const maxContextMessages = store.chat?.memory_limits?.max_context_messages || 50;
+        
+        // 最後のユーザーメッセージを除外（Current Inputセクションとして別途渡すため）
+        const allMessages = session.messages;
+        const lastMessageIndex = allMessages.length - 1;
+        const shouldExcludeLastMessage =
+          lastMessageIndex >= 0 && allMessages[lastMessageIndex]?.role === "user";
+
+        const recentMessages = shouldExcludeLastMessage
+          ? allMessages.slice(Math.max(0, allMessages.length - maxContextMessages - 1), -1)
+          : allMessages.slice(-maxContextMessages);
+
+        const conversationHistory = recentMessages.map(msg => ({
+          role: (msg.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: msg.content
+        }));
+
+        // 動的なアンカー情報（これは静的な指示に含める）
+        let anchorInfo = "";
+        if (systemSettings.enableAnchorPrompt) {
+          const anchorContent = this.buildStateAnchor(
+            session,
+            character,
+            systemSettings.systemPrompts?.anchor
+          );
+          anchorInfo = this.formatSection("anchor", anchorContent);
+        }
+
+        // 構造化された指示系統を結合（履歴と入力を含まない）
+        const systemInstruction = [
+          staticInstruction,
+          anchorInfo
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+
+        return {
+          systemInstruction: replaceVariables(systemInstruction, { user, character }),
+          conversationHistory,
+          currentInput: userInput
+        };
       } catch (error) {
-        console.warn("Enhanced prompt build failed, using base prompt:", error);
-        // 拡張プロンプト構築に失敗した場合でも、ベースプロンプトで継続
-        return basePrompt;
+        logger.warn("Enhanced prompt build failed, using simple fallback:", error);
+        return {
+          systemInstruction: replaceVariables(basePrompt, { user, character }),
+          conversationHistory: [],
+          currentInput: userInput
+        };
       }
     };
 
     const duration = performance.now() - startTime;
-    console.log(`⚡ Progressive base prompt built in ${duration.toFixed(1)}ms`);
+    logger.debug(`⚡ Progressive base prompt built in ${duration.toFixed(1)}ms`);
 
     return { basePrompt, enhancePrompt };
   }
@@ -288,76 +487,26 @@ export class PromptBuilderService {
    * 8. Current Interaction
    */
   private async buildBasicInfo(
+    session: UnifiedChatSession,
     character: Character,
     user: Persona,
     userInput: string,
     trackerManager?: TrackerManager
   ): Promise<string> {
-    // 強制的にログを出力（ターミナルで確認可能）
-    console.log("💎💎💎 [PromptBuilder] buildBasicInfo called 💎💎💎");
-    console.log("Character:", character?.name);
-    console.log("User:", user?.name);
-    console.log("User Input:", userInput.substring(0, 50) + "...");
-
-    // 🎯 システム設定を取得（永続化された設定を反映）
+    // 🎯 システム設定を取得
     const systemSettings = this.getSystemSettings();
 
     if (!character) {
-      console.error(
-        "🚨 CRITICAL: buildBasicInfo received undefined character!"
-      );
+      logger.error("🚨 CRITICAL: buildBasicInfo received undefined character!");
       return "ERROR: No character information available";
     }
 
-    // 変数置換コンテキストを作成
-    const variableContext = { user, character };
+    const sections: Partial<Record<PromptSectionKey, string>> = {};
 
-    console.log("👤 [PromptBuilder] User persona info:", {
-      userName: user?.name,
-      userRole: user?.role,
-      userOtherSettings: user?.other_settings,
-      userAvatarPath: user?.avatar_path,
-    });
+    sections.system = this.getSystemPromptCached(character, systemSettings);
 
-    // キャラクター情報に変数置換を適用
-    const processedCharacter = replaceVariablesInCharacter(
-      character,
-      variableContext
-    );
+    // 🎯 Anchor Prompt は buildPromptProgressive で動的に追加されるため、ここではスキップ
 
-    const userName = user?.name || "ユーザー";
-
-    // 🚨 セクション構築 - 削除・簡略化・順序変更厳禁
-    // PROMPT_VERIFICATION_GUIDE.mdの仕様準拠必須
-    const sections: Record<string, string> = {};
-
-    // 🚨 System Instructions - カスタムプロンプトが優先
-    let systemInstructions = "";
-
-    // カスタムシステムプロンプトが有効で内容がある場合は置き換え（追加ではない）
-    if (
-      systemSettings.enableSystemPrompt &&
-      systemSettings.systemPrompts?.system &&
-      systemSettings.systemPrompts.system.trim() !== ""
-    ) {
-      // カスタムプロンプトで完全に置き換える
-      systemInstructions = systemSettings.systemPrompts.system;
-    } else {
-      // カスタムプロンプトがない場合のみデフォルトを使用
-      systemInstructions = DEFAULT_SYSTEM_PROMPT;
-    }
-
-    // キャラクター固有のシステムプロンプトを追加
-    if (
-      processedCharacter.system_prompt &&
-      processedCharacter.system_prompt.trim() !== ""
-    ) {
-      systemInstructions += `\n\n## キャラクター固有の指示\n${processedCharacter.system_prompt}`;
-    }
-
-    sections.system = systemInstructions;
-
-    // 🎯 Jailbreak Prompt (設定で有効な場合)
     if (
       systemSettings.enableJailbreakPrompt &&
       systemSettings.systemPrompts?.jailbreak
@@ -365,396 +514,61 @@ export class PromptBuilderService {
       sections.jailbreak = systemSettings.systemPrompts.jailbreak;
     }
 
-    // 🧠 Mem0Character統合: CharacterCoreとダイナミック記憶を構築
-    try {
-      const { Mem0Character } = require("@/services/mem0/character-service");
-      const characterContext = await Mem0Character.buildCharacterContext(
-        character.id,
-        userInput,
-        {
-          query: user?.id || "default-user",
-          include_relationship: true,
-          include_memories: true,
-          include_cards: true,
-          max_tokens: 2000,
-        }
-      );
+    sections.character = await this.buildCharacterSection(character, userInput);
+    sections.persona = this.buildPersonaSection(user);
 
-      // CharacterCoreから基本情報を構築
-      const core = characterContext.core;
-      sections.character = `## Basic Information
-Name: ${core.identity.name}
-${core.identity.age ? `Age: ${core.identity.age}` : ""}
-${core.identity.occupation ? `Occupation: ${core.identity.occupation}` : ""}
-${core.identity.role ? `Role: ${core.identity.role}` : ""}
+    sections.relationship = this.buildRelationshipSection(
+      trackerManager,
+      character?.id
+    );
 
-## Personality & Traits
-External: ${core.personality.external}
-Internal: ${core.personality.internal}
-Traits: ${core.personality.traits.join(", ")}
-
-## Communication Style
-Speaking Style: ${core.communication.speaking_style}
-First Person: ${core.communication.first_person}
-Second Person: ${core.communication.second_person}
-${core.communication.verbal_tics.length > 0 ? `Verbal Tics: ${core.communication.verbal_tics.join(", ")}` : ""}
-
-## Behavioral Principles
-${core.principles.map((p: string) => `- ${p}`).join("\n")}
-
-## Relationship State
-Stage: ${characterContext.relationship.stage}
-Trust Level: ${characterContext.relationship.metrics.trust_level}/100
-Familiarity: ${characterContext.relationship.metrics.familiarity}/100
-Emotional Bond: ${characterContext.relationship.metrics.emotional_bond}/100
-Interaction Count: ${characterContext.relationship.metrics.interaction_count}
-
-## Character Memory
-${characterContext.memories.learned_preferences.likes.length > 0 ? `Likes: ${characterContext.memories.learned_preferences.likes.join(", ")}` : ""}
-${characterContext.memories.learned_preferences.dislikes.length > 0 ? `Dislikes: ${characterContext.memories.learned_preferences.dislikes.join(", ")}` : ""}
-${characterContext.memories.context_knowledge.special_topics.length > 0 ? `Special Topics: ${characterContext.memories.context_knowledge.special_topics.join(", ")}` : ""}
-`;
-
-      console.log(
-        `✅ [PromptBuilder] Mem0Character context built - tokens: ${characterContext.token_usage.total}`
-      );
-    } catch (error) {
-      console.warn("⚠️ [PromptBuilder] Mem0Character unavailable, using fallback:", error);
-      // フォールバック: 既存のキャラクター情報構築
-      sections.character = `## Basic Information
-Name: ${processedCharacter.name}
-${processedCharacter.age ? `Age: ${processedCharacter.age}` : ""}
-${
-  processedCharacter.occupation
-    ? `Occupation: ${processedCharacter.occupation}`
-    : ""
-}
-${
-  processedCharacter.catchphrase
-    ? `Catchphrase: "${processedCharacter.catchphrase}"`
-    : ""
-}
-
-## Personality & Traits
-${
-  processedCharacter.personality
-    ? `Personality: ${processedCharacter.personality}`
-    : ""
-}
-${
-  processedCharacter.external_personality
-    ? `External: ${processedCharacter.external_personality}`
-    : ""
-}
-${
-  processedCharacter.internal_personality
-    ? `Internal: ${processedCharacter.internal_personality}`
-    : ""
-}
-${
-  processedCharacter.strengths &&
-  Array.isArray(processedCharacter.strengths) &&
-  processedCharacter.strengths.length > 0
-    ? `Strengths: ${processedCharacter.strengths.join(", ")}`
-    : ""
-}
-${
-  processedCharacter.weaknesses &&
-  Array.isArray(processedCharacter.weaknesses) &&
-  processedCharacter.weaknesses.length > 0
-    ? `Weaknesses: ${processedCharacter.weaknesses.join(", ")}`
-    : ""
-}
-
-## Preferences & Style
-${
-  processedCharacter.likes && processedCharacter.likes.length > 0
-    ? `Likes: ${processedCharacter.likes.join(", ")}`
-    : ""
-}
-${
-  processedCharacter.dislikes && processedCharacter.dislikes.length > 0
-    ? `Dislikes: ${processedCharacter.dislikes.join(", ")}`
-    : ""
-}
-${
-  processedCharacter.hobbies && processedCharacter.hobbies.length > 0
-    ? `Hobbies: ${processedCharacter.hobbies.join(", ")}`
-    : ""
-}
-
-## Appearance
-${
-  processedCharacter.appearance
-    ? `Appearance: ${processedCharacter.appearance}`
-    : ""
-}
-
-## Communication Style
-${
-  processedCharacter.speaking_style
-    ? `Speaking Style: ${processedCharacter.speaking_style}`
-    : ""
-}
-${
-  processedCharacter.first_person
-    ? `First Person: ${processedCharacter.first_person}`
-    : ""
-}
-${
-  processedCharacter.second_person
-    ? `Second Person: ${processedCharacter.second_person}`
-    : ""
-}
-${
-  processedCharacter.verbal_tics && processedCharacter.verbal_tics.length > 0
-    ? `Verbal Tics: ${processedCharacter.verbal_tics.join(", ")}`
-    : ""
-}
-
-${
-  processedCharacter.nsfw_profile
-    ? `## NSFW Profile
-${
-  processedCharacter.nsfw_profile.persona
-    ? `Persona: ${processedCharacter.nsfw_profile.persona}`
-    : ""
-}
-${
-  processedCharacter.nsfw_profile.libido_level
-    ? `Libido Level: ${processedCharacter.nsfw_profile.libido_level}`
-    : ""
-}
-${
-  processedCharacter.nsfw_profile.situation
-    ? `Situation: ${processedCharacter.nsfw_profile.situation}`
-    : ""
-}
-${
-  processedCharacter.nsfw_profile.mental_state
-    ? `Mental State: ${processedCharacter.nsfw_profile.mental_state}`
-    : ""
-}
-${
-  processedCharacter.nsfw_profile.kinks &&
-  processedCharacter.nsfw_profile.kinks.length > 0
-    ? `Kinks: ${processedCharacter.nsfw_profile.kinks.join(", ")}`
-    : ""
-}`
-    : ""
-}
-
-## Context
-${
-  processedCharacter.background
-    ? `Background: ${processedCharacter.background}`
-    : ""
-}
-${
-  processedCharacter.scenario
-    ? `Current Scenario: ${processedCharacter.scenario}`
-    : ""
-}`;
-    }
-
-    // 🚨 ペルソナ情報セクション - 簡略化厳禁、全フィールド必須
-    // PROMPT_VERIFICATION_GUIDE.md 223-234行目準拠
-    if (user) {
-      sections.persona = `Name: ${user.name || userName}
-${user.role ? `Role: ${user.role}` : ""}
-${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
-    }
-
-    // 軽量トラッカー情報セクションを構築（キャラクター設定強化版）
-    // 引数として渡されたtrackerManagerを優先的に使用
-    const effectiveTrackerManager =
-      trackerManager ||
-      (character?.id && systemSettings.trackerManagers?.get(character.id));
-
-    console.log("🔍 [PromptBuilder] Checking tracker managers:", {
-      characterId: character?.id,
-      hasPassedTrackerManager: !!trackerManager,
-      hasStoreTrackerManager:
-        character?.id && systemSettings.trackerManagers?.has(character.id),
-      usingTrackerManager: !!effectiveTrackerManager,
-    });
-
-    if (effectiveTrackerManager) {
-      console.log(
-        "✅ [PromptBuilder] Found tracker manager for character:",
-        character.id,
-        "Manager type:",
-        effectiveTrackerManager.constructor.name
-      );
-      try {
-        // まず詳細版を試行、失敗したら軽量版にフォールバック
-        let trackerInfo = character?.id
-          ? effectiveTrackerManager.getDetailedTrackersForPrompt?.(character.id)
-          : null;
-
-        console.log("🔍 [PromptBuilder] getDetailedTrackersForPrompt result:", {
-          hasMethod: !!effectiveTrackerManager.getDetailedTrackersForPrompt,
-          result: trackerInfo ? trackerInfo.substring(0, 100) + "..." : "null",
-        });
-
-        if (!trackerInfo) {
-          trackerInfo = character?.id
-            ? this.getEssentialTrackerInfo(
-                effectiveTrackerManager,
-                character.id
-              )
-            : null;
-          console.log("🔍 [PromptBuilder] getEssentialTrackerInfo result:", {
-            result: trackerInfo
-              ? trackerInfo.substring(0, 100) + "..."
-              : "null",
-          });
-        }
-
-        console.log("📊 [PromptBuilder] Final tracker info:", {
-          hasTrackerInfo: !!trackerInfo,
-          trackerInfoLength: trackerInfo?.length || 0,
-        });
-
-        if (trackerInfo) {
-          sections.relationship = trackerInfo;
-        }
-      } catch (error) {
-        console.warn("Failed to get tracker info:", error);
-      }
-    } else {
-      console.warn(
-        "❌ [PromptBuilder] No tracker manager found for character:",
-        character?.id
-      );
-    }
-
-    // 🚨 メモリーカード情報を基本プロンプトに即座に追加
-    // 🔧 修正: プレースホルダーではなく実際のメモリーカードを取得
     try {
       const store = useAppStore.getState();
       const memoryCards = store.memory_cards || new Map();
+      let mem0SearchResults: any[] = [];
 
-      // Try to enrich memory cards from Mem0 (optional, non-blocking)
-      // Non-blocking attempt to enrich memory cards from Mem0
-      import("@/services/mem0/core")
-        .then(({ Mem0 }) =>
-          Mem0.search(
-            userInput,
-            store.chat?.memory_limits?.max_memory_cards || 50
-          )
-        )
-        .then((mem0Results) => {
-          if (mem0Results && mem0Results.length > 0) {
-            console.log(
-              "🧠 [PromptBuilder] Mem0 search returned results:",
-              mem0Results.length
-            );
-            // Note: mem0Results -> MemoryCard mapping TBD when Mem0.search is implemented
-          }
-        })
-        .catch((err) => {
-          // Non-fatal: continue with store memory_cards
-          console.debug("🧠 [PromptBuilder] Mem0.search unavailable:", err);
-        });
+      try {
+        const { Mem0 } = await import("@/services/mem0/core");
+        const maxMemoryCards = store.chat?.memory_limits?.max_memory_cards || 50;
+        mem0SearchResults = await Mem0.search(userInput, maxMemoryCards);
+      } catch (err) { }
+
+      const allCards = [
+        ...Array.from(memoryCards.values()),
+        ...mem0SearchResults,
+      ];
+
+      const seenIds = new Set<string>();
       const relevantCards: any[] = [];
 
-      console.log("🧠 [PromptBuilder] Checking memory cards:", {
-        memoryCardsSize: memoryCards.size,
-        characterId: character?.id,
-        memoryCards: Array.from(memoryCards.values()).map((card) => ({
-          id: card.id,
-          is_pinned: card.is_pinned,
-          character_id: card.character_id,
-          title: card.title,
-        })),
-      });
-
-      // ピン留めされたメモリーカードを取得
-      for (const card of memoryCards.values()) {
+      for (const card of allCards) {
+        if (seenIds.has(card.id)) continue;
+        seenIds.add(card.id);
         if (card.is_pinned || card.character_id === character?.id) {
           relevantCards.push(card);
         }
       }
 
-      console.log("📌 [PromptBuilder] Relevant memory cards:", {
-        count: relevantCards.length,
-        cards: relevantCards.map((card) => ({
-          id: card.id,
-          title: card.title,
-          is_pinned: card.is_pinned,
-        })),
-      });
-
       if (relevantCards.length > 0) {
-        let memoryContent = "";
-        // Get max relevant memories from settings
-        const maxRelevantMemories =
-          store.chat?.memory_limits?.max_relevant_memories || 5;
-        relevantCards.slice(0, maxRelevantMemories).forEach((card) => {
-          // 設定値に基づく最大件数
-          memoryContent += `[${card.category || "general"}] ${card.title}: ${
-            card.summary
-          }\n`;
-          if (card.keywords && card.keywords.length > 0) {
-            memoryContent += `Keywords: ${card.keywords.join(", ")}\n`;
-          }
+        const maxRelevantMemories = store.chat?.memory_limits?.max_relevant_memories || 5;
+        sections.memory = memorySectionBuilder.build({
+          memoryCards: relevantCards,
+          character,
+          maxCards: maxRelevantMemories,
+          format: 'compact',
         });
-        sections.memory = memoryContent.trim() || "";
-      } else {
-        sections.memory = "";
       }
     } catch (error) {
-      console.warn("Failed to get memory info in basic prompt:", error);
-      sections.memory = "";
+      logger.warn("Failed memory info collection:", error);
     }
 
-    // 入力セクションを構築
-    sections.input = `{{user}}: ${replaceVariables(userInput, variableContext)}
-{{char}}:`;
+    // 入力セクションは buildPromptProgressive で動的に追加されるため、ここではスキップ
 
-    // テンプレートを使用してプロンプトを構築
-    let prompt =
+    // テンプレートを使用してプロンプトを構築（静的な指示と設定のみ）
+    const prompt =
       `AI={{char}}, User={{user}}
 
 ` + this.buildPromptTemplate(sections);
-
-    // 最後にプロンプト全体に変数置換を適用
-    prompt = replaceVariables(prompt, variableContext);
-
-    // 🔍 デバッグ: 各セクションの内容を確認
-    console.log("📝 [buildBasicInfo] Section contents:", {
-      systemLength: sections.system?.length || 0,
-      jailbreakLength: sections.jailbreak?.length || 0,
-      characterLength: sections.character?.length || 0,
-      personaLength: sections.persona?.length || 0,
-      relationshipLength: sections.relationship?.length || 0,
-      memoryLength: sections.memory?.length || 0,
-      inputLength: sections.input?.length || 0,
-    });
-
-    // プロンプト構築結果の詳細ログ
-    console.log("📝 [PromptBuilder] Final prompt sections:", {
-      hasSystemInstructions: !!sections.system,
-      hasJailbreak: !!sections.jailbreak,
-      hasCharacterInfo: !!sections.character,
-      hasPersonaInfo: !!sections.persona,
-      hasRelationship: !!sections.relationship,
-      hasMemory: !!sections.memory,
-      hasInput: !!sections.input,
-      totalSections: Object.keys(sections).length,
-      promptLength: prompt.length,
-    });
-
-    // 開発環境でプロンプト全文をログ出力
-    if (
-      typeof process !== "undefined" &&
-      process.env?.NODE_ENV === "development"
-    ) {
-      console.log("📝 === Full Prompt (Basic) ===");
-      console.log(prompt);
-      console.log("📝 === End of Prompt ===");
-    }
 
     return prompt;
   }
@@ -766,28 +580,27 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     session: UnifiedChatSession,
     trackerManager?: TrackerManager
   ): Promise<string> {
-    console.log(
-      "🔍 [getHistoryInfo] Called with session:",
-      session.id,
-      "trackerManager:",
-      !!trackerManager
-    );
     try {
-      // ConversationManagerを使って履歴情報のみを取得
       const conversationManager = await this.getOrCreateManager(
         session.id,
         session.messages,
         trackerManager
       );
 
-      // 履歴情報のみを構築（基本情報は含まない）
       let historyPrompt = "";
-
-      // 会話履歴 - 設定値を使用
       const store = useAppStore.getState();
-      const maxContextMessages =
-        store.chat?.memory_limits?.max_context_messages || 40;
-      const recentMessages = session.messages.slice(-maxContextMessages);
+      const maxContextMessages = store.chat?.memory_limits?.max_context_messages || 50;
+
+      // 最後のユーザーメッセージを除外（Current Inputセクションで追加されるため）
+      const allMessages = session.messages;
+      const lastMessageIndex = allMessages.length - 1;
+      const shouldExcludeLastMessage =
+        lastMessageIndex >= 0 && allMessages[lastMessageIndex]?.role === "user";
+
+      const recentMessages = shouldExcludeLastMessage
+        ? allMessages.slice(Math.max(0, allMessages.length - maxContextMessages - 1), -1)
+        : allMessages.slice(-maxContextMessages);
+
       if (recentMessages.length > 0) {
         historyPrompt += `## Recent Conversation\n`;
         recentMessages.forEach((msg) => {
@@ -797,30 +610,32 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
         historyPrompt += "\n";
       }
 
-      // セッション要約（あれば）
       if (conversationManager["sessionSummary"]) {
         historyPrompt += `## Session Summary\n${conversationManager["sessionSummary"]}\n\n`;
       }
 
-      // 🚨 メモリーカード情報を追加 - 欠落していた重要な情報
-      try {
-        console.log("🔍 [getHistoryInfo] Getting memory cards...");
-        // メモリーカード情報は基本プロンプトで処理済みのため、ここではスキップ
-        // プライベートメソッドの呼び出しを一時的に無効化
-      } catch (error) {
-        console.warn("Failed to get memory cards:", error);
+      const MAX_HISTORY_CHARS = 12000;
+      if (historyPrompt.length > MAX_HISTORY_CHARS) {
+        const historyLines = historyPrompt.split('\n');
+        let truncatedHistory = '';
+        let currentLength = 0;
+        for (let i = historyLines.length - 1; i >= 0; i--) {
+          const line = historyLines[i];
+          if (currentLength + line.length < MAX_HISTORY_CHARS) {
+            truncatedHistory = line + '\n' + truncatedHistory;
+            currentLength += line.length + 1;
+          } else { break; }
+        }
+        historyPrompt = '... [履歴短縮] ...\n' + truncatedHistory;
       }
 
       return historyPrompt;
     } catch (error) {
-      console.warn("Failed to get history info:", error);
+      logger.warn("Failed to get history info:", error);
       return "";
     }
   }
 
-  /**
-   * 軽量トラッカー情報取得 - 重要な関係値のみ抽出
-   */
   private getEssentialTrackerInfo(
     trackerManager: TrackerManager,
     characterId: string
@@ -829,7 +644,6 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
       const trackers = trackerManager.getTrackersForPrompt(characterId);
       if (!trackers) return null;
 
-      // 重要な関係性トラッカーのみ抽出（パフォーマンス優先）
       const essentialPatterns = [
         /好感度|affection|liking/i,
         /信頼度|trust/i,
@@ -846,8 +660,92 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
       return essentialLines.length > 0 ? essentialLines.join("\n") : null;
     } catch (error) {
-      console.warn("Error getting essential tracker info:", error);
       return null;
+    }
+  }
+
+  private buildRelationshipSection(
+    trackerManager: TrackerManager | undefined,
+    characterId: string | undefined
+  ): string {
+    if (!trackerManager || !characterId) return '';
+    try {
+      return trackerManager.getDetailedTrackersForPrompt?.(characterId)
+        || trackerManager.getTrackersForPrompt(characterId)
+        || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  private buildPersonaSection(user?: Persona): string {
+    if (!user) return "";
+    const lines: string[] = [];
+    if (user.name?.trim()) lines.push(`Name: ${user.name}`);
+    if (user.role?.trim()) lines.push(`Role: ${user.role}`);
+    if (user.other_settings?.trim()) lines.push(`Other Settings: ${user.other_settings}`);
+    return lines.join("\n");
+  }
+
+  private buildStateAnchor(
+    session: UnifiedChatSession,
+    character: Character,
+    anchorTemplate?: string
+  ): string {
+    const template = anchorTemplate?.trim() ? anchorTemplate : DEFAULT_ANCHOR_PROMPT;
+    const currentEmotion = session.context?.current_emotion;
+    const currentMood = session.context?.current_mood;
+
+    const replacements: Record<string, string> = {
+      "{{char}}": character.name,
+      "{{session_mode}}": session.metadata?.mode || "single",
+      "{{current_emotion_primary}}": currentEmotion?.primary || "neutral",
+      "{{current_emotion_intensity}}": this.formatAnchorNumber(currentEmotion?.intensity),
+      "{{current_mood_type}}": currentMood?.type || "neutral",
+      "{{current_mood_intensity}}": this.formatAnchorNumber(currentMood?.intensity),
+      "{{current_mood_stability}}": this.formatAnchorNumber(currentMood?.stability),
+    };
+
+    return Object.entries(replacements).reduce(
+      (result, [token, value]) => result.replaceAll(token, value),
+      template
+    );
+  }
+
+  private formatAnchorNumber(value: unknown): string {
+    if (typeof value !== "number" || Number.isNaN(value)) return "0.00";
+    return Math.max(0, Math.min(1, value)).toFixed(2);
+  }
+
+  private async buildCharacterSection(
+    character: Character,
+    userInput: string
+  ): Promise<string> {
+    if (character.plist_profile && character.ali_chat_examples) {
+      return CharacterInfoBuilder.build(character);
+    }
+    try {
+      const { Mem0Character } = await import("@/services/mem0/character-service");
+      const characterContext = await Mem0Character.buildCharacterContext(character.id, userInput);
+      let characterInfo = CharacterInfoBuilder.build(characterContext.core);
+
+      const memoryInfo: string[] = [];
+      if (characterContext.memories.learned_preferences.likes.length > 0) {
+        memoryInfo.push(`Likes: ${characterContext.memories.learned_preferences.likes.join(', ')}`);
+      }
+      if (characterContext.memories.learned_preferences.dislikes.length > 0) {
+        memoryInfo.push(`Dislikes: ${characterContext.memories.learned_preferences.dislikes.join(', ')}`);
+      }
+      if (characterContext.memories.context_knowledge.special_topics.length > 0) {
+        memoryInfo.push(`Special Topics: ${characterContext.memories.context_knowledge.special_topics.join(', ')}`);
+      }
+
+      if (memoryInfo.length > 0) {
+        characterInfo += `\n\n## Character Memory\n${memoryInfo.join('\n')}`;
+      }
+      return characterInfo;
+    } catch (error) {
+      return CharacterInfoBuilder.build(character);
     }
   }
 
@@ -855,80 +753,23 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
     session: UnifiedChatSession,
     userInput: string,
     trackerManager?: TrackerManager
-  ): Promise<string> {
+  ): Promise<StructuredPrompt> {
     const startTime = performance.now();
-
-    // 強制的にログを出力（ターミナルで確認可能）
-    console.log("🔥🔥🔥 [PromptBuilder] buildPrompt called 🔥🔥🔥");
-    console.log("Session ID:", session.id);
-    console.log("User Input:", userInput.substring(0, 50) + "...");
-    console.log("Character:", session.participants.characters[0]?.name);
-    console.log("User:", session.participants.user?.name);
-    console.log("Has Tracker Manager:", !!trackerManager);
-
     try {
-      // セッションデータの厳密な型チェック
       this.validateSessionData(session);
-
-      // 最適化されたConversationManager取得
-      const conversationManager = await this.getOrCreateManager(
-        session.id,
-        session.messages,
-        trackerManager
-      );
-
-      // システム設定を取得（キャッシュしたいがリアクティブなため毎回取得）
-      const systemSettings = this.getSystemSettings();
-
-      const promptStartTime = performance.now();
-      // ConversationManagerを使ってプロンプトを生成
-      const userPersona = session.participants.user;
-      console.log(
-        "👤 [PromptBuilder] User persona being passed:",
-        userPersona
-          ? `${userPersona.name} (${userPersona.role})`
-          : "null/undefined"
-      );
-
-      // 🚨 修正: buildPromptProgressiveを使用（ConversationManager.generatePromptは廃止）
-      const { basePrompt, enhancePrompt } = await this.buildPromptProgressive(
-        session,
-        userInput,
-        trackerManager
-      );
-
-      // 拡張プロンプトを取得
-      const prompt = await enhancePrompt();
-      const promptDuration = performance.now() - promptStartTime;
-
-      const totalDuration = performance.now() - startTime;
-
-      // パフォーマンスログ（長いプロンプトは省略）
-      const logLevel = totalDuration > 500 ? "warn" : "log";
-      console[logLevel](
-        `📊 Prompt built in ${totalDuration.toFixed(1)}ms ` +
-          `(session: ${session.id}, messages: ${session.messages.length}, ` +
-          `prompt: ${(prompt.length / 1000).toFixed(1)}k chars, ` +
-          `generation: ${promptDuration.toFixed(1)}ms)`
-      );
-
-      // 開発環境でプロンプト全文をログ出力
-      if (
-        typeof process !== "undefined" &&
-        process.env?.NODE_ENV === "development"
-      ) {
-        console.log("📝 === Full System Prompt ===");
-        console.log(prompt);
-        console.log("📝 === End of Prompt ===");
-      }
-
-      return prompt;
+      const { enhancePrompt } = await this.buildPromptProgressive(session, userInput, trackerManager);
+      const structuredPrompt = await enhancePrompt();
+      
+      console.log('[PROMPT_CAPTURE] === STRUCTURED PROMPT START ===');
+      console.log('[PROMPT_CAPTURE] Instruction length:', structuredPrompt.systemInstruction.length);
+      console.log('[PROMPT_CAPTURE] History turns:', structuredPrompt.conversationHistory.length);
+      console.log('[PROMPT_CAPTURE] Input:', structuredPrompt.currentInput);
+      console.log('[PROMPT_CAPTURE] Structured Prompt:', JSON.stringify(structuredPrompt, null, 2));
+      console.log('[PROMPT_CAPTURE] === STRUCTURED PROMPT END ===');
+      
+      return structuredPrompt;
     } catch (error) {
-      const totalDuration = performance.now() - startTime;
-      console.error(
-        `⚠️ Prompt building failed after ${totalDuration.toFixed(1)}ms:`,
-        error
-      );
+      logger.error(`⚠️ Prompt building failed:`, error);
       throw error;
     }
   }
@@ -936,7 +777,6 @@ ${user.other_settings ? `Other Settings: ${user.other_settings}` : ""}`;
 
 export const promptBuilderService = new PromptBuilderService();
 
-// バックグラウンドタスクキュー
 class BackgroundTaskQueue {
   private tasks: Array<() => Promise<unknown>> = [];
   private processing = false;
@@ -951,25 +791,16 @@ class BackgroundTaskQueue {
           reject(error);
         }
       });
-
-      if (!this.processing) {
-        this.process();
-      }
+      if (!this.processing) this.process();
     });
   }
 
   private async process() {
     this.processing = true;
-
     while (this.tasks.length > 0) {
       const task = this.tasks.shift()!;
-      try {
-        await task();
-      } catch (error) {
-        console.error("Background task failed:", error);
-      }
+      try { await task(); } catch (error) { }
     }
-
     this.processing = false;
   }
 }

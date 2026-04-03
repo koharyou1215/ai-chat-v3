@@ -1,77 +1,101 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import {
   Cpu,
-  Shield,
-  Lightbulb,
   Edit3,
   Eye,
   EyeOff,
-  Save,
-  FileText,
+  Lightbulb,
+  Shield,
+  Sparkles,
   Trash2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  SystemPrompts,
   APIConfig,
   APIProvider,
+  ChatSystemPromptMode,
+  SystemPrompts,
 } from "@/types/core/settings.types";
-import { getModelPricing } from "@/constants/model-pricing";
 import {
-  ModelPricingDisplay,
-} from "../../ModelPricingDisplay";
+  MODEL_SELECT_GROUPS,
+  getModelPricing,
+} from "@/constants/model-pricing";
+import {
+  PROMPT_PRESETS,
+  getPromptPreset,
+  inferPromptPresetId,
+} from "@/constants/prompt-presets";
+import { useAppStore } from "@/store";
+import { ModelPricingDisplay } from "../../ModelPricingDisplay";
 
 interface AIPanelProps {
   systemPrompts: SystemPrompts;
   enableSystemPrompt: boolean;
-  enableJailbreakPrompt: boolean;
+  chatSystemPromptMode: ChatSystemPromptMode;
+  enableAnchorPrompt: boolean;
+  anchorDepth: number;
   apiConfig: APIConfig;
   openRouterApiKey: string;
   geminiApiKey: string;
+  googleCloudApiKey: string;
   showSystemPrompt: boolean;
-  showJailbreakPrompt: boolean;
+  showAnchorPrompt: boolean;
   showReplySuggestionPrompt: boolean;
   showTextEnhancementPrompt: boolean;
+  selectedPromptPresetId: string | null;
   onUpdateSystemPrompts: (prompts: SystemPrompts) => void;
+  onSelectPromptPreset: (presetId: string | null) => void;
   onSetEnableSystemPrompt: (enable: boolean) => void;
-  onSetEnableJailbreakPrompt: (enable: boolean) => void;
+  onSetChatSystemPromptMode: (mode: ChatSystemPromptMode) => void;
+  onSetEnableAnchorPrompt: (enable: boolean) => void;
+  onSetAnchorDepth: (depth: number) => void;
   onSetTemperature: (temp: number) => void;
   onSetMaxTokens: (tokens: number) => void;
   onSetTopP: (topP: number) => void;
   onToggleSystemPrompt: () => void;
-  onToggleJailbreakPrompt: () => void;
+  onToggleAnchorPrompt: () => void;
   onToggleReplySuggestionPrompt: () => void;
   onToggleTextEnhancementPrompt: () => void;
   setAPIModel: (model: string) => void;
   setAPIProvider: (provider: APIProvider) => void;
   setOpenRouterApiKey: (key: string) => void;
   setGeminiApiKey: (key: string) => void;
+  setGoogleCloudApiKey: (key: string) => void;
   useDirectGeminiAPI: boolean;
   setUseDirectGeminiAPI: (enabled: boolean) => void;
+  onSetInspirationUseFixedModel: (enabled: boolean) => void;
+  onSetInspirationFixedModel: (model: string, provider?: APIProvider) => void;
+  onSetInspirationFixedUseDirectGeminiAPI: (enabled: boolean) => void;
 }
 
 export const AIPanel: React.FC<AIPanelProps> = ({
   systemPrompts,
   enableSystemPrompt,
-  enableJailbreakPrompt,
+  chatSystemPromptMode,
+  enableAnchorPrompt,
+  anchorDepth,
   apiConfig,
   openRouterApiKey,
   geminiApiKey,
   showSystemPrompt,
-  showJailbreakPrompt,
+  showAnchorPrompt,
   showReplySuggestionPrompt,
   showTextEnhancementPrompt,
+  selectedPromptPresetId,
   onUpdateSystemPrompts,
+  onSelectPromptPreset,
   onSetEnableSystemPrompt,
-  onSetEnableJailbreakPrompt,
+  onSetChatSystemPromptMode,
+  onSetEnableAnchorPrompt,
+  onSetAnchorDepth,
   onSetTemperature,
   onSetMaxTokens,
   onSetTopP,
   onToggleSystemPrompt,
-  onToggleJailbreakPrompt,
+  onToggleAnchorPrompt,
   onToggleReplySuggestionPrompt,
   onToggleTextEnhancementPrompt,
   setAPIModel,
@@ -80,6 +104,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   setGeminiApiKey,
   useDirectGeminiAPI,
   setUseDirectGeminiAPI,
+  onSetInspirationUseFixedModel,
+  onSetInspirationFixedModel,
+  onSetInspirationFixedUseDirectGeminiAPI,
 }) => {
   const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState(
     openRouterApiKey || ""
@@ -87,10 +114,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   const [localGeminiApiKey, setLocalGeminiApiKey] = useState(
     geminiApiKey || ""
   );
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showOpenRouterApiKey, setShowOpenRouterApiKey] = useState(false);
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
 
-  // 🔧 FIX: propsの変更を監視してローカル状態を同期
   useEffect(() => {
     setLocalOpenRouterApiKey(openRouterApiKey || "");
   }, [openRouterApiKey]);
@@ -99,474 +125,790 @@ export const AIPanel: React.FC<AIPanelProps> = ({
     setLocalGeminiApiKey(geminiApiKey || "");
   }, [geminiApiKey]);
 
-  // apiConfig がなければ何も表示しない
   if (!apiConfig) {
     return null;
   }
 
-  const handleModelChange = (modelId: string) => {
-    setAPIModel(modelId);
-    // 🔧 FIX: Geminiモデル選択時にproviderを自動変更しない
-    // useDirectGeminiAPIトグルで判断する
-    // OpenRouter経由でもGeminiモデルを使用可能にする
-  };
-
-  const handleApiKeyChange = (key: string) => {
-    setLocalOpenRouterApiKey(key);
-    setOpenRouterApiKey(key);
-  };
-
-  const handleGeminiApiKeyChange = (key: string) => {
-    setLocalGeminiApiKey(key);
-    setGeminiApiKey(key);
-  };
-
-  // 🔧 FIX: Gemini直接APIモデルかどうかを判定（"google/"プレフィックスなし）
-  const isGeminiDirectModel = apiConfig.model?.startsWith("gemini-");
-
-  // 🔧 FIX: Geminiモデル全般（直接API + OpenRouter経由）
-  const isGeminiModel = apiConfig.model?.includes("gemini");
+  const selectedPreset = getPromptPreset(selectedPromptPresetId);
+  const isGeminiDirectModel = apiConfig.model.startsWith("gemini-");
+  const isGoogleOpenRouterModel = apiConfig.model.startsWith("google/");
+  const isGeminiModel = isGeminiDirectModel || isGoogleOpenRouterModel;
+  const modelInfo = getModelPricing(apiConfig.model);
+  const inspirationConfig = apiConfig.inspiration;
+  const inspirationUsesFixedModel = inspirationConfig?.useFixedModel ?? false;
+  const inspirationModel = inspirationConfig?.fixedModel || apiConfig.model;
+  const inspirationIsDirectGeminiModel =
+    inspirationModel.startsWith("gemini-");
+  const inspirationIsGoogleOpenRouterModel =
+    inspirationModel.startsWith("google/");
+  const inspirationUsesDirectGeminiAPI = inspirationIsGoogleOpenRouterModel
+    ? false
+    : inspirationConfig?.fixedUseDirectGeminiAPI ??
+      inspirationIsDirectGeminiModel;
+  const inspirationModelInfo = getModelPricing(inspirationModel);
+  const showBaseModelPricing =
+    !!modelInfo &&
+    (!inspirationUsesFixedModel || inspirationModelInfo?.id !== modelInfo.id);
 
   const handlePromptChange = (key: keyof SystemPrompts, value: string) => {
-    onUpdateSystemPrompts({ ...systemPrompts, [key]: value });
+    const nextPrompts = { ...systemPrompts, [key]: value };
+    onUpdateSystemPrompts(nextPrompts);
+    onSelectPromptPreset(inferPromptPresetId(nextPrompts));
   };
 
-  const handleSavePrompts = () => {
-    console.log("Saving custom prompts:", systemPrompts);
+  const applyPromptPreset = (presetId: string) => {
+    const preset = getPromptPreset(presetId);
+    if (!preset) {
+      return;
+    }
+
+    onUpdateSystemPrompts({
+      ...systemPrompts,
+      system: preset.prompts.system,
+      anchor: preset.prompts.anchor,
+    });
+    onSelectPromptPreset(preset.id);
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setAPIModel(modelId);
+
+    if (modelId.startsWith("gemini-")) {
+      setAPIProvider("gemini");
+      setUseDirectGeminiAPI(true);
+      return;
+    }
+
+    setAPIProvider("openrouter");
+    if (modelId.startsWith("google/")) {
+      setUseDirectGeminiAPI(false);
+    }
+  };
+
+  const handleInspirationModelChange = (modelId: string) => {
+    const provider: APIProvider = modelId.startsWith("gemini-")
+      ? "gemini"
+      : "openrouter";
+
+    onSetInspirationFixedModel(modelId, provider);
+
+    if (modelId.startsWith("google/")) {
+      onSetInspirationFixedUseDirectGeminiAPI(false);
+      return;
+    }
+
+    if (modelId.startsWith("gemini-")) {
+      onSetInspirationFixedUseDirectGeminiAPI(true);
+    }
   };
 
   return (
-    <div className="space-y-6 max-h-[60vh] overflow-y-auto">
-      {/* API設定セクション */}
-      <div className="space-y-4">
-        <h4 className="text-lg font-medium text-white">API設定</h4>
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-2 text-lg font-medium text-white">
+            <Cpu className="h-5 w-5 text-purple-400" />
+            Model
+          </h4>
+          <p className="text-sm text-slate-400">
+            The dropdown is now sourced from shared model metadata.
+          </p>
+        </div>
 
-        {/* モデル選択 */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-300">
-              モデル選択
-            </label>
-            <select
-              value={apiConfig.model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500">
-              <optgroup label="Google Gemini（直接API）">
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-2.5-flash-light">Gemini 2.5 Flash Light</option>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-slate-200">
+            Model selection
+          </label>
+          <select
+            value={apiConfig.model}
+            onChange={(event) => handleModelChange(event.target.value)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+          >
+            {MODEL_SELECT_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </optgroup>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400">
+            {isGeminiModel
+              ? useDirectGeminiAPI && isGeminiDirectModel
+                ? "Using the direct Gemini API path."
+                : "Using the OpenRouter path for this model."
+              : "Using the OpenRouter provider path."}
+          </p>
+        </div>
 
-              <optgroup label="Google（OpenRouter経由）">
-                <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (OpenRouter)</option>
-                <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (OpenRouter)</option>
-                <option value="google/gemini-2.5-flash-lite-preview-09-2025">Gemini 2.5 Flash Light (OpenRouter)</option>
-              </optgroup>
-
-              <optgroup label="Anthropic (OpenRouter)">
-                <option value="anthropic/claude-opus-4">Claude Opus 4</option>
-                <option value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                <option value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</option>
-              </optgroup>
-
-              <optgroup label="xAI (OpenRouter)">
-                <option value="x-ai/grok-4">Grok-4</option>
-                <option value="x-ai/grok-4-fast">grok-4-fast</option>
-              </optgroup>
-
-              <optgroup label="OpenAI (OpenRouter)">
-                <option value="openai/gpt-5-chat">GPT-5</option>
-                <option value="openai/gpt-5-mini">GPT-5 Mini</option>
-              </optgroup>
-
-              <optgroup label="Standard (OpenRouter)">
-                <option value="deepseek/deepseek-v3.2-exp">DeepSeek v3.2 Experimental</option>
-                <option value="mistralai/mistral-medium-3.1">Mistral Medium 3.1</option>
-                <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
-              </optgroup>
-
-              <optgroup label="Specialized (OpenRouter)">
-                <option value="qwen/qwen3-max">qwen3-max</option>
-                <option value="qwen/qwen3-vl-8b-instruct">Qwen 3 VL 8B</option>
-                <option value="qwen/qwen3-vl-30b-a3b-instruct">Qwen 30b</option>
-                <option value="qwen/qwen3-vl-235b-a22b-instruct">Qwen 235b</option>
-                <option value="opengvlab/internvl3-78b">opengvlab/internvl</option>
-                <option value="nousresearch/hermes-4-405b">Hermes 4 405B</option>
-                <option value="z-ai/glm-4.6">GLM-4.6</option>
-                <option value="moonshotai/kimi-k2-0905">Kimi K2</option>
-                <option value="baidu/ernie-4.5-21b-a3b-thinking">ERNIE 4.5 21B Thinking</option>
-                <option value="inclusionai/ling-1t">Ling-1T</option>
-                <option value="nvidia/llama-3.3-nemotron-super-49b-v1.5">Llama 3.3 Nemotron Super 49B v1.5</option>
-                <option value="minimax/minimax-m2:free">MiniMax M2（無料版）</option>
-              </optgroup>
-            </select>
-            {isGeminiModel ? (
-              <p className="text-xs text-blue-400 mt-1">
-                {useDirectGeminiAPI ? (
-                  <>
-                    🔥 Gemini API直接使用 - 高速・低レイテンシ
-                  </>
-                ) : (
-                  <>
-                    🌐 OpenRouter経由でGeminiを使用 - 複数モデル統合管理
-                  </>
-                )}
+        <div className="space-y-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-200">
+                インスピレーション機能のモデル設定
+              </label>
+              <p className="text-xs text-slate-400">
+                返信提案・文章強化機能でのみこのモデルを使用します
               </p>
-            ) : (
-              <p className="text-xs text-purple-400 mt-1">
-                OpenRouter APIを使用します。
-              </p>
-            )}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                onSetInspirationUseFixedModel(!inspirationUsesFixedModel)
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                inspirationUsesFixedModel ? "bg-yellow-500" : "bg-slate-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  inspirationUsesFixedModel ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
           </div>
 
-          {/* 選択されたモデルの価格情報 */}
-          {(() => {
-            const modelInfo = getModelPricing(apiConfig.model);
-            if (!modelInfo) return null;
-
-            return (
-              <div className="bg-slate-800/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-lg">
-                <h5 className="text-lg font-semibold text-white mb-4 flex items-center gap-3">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <Cpu className="w-5 h-5 text-purple-400" />
-                  </div>
-                  {modelInfo.name} - 価格情報
-                </h5>
-                <ModelPricingDisplay modelInfo={modelInfo} />
+          {inspirationUsesFixedModel ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-200">
+                  インスピレーション用モデル
+                </label>
+                <select
+                  value={inspirationModel}
+                  onChange={(event) =>
+                    handleInspirationModelChange(event.target.value)
+                  }
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
+                >
+                  {MODEL_SELECT_GROUPS.map((group) => (
+                    <optgroup
+                      key={`inspiration-${group.label}`}
+                      label={group.label}
+                    >
+                      {group.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400">
+                  通常会話のモデルとは別に、返信提案と文章強化でだけこのモデルを使用します
+                </p>
               </div>
-            );
-          })()}
+
+              {inspirationModelInfo ? (
+                <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
+                  <h5 className="mb-3 text-sm font-semibold text-white">
+                    {inspirationModelInfo.name} の料金情報
+                  </h5>
+                  <ModelPricingDisplay modelInfo={inspirationModelInfo} />
+                </div>
+              ) : null}
+
+              {inspirationIsDirectGeminiModel ? (
+                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-slate-950/40 p-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-slate-200">
+                      インスピレーションで Gemini 直接 API を使う
+                    </label>
+                    <p className="text-xs text-slate-400">
+                      `google/` モデルは常に OpenRouter 経由です
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSetInspirationFixedUseDirectGeminiAPI(
+                        !inspirationUsesDirectGeminiAPI
+                      )
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      inspirationUsesDirectGeminiAPI
+                        ? "bg-yellow-500"
+                        : "bg-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        inspirationUsesDirectGeminiAPI
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
+
+        {showBaseModelPricing && modelInfo ? (
+          <div className="rounded-xl border border-white/10 bg-slate-900/60 p-5">
+            <h5 className="mb-4 text-sm font-semibold text-white">
+              {modelInfo.name} pricing
+            </h5>
+            <ModelPricingDisplay modelInfo={modelInfo} />
+          </div>
+        ) : null}
 
         {/* Gemini API直接使用トグル - Gemini直接APIモデル選択時のみ表示 */}
         {isGeminiDirectModel && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-300">
+              <label className="text-sm font-medium text-slate-200">
                 Gemini APIを直接使用
               </label>
               <button
+                type="button"
                 onClick={() => setUseDirectGeminiAPI(!useDirectGeminiAPI)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  useDirectGeminiAPI ? "bg-purple-600" : "bg-gray-600"
-                }`}>
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${useDirectGeminiAPI ? "bg-purple-600" : "bg-slate-600"
+                  }`}>
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    useDirectGeminiAPI ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useDirectGeminiAPI ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-slate-400">
               {useDirectGeminiAPI
-                ? "🔥 ON: Gemini APIを直接使用（高速・低レイテンシ）"
-                : "🌐 OFF: OpenRouter経由でGemini使用（統合管理）"}
+                ? "🔥 ON: プレフィックスなしGeminiモデルは直接API使用（高速・低レイテンシ）"
+                : "🌐 OFF: 全てのGeminiモデルでOpenRouter使用（統合管理）"}
+              <br />
+              <span className="text-blue-400">
+                ※ google/プレフィックスモデルは常にOpenRouter経由
+              </span>
             </p>
           </div>
         )}
 
-        {/* Gemini APIキー入力 - Gemini直接APIモデル && 直接API使用ON時のみ表示 */}
+        {/* Gemini APIキー入力 - Gemini直接APIモデル（プレフィックスなし） && 直接API使用ON時のみ表示 */}
         <AnimatePresence>
-          {isGeminiDirectModel && useDirectGeminiAPI && (
+          {isGeminiDirectModel && !apiConfig.model.startsWith('google/') && useDirectGeminiAPI && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="space-y-2 overflow-hidden">
-              <label className="block text-sm font-medium text-gray-300">
-                Gemini APIキー
+              <label className="block text-sm font-medium text-slate-200">
+                Gemini APIキー（直接API用）
               </label>
               <div className="relative">
                 <input
                   type={showGeminiApiKey ? "text" : "password"}
                   value={localGeminiApiKey}
-                  onChange={(e) => handleGeminiApiKeyChange(e.target.value)}
-                  className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setLocalGeminiApiKey(value);
+                    setGeminiApiKey(value);
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 pr-10 text-sm text-white focus:border-purple-500 focus:outline-none"
                   placeholder="AIza..."
                 />
                 <button
+                  type="button"
                   onClick={() => setShowGeminiApiKey(!showGeminiApiKey)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
                   {showGeminiApiKey ? (
-                    <EyeOff className="w-4 h-4" />
+                    <EyeOff className="h-4 w-4" />
                   ) : (
-                    <Eye className="w-4 h-4" />
+                    <Eye className="h-4 w-4" />
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-slate-400">
                 Google AI Studioで取得したAPIキーを入力してください。
               </p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* OpenRouter APIキー入力 - 非Gemini直接APIモデル or Gemini直接APIモデル&&直接API使用OFF時に表示 */}
+        {/* OpenRouter APIキー入力 - google/プレフィックスモデル or 非Gemini直接APIモデル or 直接API使用OFF時に表示 */}
         <AnimatePresence>
-          {(!isGeminiDirectModel || (isGeminiDirectModel && !useDirectGeminiAPI)) && (
+          {(apiConfig.model.startsWith('google/') || !isGeminiDirectModel || (isGeminiDirectModel && !useDirectGeminiAPI)) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="space-y-2 overflow-hidden">
-              <label className="block text-sm font-medium text-gray-300">
+              <label className="block text-sm font-medium text-slate-200">
                 OpenRouter APIキー
+                {apiConfig.model.startsWith('google/') && <span className="text-blue-400 ml-2">（このモデルで使用）</span>}
               </label>
               <div className="relative">
                 <input
-                  type={showApiKey ? "text" : "password"}
+                  type={showOpenRouterApiKey ? "text" : "password"}
                   value={localOpenRouterApiKey}
-                  onChange={(e) => handleApiKeyChange(e.target.value)}
-                  className="w-full px-3 py-2 pr-10 bg-slate-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                  placeholder="OpenRouterのAPIキーを入力してください"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setLocalOpenRouterApiKey(value);
+                    setOpenRouterApiKey(value);
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 pr-10 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  placeholder="Enter your OpenRouter API key"
                 />
                 <button
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
-                  {showApiKey ? (
-                    <EyeOff className="w-4 h-4" />
+                  type="button"
+                  onClick={() => setShowOpenRouterApiKey(!showOpenRouterApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  {showOpenRouterApiKey ? (
+                    <EyeOff className="h-4 w-4" />
                   ) : (
-                    <Eye className="w-4 h-4" />
+                    <Eye className="h-4 w-4" />
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-slate-400">
                 OpenRouterのAPIキーを入力してください。
-                {!isGeminiDirectModel && (
+                {apiConfig.model.startsWith('google/') ? (
+                  <span className="text-blue-400"> (google/プレフィックスモデルはこのキーを使用)</span>
+                ) : !isGeminiDirectModel && (
                   <span className="text-blue-400"> (Claude, GPT, Grok, Gemini等全モデル対応)</span>
                 )}
-                キーは暗号化されてローカルに保存されます。
               </p>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </section>
 
-      <div className="border-t border-white/10 pt-6">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-semibold text-white">AI設定</h3>
-          <Button onClick={handleSavePrompts} size="sm">
-            <Save className="w-4 h-4 mr-2" />
-            プロンプトを保存
-          </Button>
+      <section className="space-y-4 border-t border-white/10 pt-6">
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-2 text-lg font-medium text-white">
+            <Sparkles className="h-5 w-5 text-yellow-400" />
+            プロンプトプリセット
+          </h4>
+          <p className="text-sm text-slate-400">
+            system prompt と anchor prompt をプリセット単位でまとめて切り替えます
+          </p>
         </div>
 
-        {/* AI パラメータ */}
-        <div className="space-y-4">
-          <h4 className="text-lg font-medium text-white">生成パラメータ</h4>
+        <div className="flex flex-wrap gap-2">
+          {PROMPT_PRESETS.map((preset) => {
+            const isSelected = selectedPromptPresetId === preset.id;
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Temperature: {apiConfig.temperature}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={apiConfig.temperature}
-              onChange={(e) => onSetTemperature(parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              創造性の度合い (0: 保守的, 2: 創造的)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Max Tokens: {apiConfig.max_tokens}
-            </label>
-            <input
-              type="range"
-              min="256"
-              max="8192"
-              step="256"
-              value={apiConfig.max_tokens}
-              onChange={(e) => onSetMaxTokens(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <p className="text-xs text-gray-400 mt-1">最大出力トークン数</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Top-p: {apiConfig.top_p}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={apiConfig.top_p}
-              onChange={(e) => onSetTopP(parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              語彙の多様性 (0.1: 制限的, 1.0: 多様)
-            </p>
-          </div>
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPromptPreset(preset.id)}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  isSelected
+                    ? "border-yellow-400 bg-yellow-500/10 text-white"
+                    : "border-white/10 bg-slate-900/40 text-slate-200 hover:border-white/30 hover:bg-slate-900/70"
+                }`}
+              >
+                {preset.name}
+              </button>
+            );
+          })}
         </div>
 
-        {/* システムプロンプト */}
+        <div className="space-y-3 rounded-lg border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between gap-3 text-sm text-slate-300">
+            <span>
+              {selectedPreset
+                ? `現在のプリセット: ${selectedPreset.name}`
+                : "現在のプリセット: カスタム"}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                if (selectedPromptPresetId) {
+                  applyPromptPreset(selectedPromptPresetId);
+                }
+              }}
+              disabled={!selectedPromptPresetId}
+            >
+              再適用
+            </Button>
+          </div>
+          <p className="text-xs text-slate-400">
+            {selectedPreset
+              ? selectedPreset.description
+              : "system prompt または anchor prompt を編集するとカスタム扱いになります"}
+          </p>
+        </div>
+      </section>
+
+      <section className="space-y-6 border-t border-white/10 pt-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Cpu size={16} className="text-blue-500" />
-              <label className="text-sm font-medium">システムプロンプト</label>
+              <Cpu className="h-4 w-4 text-blue-400" />
+              <label className="text-sm font-medium text-white">
+                System prompt
+              </label>
             </div>
             <div className="flex items-center gap-2">
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex cursor-pointer items-center">
                 <input
                   type="checkbox"
                   checked={enableSystemPrompt}
-                  onChange={(e) => onSetEnableSystemPrompt(e.target.checked)}
-                  className="sr-only peer"
+                  onChange={(event) =>
+                    onSetEnableSystemPrompt(event.target.checked)
+                  }
+                  className="peer sr-only"
                 />
-                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                <div className="h-5 w-9 rounded-full bg-slate-600 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-500 peer-checked:after:translate-x-full" />
               </label>
               <button
+                type="button"
                 onClick={onToggleSystemPrompt}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1">
-                {showSystemPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showSystemPrompt ? "隠す" : "表示"}
+                className="flex items-center gap-1 rounded bg-slate-700 px-3 py-1 text-xs text-white transition-colors hover:bg-slate-600"
+              >
+                {showSystemPrompt ? (
+                  <EyeOff className="h-3 w-3" />
+                ) : (
+                  <Eye className="h-3 w-3" />
+                )}
+                {showSystemPrompt ? "Hide" : "Show"}
               </button>
             </div>
           </div>
-          {showSystemPrompt && (
-            <>
-              <div className="flex gap-2 mb-2">
+
+          <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-300">
+              Normal chat fallback mode
+            </div>
+            <div className="flex gap-2">
+              {(["legacy", "minimal"] as const).map((mode) => {
+                const selected = chatSystemPromptMode === mode;
+
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => onSetChatSystemPromptMode(mode)}
+                    className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      selected
+                        ? "border-blue-500 bg-blue-500/20 text-blue-200"
+                        : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Custom system prompt 以外の通常チャット fallback を切り替えます。
+            </p>
+          </div>
+
+          {showSystemPrompt ? (
+            <div className="space-y-2">
+              <div className="flex gap-2">
                 <button
-                  onClick={() =>
-                    console.log("詳細版プロンプトの機能は現在利用できません")
-                  }
-                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
-                  title="詳細版ロールプレイプロンプトを使用">
-                  <Cpu size={14} />
-                  詳細版プロンプト
-                </button>
-                <button
-                  onClick={() =>
-                    console.log("要約版プロンプトの機能は現在利用できません")
-                  }
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
-                  title="要約版プロンプトを使用">
-                  <FileText size={14} />
-                  要約版プロンプト
-                </button>
-                <button
+                  type="button"
                   onClick={() => handlePromptChange("system", "")}
-                  className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
-                  title="プロンプトをクリア">
-                  <Trash2 size={14} />
-                  クリア
+                  className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs text-white transition-colors hover:bg-slate-600"
+                  title="Clear the system prompt"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear
                 </button>
               </div>
               <textarea
                 value={systemPrompts.system}
-                onChange={(e) => handlePromptChange("system", e.target.value)}
-                className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-blue-500"
-                placeholder="システムプロンプトを入力..."
+                onChange={(event) =>
+                  handlePromptChange("system", event.target.value)
+                }
+                className="h-40 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-xs text-white focus:border-blue-500 focus:outline-none"
+                placeholder="Enter the system prompt"
               />
-            </>
-          )}
+            </div>
+          ) : null}
         </div>
 
-        {/* 脱獄プロンプト */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield size={16} className="text-red-500" />
-              <label className="text-sm font-medium">脱獄プロンプト</label>
+              <Shield className="h-4 w-4 text-red-400" />
+              <label className="text-sm font-medium text-white">
+                Anchor prompt
+              </label>
             </div>
             <div className="flex items-center gap-2">
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex cursor-pointer items-center">
                 <input
                   type="checkbox"
-                  checked={enableJailbreakPrompt}
-                  onChange={(e) => onSetEnableJailbreakPrompt(e.target.checked)}
-                  className="sr-only peer"
+                  checked={enableAnchorPrompt}
+                  onChange={(event) =>
+                    onSetEnableAnchorPrompt(event.target.checked)
+                  }
+                  className="peer sr-only"
                 />
-                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+                <div className="h-5 w-9 rounded-full bg-slate-600 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full" />
               </label>
               <button
-                onClick={onToggleJailbreakPrompt}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1">
-                {showJailbreakPrompt ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showJailbreakPrompt ? "隠す" : "表示"}
+                type="button"
+                onClick={onToggleAnchorPrompt}
+                className="flex items-center gap-1 rounded bg-slate-700 px-3 py-1 text-xs text-white transition-colors hover:bg-slate-600"
+              >
+                {showAnchorPrompt ? (
+                  <EyeOff className="h-3 w-3" />
+                ) : (
+                  <Eye className="h-3 w-3" />
+                )}
+                {showAnchorPrompt ? "Hide" : "Show"}
               </button>
             </div>
           </div>
-          {showJailbreakPrompt && (
-            <textarea
-              value={systemPrompts.jailbreak}
-              onChange={(e) => handlePromptChange("jailbreak", e.target.value)}
-              className="w-full h-20 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-red-500"
-              placeholder="脱獄プロンプトを入力..."
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-200">
+              Anchor depth: {anchorDepth}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="20"
+              step="1"
+              value={anchorDepth}
+              onChange={(event) =>
+                onSetAnchorDepth(Number(event.target.value))
+              }
+              className="w-full cursor-pointer"
             />
-          )}
+          </div>
+
+          {showAnchorPrompt ? (
+            <textarea
+              value={systemPrompts.anchor}
+              onChange={(event) =>
+                handlePromptChange("anchor", event.target.value)
+              }
+              className="h-28 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:border-red-500 focus:outline-none"
+              placeholder="Enter the anchor prompt"
+            />
+          ) : null}
         </div>
 
-        {/* 返信提案プロンプト */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Lightbulb size={16} className="text-yellow-600" />
-            <label className="text-sm font-medium">返信提案💡プロンプト</label>
+            <Lightbulb className="h-4 w-4 text-yellow-400" />
+            <label className="text-sm font-medium text-white">
+              返信提案プロンプト
+            </label>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onToggleReplySuggestionPrompt}
-              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1">
+              className="flex items-center gap-1 rounded bg-slate-700 px-3 py-1 text-xs text-white transition-colors hover:bg-slate-600"
+            >
               {showReplySuggestionPrompt ? (
-                <EyeOff size={12} />
+                <EyeOff className="h-3 w-3" />
               ) : (
-                <Eye size={12} />
+                <Eye className="h-3 w-3" />
               )}
-              {showReplySuggestionPrompt ? "隠す" : "表示"}
+              {showReplySuggestionPrompt ? "非表示" : "表示"}
             </button>
           </div>
-          {showReplySuggestionPrompt && (
+          {showReplySuggestionPrompt ? (
             <textarea
               value={systemPrompts.replySuggestion}
-              onChange={(e) =>
-                handlePromptChange("replySuggestion", e.target.value)
+              onChange={(event) =>
+                handlePromptChange("replySuggestion", event.target.value)
               }
-              className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-yellow-500"
+              className="h-32 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-xs text-white focus:border-yellow-500 focus:outline-none"
               placeholder="返信提案プロンプトを入力..."
             />
-          )}
+          ) : null}
         </div>
 
-        {/* 文章強化プロンプト */}
+        {/* 💡 インスピレーション機能のモデル設定 */}
+        <div className="space-y-4 border-t border-white/10 pt-4">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-500" />
+            <label className="text-sm font-medium text-white">インスピレーション機能のモデル設定</label>
+          </div>
+
+          {/* 固定モデル使用トグル */}
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-slate-300">
+                専用モデルを固定使用
+              </label>
+              <p className="text-xs text-slate-500">
+                {apiConfig.inspiration?.useFixedModel
+                  ? `🔒 固定: ${apiConfig.inspiration?.fixedModel || '未設定'}`
+                  : `🔄 チャットと同じ: ${apiConfig.model}`
+                }
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const current = apiConfig.inspiration?.useFixedModel ?? false;
+                useAppStore.getState().setInspirationUseFixedModel(!current);
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${apiConfig.inspiration?.useFixedModel ? "bg-amber-600" : "bg-slate-600"
+                }`}>
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${apiConfig.inspiration?.useFixedModel ? "translate-x-6" : "translate-x-1"
+                  }`}
+              />
+            </button>
+          </div>
+
+          {/* 固定モデル選択（トグルON時のみ） */}
+          <AnimatePresence>
+            {apiConfig.inspiration?.useFixedModel && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-2 overflow-hidden">
+                <label className="block text-sm font-medium text-slate-300">
+                  固定モデル選択
+                </label>
+                <select
+                  value={apiConfig.inspiration?.fixedModel || apiConfig.model}
+                  onChange={(e) => {
+                    const model = e.target.value;
+                    const provider = model.startsWith('gemini-') ? 'gemini' as APIProvider : 'openrouter' as APIProvider;
+                    useAppStore.getState().setInspirationFixedModel(model, provider);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500">
+                  <optgroup label="Google Gemini（直接API）">
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash Preview</option>
+                    <option value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview Preview</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                  </optgroup>
+
+                  <optgroup label="Google（OpenRouter経由）">
+                    <option value="google/gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash Preview</option>
+                    <option value="google/gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview Preview</option>
+                    <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="google/gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                    <option value="google/gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                  </optgroup>
+
+                  <optgroup label="Anthropic (OpenRouter)">
+                    <option value="anthropic/claude-opus-4">Claude Opus 4</option>
+                    <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6</option>
+                    <option value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</option>
+                  </optgroup>
+
+                  <optgroup label="xAI (OpenRouter)">
+                    <option value="x-ai/grok-4.20-beta">Grok 4.20 Beta</option>
+                  </optgroup>
+
+                  <optgroup label="OpenAI (OpenRouter)">
+                    <option value="openai/gpt-5.2-chat">GPT-5.2</option>
+                    <option value="openai/gpt-5.1-chat">GPT-5.1</option>
+                    <option value="openai/gpt-5-mini">GPT-5 Mini</option>
+                  </optgroup>
+
+                  <optgroup label="Standard (OpenRouter)">
+                    <option value="deepseek/deepseek-v3.2">DeepSeek v3.2</option>
+                    <option value="deepseek/deepseek-v3.2-speciale">DeepSeek v3.2 Speciale</option>
+                    <option value="mistralai/mistral-large-2512">Mistral Large 3 (2512)</option>
+                    <option value="mistralai/ministral-14b-2512">Ministral 14B</option>
+                    <option value="z-ai/glm-5">GLM-5</option>
+                    <option value="tngtech/tng-r1t-chimera:free">TNG R1T Chimera (Free)</option>
+                  </optgroup>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  💡 返信提案・文章強化機能でのみこのモデルを使用します
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Edit3 size={16} className="text-green-600" />
-            <label className="text-sm font-medium">文章強化✨プロンプト</label>
+            <Edit3 className="h-4 w-4 text-green-400" />
+            <label className="text-sm font-medium text-white">
+              文章強化プロンプト
+            </label>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onToggleTextEnhancementPrompt}
-              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1">
+              className="flex items-center gap-1 rounded bg-slate-700 px-3 py-1 text-xs text-white transition-colors hover:bg-slate-600"
+            >
               {showTextEnhancementPrompt ? (
-                <EyeOff size={12} />
+                <EyeOff className="h-3 w-3" />
               ) : (
-                <Eye size={12} />
+                <Eye className="h-3 w-3" />
               )}
-              {showTextEnhancementPrompt ? "隠す" : "表示"}
+              {showTextEnhancementPrompt ? "非表示" : "表示"}
             </button>
           </div>
-          {showTextEnhancementPrompt && (
+          {showTextEnhancementPrompt ? (
             <textarea
               value={systemPrompts.textEnhancement}
-              onChange={(e) =>
-                handlePromptChange("textEnhancement", e.target.value)
+              onChange={(event) =>
+                handlePromptChange("textEnhancement", event.target.value)
               }
-              className="w-full h-32 px-3 py-2 bg-slate-800 border border-gray-600 rounded text-xs font-mono text-white focus:outline-none focus:border-green-500"
+              className="h-32 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-xs text-white focus:border-green-500 focus:outline-none"
               placeholder="文章強化プロンプトを入力..."
             />
-          )}
+          ) : null}
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-4 border-t border-white/10 pt-6">
+        <h4 className="text-lg font-medium text-white">Generation parameters</h4>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Temperature: {apiConfig.temperature}
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            value={apiConfig.temperature}
+            onChange={(event) => onSetTemperature(Number(event.target.value))}
+            className="w-full cursor-pointer"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Max tokens: {apiConfig.max_tokens}
+          </label>
+          <input
+            type="range"
+            min="256"
+            max="8192"
+            step="256"
+            value={apiConfig.max_tokens}
+            onChange={(event) => onSetMaxTokens(Number(event.target.value))}
+            className="w-full cursor-pointer"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Top-p: {apiConfig.top_p}
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={apiConfig.top_p}
+            onChange={(event) => onSetTopP(Number(event.target.value))}
+            className="w-full cursor-pointer"
+          />
+        </div>
+      </section>
     </div>
   );
 };
